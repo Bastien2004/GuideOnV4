@@ -19,7 +19,6 @@ from discord.ext import commands
 
 from utils.logging_config import setup_logging
 from utils.settings import settings
-from utils.error_handler import register_error_handlers
 
 log = logging.getLogger(__name__)
 
@@ -58,9 +57,6 @@ class GuideONBot(commands.Bot):
         # DB : init (à coder avec le collègue dev)
         # from utils.db.engine import init_db
         # await init_db()
-
-        # Handler global d'erreurs
-        register_error_handlers(self)
 
         # Chargement des cogs
         await self._load_cogs_from_directory("cogs")
