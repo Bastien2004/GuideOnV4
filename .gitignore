@@ -1,0 +1,39 @@
+# Secrets
+.env
+*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# Tests & coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Backups DB
+backups/
+*.sql.gz
+*.dump

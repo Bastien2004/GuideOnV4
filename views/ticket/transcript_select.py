@@ -1,0 +1,29 @@
+"""Sélecteur du salon de transcript."""
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+import discord
+
+from views.components.channel_select import ChannelSelect
+
+if TYPE_CHECKING:
+    from cogs.ticket._state import TicketPanelDraft
+    from views.ticket.panel_setup_view import PanelSetupView
+
+
+class TranscriptSelect(ChannelSelect):
+    def __init__(self, draft: "TicketPanelDraft", *, parent: "PanelSetupView", row: int):
+        self._draft = draft
+        self._parent = parent
+        super().__init__(
+            placeholder="📜 Salon de transcript",
+            on_select=self._update,
+            channel_types=[discord.ChannelType.text],
+            custom_id="ticket_setup_transcript",
+            row=row,
+        )
+
+    async def _update(self, interaction: discord.Interaction, channel_id: int) -> None:
+        self._draft.transcript_channel_id = channel_id
+        await self._parent.refresh(interaction)

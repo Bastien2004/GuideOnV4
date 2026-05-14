@@ -1,0 +1,53 @@
+"""
+Configuration typée chargée depuis .env.
+
+Tout secret / valeur de config DOIT passer par ici.
+PLUS JAMAIS de token ou de clé en dur dans le code (problème SEC-001/SEC-002).
+
+Usage :
+    from utils.settings import settings
+    settings.discord_token
+"""
+from typing import Literal
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    # Discord
+    discord_token: str
+    guild_alpha_id: int = 1496765275670839306
+    guild_dev_id: int = 1400451664946794618
+    guild_support_id: int = 1184114738813227059
+    guild_anniv_id: int = 1411296579528294402
+
+    # Database
+    database_url: str = "postgresql+asyncpg://guideon:guideon@localhost:5432/guideon"
+    database_echo: bool = False
+
+    # API FastAPI
+    api_host: str = "127.0.0.1"
+    api_port: int = 8000
+    api_token: str = "change-me-please"
+
+    # NationsGlory
+    ng_api_key: str = ""
+    ng_api_base_url: str = "https://api.nationsglory.fr"
+
+    # URLs externes
+    website_url: str = "https://guideonbot.guideon.dev/"
+
+    # Logging
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+    log_format: Literal["json", "console"] = "console"
+
+
+# Singleton — instance unique partagée dans tout le projet
+settings = Settings()

@@ -1,0 +1,35 @@
+services:
+  guideon-bot:
+    build: .
+    container_name: guideon-bot
+
+    restart: always
+
+    ports:
+      - "8000:8000"
+
+    depends_on:
+      - postgres
+
+    environment:
+      DATABASE_URL: postgresql://guideon:password@postgres:5432/guideon_db
+
+    volumes:
+      - ./data:/app/data
+
+  postgres:
+    image: postgres:16
+    container_name: guideon-postgres
+
+    restart: always
+
+    environment:
+      POSTGRES_USER: guideon
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: guideon_db
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
