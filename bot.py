@@ -75,21 +75,45 @@ class GuideONBot(commands.Bot):
     async def _load_cogs_from_directory(self, base: str) -> None:
         """
         Parcourt récursivement le dossier cogs/ et charge tous les fichiers .py
-        (sauf __init__.py).
+        (sauf __init__.py et les fichiers commençant par _).
 
-        Format attendu : chaque fichier expose une fonction async setup(bot).
+        Skip silencieusement les fichiers vides ou sans fonction setup() :
+        ils ne sont pas encore implémentés, ce n'est pas une erreur.
         """
         base_path = Path(base)
+        loaded = 0
+        skipped = 0
+        failed = 0
+
         for path in sorted(base_path.rglob("*.py")):
             if path.name.startswith("_") or path.name == "__init__.py":
+                continue
+
+            # Skip silencieusement les fichiers vides (= pas encore implémentés)
+            try:
+                if path.stat().st_size == 0:
+                    skipped += 1
+                    continue
+            except OSError:
                 continue
 
             module = ".".join(path.with_suffix("").parts)
             try:
                 await self.load_extension(module)
                 log.info("  OK %s", module)
+                loaded += 1
+            except commands.NoEntryPointError:
+                # Fichier non vide mais sans setup() → considéré comme stub aussi
+                log.debug("  SKIP %s (pas encore de setup())", module)
+                skipped += 1
             except Exception as e:
                 log.error("  FAIL %s — %s", module, e, exc_info=True)
+                failed += 1
+
+        log.info(
+            "Cogs chargés: %d  |  Stubs ignorés: %d  |  Échecs: %d",
+            loaded, skipped, failed,
+        )
 
 
 async def main() -> None:
