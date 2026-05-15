@@ -38,7 +38,7 @@ class InfoView(LayoutView):
             TextDisplay(
                 "👋 **Bienvenue !**\n\n"
                 "Je suis **GuideON**, un bot Discord français conçu pour\n"
-                "**simplifier, sécuriser et enrichir** la gestion de ton serveur.\n\n"
+                "**simplifier, sécuriser et enrichir** la __gestion__ de ton serveur.\n\n"
                 "Que tu gères une **communauté classique** ou un serveur\n"
                 "**NationsGlory**, je t'accompagne au quotidien."
             )
