@@ -83,6 +83,8 @@ def build_avatar_section(container: Container, avatar_url: str) -> None:
 
     container.add_item(MediaGallery(MediaGalleryItem(media=avatar_url)))
 
+    container.add_item(Separator())
+
     container.add_item(
         ActionRow(
             Button(
@@ -119,7 +121,7 @@ def build_user_view(user: discord.User) -> LayoutView:
     container = Container()
 
     # Header
-    container.add_item(TextDisplay("# <:profil:1495444182137831515> Informations utilisateur"))
+    container.add_item(TextDisplay("# <:profil:1495444182137831515> Profil utilisateur"))
     container.add_item(Separator())
 
     # Informations utilisateur
