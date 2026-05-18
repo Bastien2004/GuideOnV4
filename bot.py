@@ -58,8 +58,15 @@ class GuideONBot(commands.Bot):
         # from utils.db.engine import init_db
         # await init_db()
 
-        # Chargement des cogs
         await self._load_cogs_from_directory("cogs")
+
+        TEST_GUILD_ID = 1505970079500734695
+        test_guild = discord.Object(id=TEST_GUILD_ID)
+
+        self.tree.clear_commands(guild=test_guild)
+        self.tree.copy_global_to(guild=test_guild)
+        synced = await self.tree.sync(guild=test_guild)
+        log.info("%d slash commands sync sur la guild de test", len(synced))
 
         log.info("setup_hook terminé")
 
