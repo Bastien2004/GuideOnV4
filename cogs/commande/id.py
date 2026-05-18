@@ -8,15 +8,7 @@ import discord
 from discord import app_commands, MediaGalleryItem
 from discord.ext import commands
 
-from discord.ui import (
-    LayoutView,
-    Container,
-    TextDisplay,
-    Separator,
-    MediaGallery,
-    ActionRow,
-    Button
-)
+from discord.ui import LayoutView, Container, TextDisplay, Separator,MediaGallery, ActionRow, Button
 
 from utils.botbancmd import verifier_ban_utilisateur
 from utils.control_admin import verifier_commande
@@ -56,10 +48,28 @@ def get_avatar_url(user: discord.User) -> str:
 def get_creation_date(user: discord.User) -> str:
     """Retourne la date de création formatée."""
 
-    return discord.utils.format_dt(
-        user.created_at,
-        style="F"
+    return discord.utils.format_dt(user.created_at, style="F")
+
+
+# ============================================================
+# 📌 Section informations utilisateur
+# ============================================================
+
+def build_user_infos_section(container: Container, user: discord.User, created_at: str) -> None:
+    """Création de la section informations utilisateur."""
+
+    container.add_item(
+        TextDisplay(
+            "## <:info:1495443961144152094> Informations\n"
+            f"**Pseudo :** `{user}`\n"
+            f"**Nom affiché :** `{user.display_name}`\n"
+            f"**ID :** `{user.id}`\n"
+            f"**Bot :** `{'Oui' if user.bot else 'Non'}`\n"
+            f"**Compte créé le :** {created_at}"
+        )
     )
+
+    container.add_item(Separator())
 
 
 # ============================================================
@@ -67,17 +77,11 @@ def get_creation_date(user: discord.User) -> str:
 # ============================================================
 
 def build_avatar_section(container: Container, avatar_url: str) -> None:
-    """Ajoute la section avatar."""
+    """Création de la section avatar."""
 
-    container.add_item(TextDisplay("## 🖼️ Avatar"))
+    container.add_item(TextDisplay("## <:fichier:1495446721520730242> Avatar"))
 
-    container.add_item(
-        MediaGallery(
-            MediaGalleryItem(
-                media=avatar_url
-            )
-        )
-    )
+    container.add_item(MediaGallery(MediaGalleryItem(media=avatar_url)))
 
     container.add_item(
         ActionRow(
@@ -101,36 +105,11 @@ def build_avatar_section(container: Container, avatar_url: str) -> None:
 
 
 # ============================================================
-# 📌 Section informations utilisateur
-# ============================================================
-
-def build_user_infos_section(
-    container: Container,
-    user: discord.User,
-    created_at: str
-) -> None:
-    """Ajoute les informations utilisateur."""
-
-    container.add_item(
-        TextDisplay(
-            "## 📌 Informations\n"
-            f"**Pseudo :** `{user}`\n"
-            f"**Nom affiché :** `{user.display_name}`\n"
-            f"**ID :** `{user.id}`\n"
-            f"**Bot :** `{'Oui' if user.bot else 'Non'}`\n"
-            f"**Compte créé le :** {created_at}"
-        )
-    )
-
-    container.add_item(Separator())
-
-
-# ============================================================
 # 🧩 Construction view CV2
 # ============================================================
 
 def build_user_view(user: discord.User) -> LayoutView:
-    """Construit la view CV2 complète."""
+    """Construction du container"""
 
     avatar_url = get_avatar_url(user)
     created_at = get_creation_date(user)
@@ -140,30 +119,17 @@ def build_user_view(user: discord.User) -> LayoutView:
     container = Container()
 
     # Header
-    container.add_item(
-        TextDisplay("# 👤 Informations utilisateur")
-    )
-
+    container.add_item(TextDisplay("# <:profil:1495444182137831515> Informations utilisateur"))
     container.add_item(Separator())
 
-    # Avatar
-    build_avatar_section(
-        container,
-        avatar_url
-    )
-
     # Informations utilisateur
-    build_user_infos_section(
-        container,
-        user,
-        created_at
-    )
+    build_user_infos_section(container, user, created_at)
+
+    # Avatar
+    build_avatar_section(container, avatar_url)
 
     # Footer
-    container.add_item(
-        TextDisplay("-# GuideON Studio")
-    )
-
+    container.add_item(TextDisplay("-# GuideOn Studio"))
     view.add_item(container)
 
     return view
@@ -179,19 +145,10 @@ class UserID(commands.Cog):
         self.bot = bot
 
     @app_commands.guild_only()
-    @app_commands.checks.cooldown(1, 10)
-    @app_commands.command(
-        name="id",
-        description="👤 Récupère les informations d’un utilisateur via son ID ou sa mention."
-    )
-    @app_commands.describe(
-        user_id="L’ID ou la mention de l’utilisateur"
-    )
-    async def id_command(
-        self,
-        interaction: discord.Interaction,
-        user_id: str
-    ):
+    @app_commands.checks.cooldown(1, 15)
+    @app_commands.command(name="id", description="👤 Récupère les informations d’un utilisateur via son ID ou sa mention.")
+    @app_commands.describe(user_id="L’ID ou la mention de l’utilisateur")
+    async def id_command(self, interaction: discord.Interaction, user_id: str):
 
         # 🛡️ Vérification ban utilisateur
         if not await verifier_ban_utilisateur(interaction):
@@ -201,7 +158,7 @@ class UserID(commands.Cog):
         if not await verifier_commande(interaction, "id_command"):
             return
 
-        # ⏳ Defer après maintenance check
+        # ⏳ Defer
         await interaction.response.defer()
 
         # 📊 Tracking commande
@@ -214,7 +171,7 @@ class UserID(commands.Cog):
             return await interaction.followup.send(
                 view=error_container(
                     "Format invalide.\n"
-                    "Merci de fournir un **ID Discord** ou une **mention valide**."
+                    "Merci de fournir un **ID Discord** ou une **mention** __valide__."
                 ),
                 ephemeral=True
             )
@@ -243,24 +200,16 @@ class UserID(commands.Cog):
         view = build_user_view(user)
 
         # 🚀 Envoi
-        await interaction.followup.send(
-            view=view
-        )
+        await interaction.followup.send(view=view)
+
 
     # ============================================================
     # ❌ Gestion des erreurs
     # ============================================================
 
     @id_command.error
-    async def id_command_error(
-        self,
-        interaction: discord.Interaction,
-        error: app_commands.AppCommandError
-    ):
-        await handle_app_command_error(
-            interaction,
-            error
-        )
+    async def id_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
+        await handle_app_command_error(interaction, error)
 
 
 # ============================================================
