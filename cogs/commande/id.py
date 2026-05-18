@@ -5,7 +5,7 @@ Commande /id — Version 100% CV2 avec avatar affiché + boutons.
 import re
 import discord
 
-from discord import app_commands
+from discord import app_commands, MediaGalleryItem
 from discord.ext import commands
 
 from discord.ui import (
@@ -14,7 +14,6 @@ from discord.ui import (
     TextDisplay,
     Separator,
     MediaGallery,
-    MediaGalleryItem,
     ActionRow,
     Button
 )
