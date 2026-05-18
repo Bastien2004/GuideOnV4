@@ -76,7 +76,7 @@
     "anniv_admin_setup": true,
     "boutique": true,
     "wiki": true,
-    "id": true,
+    "id_command": true,
     "ping": true,
     "info": true,
     "timestamp": true,
