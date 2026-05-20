@@ -2,11 +2,6 @@
 Point d'entrée GuideON V4.
 
 Lancement: python bot.py
-
-Architecture inspirée de la V3 :
-- Charge tous les cogs depuis cogs/<système>/
-- Charge tous les events depuis cogs/events/
-- Charge l'API FastAPI dans un thread daemon
 """
 from __future__ import annotations
 
