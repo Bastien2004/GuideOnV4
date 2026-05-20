@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from views.components.role_select import RoleSelect
+from views._components.role_select import RoleSelect
 
 if TYPE_CHECKING:
     import discord

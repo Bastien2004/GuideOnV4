@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import discord
 
-from views.components.text_modal import TextModal
+from views._components.text_modal import TextModal
 
 if TYPE_CHECKING:
     from cogs.ticket._state import TicketPanelDraft

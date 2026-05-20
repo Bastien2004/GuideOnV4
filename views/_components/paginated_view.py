@@ -8,7 +8,7 @@ from typing import Sequence
 
 import discord
 
-from views.components.base_view import BaseView
+from views._components.base_view import BaseView
 
 
 class PaginatedView(BaseView):

@@ -10,7 +10,7 @@ from __future__ import annotations
 import discord
 
 from cogs.ticket._state import TicketPanelDraft
-from views.components.wizard_view import WizardView
+from views._components.wizard_view import WizardView
 from views.ticket.category_select import CategorySelect
 from views.ticket.description_button import DescriptionButton
 from views.ticket.publish_button import PublishButton

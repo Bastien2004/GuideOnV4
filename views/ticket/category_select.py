@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import discord
 
-from views.components.channel_select import ChannelSelect
+from views._components.channel_select import ChannelSelect
 
 if TYPE_CHECKING:
     from cogs.ticket._state import TicketPanelDraft

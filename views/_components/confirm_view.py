@@ -11,7 +11,7 @@ Usage :
 """
 import discord
 
-from views.components.base_view import BaseView
+from views._components.base_view import BaseView
 
 
 class ConfirmView(BaseView):

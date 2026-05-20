@@ -13,7 +13,7 @@ from typing import Protocol
 
 import discord
 
-from views.components.base_view import BaseView
+from views._components.base_view import BaseView
 
 
 class Draft(Protocol):
