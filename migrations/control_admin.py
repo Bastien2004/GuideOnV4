@@ -1,11 +1,3 @@
-"""
-Script de migration des données : JSON V3 → DB (table command_controls).
-
-Usage :
-    python -m migrations.control_admin [chemin_json_optionnel]
-
-Par défaut, lit data/admin_json/control_admin.json
-"""
 from __future__ import annotations
 
 import asyncio
@@ -18,7 +10,7 @@ from sqlalchemy import select
 from utils.db.models.control_admin import CommandControl
 from utils.db.session import get_session
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = os.getcwd()
 
 
 async def migrate(json_path: str | None = None) -> None:
@@ -26,6 +18,10 @@ async def migrate(json_path: str | None = None) -> None:
         json_path = os.path.join(BASE_DIR, "data", "admin_json", "control_admin.json")
 
     print(f"Lecture de : {json_path}")
+
+    if not os.path.exists(json_path):
+        print(f"Erreur : Le fichier JSON est introuvable à l'emplacement : {json_path}")
+        return
 
     with open(json_path, encoding="utf-8") as f:
         data: dict[str, bool] = json.load(f)
@@ -39,10 +35,13 @@ async def migrate(json_path: str | None = None) -> None:
 
             if existing:
                 existing.enabled = enabled
+                print(f"Mise à jour : {command_name} -> {enabled}")
             else:
                 session.add(CommandControl(command_name=command_name, enabled=enabled))
+                print(f"Ajout : {command_name} -> {enabled}")
 
-        print(f"OK {len(data)} commandes migrées.")
+        await session.commit()
+        print(f"\nOK ! {len(data)} commandes migrées avec succès.")
 
 
 if __name__ == "__main__":
