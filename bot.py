@@ -24,12 +24,6 @@ log = logging.getLogger(__name__)
 
 
 def build_intents() -> discord.Intents:
-    """
-    Intents minimaux. PAS Intents.all() comme en V3 (problème PRF-001).
-
-    On retire presences et typing qui ne sont pas utilisés et coûtent cher
-    en bande passante quand on est sur 20+ serveurs.
-    """
     intents = discord.Intents.none()
     intents.guilds = True
     intents.members = True
@@ -54,11 +48,25 @@ class GuideONBot(commands.Bot):
         setup_logging()
         log.info("Démarrage du bot GuideON V4")
 
-        # DB : init (à coder avec le collègue dev)
-        # from utils.db.engine import init_db
-        # await init_db()
+        # ── DB ──
+        from utils.db.engine import init_db
+        await init_db()
 
+        # ── Boutique : préchargement bloquant + boucle de refresh ──
+        # is_vip()/is_gold() renvoient False tant que le cache n'est pas prêt.
+        # On précharge AVANT le sync pour éviter tout refus à tort au démarrage.
+        from utils.managers.boutique_manager import refresh_cache, cache_refresher_loop
+        await refresh_cache()
+        self.loop.create_task(cache_refresher_loop())
+
+        # ── Cogs auto (les commands.Cog avec setup(), ex. /ping, /info) ──
         await self._load_cogs_from_directory("cogs")
+
+        # ── Groupes de commandes (fonctions libres, pattern V3) ──
+        # Les fichiers de commandes groupées (cogs/config/bienvenue.py, etc.)
+        # n'ont PAS de setup() : l'auto-loader les ignore (NoEntryPointError),
+        # on les importe et on les assemble explicitement ici.
+        self._register_command_groups()
 
         TEST_GUILD_ID = 1505970079500734695
         test_guild = discord.Object(id=TEST_GUILD_ID)
@@ -69,6 +77,50 @@ class GuideONBot(commands.Bot):
         log.info("%d slash commands sync sur la guild de test", len(synced))
 
         log.info("setup_hook terminé")
+
+    # ------------------------------------------------------------------
+    # 👥 Groupes de commandes (pattern V3 : fonctions libres)
+    # ------------------------------------------------------------------
+    def _register_command_groups(self) -> None:
+        """
+        Assemble les groupes de commandes à partir des fonctions libres.
+
+        Même logique qu'en V3 : instancier le groupe, add_command() chaque
+        fonction-commande, puis tree.add_command() — uniquement si le groupe
+        contient au moins une sous-commande (Discord rejette les groupes vides).
+
+        Au fur et à mesure que les systèmes sont portés en V4, décommente les
+        imports et ajoute les commandes à la liste du groupe correspondant.
+        """
+        from utils.groupes import groupeCONFIG  # + groupeMOD, groupeNG, ... au besoin
+
+        # ── CONFIG ──
+        from cogs.config.bienvenue import bienvenue
+        # from cogs.config.autorole import autorole       # quand porté
+        # from cogs.config.exp import exp
+        # from cogs.config.role_react import role_reaction
+
+        groupCONFIG = groupeCONFIG()
+        for cmd in [bienvenue]:                # ajoute autorole, exp... ici
+            groupCONFIG.add_command(cmd)
+
+        # ── MOD / NG / EXP / INVITE / GIVEAWAY / TICKET ──
+        # Même schéma : groupMOD = groupeMOD(); groupMOD.add_command(clear); ...
+
+        # ── Enregistrement dans l'arbre (groupes globaux non vides) ──
+        for group in [groupCONFIG]:            # + groupMOD, groupNG, ... au besoin
+            if group.commands:                 # ne jamais ajouter un groupe vide
+                self.tree.add_command(group)
+                log.info(
+                    "Groupe /%s enregistré (%s)",
+                    group.name,
+                    ", ".join(c.name for c in group.commands),
+                )
+
+        # ── Groupes restreints par guild (dev/anniv/...) ──
+        # self._groupDEV = groupeDEV()
+        # for cmd in [...]: self._groupDEV.add_command(cmd)
+        # → ajout + sync par guild à gérer ici ou dans une étape _sync dédiée.
 
     async def on_ready(self) -> None:
         log.info("Connecté en tant que %s (%s)", self.user, self.user.id if self.user else "?")
@@ -126,9 +178,9 @@ class GuideONBot(commands.Bot):
 async def main() -> None:
     bot = GuideONBot()
 
-    # API FastAPI dans un thread daemon (à activer quand prêt)
-    # from cogs.api.api_app import run_api_server
-    # run_api_server(bot)
+    # API FastAPI dans un thread daemon (CRUD boutique depuis le site web)
+    from cogs.api.api_app import run_api_server
+    run_api_server()
 
     await bot.start(settings.discord_token)
 
