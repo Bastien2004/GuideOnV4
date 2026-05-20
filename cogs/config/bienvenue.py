@@ -1,5 +1,5 @@
 """
-cogs/config/bienvenue.py — Commande /config bienvenue (V4).
+cogs/config/bienvenue.py — Commande /config bienvenue.
 """
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ import discord
 from discord import app_commands
 
 from utils.botbancmd import verifier_ban_utilisateur
+from utils.perm_admin import check_admin
 from utils.track_commande import tracker_commande
 from utils.control_admin import verifier_commande
 
@@ -25,48 +26,31 @@ log = logging.getLogger(__name__)
 # ============================================================
 
 @app_commands.guild_only()
-@app_commands.checks.cooldown(1, 15)
+@app_commands.checks.cooldown(1, 10)
 @app_commands.command(name="bienvenue", description="👋 Configure le système de bienvenue")
 async def bienvenue(interaction: discord.Interaction) -> None:
 
-    # 🛡️ Vérification hors serveur
-    if interaction.guild is None:
-        return await interaction.response.send_message(
-            view=error_container("Cette commande ne peut être utilisée que dans un **serveur Discord**."),
-            ephemeral=True
-        )
-    
-    # 🛡️ Vérification ban utilisateur
+     # 🔒 Vérification ban bot
     if not await verifier_ban_utilisateur(interaction):
         return
     
-    # ⚙️ Vérification activation commande
-    if not await verifier_commande(interaction, "config_bienvenue"):
+    # 🔐 Verification Administrateur
+    if not await check_admin(interaction, "configurer le système de **bienvenue**"):
         return
-
+    
     # 🕒 Defer
     await interaction.response.defer(ephemeral=True)
 
-
+    # ⚙️ Maintenance
+    if not await verifier_commande(interaction, "config_bienvenue"):
+        return
+    
+    
     # 📊 Tracking
     await tracker_commande(interaction, "config_bienvenue")
 
-    # 🔐 Admin requis
-    member = (
-        interaction.user
-        if isinstance(interaction.user, discord.Member)
-        else interaction.guild.get_member(interaction.user.id)
-    )
-    if not member or not member.guild_permissions.administrator:
-        await interaction.followup.send(
-            view=error_container(
-                "Vous devez être **Administrateur** pour configurer le système de bienvenue."
-            ),
-            ephemeral=True,
-        )
-        return
 
-    # 🪟 Vue CV2 (charge la config DB)
+    # 🪟 Création et envoie de la View
     try:
         view = await BienvenueConfigView.create(
             guild_id=interaction.guild.id,
@@ -78,7 +62,7 @@ async def bienvenue(interaction: discord.Interaction) -> None:
         log.exception("Ouverture config bienvenue echouee (guild=%s)", interaction.guild.id)
         await interaction.followup.send(
             view=error_container(
-                "Impossible d'ouvrir la configuration. L'incident a été enregistré."
+                "Impossible d'ouvrir la configuration."
             ),
             ephemeral=True,
         )

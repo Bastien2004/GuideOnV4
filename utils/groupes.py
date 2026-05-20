@@ -1,24 +1,5 @@
 """
-utils/groupes.py — Groupes de commandes slash (V4, pattern V3 conservé).
-
-On garde EXACTEMENT le pattern V3 : chaque groupe est une factory qui renvoie
-une nouvelle instance d'app_commands.Group. bot.py instancie le groupe, y
-attache les commandes (fonctions libres) via add_command(), puis fait
-tree.add_command(groupe).
-
-    # bot.py
-    from utils.groupes import groupeCONFIG
-    from cogs.config.bienvenue import bienvenue
-    from cogs.config.autorole import autorole
-
-    groupCONFIG = groupeCONFIG()
-    for cmd in [bienvenue, autorole, ...]:
-        groupCONFIG.add_command(cmd)
-    self.tree.add_command(groupCONFIG)
-
-IMPORTANT : les commandes sont des FONCTIONS LIBRES decorees @app_commands.command
-(pas des methodes de cog). Un groupe partage module-level ne lie pas `self`, donc
-le pattern cog ne convient pas pour des groupes eclates sur plusieurs fichiers.
+utils/groupes.py — Groupes de commandes slash.
 """
 from discord import app_commands
 

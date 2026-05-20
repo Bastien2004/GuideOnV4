@@ -2,6 +2,11 @@
 Point d'entrée GuideON V4.
 
 Lancement: python bot.py
+
+Architecture inspirée de la V3 :
+- Charge tous les cogs depuis cogs/<système>/
+- Charge tous les events depuis cogs/events/
+- Charge l'API FastAPI dans un thread daemon
 """
 from __future__ import annotations
 
@@ -18,7 +23,20 @@ from utils.settings import settings
 log = logging.getLogger(__name__)
 
 
+def _mask_db_url(url: str) -> str:
+    """Masque le mot de passe dans une URL de DB avant de la logger."""
+    # postgresql+asyncpg://user:PASSWORD@host:port/db  ->  ...://user:***@host...
+    import re
+    return re.sub(r"(://[^:/?#]+:)([^@]+)(@)", r"\1***\3", url)
+
+
 def build_intents() -> discord.Intents:
+    """
+    Intents minimaux. PAS Intents.all() comme en V3 (problème PRF-001).
+
+    On retire presences et typing qui ne sont pas utilisés et coûtent cher
+    en bande passante quand on est sur 20+ serveurs.
+    """
     intents = discord.Intents.none()
     intents.guilds = True
     intents.members = True
@@ -45,7 +63,21 @@ class GuideONBot(commands.Bot):
 
         # ── DB ──
         from utils.db.engine import init_db
-        await init_db()
+        try:
+            await init_db()
+        except Exception:
+            log.critical(
+                "Impossible de se connecter à la base de données.\n"
+                "  → Vérifie que PostgreSQL est démarré et que DATABASE_URL est correct.\n"
+                "  → DATABASE_URL actuel pointe vers : %s\n"
+                "  → Pour un Postgres local : docker run --name guideon-pg "
+                "-e POSTGRES_PASSWORD=guideon -e POSTGRES_USER=guideon "
+                "-e POSTGRES_DB=guideon -p 5432:5432 -d postgres:16\n"
+                "  → Ou bascule sur SQLite dans .env : "
+                "DATABASE_URL=sqlite+aiosqlite:///./guideon_dev.db",
+                _mask_db_url(settings.database_url),
+            )
+            raise  # on stoppe net : un bot sans DB ne sert à rien
 
         # ── Boutique : préchargement bloquant + boucle de refresh ──
         # is_vip()/is_gold() renvoient False tant que le cache n'est pas prêt.
@@ -70,6 +102,11 @@ class GuideONBot(commands.Bot):
         self.tree.copy_global_to(guild=test_guild)
         synced = await self.tree.sync(guild=test_guild)
         log.info("%d slash commands sync sur la guild de test", len(synced))
+
+        # ── API FastAPI (thread daemon) — démarrée APRÈS que la DB soit OK ──
+        # Ainsi l'API ne tourne jamais "dans le vide" si la connexion DB échoue.
+        from cogs.api.api_app import run_api_server
+        run_api_server()
 
         log.info("setup_hook terminé")
 
@@ -172,11 +209,6 @@ class GuideONBot(commands.Bot):
 
 async def main() -> None:
     bot = GuideONBot()
-
-    # API FastAPI dans un thread daemon (CRUD boutique depuis le site web)
-    from cogs.api.api_app import run_api_server
-    run_api_server()
-
     await bot.start(settings.discord_token)
 
 
