@@ -99,22 +99,23 @@ class Info(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
+    @app_commands.guild_only()
+    @app_commands.checks.cooldown(1, 10)
     @app_commands.command(name="info", description="❔ Découvrir GuideON")
-    @app_commands.checks.cooldown(1, 5)
     async def info(self, interaction: Interaction) -> None:
 
-        # 🔒 Vérif ban
+        # 🛡️ Vérification ban utilisateur
         if not await verifier_ban_utilisateur(interaction):
             return
 
-        # ⚙️ Maintenance
+        # ⚙️ Vérification activation commande
         if not await verifier_commande(interaction, "info"):
             return
 
-        # 📊 Tracking
+        # 📊 Tracking commande
         await tracker_commande(interaction, "info")
 
-        # 🪟 Affichage
+        # 🚀 Envoi
         await interaction.response.send_message(view=InfoView(self.bot))
 
 

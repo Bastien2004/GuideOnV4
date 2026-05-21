@@ -1,5 +1,5 @@
 """
-Commande /id — Version 100% CV2 optimisée.
+Commande /id — Affiche les informations de l'utilisateur donné.
 """
 
 import re

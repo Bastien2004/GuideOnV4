@@ -21,7 +21,7 @@ async def check_dev(interaction: Interaction, action: str = "effectuer cette act
     """Vérifie les permissions développeur, sinon répond une erreur éphémère."""
     if is_dev(interaction):
         return True
-    msg = f"Vous devez être **Développeur** pour {action}."
+    msg = f"Vous devez être **développeur** pour {action}."
     if interaction.response.is_done():
         await interaction.followup.send(view=error_container(msg), ephemeral=True)
     else:

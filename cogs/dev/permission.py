@@ -61,7 +61,7 @@ async def create_permissions_view(bot, author_id: int) -> LayoutView:
     view = LayoutView(timeout=VIEW_TIMEOUT)
     container = Container()
 
-    container.add_item(TextDisplay("# 🔐 Gestion des permissions"))
+    container.add_item(TextDisplay("# <:erreur_cad:1495446243957018684> Gestion des permissions"))
     total = sum(len(v) for v in data.values())
     container.add_item(TextDisplay(f"-# {total} attribution(s) au total"))
     container.add_item(Separator())
@@ -73,7 +73,7 @@ async def create_permissions_view(bot, author_id: int) -> LayoutView:
         else:
             liste = "-# *aucun membre*"
 
-        btn_add = Button(label="Ajouter", emoji="➕", style=discord.ButtonStyle.success)
+        btn_add = Button(label="Ajouter", emoji="<:ajouter:1495444111505752154>", style=discord.ButtonStyle.success)
         btn_add.callback = _cb_add(bot, author_id, role)
         container.add_item(Section(
             TextDisplay(f"### {role.value}  ({len(ids)})\n{liste}"),
@@ -81,7 +81,7 @@ async def create_permissions_view(bot, author_id: int) -> LayoutView:
         ))
 
         if ids:
-            btn_remove = Button(label="Retirer", emoji="➖", style=discord.ButtonStyle.danger)
+            btn_remove = Button(label="Retirer", emoji="<:annuler:1495444256754761979>", style=discord.ButtonStyle.danger)
             btn_remove.callback = _cb_remove(bot, author_id, role)
             container.add_item(ActionRow(btn_remove))
 
