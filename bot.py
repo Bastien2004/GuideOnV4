@@ -2,45 +2,36 @@
 Point d'entrée GuideON V4.
 
 Lancement: python bot.py
-
-Architecture inspirée de la V3 :
-- Charge tous les cogs depuis cogs/<système>/
-- Charge tous les events depuis cogs/events/
-- Charge l'API FastAPI dans un thread daemon
 """
 from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from pathlib import Path
 
 import discord
 from discord.ext import commands
 
-from cogs.dev.maintenance import maintenance
-from cogs.dev.permission import permissions
-
-from utils.groupes import groupeDEV
-from utils.logging_config import setup_logging
 from utils.settings import settings
+from utils.logging_config import setup_logging
+from cogs.api.api_app import run_api_server
+from utils.managers.boutique_manager import refresh_cache, cache_refresher_loop
+from utils.managers.permission_manager import refresh_cache as refresh_perms, cache_refresher_loop as perms_refresher_loop
+
 
 log = logging.getLogger(__name__)
 
 
 def _mask_db_url(url: str) -> str:
     """Masque le mot de passe dans une URL de DB avant de la logger."""
-    # postgresql+asyncpg://user:PASSWORD@host:port/db  ->  ...://user:***@host...
-    import re
+
     return re.sub(r"(://[^:/?#]+:)([^@]+)(@)", r"\1***\3", url)
 
 
 def build_intents() -> discord.Intents:
-    """
-    Intents minimaux. PAS Intents.all() comme en V3 (problème PRF-001).
+    """Gestion des intents."""
 
-    On retire presences et typing qui ne sont pas utilisés et coûtent cher
-    en bande passante quand on est sur 20+ serveurs.
-    """
     intents = discord.Intents.none()
     intents.guilds = True
     intents.members = True
@@ -54,16 +45,18 @@ def build_intents() -> discord.Intents:
 
 
 class GuideONBot(commands.Bot):
+    """Classe principale du bot."""
+
     def __init__(self) -> None:
         super().__init__(
-            command_prefix=commands.when_mentioned,
+            command_prefix="$",
             intents=build_intents(),
             help_command=None,
         )
 
     async def setup_hook(self) -> None:
         setup_logging()
-        log.info("Démarrage du bot GuideON V4")
+        log.info("Démarrage du bot GuideOn")
 
         # ── DB ──
         from utils.db.engine import init_db
@@ -81,93 +74,180 @@ class GuideONBot(commands.Bot):
                 "DATABASE_URL=sqlite+aiosqlite:///./guideon_dev.db",
                 _mask_db_url(settings.database_url),
             )
-            raise  # on stoppe net : un bot sans DB ne sert à rien
+            raise
 
-        # ── Boutique : préchargement bloquant + boucle de refresh ──
-        # is_vip()/is_gold() renvoient False tant que le cache n'est pas prêt.
-        # On précharge AVANT le sync pour éviter tout refus à tort au démarrage.
-        from utils.managers.boutique_manager import refresh_cache, cache_refresher_loop
+        # ── Boutique ──
         await refresh_cache()
-        self.loop.create_task(cache_refresher_loop())
+        asyncio.create_task(cache_refresher_loop())
 
-        # ── Permissions internes : préchargement bloquant + boucle de refresh ──
-        from utils.managers.permission_manager import (
-            refresh_cache as refresh_perms,
-            cache_refresher_loop as perms_refresher_loop,
-        )
+        # ── Permissions internes ──
         await refresh_perms()
-        self.loop.create_task(perms_refresher_loop())
+        asyncio.create_task(perms_refresher_loop())
 
-        # ── Cogs auto (les commands.Cog avec setup(), ex. /ping, /info) ──
+        # ── Chargement commandes simples  ──
         await self._load_cogs_from_directory("cogs")
 
-        # ── Groupes de commandes (fonctions libres, pattern V3) ──
-        # Les fichiers de commandes groupées (cogs/config/bienvenue.py, etc.)
-        # n'ont PAS de setup() : l'auto-loader les ignore (NoEntryPointError),
-        # on les importe et on les assemble explicitement ici.
-        self._register_command_groups()
+        # ── Chargement commandes groupes ──
+        await self._register_command_groups()
+        await self._sync_commands()
 
-        TEST_GUILD_ID = 1505970079500734695
-        test_guild = discord.Object(id=TEST_GUILD_ID)
-
-        self.tree.clear_commands(guild=test_guild)
-        self.tree.copy_global_to(guild=test_guild)
-        synced = await self.tree.sync(guild=test_guild)
-        log.info("%d slash commands sync sur la guild de test", len(synced))
-
-        # ── API FastAPI (thread daemon) — démarrée APRÈS que la DB soit OK ──
-        # Ainsi l'API ne tourne jamais "dans le vide" si la connexion DB échoue.
-        from cogs.api.api_app import run_api_server
+        # ── API FastAPI ──
         run_api_server()
 
         log.info("setup_hook terminé")
 
     # ------------------------------------------------------------------
-    # 👥 Groupes de commandes (pattern V3 : fonctions libres)
+    # 👥 Groupes de commandes
     # ------------------------------------------------------------------
-    def _register_command_groups(self) -> None:
-        """
-        Assemble les groupes de commandes à partir des fonctions libres.
+    async def _register_command_groups(self) -> None:
+        """Assemble les groupes de commandes."""
 
-        Même logique qu'en V3 : instancier le groupe, add_command() chaque
-        fonction-commande, puis tree.add_command() — uniquement si le groupe
-        contient au moins une sous-commande (Discord rejette les groupes vides).
+        ### IMPORT DES COMMANDES DE GROUPES ###
 
-        Au fur et à mesure que les systèmes sont portés en V4, décommente les
-        imports et ajoute les commandes à la liste du groupe correspondant.
-        """
-        from utils.groupes import groupeCONFIG  # + groupeMOD, groupeNG, ... au besoin
-
-        # ── CONFIG ──
+        # ── IMPORT CONFIG ──
         from cogs.config.bienvenue import bienvenue
-        # from cogs.config.autorole import autorole       # quand porté
-        # from cogs.config.exp import exp
-        # from cogs.config.role_react import role_reaction
 
+        # ── IMPORT TICKET ──
+        # from cogs.ticket.exemple import ...
+
+        # ── IMPORT MOD ──
+        # from cogs.mod.exemple import ...
+
+        # ── IMPORT DEV ──
+        from cogs.dev.maintenance import maintenance
+        from cogs.dev.permission import permissions
+
+        # ── IMPORT NG ──
+        # from cogs.ng.exemple import ...
+
+        # ── IMPORT EXP ──
+        # from cogs.exp.exemple import ...
+
+        # ── IMPORT INVITE ──
+        # from cogs.invite.exemple import ...
+
+        # ── IMPORT GIVEAWAY ──
+        # from cogs.giveaway.exemple import ...
+        
+        # ── IMPORT ALPHA ──
+        # from cogs.alpha.exemple import ...
+
+
+        from utils.groupes import (
+            groupeTICKET, groupeMOD, groupeDEV, groupeCONFIG,
+            groupeNG, groupeEXP, groupeINV, groupeGIVE, groupeALPHA,
+        )
+
+
+        ### ASSEMBLAGE DES GROUPES DE COMMANDES ###
+
+         # 🔩 ── CONFIG ──
         groupCONFIG = groupeCONFIG()
-        for cmd in [bienvenue]:                # ajoute autorole, exp... ici
+        for cmd in [bienvenue]:  # [bienvenue, exp, autorole, ...]
             groupCONFIG.add_command(cmd)
 
-        # ── MOD / NG / EXP / INVITE / GIVEAWAY / TICKET ──
-        # Même schéma : groupMOD = groupeMOD(); groupMOD.add_command(clear); ...
+         # 🎟️ ── TICKET ──
+        groupTICKET = groupeTICKET()
+        for cmd in []:
+            groupTICKET.add_command(cmd)
 
-        # ── Enregistrement dans l'arbre (groupes globaux non vides) ──
-        for group in [groupCONFIG]:            # + groupMOD, groupNG, ... au besoin
-            if group.commands:                 # ne jamais ajouter un groupe vide
-                self.tree.add_command(group)
-                log.info(
-                    "Groupe /%s enregistré (%s)",
-                    group.name,
-                    ", ".join(c.name for c in group.commands),
-                )
+        # 🛡️ ── MOD ──
+        groupMOD = groupeMOD()
+        for cmd in []:
+            groupMOD.add_command(cmd)
 
-        # ── Groupes restreints par guild (dev/anniv/...) ──
+        # 💻 ── DEV ──
         self._groupDEV = groupeDEV()
-        self._groupDEV.add_command(maintenance)
-        self._groupDEV.add_command(permissions)
+        for cmd in [maintenance, permissions]:
+            self._groupDEV.add_command(cmd)
 
-        # for cmd in [...]: self._groupDEV.add_command(cmd)
-        # → ajout + sync par guild à gérer ici ou dans une étape _sync dédiée.
+        # 🌐 ── NG ──
+        groupNG = groupeNG()
+        for cmd in []:
+            groupNG.add_command(cmd)
+
+        # 🧩 ── EXP ──
+        groupEXP = groupeEXP()
+        for cmd in []:
+            groupEXP.add_command(cmd)
+
+        # 📧 ── INVITE ──
+        groupINV = groupeINV()
+        for cmd in []:
+            groupINV.add_command(cmd)
+
+        # 🎁 ── GIVEAWAY ──
+        groupGIVE = groupeGIVE()
+        for cmd in []:
+            groupGIVE.add_command(cmd)
+
+        # 💋 ── ALPHA ──
+        self._groupALPHA = groupeALPHA()
+        for cmd in []:
+            self._groupALPHA.add_command(cmd)
+
+
+        for group in [groupNG, groupMOD, groupCONFIG, groupEXP, groupINV, groupGIVE, groupTICKET]:
+            self.tree.add_command(group)
+
+        log.info("✅ Groupes de commandes enregistrés.")
+
+
+    async def _sync_commands(self):
+
+        ID_SERVEUR_DISCORD_DEV = 1505970079500734695
+        ID_SERVEUR_DISCORD_ALPHA = 1505970079500734695
+        ID_SERVEUR_DISCORD_SUPPORT = 1505970079500734695
+
+
+        # ── Sync globale ──
+        try:
+            synced = await self.tree.sync()
+            log.info(f"🌍 {len(synced)} commandes globales synchronisées.")
+        except Exception as e:
+            log.error(f"❌ Erreur sync globale : {e}")
+
+        # ── Sync DEV par guild ──
+        for gid in [ID_SERVEUR_DISCORD_DEV]:
+            guild_obj = discord.Object(id=gid)
+            try:
+                try:
+                    self.tree.add_command(self._groupDEV, guild=guild_obj)
+                except discord.app_commands.CommandAlreadyRegistered:
+                    pass
+                synced = await self.tree.sync(guild=guild_obj)
+                log.info(f"🧪 Commandes DEV synchronisées sur {gid} ({len(synced)} cmd).")
+            except Exception as e:
+                log.error(f"❌ Erreur DEV ({gid}) : {e}")
+
+        # ── Sync ALPHA par guild ──
+        for gid in [ID_SERVEUR_DISCORD_ALPHA]:
+            guild_obj = discord.Object(id=gid)
+            try:
+                try:
+                    self.tree.add_command(self._groupALPHA, guild=guild_obj)
+                except discord.app_commands.CommandAlreadyRegistered:
+                    pass
+                synced = await self.tree.sync(guild=guild_obj)
+                log.info(f"🧪 Commandes ALPHA synchronisées sur {gid} ({len(synced)} cmd).")
+            except Exception as e:
+                log.error(f"❌ Erreur ALPHA ({gid}) : {e}")
+
+
+        # ── Sync serveur support ──
+        try:
+            support_guild = discord.Object(id=ID_SERVEUR_DISCORD_SUPPORT)
+            synced_support = await self.tree.sync(guild=support_guild)
+
+            log.info(
+                f"🛠️ Commandes Discord Support synchronisées "
+                f"({len(synced_support)} cmd)."
+            )
+
+        except Exception as e:
+            log.error(f"❌ Erreur sync support : {e}")
+
+
 
     async def on_ready(self) -> None:
         log.info("Connecté en tant que %s (%s)", self.user, self.user.id if self.user else "?")
