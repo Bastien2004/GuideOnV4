@@ -1,37 +1,5 @@
 """
-utils/managers/boutique_manager.py — CRUD + cache de la boutique.
-
-DESIGN (validé) : table unique `shop_entries`, cache mémoire TTL 1 min,
-lecture SYNC compatible V3 + écriture ASYNC via l'API.
-
-──────────────────────────────────────────────────────────────────────────
-Pourquoi un cache + lectures sync ?
-──────────────────────────────────────────────────────────────────────────
-Le moteur DB est async-only (asyncpg). Or `is_vip()` / `is_gold()` sont
-appelés de façon SYNCHRONE un peu partout (héritage V3, notamment dans les
-callbacks de View). On ne peut pas `await` dans une fonction sync ni relancer
-l'event loop courant.
-
-Solution : un cache en mémoire process rafraîchi en async (au boot, en tâche
-de fond toutes les 60 s, et invalidé immédiatement après chaque écriture API).
-Les lectures sync ne touchent QUE ce cache → instantané, zéro I/O, jamais
-d'await. C'est le compromis classique « eventual consistency à 1 min » : un
-ajout VIP via le site est visible au pire 60 s plus tard (ou tout de suite si
-l'écriture passe par ce process et invalide le cache).
-
-──────────────────────────────────────────────────────────────────────────
-Cycle de vie
-──────────────────────────────────────────────────────────────────────────
-    bot.setup_hook():
-        await refresh_cache()              # préchargement bloquant
-        bot.loop.create_task(cache_refresher_loop())   # refresh périodique
-
-    cog / view (sync) :
-        if is_vip(user_id): ...
-        if is_gold(guild_id): ...
-
-    API FastAPI (async) :
-        await add_entry(ShopRole.VIP, "123")   # invalide le cache ensuite
+utils/managers/boutique_manager.py.
 """
 from __future__ import annotations
 
@@ -66,10 +34,6 @@ _refresh_lock = asyncio.Lock()         # évite deux refresh concurrents
 async def refresh_cache() -> None:
     """
     Recharge l'intégralité du cache depuis la DB.
-
-    En cas d'erreur DB, on NE vide PAS le cache existant : on garde l'ancienne
-    valeur (mieux qu'un cache vide qui refuserait tous les VIP). L'erreur est
-    loguée et le prochain tick réessaiera.
     """
     global _cache, _cache_loaded_at, _cache_ready
 
@@ -91,12 +55,6 @@ async def refresh_cache() -> None:
         _cache = new_cache
         _cache_loaded_at = time.monotonic()
         _cache_ready = True
-
-        log.info(
-            "Cache boutique rafraîchi : %d VIP, %d Gold+",
-            len(_cache[ShopRole.VIP]),
-            len(_cache[ShopRole.GOLD_PLUS]),
-        )
 
 
 async def cache_refresher_loop(interval: int = CACHE_TTL_SECONDS) -> None:

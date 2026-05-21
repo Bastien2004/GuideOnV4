@@ -49,10 +49,6 @@ async def refresh_cache() -> None:
         _cache = new_cache
         _cache_loaded_at = time.monotonic()
         _cache_ready = True
-        log.info(
-            "Cache permissions rafraîchi : %s",
-            ", ".join(f"{r.value}={len(_cache[r])}" for r in PermissionRole),
-        )
 
 
 async def cache_refresher_loop(interval: int = CACHE_TTL_SECONDS) -> None:
