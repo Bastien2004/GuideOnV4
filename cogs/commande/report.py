@@ -125,7 +125,7 @@ class Report(commands.Cog):
         # ⚙️ Maintenance (avant le modal car il faut répondre en send_modal)
         # NB : pas de defer ici car send_modal doit être la première réponse
         try:
-            # Pour la maintenance on doit utiliser une autre approche
+            # Pour la maintenance.py on doit utiliser une autre approche
             # car on ne peut pas defer si on veut envoyer un modal après
             from utils.control_admin import commande_active
 
@@ -134,7 +134,7 @@ class Report(commands.Cog):
                 await send_maintenance_message(interaction)
                 return
         except Exception as e:
-            log.error("Erreur vérification maintenance /report : %s", e)
+            log.error("Erreur vérification maintenance.py /report : %s", e)
 
         # 📊 Tracking
         await tracker_commande(interaction, "report")

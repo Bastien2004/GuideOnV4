@@ -1,5 +1,5 @@
 """
-utils/control_admin.py — Gestion du système de maintenance des commandes.
+utils/control_admin.py — Gestion du système de maintenance.py des commandes.
 
 🟡 En attente Lewyvernien :
 - verifier_commande() retourne toujours True (= aucune commande désactivée)
@@ -51,25 +51,25 @@ async def verifier_commande(interaction: discord.Interaction, nom_commande: str,
 
 
 # ============================================================
-# 🖼️ Récupération image maintenance
+# 🖼️ Récupération image maintenance.py
 # ============================================================
 
 def get_maintenance_file() -> discord.File | None:
-    """Récupère le fichier image de maintenance."""
+    """Récupère le fichier image de maintenance.py."""
     if not os.path.exists(IMAGE_PATH):
         return None
     return discord.File(IMAGE_PATH, filename="dead.png")
 
 
 # ============================================================
-# 🧱 View maintenance
+# 🧱 View maintenance.py
 # ============================================================
 
 def build_maintenance_view(with_image: bool = True) -> LayoutView:
     view = LayoutView(timeout=None)
     container = Container()
 
-    container.add_item(TextDisplay("# 🚧 Commande en maintenance"))
+    container.add_item(TextDisplay("# 🚧 Commande en maintenance.py"))
     container.add_item(Separator())
     container.add_item(
         TextDisplay(
@@ -108,4 +108,4 @@ async def send_maintenance_message(interaction: discord.Interaction) -> None:
         else:
             await interaction.response.send_message(**kwargs)
     except discord.HTTPException:
-        log.exception("Impossible d'envoyer le message de maintenance")
+        log.exception("Impossible d'envoyer le message de maintenance.py")

@@ -1,0 +1,286 @@
+"""
+Commande /dev maintenance — Active ou désactive des commandes via une interface DEV.
+Stockage : PostgreSQL via SQLAlchemy (modèle CommandControl).
+"""
+
+from __future__ import annotations
+
+import discord
+from discord import app_commands, Interaction
+from discord.ui import LayoutView, Container, TextDisplay, Separator, ActionRow, Button, Modal, TextInput, Section
+from sqlalchemy import select, update
+
+from utils.db.engine import get_session
+from utils.db.models.control_admin import CommandControl
+from utils.track_commande import tracker_commande
+from utils.control_admin import verifier_commande
+from utils.container_universel import error_container
+from utils.error_handler import handle_app_command_error
+from utils.perm_dev import check_dev
+
+
+# ============================================================
+# 📦 Constantes
+# ============================================================
+
+VIEW_TIMEOUT = 300
+COMMANDS_PER_PAGE = 5
+SEARCH_LIMIT = 5
+
+
+# ============================================================
+# 📦 Accès DB
+# ============================================================
+
+async def get_all_commands() -> dict[str, bool]:
+    """Retourne {command_name: enabled} pour toutes les entrées."""
+    async with get_session() as session:
+        result = await session.execute(select(CommandControl))
+        rows = result.scalars().all()
+        return {row.command_name: row.enabled for row in rows}
+
+
+async def toggle_command(command_name: str) -> dict[str, bool]:
+    """
+    Inverse l'état d'une commande.
+    Crée la ligne si elle n'existe pas encore.
+    Retourne le dict complet après modification.
+    """
+    async with get_session() as session:
+        result = await session.execute(
+            select(CommandControl).where(CommandControl.command_name == command_name)
+        )
+        row = result.scalar_one_or_none()
+
+        if row is None:
+            # Première fois qu'on toggle cette commande → on la crée désactivée
+            row = CommandControl(command_name=command_name, enabled=False)
+            session.add(row)
+        else:
+            row.enabled = not row.enabled
+
+        await session.commit()
+
+    return await get_all_commands()
+
+
+# ============================================================
+# 🧱 Ajout ligne commande
+# ============================================================
+
+async def add_command_section(
+    container: Container,
+    command_name: str,
+    enabled: bool,
+    page: int,
+    search_query: str | None = None,
+) -> None:
+    button = Button(
+        label="ON" if enabled else "OFF",
+        style=discord.ButtonStyle.success if enabled else discord.ButtonStyle.danger,
+    )
+
+    async def callback(interaction: discord.Interaction) -> None:
+        if not await check_dev(interaction):
+            return
+
+        updated_data = await toggle_command(command_name)
+
+        if search_query:
+            results = {k: v for k, v in updated_data.items() if search_query.lower() in k.lower()}
+            view = await create_search_result_view(search_query, results, page)
+        else:
+            view = await create_maintenance_view(updated_data, page)
+
+        await interaction.response.edit_message(view=view)
+
+    button.callback = callback
+
+    status = "🟢" if enabled else "🔴"
+    container.add_item(Section(TextDisplay(f"{status} `{command_name}`"), accessory=button))
+
+
+# ============================================================
+# 🛠️ Vue principale
+# ============================================================
+
+async def create_maintenance_view(data: dict[str, bool], page: int = 0) -> LayoutView:
+    view = LayoutView(timeout=VIEW_TIMEOUT)
+    container = Container()
+
+    items = sorted(data.items())
+    total = len(items)
+    total_pages = max(1, (total + COMMANDS_PER_PAGE - 1) // COMMANDS_PER_PAGE)
+    page = max(0, min(page, total_pages - 1))
+
+    start = page * COMMANDS_PER_PAGE
+    current_slice = items[start : start + COMMANDS_PER_PAGE]
+
+    enabled_count = sum(1 for _, v in items if v)
+    disabled_count = total - enabled_count
+
+    container.add_item(TextDisplay("# 🛠️ Maintenance"))
+    container.add_item(TextDisplay(
+        f"-# {total} commandes — "
+        f"🟢 {enabled_count} actives · "
+        f"🔴 {disabled_count} désactivées"
+    ))
+    container.add_item(Separator())
+
+    if not current_slice:
+        container.add_item(TextDisplay("*Aucune commande enregistrée.*"))
+    else:
+        for command_name, enabled in current_slice:
+            await add_command_section(container, command_name, enabled, page)
+
+    container.add_item(Separator())
+    container.add_item(TextDisplay(f"-# Page {page + 1} / {total_pages}"))
+
+    # ◀️ Précédent
+    btn_prev = Button(emoji="◀️", style=discord.ButtonStyle.secondary, disabled=(page <= 0))
+
+    async def prev_callback(interaction: discord.Interaction) -> None:
+        if not await check_dev(interaction):
+            return
+        view = await create_maintenance_view(await get_all_commands(), page - 1)
+        await interaction.response.edit_message(view=view)
+
+    btn_prev.callback = prev_callback
+
+    # ▶️ Suivant
+    btn_next = Button(emoji="▶️", style=discord.ButtonStyle.secondary, disabled=(page >= total_pages - 1))
+
+    async def next_callback(interaction: discord.Interaction) -> None:
+        if not await check_dev(interaction):
+            return
+        view = await create_maintenance_view(await get_all_commands(), page + 1)
+        await interaction.response.edit_message(view=view)
+
+    btn_next.callback = next_callback
+
+    # 🔍 Recherche
+    btn_search = Button(label="Rechercher", emoji="🔍", style=discord.ButtonStyle.primary)
+
+    async def search_callback(interaction: discord.Interaction) -> None:
+        if not await check_dev(interaction):
+            return
+        await interaction.response.send_modal(SearchCommandModal(page))
+
+    btn_search.callback = search_callback
+
+    container.add_item(ActionRow(btn_prev, btn_search, btn_next))
+    container.add_item(Separator())
+    container.add_item(TextDisplay("-# GuideOn Studio"))
+
+    view.add_item(container)
+    return view
+
+
+# ============================================================
+# 🔍 Vue résultats recherche
+# ============================================================
+
+async def create_search_result_view(query: str, results: dict[str, bool], origin_page: int) -> LayoutView:
+    view = LayoutView(timeout=VIEW_TIMEOUT)
+    container = Container()
+
+    container.add_item(TextDisplay(f"# 🔍 Résultats — `{query}`"))
+    container.add_item(TextDisplay(f"-# {len(results)} commande(s) trouvée(s)"))
+    container.add_item(Separator())
+
+    if not results:
+        container.add_item(TextDisplay("*Aucune commande trouvée.*"))
+    else:
+        for command_name, enabled in list(sorted(results.items()))[:SEARCH_LIMIT]:
+            await add_command_section(container, command_name, enabled, origin_page, query)
+
+    container.add_item(Separator())
+
+    btn_back = Button(label="Retour", emoji="↩️", style=discord.ButtonStyle.secondary)
+
+    async def back_callback(interaction: discord.Interaction) -> None:
+        if not await check_dev(interaction):
+            return
+        view = await create_maintenance_view(await get_all_commands(), origin_page)
+        await interaction.response.edit_message(view=view)
+
+    btn_back.callback = back_callback
+
+    container.add_item(ActionRow(btn_back))
+    container.add_item(Separator())
+    container.add_item(TextDisplay("-# GuideOn Studio"))
+
+    view.add_item(container)
+    return view
+
+
+# ============================================================
+# 🔍 Modal recherche
+# ============================================================
+
+class SearchCommandModal(Modal):
+    def __init__(self, origin_page: int = 0) -> None:
+        super().__init__(title="🔍 Rechercher une commande")
+        self.origin_page = origin_page
+        self.query = TextInput(
+            label="Commande",
+            placeholder="ticket, dev_, config_...",
+            required=True,
+            max_length=60,
+        )
+        self.add_item(self.query)
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        if not await check_dev(interaction):
+            return
+
+        query = self.query.value.strip()
+        data = await get_all_commands()
+        results = {k: v for k, v in data.items() if query.lower() in k.lower()}
+        view = await create_search_result_view(query, results, self.origin_page)
+        await interaction.response.edit_message(view=view)
+
+
+# ============================================================
+# 🧭 Commande principale
+# ============================================================
+
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 15)
+@app_commands.command(name="maintenance", description="🛠️ [DEV] Gérer les commandes du bot")
+async def maintenance(interaction: Interaction) -> None:
+
+    if not await check_dev(interaction, "gérer la maintenance du bot"):
+        return
+
+    try:
+        await interaction.response.defer(ephemeral=True)
+    except (discord.NotFound, discord.HTTPException):
+        return
+
+    if not await verifier_commande(interaction, "dev_maintenance"):
+        return
+
+    await tracker_commande(interaction, "dev_maintenance")
+
+    try:
+        data = await get_all_commands()
+        view = await create_maintenance_view(data)
+    except Exception as e:
+        print(f"[❌ dev_maintenance] Erreur interface : {e}")
+        await interaction.followup.send(
+            view=error_container("Impossible de charger l'interface de maintenance."),
+            ephemeral=True,
+        )
+        return
+
+    await interaction.followup.send(view=view, ephemeral=True)
+
+
+# ============================================================
+# ❌ Gestion erreurs
+# ============================================================
+
+@maintenance.error
+async def maintenance_error(interaction: Interaction, error: app_commands.AppCommandError) -> None:
+    await handle_app_command_error(interaction, error)

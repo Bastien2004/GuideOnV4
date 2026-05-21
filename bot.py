@@ -17,6 +17,8 @@ from pathlib import Path
 import discord
 from discord.ext import commands
 
+from cogs.dev.maintenance import maintenance
+from utils.groupes import groupeDEV
 from utils.logging_config import setup_logging
 from utils.settings import settings
 
@@ -150,7 +152,9 @@ class GuideONBot(commands.Bot):
                 )
 
         # ── Groupes restreints par guild (dev/anniv/...) ──
-        # self._groupDEV = groupeDEV()
+        self._groupDEV = groupeDEV()
+        self._groupDEV.add_command(maintenance)
+
         # for cmd in [...]: self._groupDEV.add_command(cmd)
         # → ajout + sync par guild à gérer ici ou dans une étape _sync dédiée.
 

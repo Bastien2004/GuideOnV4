@@ -16,7 +16,7 @@ async def tracker_commande(
     nom_commande: str,
 ) -> bool:
     """
-    À insérer après la vérif de maintenance dans chaque commande.
+    À insérer après la vérif de maintenance.py dans chaque commande.
     Toujours True (ne bloque jamais).
     """
     incrementer_commande(
