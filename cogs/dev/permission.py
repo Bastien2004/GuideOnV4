@@ -1,10 +1,5 @@
 """
-Commande /dev permissions — Gérer les rôles internes (DEV, STAFF, OP_ALPHA, ADMIN).
-
-100% CV2 (LayoutView/Container). Restreinte aux super-admins (utils.super_admins.SUPER_ADMIN_IDS).
-Permet de voir la liste par rôle et d'ajouter/retirer des IDs.
-
-Les super-admins ne sont PAS modifiables ici (ils vivent dans .env).
+Commande /dev permissions — Gérer les rôles internes (DEV, STAFF, OP_ALPHA).
 """
 from __future__ import annotations
 
@@ -12,20 +7,20 @@ import logging
 
 import discord
 from discord import app_commands, Interaction
-from discord.ui import (
-    ActionRow, Button, Container, LayoutView, Modal, Section, Separator,
-    TextDisplay, TextInput,
-)
+from discord.ui import ActionRow, Button, Container, LayoutView, Modal, Section, Separator, TextDisplay, TextInput
 
 from utils.container_universel import error_container, success_container
 from utils.error_handler import handle_app_command_error
-from utils.managers.permission_manager import (
-    PermissionRole, add_entry, list_all, remove_entry, role_from_str,
-)
-
-from utils.createur import is_creator
 from utils.track_commande import tracker_commande
 from utils.control_admin import verifier_commande
+
+from utils.managers.permission_manager import PermissionRole, add_entry, list_all, remove_entry
+from utils.createur import is_creator
+
+
+# ============================================================
+# 📁 Constantes
+# ============================================================
 
 log = logging.getLogger(__name__)
 
@@ -36,12 +31,12 @@ VIEW_TIMEOUT = 300
 # 🔐 Garde créateurs
 # ============================================================
 
-def _is_super_admin(interaction: discord.Interaction) -> bool:
+def _is_creator(interaction: discord.Interaction) -> bool:
     return is_creator(interaction.user.id)
 
 
-async def _guard_super(interaction: discord.Interaction) -> bool:
-    if _is_super_admin(interaction):
+async def _guard_creator(interaction: discord.Interaction) -> bool:
+    if _is_creator(interaction):
         return True
     if interaction.response.is_done():
         await interaction.followup.send(
@@ -73,7 +68,6 @@ async def create_permissions_view(bot, author_id: int) -> LayoutView:
 
     for role in PermissionRole:
         ids = data.get(role.value, [])
-        # Affichage : on mentionne les users (Discord résout l'ID en pseudo)
         if ids:
             liste = "\n".join(f"• <@{i}> · `{i}`" for i in ids)
         else:
@@ -93,7 +87,6 @@ async def create_permissions_view(bot, author_id: int) -> LayoutView:
 
         container.add_item(Separator())
 
-    container.add_item(TextDisplay("-# Les super-admins (.env) ne sont pas listés ici."))
     container.add_item(TextDisplay("-# GuideOn Studio"))
 
     view.add_item(container)
@@ -108,7 +101,7 @@ class IdModal(Modal):
     def __init__(self, role: PermissionRole, action: str, bot, author_id: int):
         super().__init__(title=f"{action} — {role.value}")
         self.role = role
-        self.action = action  # "add" | "remove"
+        self.action = action
         self.bot = bot
         self.author_id = author_id
         self.id_input = TextInput(
@@ -121,7 +114,7 @@ class IdModal(Modal):
         self.add_item(self.id_input)
 
     async def on_submit(self, interaction: discord.Interaction):
-        if not await _guard_super(interaction):
+        if not await _guard_creator(interaction):
             return
 
         raw = self.id_input.value.strip()
@@ -152,7 +145,7 @@ class IdModal(Modal):
 
 def _cb_add(bot, author_id: int, role: PermissionRole):
     async def cb(interaction: discord.Interaction):
-        if not await _guard_super(interaction):
+        if not await _guard_creator(interaction):
             return
         await interaction.response.send_modal(IdModal(role, "add", bot, author_id))
     return cb
@@ -160,7 +153,7 @@ def _cb_add(bot, author_id: int, role: PermissionRole):
 
 def _cb_remove(bot, author_id: int, role: PermissionRole):
     async def cb(interaction: discord.Interaction):
-        if not await _guard_super(interaction):
+        if not await _guard_creator(interaction):
             return
         await interaction.response.send_modal(IdModal(role, "remove", bot, author_id))
     return cb
@@ -174,21 +167,25 @@ def _cb_remove(bot, author_id: int, role: PermissionRole):
 @app_commands.checks.cooldown(1, 15)
 @app_commands.command(name="permissions", description="🔐 [DEV] Gérer les permissions internes du bot")
 async def permissions(interaction: Interaction):
-    
-    # 🔐 Restreint aux super-admins
-    if not await _guard_super(interaction):
+
+    # 🔐 Vérification permissions
+    if not await _guard_creator(interaction):
         return
 
+    # 🕒 Defer
     try:
         await interaction.response.defer(ephemeral=True)
     except (discord.NotFound, discord.HTTPException):
         return
 
+    # ⚙️ Vérification activation
     if not await verifier_commande(interaction, "dev_permissions"):
         return
 
+    # 📊 Tracking
     await tracker_commande(interaction, "dev_permissions")
 
+    # 🧩 Création interface
     try:
         view = await create_permissions_view(interaction.client, interaction.user.id)
     except Exception:
@@ -199,8 +196,12 @@ async def permissions(interaction: Interaction):
         )
         return
 
+    # 📤 Envoi
     await interaction.followup.send(view=view, ephemeral=True)
 
+# ============================================================
+# ❌ Gestion erreurs
+# ============================================================
 
 @permissions.error
 async def permissions_error(interaction: Interaction, error: app_commands.AppCommandError):
