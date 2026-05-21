@@ -231,6 +231,7 @@ class GuideONBot(commands.Bot):
             except Exception as e:
                 log.error(f"❌ Erreur DEV ({gid}) : {e}")
 
+        '''
         # ── Sync ALPHA par guild ──
         for gid in [ID_SERVEUR_DISCORD_ALPHA]:
             guild_obj = discord.Object(id=gid)
@@ -243,7 +244,7 @@ class GuideONBot(commands.Bot):
                 log.info(f"🧪 Commandes ALPHA synchronisées sur {gid} ({len(synced)} cmd).")
             except Exception as e:
                 log.error(f"❌ Erreur ALPHA ({gid}) : {e}")
-
+        '''
 
         # ── Sync serveur support ──
         try:
