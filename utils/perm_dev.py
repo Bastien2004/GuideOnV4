@@ -6,20 +6,20 @@ from __future__ import annotations
 import discord
 from discord import Interaction
 
-from utils.permission import is_dev
+from utils.permission import is_dev as get_dev_ids
 from utils.container_universel import error_container
 
 # ============================================================
 # 📋 Constantes
 # ============================================================
 
-AUTHORIZED_IDS = set(is_dev())
+AUTHORIZED_IDS = set(get_dev_ids())
 
 # ============================================================
 # 🔍 Vérification développeur
 # ============================================================
 
-def is_dev(interaction: discord.Interaction) -> bool:
+def is_dev_user(interaction: discord.Interaction) -> bool:
     """Retourne True si l'utilisateur fait partie des développeurs autorisés."""
     return interaction.user.id in AUTHORIZED_IDS
 
@@ -29,7 +29,7 @@ def is_dev(interaction: discord.Interaction) -> bool:
 
 async def check_dev(interaction: Interaction, action: str = "effectuer cette action") -> bool:
     """Vérifie les permissions développeur."""
-    if is_dev(interaction):
+    if is_dev_user(interaction):
         return True
 
     msg = f"Vous devez être **Développeur** pour {action}."
