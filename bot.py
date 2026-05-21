@@ -133,11 +133,13 @@ class GuideONBot(commands.Bot):
         # from cogs.alpha.exemple import ...
 
 
-        from utils.groupes import (
-            groupeTICKET, groupeMOD, groupeDEV, groupeCONFIG,
-            groupeNG, groupeEXP, groupeINV, groupeGIVE, groupeALPHA,
-        )
+        from utils.groupes import (groupeDEV, groupeCONFIG)
 
+        ##SOON##
+        #from utils.groupes import (
+        #   groupeTICKET, groupeMOD, groupeDEV, groupeCONFIG,
+        #   groupeNG, groupeEXP, groupeINV, groupeGIVE, groupeALPHA,
+        #)
 
         ### ASSEMBLAGE DES GROUPES DE COMMANDES ###
 
@@ -146,6 +148,7 @@ class GuideONBot(commands.Bot):
         for cmd in [bienvenue]:  # [bienvenue, exp, autorole, ...]
             groupCONFIG.add_command(cmd)
 
+        '''
          # 🎟️ ── TICKET ──
         groupTICKET = groupeTICKET()
         for cmd in []:
@@ -156,11 +159,14 @@ class GuideONBot(commands.Bot):
         for cmd in []:
             groupMOD.add_command(cmd)
 
+        '''
+
         # 💻 ── DEV ──
         self._groupDEV = groupeDEV()
         for cmd in [maintenance, permissions]:
             self._groupDEV.add_command(cmd)
 
+        '''
         # 🌐 ── NG ──
         groupNG = groupeNG()
         for cmd in []:
@@ -185,9 +191,14 @@ class GuideONBot(commands.Bot):
         self._groupALPHA = groupeALPHA()
         for cmd in []:
             self._groupALPHA.add_command(cmd)
+        '''
 
-
+        '''
         for group in [groupNG, groupMOD, groupCONFIG, groupEXP, groupINV, groupGIVE, groupTICKET]:
+            self.tree.add_command(group)
+        '''
+
+        for group in [groupCONFIG]:
             self.tree.add_command(group)
 
         log.info("✅ Groupes de commandes enregistrés.")
