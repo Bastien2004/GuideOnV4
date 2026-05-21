@@ -33,7 +33,7 @@ VIEW_TIMEOUT = 300
 
 
 # ============================================================
-# 🔐 Garde super-admin
+# 🔐 Garde créateurs
 # ============================================================
 
 def _is_super_admin(interaction: discord.Interaction) -> bool:
@@ -45,12 +45,12 @@ async def _guard_super(interaction: discord.Interaction) -> bool:
         return True
     if interaction.response.is_done():
         await interaction.followup.send(
-            view=error_container("Seuls les **super-administrateurs** peuvent gérer les permissions."),
+            view=error_container("Seuls les **créateurs** peuvent gérer les permissions."),
             ephemeral=True,
         )
     else:
         await interaction.response.send_message(
-            view=error_container("Seuls les **super-administrateurs** peuvent gérer les permissions."),
+            view=error_container("Seuls les **créateurs** peuvent gérer les permissions."),
             ephemeral=True,
         )
     return False
@@ -174,6 +174,7 @@ def _cb_remove(bot, author_id: int, role: PermissionRole):
 @app_commands.checks.cooldown(1, 15)
 @app_commands.command(name="permissions", description="🔐 [DEV] Gérer les permissions internes du bot")
 async def permissions(interaction: Interaction):
+    
     # 🔐 Restreint aux super-admins
     if not await _guard_super(interaction):
         return
