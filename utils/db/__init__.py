@@ -9,13 +9,12 @@ from utils.db.base import Base
 from utils.db.models.control_admin import CommandControl
 from utils.db.models.boutique import ShopEntry, ShopRole
 from utils.db.models.bienvenue import BienvenueConfig
+from utils.db.models.permission import PermissionEntry, PermissionRole
 
 # TODO (au fur et à mesure que les systèmes sont portés en V4) :
 # from utils.db.models.ticket import Ticket, TicketPanel, TicketBan
 # from utils.db.models.giveaway import Giveaway, GiveawayEntry
 # from utils.db.models.exp import ExpEntry, ExpConfig
-# from utils.db.models.invite import ...
-# from utils.db.models.moderation import ...
 # etc.
 
 __all__ = [
@@ -24,4 +23,6 @@ __all__ = [
     "ShopEntry",
     "ShopRole",
     "BienvenueConfig",
+    "PermissionEntry",
+    "PermissionRole",
 ]

@@ -18,6 +18,8 @@ import discord
 from discord.ext import commands
 
 from cogs.dev.maintenance import maintenance
+from cogs.dev.permission import permissions
+
 from utils.groupes import groupeDEV
 from utils.logging_config import setup_logging
 from utils.settings import settings
@@ -88,6 +90,14 @@ class GuideONBot(commands.Bot):
         await refresh_cache()
         self.loop.create_task(cache_refresher_loop())
 
+        # ── Permissions internes : préchargement bloquant + boucle de refresh ──
+        from utils.managers.permission_manager import (
+            refresh_cache as refresh_perms,
+            cache_refresher_loop as perms_refresher_loop,
+        )
+        await refresh_perms()
+        self.loop.create_task(perms_refresher_loop())
+
         # ── Cogs auto (les commands.Cog avec setup(), ex. /ping, /info) ──
         await self._load_cogs_from_directory("cogs")
 
@@ -154,6 +164,7 @@ class GuideONBot(commands.Bot):
         # ── Groupes restreints par guild (dev/anniv/...) ──
         self._groupDEV = groupeDEV()
         self._groupDEV.add_command(maintenance)
+        self._groupDEV.add_command(permissions)
 
         # for cmd in [...]: self._groupDEV.add_command(cmd)
         # → ajout + sync par guild à gérer ici ou dans une étape _sync dédiée.
