@@ -118,7 +118,7 @@ class GuideONBot(commands.Bot):
         from cogs.dev.permission import permissions
 
         # ── IMPORT NG ──
-        # from cogs.ng.exemple import ...
+        from cogs.ng.autel import autel
 
         # ── IMPORT EXP ──
         # from cogs.exp.exemple import ...
@@ -133,7 +133,7 @@ class GuideONBot(commands.Bot):
         # from cogs.alpha.exemple import ...
 
 
-        from utils.groupes import (groupeDEV, groupeCONFIG)
+        from utils.groupes import (groupeDEV, groupeCONFIG, groupeNG)
 
         ##SOON##
         #from utils.groupes import (
@@ -166,12 +166,13 @@ class GuideONBot(commands.Bot):
         for cmd in [maintenance, permissions]:
             self._groupDEV.add_command(cmd)
 
-        '''
+        
         # 🌐 ── NG ──
         groupNG = groupeNG()
-        for cmd in []:
+        for cmd in [autel]:
             groupNG.add_command(cmd)
 
+        '''
         # 🧩 ── EXP ──
         groupEXP = groupeEXP()
         for cmd in []:
