@@ -110,7 +110,7 @@ async def autel(interaction: Interaction, version: str):
 
     # ℹ️ Informations
     c.add_item(TextDisplay(
-        "## <:info_1:1490329502771839096> Fonctionnement des autels\n\n"
+        "## <:information:1495446355395612794> Fonctionnement des autels\n\n"
         "Il existe **10 ruines** réparties sur Edora.\n"
         "Votre objectif est de capturer ces 10 autels en moins d'une heure\n"
         "pour invoquer **le Voriak**, maître d’Edora.\n\n"
