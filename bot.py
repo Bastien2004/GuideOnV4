@@ -199,7 +199,7 @@ class GuideONBot(commands.Bot):
             self.tree.add_command(group)
         '''
 
-        for group in [groupCONFIG]:
+        for group in [groupCONFIG, groupNG]:
             self.tree.add_command(group)
 
         log.info("✅ Groupes de commandes enregistrés.")
