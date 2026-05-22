@@ -3,7 +3,6 @@ Commande /ng autel — Affiche les coordonnées des autels Edora.
 """
 
 import discord
-import traceback
 import os
 import json
 from discord import app_commands, Interaction, MediaGalleryItem
