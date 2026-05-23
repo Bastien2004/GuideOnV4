@@ -13,8 +13,8 @@ from datetime import UTC, datetime
 import discord
 import pandas as pd
 
-from discord import app_commands, Interaction, MediaGalleryItem
-from discord.ui import LayoutView, Container, TextDisplay, Separator, MediaGallery
+from discord import app_commands, Interaction
+from discord.ui import LayoutView, Container, TextDisplay, Separator
 
 from utils.botbancmd import verifier_ban_utilisateur
 from utils.control_admin import verifier_commande
@@ -22,7 +22,9 @@ from utils.track_commande import tracker_commande
 
 from utils.container_universel import error_container
 from utils.error_handler import handle_app_command_error
+
 from utils.ng_server_choice import SERVER_CHOICES
+from utils.ng_fiable import build_ng_fiable_container
 
 
 # ============================================================
@@ -204,50 +206,6 @@ def build_top3_text(df: pd.DataFrame) -> str:
 
 
 # ============================================================
-# ⚠️ Container fiabilité
-# ============================================================
-
-def build_warning_container() -> tuple[Container, discord.File | None]:
-    """Construit le container de fiabilité."""
-
-    container = Container()
-
-    container.add_item(TextDisplay("# ⚠️ Fiabilité des données"))
-
-    container.add_item(Separator())
-
-    container.add_item(
-        TextDisplay(
-            "Les données affichées proviennent de l’API officielle "
-            "de NationsGlory.\n"
-            "Elles peuvent être partiellement mises à jour "
-            "ou légèrement différentes en jeu."
-        )
-    )
-
-    file = None
-
-    if os.path.exists(DEAD_IMAGE_PATH):
-
-        file = discord.File(
-            DEAD_IMAGE_PATH,
-            filename="dead.webp",
-        )
-
-        container.add_item(Separator())
-
-        container.add_item(
-            MediaGallery(
-                MediaGalleryItem(
-                    "attachment://dead.webp"
-                )
-            )
-        )
-
-    return container, file
-
-
-# ============================================================
 # 🧩 Construction view
 # ============================================================
 
@@ -297,7 +255,7 @@ def build_claim_view(pays: str, serveur: str, stats: dict,) -> tuple[LayoutView,
         TextDisplay("-# GuideOn Studio")
     )
 
-    warning_container, file = build_warning_container()
+    warning_container, file = build_ng_fiable_container()
 
     view.add_item(container)
     view.add_item(warning_container)
@@ -327,7 +285,7 @@ async def get_claim_data(serveur: str, pays: str,) -> dict:
 @app_commands.checks.cooldown(1, 10)
 @app_commands.command(name="claim", description="🗺️ Affiche le nombre de claims d'un pays")
 @app_commands.describe(pays="Nom du pays",)
-@app_commands.choices(serveur=[app_commands.Choice(name=name, value=value) for name, value in SERVER_CHOICES])
+@app_commands.choices(serveur=SERVER_CHOICES)
 async def claim(interaction: Interaction, serveur: str, pays: str,):
 
     # 🛡️ Vérification ban
