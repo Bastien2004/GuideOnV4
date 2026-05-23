@@ -1,15 +1,8 @@
 """
 views/ticket/lifecycle.py — Logique de cycle de vie d'un ticket.
-
-Centralise close / reopen / delete / wakeup pour qu'ils soient appelables
-indifféremment depuis les boutons (welcome_view, ReopenView) ET les commandes
-slash (cogs/ticket/*). On évite ainsi toute duplication entre vue et commande.
-
-Tout en Components V2 (container_universel + LayoutView locaux).
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 
@@ -24,7 +17,6 @@ from views.ticket._helpers import (
     is_staff,
     is_staff_or_creator,
     rename_cooldown_remaining,
-    strip_closed_prefix,
     try_rename,
 )
 from views.ticket.transcript import do_delete_ticket
@@ -40,7 +32,8 @@ DELCLOSED_PREFIX = "ticket_delclosed:"
 # ============================================================
 
 async def handle_close(interaction: discord.Interaction, channel_id: int) -> None:
-    """Ferme un ticket : vérifs → rename closed- → catégorie fermée → vue Réouvrir."""
+    """Ferme un ticket."""
+
     await interaction.response.defer(ephemeral=True)
     guild_id = interaction.guild_id
 
@@ -72,7 +65,6 @@ async def _close_ticket(interaction: discord.Interaction, ticket: dict, guild_id
     channel = interaction.channel
     panel = await tm.get_panel(guild_id, ticket["panel_id"])
 
-    # Masquer le créateur
     creator = interaction.guild.get_member(ticket["creator_id"])
     if creator:
         try:
@@ -82,7 +74,6 @@ async def _close_ticket(interaction: discord.Interaction, ticket: dict, guild_id
 
     await try_rename(channel, closed_name(ticket["original_name"]))
 
-    # Déplacer en catégorie fermée
     closed_cat = interaction.guild.get_channel(panel.get("closed_category_id")) if panel else None
     if closed_cat:
         try:
@@ -91,8 +82,6 @@ async def _close_ticket(interaction: discord.Interaction, ticket: dict, guild_id
             pass
 
     await tm.update_ticket(channel.id, closed=True, last_rename_at=int(time.time()))
-    # open_count est décrémenté à la suppression définitive (comme V3). À la
-    # fermeture on garde le ticket comptabilisé "ouvert" jusqu'au delete final.
 
     await interaction.followup.send(view=ReopenView(channel.id))
 

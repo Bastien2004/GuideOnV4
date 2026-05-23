@@ -1,14 +1,5 @@
 """
 views/ticket/transcript.py — Génération de transcript + suppression définitive.
-
-Porté de la V3 (utils/ticket_utils.py) :
-- generate_transcripts() : produit un .html (mis en page) + un .json (brut) en
-  mémoire, à partir de l'historique du salon.
-- do_delete_ticket() : envoie le transcript dans le salon dédié du panel, puis
-  supprime le ticket en DB (incrémente deleted_tickets_count / décrémente
-  open_count via le manager) et supprime le salon après un court délai.
-
-CV2 pur (container_universel). Logging propre (plus de print/traceback).
 """
 from __future__ import annotations
 
@@ -226,7 +217,6 @@ async def do_delete_ticket(
             else:
                 log.warning("Salon transcript %s introuvable (guild=%s).", tc_id, guild_id)
 
-        # Suppression DB : incrémente deleted_tickets_count, décrémente open_count.
         await tm.delete_ticket(channel.id)
 
         await interaction.followup.send(

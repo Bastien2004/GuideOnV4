@@ -1,33 +1,19 @@
 """
 views/ticket/welcome_view.py — Message d'accueil + toolbar staff d'un ticket.
-
-Posté à l'ouverture (puis épinglé). Persistant : les custom_id encodent le
-channel_id pour survivre au redémarrage.
-
-Boutons : Ajouter un membre · Fermer · Relancer (wakeup).
-Tout en Components V2.
 """
 from __future__ import annotations
-
-import time
 
 import discord
 from discord.ui import ActionRow, Button, Container, LayoutView, Separator, TextDisplay
 
-from utils.container_universel import error_container, info_container, success_container
+from utils.container_universel import error_container, success_container
 from utils.managers import ticket_manager as tm
-from views.ticket._helpers import (
-    WAKEUP_COOLDOWN_SECONDS,
-    is_staff,
-)
+
+from views.ticket._helpers import is_staff
 
 ADD_PREFIX = "ticket_add:"
 CLOSE_PREFIX = "ticket_close:"
 WAKE_PREFIX = "ticket_wake:"
-
-# Cooldown wakeup en mémoire : {(channel_id, staff_id): ts}.
-_wake_cooldowns: dict[tuple[int, int], int] = {}
-
 
 # ============================================================
 # 🛠️ Vue Welcome (persistante)
@@ -48,7 +34,6 @@ class WelcomeView(LayoutView):
         self.channel_id = channel_id
         self.guild_id = guild_id
 
-        # Bloc d'accueil (seulement à la 1re création, quand on a les infos).
         if creator_mention:
             c = Container()
             ping = f" <@&{ping_role_id}>" if ping_role_id else ""
@@ -148,7 +133,7 @@ class CloseButton(Button):
         self.channel_id = channel_id
 
     async def callback(self, interaction: discord.Interaction) -> None:
-        from views.ticket.lifecycle import handle_close  # import tardif (cycle)
+        from views.ticket.lifecycle import handle_close
         await handle_close(interaction, self.channel_id)
 
 
@@ -165,5 +150,5 @@ class WakeUpButton(Button):
         self.channel_id = channel_id
 
     async def callback(self, interaction: discord.Interaction) -> None:
-        from views.ticket.lifecycle import handle_wakeup  # import tardif (cycle)
+        from views.ticket.lifecycle import handle_wakeup
         await handle_wakeup(interaction, self.channel_id)

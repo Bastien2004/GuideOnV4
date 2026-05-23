@@ -108,7 +108,10 @@ class GuideONBot(commands.Bot):
         from cogs.config.bienvenue import bienvenue
 
         # ── IMPORT TICKET ──
-        # from cogs.ticket.exemple import ...
+        from cogs.ticket.ticket_panel_create import ticket_panel_create
+        from cogs.ticket.ticket_panel_edit import ticket_panel_edit
+        from cogs.ticket.ticket_panel_delete import ticket_panel_delete
+        from cogs.ticket.ticket_panel_list import ticket_panel_list
 
         # ── IMPORT MOD ──
         # from cogs.mod.exemple import ...
@@ -134,7 +137,7 @@ class GuideONBot(commands.Bot):
         # from cogs.alpha.exemple import ...
 
 
-        from utils.groupes import (groupeDEV, groupeCONFIG, groupeNG)
+        from utils.groupes import (groupeDEV, groupeCONFIG, groupeNG, groupeTICKET)
 
         ##SOON##
         #from utils.groupes import (
@@ -149,12 +152,13 @@ class GuideONBot(commands.Bot):
         for cmd in [bienvenue]:  # [bienvenue, exp, autorole, ...]
             groupCONFIG.add_command(cmd)
 
-        '''
+        
          # 🎟️ ── TICKET ──
         groupTICKET = groupeTICKET()
-        for cmd in []:
+        for cmd in [ticket_panel_create, ticket_panel_edit, ticket_panel_delete, ticket_panel_list]:
             groupTICKET.add_command(cmd)
 
+        '''
         # 🛡️ ── MOD ──
         groupMOD = groupeMOD()
         for cmd in []:
@@ -200,7 +204,7 @@ class GuideONBot(commands.Bot):
             self.tree.add_command(group)
         '''
 
-        for group in [groupCONFIG, groupNG]:
+        for group in [groupCONFIG, groupNG, groupTICKET]:
             self.tree.add_command(group)
 
         log.info("✅ Groupes de commandes enregistrés.")

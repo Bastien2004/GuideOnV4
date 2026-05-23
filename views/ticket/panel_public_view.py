@@ -1,15 +1,7 @@
 """
 views/ticket/panel_public_view.py — Vue publique persistante d'un panel.
-
-C'est le message posté dans le salon avec le bouton « Ouvrir un ticket ».
-Persistante (timeout=None, custom_id stable) → réenregistrée au boot par bot.py.
-
-custom_id du bouton : "ticket_open:<panel_id>" — le panel_id est encodé dedans,
-ce qui permet de reconstruire la vue sans état au redémarrage.
-
-Tout est en Components V2 : LayoutView/Container/TextDisplay/Separator/ActionRow.
-Zéro embed.
 """
+
 from __future__ import annotations
 
 import logging
@@ -21,6 +13,7 @@ from discord.ui import ActionRow, Button, Container, LayoutView, Separator, Text
 from utils.boutique.gold_manager import is_gold
 from utils.boutique.vip_manager import is_vip
 from utils.container_universel import error_container, success_container
+
 from utils.managers import ticket_manager as tm
 from views.ticket._helpers import (
     MAX_TICKETS_PANEL_DEFAULT,
@@ -34,9 +27,6 @@ log = logging.getLogger(__name__)
 
 OPEN_PREFIX = "ticket_open:"
 
-# Cooldown d'ouverture en mémoire process : {(guild_id, panel_id, user_id): ts}.
-# En V3 c'était stocké dans le JSON du panel ; ici on évite d'écrire en DB à
-# chaque clic (anti-spam pur, perte au redémarrage = acceptable).
 _open_cooldowns: dict[tuple[int, str, int], int] = {}
 
 
@@ -135,7 +125,6 @@ class OpenTicketButton(Button):
 
         # ── Modal de création ──
         await interaction.response.send_modal(CreateTicketModal(self.panel_id))
-        # Le cooldown est posé qu'on valide le modal ou non (anti-spam, comme V3).
         _open_cooldowns[key] = now
 
 
@@ -180,7 +169,7 @@ class CreateTicketModal(discord.ui.Modal):
                     ephemeral=True,
                 )
 
-        # ── Réservation atomique du numéro ──
+        # ── Réservation du numéro de ticket ──
         ticket_num = await tm.reserve_ticket_number(guild_id, self.panel_id)
         if ticket_num is None:
             return await interaction.followup.send(
@@ -219,7 +208,7 @@ class CreateTicketModal(discord.ui.Modal):
             )
 
         # ── Message welcome + toolbar ──
-        from views.ticket.welcome_view import WelcomeView  # import tardif (cycle)
+        from views.ticket.welcome_view import WelcomeView
 
         ping_role_id = panel.get("ping_role_id")
         welcome = WelcomeView(
@@ -251,7 +240,6 @@ class CreateTicketModal(discord.ui.Modal):
                 welcome_message_id=msg.id,
             )
         except ValueError:
-            # panel supprimé entre-temps : on nettoie le salon créé
             try:
                 await channel.delete(reason="Création de ticket annulée (panel introuvable)")
             except discord.HTTPException:

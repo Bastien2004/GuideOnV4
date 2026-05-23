@@ -1,6 +1,7 @@
 """
 views/ticket/_helpers.py — Helpers partagés du système de tickets.
 """
+
 from __future__ import annotations
 
 import time
@@ -99,7 +100,7 @@ async def is_staff(interaction: discord.Interaction, ticket: dict, guild_id: int
 
 async def is_staff_or_creator(interaction: discord.Interaction, ticket: dict, guild_id: int) -> bool:
     """True si l'utilisateur est le créateur du ticket OU staff."""
-    
+
     if ticket and ticket.get("creator_id") == interaction.user.id:
         return True
     return await is_staff(interaction, ticket or {}, guild_id)
