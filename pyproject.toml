@@ -28,6 +28,7 @@ dependencies = [
 
     # Imaging
     "pillow>=10.2",
+    "pandas>=3.0.3",
 
     # Files
     "aiofiles>=23.2",
