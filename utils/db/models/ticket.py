@@ -134,7 +134,7 @@ class TicketPanelStaffRole(Base):
     panel: Mapped["TicketPanel"] = relationship(back_populates="staff_roles")
 
     __table_args__ = (
-        UniqueConstraint("panel_id_fk", "role_id", name="uq_ticket_panel_staff_role")
+        UniqueConstraint("panel_id_fk", "role_id", name="uq_ticket_panel_staff_role"),
     )
 
     def __repr__(self) -> str:
