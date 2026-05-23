@@ -119,6 +119,7 @@ class GuideONBot(commands.Bot):
 
         # ── IMPORT NG ──
         from cogs.ng.autel import autel
+        from cogs.ng.claim import claim
 
         # ── IMPORT EXP ──
         # from cogs.exp.exemple import ...
@@ -169,7 +170,7 @@ class GuideONBot(commands.Bot):
         
         # 🌐 ── NG ──
         groupNG = groupeNG()
-        for cmd in [autel]:
+        for cmd in [autel, claim]:
             groupNG.add_command(cmd)
 
         '''
