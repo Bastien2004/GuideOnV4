@@ -3,6 +3,7 @@ views/ticket/lifecycle.py — Logique de cycle de vie d'un ticket.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 
@@ -17,6 +18,7 @@ from views.ticket._helpers import (
     is_staff,
     is_staff_or_creator,
     rename_cooldown_remaining,
+    strip_closed_prefix,
     try_rename,
 )
 from views.ticket.transcript import do_delete_ticket
@@ -31,10 +33,16 @@ DELCLOSED_PREFIX = "ticket_delclosed:"
 # 🔒 Fermeture
 # ============================================================
 
-async def handle_close(interaction: discord.Interaction, channel_id: int) -> None:
-    """Ferme un ticket."""
+async def handle_close(
+    interaction: discord.Interaction, channel_id: int, *, staff_only: bool = False
+) -> None:
+    """Ferme un ticket : vérifs → rename closed- → catégorie fermée → vue Réouvrir.
 
-    await interaction.response.defer(ephemeral=True)
+    staff_only=True (commande /ticket close) : seul le staff peut fermer.
+    staff_only=False (bouton Fermer du welcome) : staff OU créateur, comme V3.
+    """
+    if not interaction.response.is_done():
+        await interaction.response.defer(ephemeral=True)
     guild_id = interaction.guild_id
 
     ticket = await tm.get_ticket(channel_id)
@@ -46,7 +54,13 @@ async def handle_close(interaction: discord.Interaction, channel_id: int) -> Non
         return await interaction.followup.send(
             view=error_container("Ce ticket est déjà fermé."), ephemeral=True
         )
-    if not await is_staff_or_creator(interaction, ticket, guild_id):
+
+    allowed = (
+        await is_staff(interaction, ticket, guild_id)
+        if staff_only
+        else await is_staff_or_creator(interaction, ticket, guild_id)
+    )
+    if not allowed:
         return await interaction.followup.send(
             view=error_container("Action non autorisée."), ephemeral=True
         )
@@ -65,6 +79,7 @@ async def _close_ticket(interaction: discord.Interaction, ticket: dict, guild_id
     channel = interaction.channel
     panel = await tm.get_panel(guild_id, ticket["panel_id"])
 
+    # Masquer le créateur
     creator = interaction.guild.get_member(ticket["creator_id"])
     if creator:
         try:
@@ -74,6 +89,7 @@ async def _close_ticket(interaction: discord.Interaction, ticket: dict, guild_id
 
     await try_rename(channel, closed_name(ticket["original_name"]))
 
+    # Déplacer en catégorie fermée
     closed_cat = interaction.guild.get_channel(panel.get("closed_category_id")) if panel else None
     if closed_cat:
         try:
@@ -82,6 +98,8 @@ async def _close_ticket(interaction: discord.Interaction, ticket: dict, guild_id
             pass
 
     await tm.update_ticket(channel.id, closed=True, last_rename_at=int(time.time()))
+    # open_count est décrémenté à la suppression définitive (comme V3). À la
+    # fermeture on garde le ticket comptabilisé "ouvert" jusqu'au delete final.
 
     await interaction.followup.send(view=ReopenView(channel.id))
 
@@ -262,7 +280,8 @@ _wake_cooldowns: dict[tuple[int, int], int] = {}
 
 
 async def handle_wakeup(interaction: discord.Interaction, channel_id: int) -> None:
-    await interaction.response.defer(ephemeral=True)
+    if not interaction.response.is_done():
+        await interaction.response.defer(ephemeral=True)
     guild_id = interaction.guild_id
 
     ticket = await tm.get_ticket(channel_id)
