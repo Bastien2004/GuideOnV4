@@ -128,7 +128,7 @@ def clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     required_columns = ["pays", "serveur", "claims"]
 
     if any(col not in df.columns for col in required_columns):
-        raise ValueError("Colonnes manquantes")
+        raise ValueError("Nous n'avons pas pu récupérer ces données.")
 
     df = df[required_columns]
 
