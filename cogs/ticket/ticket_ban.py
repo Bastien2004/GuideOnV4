@@ -53,7 +53,7 @@ async def ticket_ban(interaction: discord.Interaction, utilisateur: discord.Memb
     # 🔎 Vérification que le salon soit bien un ticket.
     if not ticket:
         return await interaction.followup.send(
-            view=error_container("Ce **salon** n'est __pas un ticket__."), ephemeral=True
+            view=error_container("Vous n'êtes pas dans un **ticket**."), ephemeral=True
         )
 
     # ⛔ Vérification des permissions.

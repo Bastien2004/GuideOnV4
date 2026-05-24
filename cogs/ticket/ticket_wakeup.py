@@ -2,12 +2,6 @@
 Commande /ticket wakeup — Permet de relancer un ticket inactif.
 """
 
-"""
-cogs/ticket/ticket_wakeup.py — /ticket wakeup
-
-Relance le créateur du ticket (staff uniquement, cooldown 1h par staff).
-Délègue à lifecycle.handle_wakeup, partagé avec le bouton « Relancer ».
-"""
 from __future__ import annotations
 
 import logging
@@ -18,29 +12,47 @@ from discord import app_commands
 from utils.botbancmd import verifier_ban_utilisateur
 from utils.track_commande import tracker_commande
 from utils.control_admin import verifier_commande
+
 from utils.error_handler import handle_app_command_error
 from views.ticket.lifecycle import handle_wakeup
 
 log = logging.getLogger(__name__)
 
 
+# ============================================================
+# 🧭 Commande principale : /ticket wakeup
+# ============================================================
+
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
 @app_commands.command(name="wakeup", description="🔔 Relancer le créateur du ticket")
 async def ticket_wakeup(interaction: discord.Interaction) -> None:
+
+    # 🛡️ Vérification ban utilisateur.
     if not await verifier_ban_utilisateur(interaction):
         return
-    await interaction.response.defer(ephemeral=True)
+    
+    # 🕒 Defer.
+    try:
+        await interaction.response.defer(ephemeral=True)
+    except (discord.NotFound, discord.HTTPException):
+        return
+    
+    # ⚙️ Vérification maintenance.
     if not await verifier_commande(interaction, "ticket_wakeup"):
         return
+    
+    # 📊 Tracking.
     await tracker_commande(interaction, "ticket_wakeup")
 
-    # handle_wakeup gère toutes les vérifs (ticket, staff, cooldown 1h) + relance.
+    # 🧩 Gestion du wake-Up
     await handle_wakeup(interaction, interaction.channel.id)
 
 
+# ============================================================
+# ❌ Gestion erreurs
+# ============================================================
+
 @ticket_wakeup.error
-async def ticket_wakeup_error(
-    interaction: discord.Interaction, error: app_commands.AppCommandError
-) -> None:
+async def ticket_wakeup_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
     await handle_app_command_error(interaction, error)

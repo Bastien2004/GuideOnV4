@@ -53,7 +53,7 @@ async def ticket_add(interaction: discord.Interaction, utilisateur: discord.Memb
     # 🔎 Véirification que le salon soit bien un ticket.
     if not ticket:
         return await interaction.followup.send(
-            view=error_container("Ce __salon__ n'est **pas un ticket**."), ephemeral=True
+            view=error_container("Vous n'êtes pas dans un **ticket**."), ephemeral=True
         )
     
     # ⛔ Vérification des permissions.
@@ -84,7 +84,7 @@ async def ticket_add(interaction: discord.Interaction, utilisateur: discord.Memb
             reason=f"**Ajout** au ticket par {interaction.user} (ID: {interaction.user.id})",
         )
         await interaction.followup.send(
-            view=success_container(f"{utilisateur.mention} a été ajouté au ticket."),
+            view=success_container(f"{utilisateur.mention} a été **ajouté** au ticket."),
             ephemeral=True,
         )
     except discord.Forbidden:

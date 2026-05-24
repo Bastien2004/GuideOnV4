@@ -48,7 +48,7 @@ async def handle_close(
     ticket = await tm.get_ticket(channel_id)
     if not ticket:
         return await interaction.followup.send(
-            view=error_container("Ce salon n'est pas un ticket."), ephemeral=True
+            view=error_container("Vous n'êtes pas dans un **ticket**."), ephemeral=True
         )
     if ticket.get("closed"):
         return await interaction.followup.send(

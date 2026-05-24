@@ -51,7 +51,7 @@ async def ticket_delete(interaction: discord.Interaction) -> None:
     # 🔎 Vérification que le salon soit bien un ticket.
     if not ticket:
         return await interaction.followup.send(
-            view=error_container("Ce __salon__ n'est **pas un ticket**."), ephemeral=True
+            view=error_container("Vous n'êtes pas dans un **ticket**."), ephemeral=True
         )
     
     # ⛔ Vérification des permissions.
