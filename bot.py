@@ -113,6 +113,9 @@ class GuideONBot(commands.Bot):
         from cogs.ticket.ticket_panel_delete import ticket_panel_delete
         from cogs.ticket.ticket_panel_list import ticket_panel_list
 
+        from cogs.ticket.ticket_add import ticket_add
+        from cogs.ticket.ticket_ban import ticket_ban
+
         # ── IMPORT MOD ──
         # from cogs.mod.exemple import ...
 
@@ -155,7 +158,7 @@ class GuideONBot(commands.Bot):
         
          # 🎟️ ── TICKET ──
         groupTICKET = groupeTICKET()
-        for cmd in [ticket_panel_create, ticket_panel_edit, ticket_panel_delete, ticket_panel_list]:
+        for cmd in [ticket_panel_create, ticket_panel_edit, ticket_panel_delete, ticket_panel_list, ticket_add, ticket_ban]:
             groupTICKET.add_command(cmd)
 
         '''
