@@ -89,6 +89,11 @@ class GuideONBot(commands.Bot):
 
         # ── Chargement commandes groupes ──
         await self._register_command_groups()
+
+        # ── Réenregistrement des vues persistantes tickets ──
+        from views.ticket.persistence import register_persistent_views
+        await register_persistent_views(self)
+
         await self._sync_commands()
 
         # ── API FastAPI ──
