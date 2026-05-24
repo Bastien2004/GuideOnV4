@@ -2,13 +2,6 @@
 Commande /ticket delete — Permet de supprimer un ticket fermer (transcript automatique).
 """
 
-"""
-cogs/ticket/ticket_delete.py — /ticket delete
-
-Supprime définitivement le ticket courant (staff uniquement). Le ticket doit
-d'abord être fermé. Confirmation via DeleteConfirmView (partagée avec le bouton
-Supprimer de l'état fermé) → génère le transcript puis supprime le salon.
-"""
 from __future__ import annotations
 
 import logging
@@ -28,43 +21,64 @@ from views.ticket.lifecycle import DeleteConfirmView
 log = logging.getLogger(__name__)
 
 
+# ============================================================
+# 🧭 Commande principale : /ticket delete
+# ============================================================
+
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
 @app_commands.command(name="delete", description="🗑️ Supprimer définitivement ce ticket")
 async def ticket_delete(interaction: discord.Interaction) -> None:
+
+    # 🛡️ Vérification ban utilisateur.
     if not await verifier_ban_utilisateur(interaction):
         return
-    await interaction.response.defer(ephemeral=True)
+    
+    # 🕒 Defer.
+    try:
+        await interaction.response.defer(ephemeral=True)
+    except (discord.NotFound, discord.HTTPException):
+        return
+    
+    # ⚙️ Vérification maintenance.
     if not await verifier_commande(interaction, "ticket_delete"):
         return
-
+    
+    # 📦 Récupération des données.
     channel = interaction.channel
     ticket = await tm.get_ticket(channel.id)
+
+    # 🔎 Vérification que le salon soit bien un ticket.
     if not ticket:
         return await interaction.followup.send(
-            view=error_container("Ce salon n'est pas un ticket."), ephemeral=True
+            view=error_container("Ce __salon__ n'est **pas un ticket**."), ephemeral=True
         )
+    
+    # ⛔ Vérification des permissions.
     if not await is_staff(interaction, ticket, interaction.guild_id):
         return await interaction.followup.send(
-            view=error_container("Vous n'avez pas la permission de supprimer ce ticket."),
+            view=error_container("Vous n'avez pas la **permission** de __supprimer ce ticket__."),
             ephemeral=True,
         )
+    
+    # 🔒 Vérification que le ticket soit fermé.
     if not ticket.get("closed"):
         return await interaction.followup.send(
-            view=error_container(
-                "Fermez d'abord le ticket avec `/ticket close` avant de le supprimer."
-            ),
+            view=error_container("**Fermez d'abord** le ticket avec `/ticket close` avant de le **supprimer**."),
             ephemeral=True,
         )
 
+    # 📊 Tracking.
     await tracker_commande(interaction, "ticket_delete")
 
-    # Confirmation : DeleteConfirmView gère la génération du transcript + delete.
+    # 🗑️ Confirmation de suppression (gestion de la suppression, du transcript et du compteur.
     await interaction.followup.send(view=DeleteConfirmView(channel.id), ephemeral=True)
 
 
+# ============================================================
+# ❌ Gestion erreurs
+# ============================================================
+
 @ticket_delete.error
-async def ticket_delete_error(
-    interaction: discord.Interaction, error: app_commands.AppCommandError
-) -> None:
+async def ticket_delete_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
     await handle_app_command_error(interaction, error)

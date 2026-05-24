@@ -11,10 +11,10 @@ from discord import app_commands
 from discord.ui import Container, LayoutView, Separator, TextDisplay
 
 from utils.botbancmd import verifier_ban_utilisateur
-from utils.perm_admin import check_admin
 from utils.track_commande import tracker_commande
 from utils.control_admin import verifier_commande
-from utils.container_universel import error_container
+
+from utils.perm_admin import check_admin
 from utils.error_handler import handle_app_command_error
 from utils.managers import ticket_manager as tm
 
@@ -22,24 +22,43 @@ log = logging.getLogger(__name__)
 
 MAX_PANELS_DISPLAY = 17
 
+# ============================================================
+# 🧭 Commande principale : /ticket panel_list
+# ============================================================
 
 @app_commands.guild_only()
-@app_commands.checks.cooldown(1, 10)
+@app_commands.checks.cooldown(1, 15)
 @app_commands.command(name="panel_list", description="📋 Lister les panels de tickets du serveur")
 async def ticket_panel_list(interaction: discord.Interaction) -> None:
+
+    # 🛡️ Vérification ban utilisateur.
     if not await verifier_ban_utilisateur(interaction):
         return
-    if not await check_admin(interaction, "lister les **panels de tickets**"):
+    
+    # 🔐 Vérification administrateur.
+    if not await check_admin(interaction, "**lister** les __panels de tickets__"):
         return
-    await interaction.response.defer(ephemeral=True)
+    
+    # 🕒 Defer.
+    try:
+        await interaction.response.defer(ephemeral=True)
+    except (discord.NotFound, discord.HTTPException):
+        return
+    
+    # ⚙️ Vérification maintenance.
     if not await verifier_commande(interaction, "ticket_panel_list"):
         return
+    
+    # 📊 Tracking.
     await tracker_commande(interaction, "ticket_panel_list")
 
+    # 📦 Récupération des données.
     panels = await tm.list_panels(interaction.guild_id)
 
+    # 🧩 Construction de la view.
     view = LayoutView(timeout=None)
     container = Container()
+
     container.add_item(TextDisplay("# 📋 Liste des panels de tickets"))
     container.add_item(Separator())
 
@@ -66,14 +85,16 @@ async def ticket_panel_list(interaction: discord.Interaction) -> None:
                 f"-# … et **{len(panels) - MAX_PANELS_DISPLAY}** autre(s) panel(s) non affiché(s)."
             ))
 
-    container.add_item(TextDisplay("-# GuideON Studio — Système de tickets"))
+    container.add_item(TextDisplay("-# GuideOn Studio"))
     view.add_item(container)
 
     await interaction.followup.send(view=view, ephemeral=True)
 
 
+# ============================================================
+# ❌ Gestion erreurs
+# ============================================================
+
 @ticket_panel_list.error
-async def ticket_panel_list_error(
-    interaction: discord.Interaction, error: app_commands.AppCommandError
-) -> None:
+async def ticket_panel_list_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
     await handle_app_command_error(interaction, error)

@@ -42,7 +42,7 @@ async def ticket_ban(interaction: discord.Interaction, utilisateur: discord.Memb
     except (discord.NotFound, discord.HTTPException):
         return
     
-    # ⚙️ Vérification activation.
+    # ⚙️ Vérification maintenance.
     if not await verifier_commande(interaction, "ticket_ban"):
         return
 
