@@ -1,17 +1,5 @@
 """
-views/bienvenue/config_view.py — Interface /config bienvenue (V4, full CV2).
-
-Page unique. 100% Components V2 (LayoutView + Container + TextDisplay + Section
-+ Separator + ActionRow). AUCUN embed.
-
-CENTRALISATION (objectif : fichiers minimes, sécurisés, scalables) :
-- Retours utilisateur  -> utils.container_universel (error/success/info_container)
-- Sélecteur de salon   -> views._components.channel_select.ChannelSelect
-- Saisie de message    -> views._components.text_modal.TextModal
-Aucun helper de vue dupliqué localement.
-
-Compat cog : BienvenueConfigView.create(guild_id, author_id, bot) renvoie la
-LayoutView prête à l'emploi.
+views/bienvenue/config_view.py — Interface /config bienvenue.
 """
 from __future__ import annotations
 
@@ -20,23 +8,12 @@ from typing import Optional
 
 import discord
 from discord import ButtonStyle, Interaction
-from discord.ui import (
-    ActionRow,
-    Button,
-    Container,
-    LayoutView,
-    Section,
-    Separator,
-    TextDisplay,
-)
+from discord.ui import ActionRow, Button, Container, LayoutView, Section, Separator, TextDisplay
 
 from utils.boutique.gold_manager import is_gold, send_gold_error
 from utils.container_universel import error_container, success_container
-from utils.managers.bienvenue_manager import (
-    load_bienvenue_config,
-    reset_bienvenue_config,
-    save_bienvenue_config,
-)
+from utils.managers.bienvenue_manager import load_bienvenue_config, reset_bienvenue_config, save_bienvenue_config
+
 from views._components.channel_select import ChannelSelect
 from views._components.text_modal import TextModal
 
@@ -60,7 +37,8 @@ def _preview(text: str, max_len: int = 70) -> str:
 
 
 def _render_example(template: str, guild: discord.Guild) -> str:
-    """Rend un template avec des valeurs d'exemple (aperçu / test)."""
+    """Envoie les exemples de rendu des messages bienvenue/départ."""
+
     me = guild.me
     return (
         (template or "")
@@ -83,12 +61,9 @@ def _state_btn(active: bool) -> Button:
 # =============== CONSTRUCTION DE LA VUE ===============
 # ======================================================
 
-async def create_bienvenue_view(
-    guild_id: int,
-    bot,
-    author_id: Optional[int] = None,
-) -> Optional[LayoutView]:
-    """Construit la vue unique de configuration bienvenue."""
+async def create_bienvenue_view(guild_id: int, bot, author_id: Optional[int] = None,) -> Optional[LayoutView]:
+    """Construction de l'interface de création."""
+
     guild = bot.get_guild(guild_id)
     if guild is None:
         log.error("Guild %s introuvable dans le cache", guild_id)
@@ -105,7 +80,6 @@ async def create_bienvenue_view(
     arrive_message = cfg.get("arrive_message", "")
     depart_message = cfg.get("depart_message", "")
 
-    # État global (un seul TextDisplay, pas de composant supplémentaire)
     issues = []
     if system_active:
         if arrive_active and not arrive_channel:
@@ -127,7 +101,6 @@ async def create_bienvenue_view(
     container.add_item(TextDisplay(f"# 👋 Configuration · Bienvenue\n{etat}"))
     container.add_item(Separator())
 
-    # Toggle système global
     btn_sys = _state_btn(system_active)
     btn_sys.callback = _cb_toggle(guild_id, bot, author_id, "system_active")
     container.add_item(Section(
@@ -136,7 +109,6 @@ async def create_bienvenue_view(
     ))
     container.add_item(Separator())
 
-    # ── Bloc Arrivée ──
     _add_block(
         container, guild, guild_id, bot, author_id,
         titre="🛬 Arrivée",
@@ -146,7 +118,6 @@ async def create_bienvenue_view(
     )
     container.add_item(Separator())
 
-    # ── Bloc Départ ──
     _add_block(
         container, guild, guild_id, bot, author_id,
         titre="🛫 Départ",
@@ -156,22 +127,20 @@ async def create_bienvenue_view(
     )
     container.add_item(Separator())
 
-    # Variables
     container.add_item(TextDisplay(f"### 📌 Variables\n{VARIABLES_HELP}"))
     container.add_item(Separator())
 
-    # Tests (gated Gold+) + Réinit sur une ActionRow
     suffix = "" if gold else " (Gold+)"
     btn_test_a = Button(label="Test arrivée" + suffix, style=ButtonStyle.secondary, emoji="🧪")
     btn_test_d = Button(label="Test départ" + suffix, style=ButtonStyle.secondary, emoji="🧪")
-    btn_reset = Button(label="Réinitialiser", style=ButtonStyle.danger, emoji="♻️")
+    btn_reset = Button(label="Réinitialiser", style=ButtonStyle.danger, emoji="<:recharger:1495444327629852703>")
     btn_test_a.callback = _cb_test(guild_id, bot, author_id, "arrive")
     btn_test_d.callback = _cb_test(guild_id, bot, author_id, "depart")
     btn_reset.callback = _cb_reset(guild_id, bot, author_id)
     container.add_item(ActionRow(btn_test_a, btn_test_d, btn_reset))
 
     container.add_item(Separator())
-    container.add_item(TextDisplay("-# GuideON Studio"))
+    container.add_item(TextDisplay("-# GuideOn Studio"))
 
     view.add_item(container)
     return view
@@ -193,10 +162,12 @@ def _add_block(
         accessory=btn_toggle,
     ))
 
-    btn_channel = Button(label="Salon", style=ButtonStyle.secondary, emoji="#️⃣")
+    btn_channel = Button(label="Salon", style=ButtonStyle.secondary, emoji="<:salons:1508535670333902999>")
     btn_channel.callback = _cb_pick_channel(guild_id, bot, author_id, channel_key)
-    btn_msg = Button(label="Message", style=ButtonStyle.secondary, emoji="✏️")
+
+    btn_msg = Button(label="Message", style=ButtonStyle.secondary, emoji="<:modifier:1495444144712192003>")
     btn_msg.callback = _cb_edit_message(guild_id, bot, author_id, message_key)
+
     container.add_item(Section(
         TextDisplay(f"-# Aperçu : {_preview(_render_example(message, guild), 90)}"),
         accessory=btn_msg,
@@ -212,7 +183,7 @@ def _guard(author_id: Optional[int]):
     async def check(interaction: Interaction) -> bool:
         if author_id is not None and interaction.user.id != author_id:
             await interaction.response.send_message(
-                view=error_container("Seul l'auteur de la commande peut utiliser ce menu."),
+                view=error_container("Seul l'**auteur** de la commande peut utiliser ce __menu__."),
                 ephemeral=True,
             )
             return False
@@ -231,7 +202,7 @@ async def _rerender(interaction: Interaction, guild_id: int, bot, author_id):
     new_view = await create_bienvenue_view(guild_id, bot, author_id)
     if new_view is None:
         await interaction.response.send_message(
-            view=error_container("Serveur introuvable."), ephemeral=True
+            view=error_container("Serveur **introuvable**."), ephemeral=True
         )
         return
     if interaction.response.is_done():
@@ -304,17 +275,17 @@ def _cb_pick_channel(guild_id, bot, author_id, channel_key):
                 perms = channel.permissions_for(sel.guild.me)
                 if not (perms.send_messages and perms.view_channel):
                     await sel.response.edit_message(
-                        view=error_container(f"Je ne peux pas écrire dans {channel.mention}.")
+                        view=error_container(f"Je ne peux pas **écrire** dans {channel.mention}.")
                     )
                     return
             await save_bienvenue_config(guild_id, {channel_key: channel_id})
-            await sel.response.edit_message(view=success_container("Salon mis à jour !"))
+            await sel.response.edit_message(view=success_container("Salon **mis à jour** !"))
             new_view = await create_bienvenue_view(guild_id, bot, author_id)
             if new_view:
                 try:
                     await parent.edit_original_response(view=new_view)
                 except (discord.NotFound, discord.HTTPException):
-                    log.warning("MAJ vue après sélection salon impossible")
+                    log.warning("[Bienvenue] Mise à jour de la view après sélection salon impossible")
 
         select = ChannelSelect(
             placeholder="Sélectionner un salon texte",
@@ -347,13 +318,13 @@ def _cb_test(guild_id, bot, author_id, page):
 
         if not channel_id:
             await interaction.response.send_message(
-                view=error_container("Aucun salon défini pour cette annonce."), ephemeral=True
+                view=error_container("**Aucun** salon défini pour cette __annonce__."), ephemeral=True
             )
             return
         channel = bot.get_channel(channel_id)
         if not isinstance(channel, discord.TextChannel):
             await interaction.response.send_message(
-                view=error_container("Le salon configuré est introuvable."), ephemeral=True
+                view=error_container("Le salon configuré est **introuvable**."), ephemeral=True
             )
             return
 
@@ -361,7 +332,7 @@ def _cb_test(guild_id, bot, author_id, page):
         test_view = LayoutView(timeout=None)
         c = Container()
         c.add_item(TextDisplay(rendered or "_(message vide)_"))
-        c.add_item(TextDisplay("-# 🧪 Message de test · GuideON"))
+        c.add_item(TextDisplay("-# 🧪 Message de test · GuideOn"))
         test_view.add_item(c)
         try:
             await channel.send(view=test_view)
@@ -370,7 +341,7 @@ def _cb_test(guild_id, bot, author_id, page):
             )
         except discord.Forbidden:
             await interaction.response.send_message(
-                view=error_container(f"Permission refusée dans {channel.mention}."), ephemeral=True
+                view=error_container(f"Permission **refusée** dans {channel.mention}."), ephemeral=True
             )
     return cb
 
@@ -384,5 +355,5 @@ class BienvenueConfigView:
     async def create(cls, guild_id: int, author_id: int, bot) -> LayoutView:
         view = await create_bienvenue_view(guild_id, bot, author_id)
         if view is None:
-            return error_container("Impossible de charger la configuration (serveur introuvable).")
+            return error_container("**Impossible** de charger la __configuration__ (serveur introuvable).")
         return view

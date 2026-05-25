@@ -1,19 +1,5 @@
 """
-views/role_all/config_view.py — Interface /config role_all (V4, full CV2).
-
-Porté de la V3 (views/RoleAllView.py). Attribution/retrait d'un rôle en masse
-à tous les membres (hors bots).
-
-Améliorations V4 :
-- Sélection du rôle via RoleSelect (menu déroulant natif) au lieu d'un modal d'ID.
-- Garde author_id + Administrateur sur les interactions.
-- Blocage si le rôle cible est au-dessus du plus haut rôle de l'admin (anti
-  contournement de hiérarchie ; le propriétaire du serveur est exempté).
-- Application en masse robuste : 0.4s/membre, mais gestion de retry_after si
-  Discord rate-limit (auto-adaptatif).
-- Retours via container_universel, logging propre.
-
-Compat cog : create_role_all_view(guild, bot, author_id, page="main", ...) -> LayoutView
+views/role_all/config_view.py — Interface /config role_all.
 """
 from __future__ import annotations
 
@@ -23,24 +9,16 @@ from typing import Optional
 
 import discord
 from discord import ButtonStyle, Interaction
-from discord.ui import (
-    ActionRow,
-    Button,
-    Container,
-    LayoutView,
-    Section,
-    Separator,
-    TextDisplay,
-)
+from discord.ui import ActionRow, Button, Container, LayoutView, Section, Separator, TextDisplay
 
 from utils.container_universel import error_container
 from views._components.role_select import RoleSelect
 
 log = logging.getLogger(__name__)
 
-APPLY_DELAY = 0.4          # délai nominal entre deux membres (anti rate-limit)
-PROGRESS_EVERY = 10        # MAJ de la barre de progression toutes les N itérations
-MAX_RETRY_PER_MEMBER = 3   # tentatives max si rate-limit sur un membre
+APPLY_DELAY = 0.4
+PROGRESS_EVERY = 10
+MAX_RETRY_PER_MEMBER = 3
 
 
 # ============================================================
@@ -48,7 +26,8 @@ MAX_RETRY_PER_MEMBER = 3   # tentatives max si rate-limit sur un membre
 # ============================================================
 
 def _bot_can_manage(guild: discord.Guild, role: discord.Role) -> bool:
-    """Le bot a-t-il la permission + la hiérarchie pour gérer ce rôle ?"""
+    """Vérifie que le bot à les permissions pour gérer ce rôle."""
+
     return (
         guild.me.guild_permissions.manage_roles
         and role.position < guild.me.top_role.position
@@ -59,18 +38,16 @@ def _bot_can_manage(guild: discord.Guild, role: discord.Role) -> bool:
 
 
 def _admin_can_manage(member: discord.Member, role: discord.Role) -> bool:
-    """L'admin qui lance la commande peut-il gérer ce rôle (hiérarchie) ?
+    """L'admin peut-il gérer ce rôle ? (hiérarchie)"""
 
-    Le propriétaire du serveur est au-dessus de tout. Sinon, le rôle cible doit
-    être strictement sous le plus haut rôle de l'admin.
-    """
     if member.id == member.guild.owner_id:
         return True
     return role.position < member.top_role.position
 
 
 def get_role_stats(guild: discord.Guild, role: discord.Role) -> dict:
-    """Répartition d'un rôle : total / avec / sans / pourcentage."""
+    """Gère la répartition d'un rôle : total / avec / sans / pourcentage."""
+
     total = guild.member_count or 0
     with_role = len(role.members)
     without_role = max(0, total - with_role)
@@ -83,16 +60,9 @@ def get_role_stats(guild: discord.Guild, role: discord.Role) -> dict:
     }
 
 
-async def apply_role_to_all(
-    guild: discord.Guild,
-    role: discord.Role,
-    action: str,
-    interaction: Interaction,
-) -> dict:
-    """
-    Ajoute/retire un rôle à tous les membres non-bots. Barre de progression.
-    Gère retry_after en cas de rate-limit. Renvoie {success, skipped, errors, total}.
-    """
+async def apply_role_to_all(guild: discord.Guild, role: discord.Role, action: str, interaction: Interaction) -> dict:
+    """Ajoute ou retire le rôle à tous les membres non-bots."""
+
     success = errors = skipped = 0
     members = [m for m in guild.members if not m.bot]
     total = len(members)
@@ -106,7 +76,7 @@ async def apply_role_to_all(
 
     for i, member in enumerate(members, start=1):
         has_role = role in member.roles
-        # Rien à faire ?
+
         if (action == "add" and has_role) or (action == "remove" and not has_role):
             skipped += 1
         else:
@@ -125,7 +95,6 @@ async def apply_role_to_all(
                     done = True
                     break
                 except discord.HTTPException as e:
-                    # Rate-limit : on attend le délai indiqué puis on retente.
                     retry = getattr(e, "retry_after", None)
                     if retry:
                         await asyncio.sleep(float(retry) + 0.1)
@@ -140,7 +109,6 @@ async def apply_role_to_all(
                     done = True
                     break
             if not done:
-                # Toutes les tentatives épuisées (rate-limit persistant)
                 errors += 1
 
         if i % PROGRESS_EVERY == 0 or i == total:
@@ -163,7 +131,8 @@ async def apply_role_to_all(
 
 
 def _make_result_view(action: str, role: discord.Role, results: dict) -> LayoutView:
-    """LayoutView de rapport après l'opération."""
+    """Rapport final après l'opération."""
+
     action_label = "ajouté à" if action == "add" else "retiré de"
     view = LayoutView(timeout=None)
     container = Container()
@@ -184,7 +153,7 @@ def _make_result_view(action: str, role: discord.Role, results: dict) -> LayoutV
             "(permissions insuffisantes ou hiérarchie de rôle)."
         ))
     container.add_item(Separator())
-    container.add_item(TextDisplay("-# GuideON Studio"))
+    container.add_item(TextDisplay("-# GuideOn Studio"))
     view.add_item(container)
     return view
 
@@ -197,7 +166,7 @@ def _guard(author_id: Optional[int]):
     async def check(interaction: Interaction) -> bool:
         if author_id is not None and interaction.user.id != author_id:
             await interaction.response.send_message(
-                view=error_container("Seul l'auteur de la commande peut utiliser ce menu."),
+                view=error_container("Seul l'auteur de la commande peut **utiliser** ce menu."),
                 ephemeral=True,
             )
             return False
@@ -216,14 +185,7 @@ def _guard(author_id: Optional[int]):
 # 🧩 Builder de la vue
 # ============================================================
 
-async def create_role_all_view(
-    guild: discord.Guild,
-    bot,
-    author_id: Optional[int] = None,
-    page: str = "main",
-    selected_role: Optional[discord.Role] = None,
-    action: Optional[str] = None,
-) -> LayoutView:
+async def create_role_all_view(guild: discord.Guild, bot, author_id: Optional[int] = None, page: str = "main", selected_role: Optional[discord.Role] = None, action: Optional[str] = None,) -> LayoutView:
     view = LayoutView(timeout=600)
     container = Container()
 
@@ -240,25 +202,24 @@ async def create_role_all_view(
 
 def _build_main(container, guild, bot, author_id, selected_role):
     container.add_item(TextDisplay(
-        "# 👥 Attribution de rôle en masse\n"
-        "-# Ajouter ou retirer un rôle à tous les membres du serveur"
+        "# <:profil:1495444182137831515> Attribution de rôle en masse\n"
+        "-# Ajouter ou retirer un rôle à tous les membres du serveur."
     ))
     container.add_item(Separator())
     container.add_item(TextDisplay(
-        "### 📊 Serveur\n"
+        "### <:analyser:1495446292963528798> Serveur\n"
         f"**{guild.member_count}** membre(s) · **{len(guild.roles) - 1}** rôle(s) disponible(s)"
     ))
     container.add_item(Separator())
     container.add_item(TextDisplay(
-        "### ℹ️ À savoir\n"
-        "• Mon rôle doit être **au-dessus** du rôle à gérer dans la hiérarchie\n"
-        "• Les **bots** ne seront pas affectés\n"
-        "• L'opération peut prendre **plusieurs minutes** selon la taille du serveur\n"
-        "• Un **rapport détaillé** sera affiché à la fin"
+        "### <:information:1495446355395612794> À savoir\n"
+        "• Mon rôle doit être **au-dessus** du rôle à gérer dans la hiérarchie.\n"
+        "• Les **bots** ne seront pas affectés.\n"
+        "• L'opération peut prendre **plusieurs minutes** selon la taille du serveur.\n"
+        "• Un **rapport détaillé** sera affiché à la fin."
     ))
     container.add_item(Separator())
 
-    # Sélecteur de rôle (RoleSelect natif) — toujours présent.
     async def on_role_selected(interaction: Interaction, ids: list[int]):
         check = _guard(author_id)
         if not await check(interaction):
@@ -268,12 +229,13 @@ def _build_main(container, guild, bot, author_id, selected_role):
             return await interaction.response.send_message(
                 view=error_container("Rôle introuvable."), ephemeral=True
             )
-        # Sécurité hiérarchie admin
+
+
         if not _admin_can_manage(interaction.user, role):
             return await interaction.response.send_message(
                 view=error_container(
                     "Ce rôle est au-dessus de votre plus haut rôle.\n"
-                    "-# Vous ne pouvez pas l'attribuer en masse."
+                    "-# Vous ne pouvez pas l'attribuer."
                 ),
                 ephemeral=True,
             )
@@ -301,11 +263,11 @@ def _build_main(container, guild, bot, author_id, selected_role):
         container.add_item(Separator())
 
         add_btn = Button(
-            label="Ajouter à tous", style=ButtonStyle.success, emoji="➕",
+            label="Ajouter à tous", style=ButtonStyle.success, emoji="<:plus:1495444111505752154>",
             disabled=not can_manage or stats["without_role"] == 0,
         )
         remove_btn = Button(
-            label="Retirer à tous", style=ButtonStyle.danger, emoji="➖",
+            label="Retirer à tous", style=ButtonStyle.danger, emoji="<:moins:1508532114465882285>",
             disabled=not can_manage or stats["with_role"] == 0,
         )
 
@@ -334,7 +296,7 @@ def _build_main(container, guild, bot, author_id, selected_role):
         ))
 
     container.add_item(Separator())
-    container.add_item(TextDisplay("-# GuideON Studio · Attribution de rôle"))
+    container.add_item(TextDisplay("-# GuideOn Studio"))
 
 
 def _build_confirm(container, guild, bot, author_id, selected_role, action):

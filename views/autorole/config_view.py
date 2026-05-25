@@ -1,23 +1,7 @@
 """
-views/autorole/config_view.py — Interface /config autorole (V4, full CV2).
-
-Porté de la V3 (views/AutoRoleView.py). Page unique, 100% Components V2
-(LayoutView + Container + TextDisplay + Section + Separator + ActionRow).
-AUCUN embed.
-
-Fonctionnalités (fidèles V3) :
-- Toggle ON/OFF du système.
-- 3 slots de rôles. Slot 3 réservé Gold+ (verrouillé sinon → send_gold_error).
-- Saisie par modal d'ID de rôle, avec validations (existe, sous le bot dans la
-  hiérarchie, pas default/bot/integration).
-- Bouton « Retirer le rôle » par slot configuré.
-
-Améliorations V4 :
-- Builder async branché sur autorole_manager (cache + DB).
-- Garde author_id + Administrateur (sécurité : seul l'auteur de la commande agit).
-
-Compat cog : create_autorole_view(guild_id, bot, author_id) -> LayoutView | None
+views/autorole/config_view.py — Interface /config autorole.
 """
+
 from __future__ import annotations
 
 import logging
@@ -25,45 +9,30 @@ from typing import Optional
 
 import discord
 from discord import ButtonStyle, Interaction
-from discord.ui import (
-    ActionRow,
-    Button,
-    Container,
-    LayoutView,
-    Modal,
-    Section,
-    Separator,
-    TextDisplay,
-    TextInput,
-)
+from discord.ui import ActionRow, Button, Container, LayoutView, Modal, Section, Separator, TextDisplay, TextInput
 
 from utils.boutique.gold_manager import is_gold, send_gold_error
 from utils.container_universel import error_container
-from utils.managers.autorole_manager import (
-    load_autorole_config,
-    save_autorole_config,
-)
+from utils.managers.autorole_manager import load_autorole_config, save_autorole_config
 
 log = logging.getLogger(__name__)
 
-# (numéro de slot, emoji, label, gold_only)
 SLOT_CONFIG = [
     (1, "🎯", "Rôle automatique 1", False),
     (2, "🎯", "Rôle automatique 2", False),
-    (3, "⭐", "Rôle automatique 3", True),  # Gold uniquement
+    (3, "⭐", "Rôle automatique 3", True),
 ]
 
-DOC_URL = "https://guideonbot.guideon.dev/"
+DOC_URL = "https://guideonbot.guideon.dev/documentation"
 
 
 # ======================================================
 # ==================== BUILDER =========================
 # ======================================================
 
-async def create_autorole_view(
-    guild_id: int, bot, author_id: Optional[int] = None
-) -> Optional[LayoutView]:
-    """Construit la vue de config autorole pour un serveur (ou None si introuvable)."""
+async def create_autorole_view(guild_id: int, bot, author_id: Optional[int] = None) -> Optional[LayoutView]:
+    """Construction de la view de configuration de l'auto-rôle."""
+
     guild = bot.get_guild(guild_id)
     if guild is None:
         return None
@@ -82,6 +51,7 @@ async def create_autorole_view(
         label="✅ Activé" if enabled else "❌ Désactivé",
         style=ButtonStyle.success if enabled else ButtonStyle.danger,
     )
+
     toggle_btn.callback = _cb_toggle(guild_id, bot, author_id)
     container.add_item(Section(
         TextDisplay(
@@ -99,13 +69,13 @@ async def create_autorole_view(
         role = guild.get_role(role_id) if role_id else None
 
         if gold_only and not gold:
-            # Slot Gold verrouillé
             lock_btn = Button(label="Gold+ requis", style=ButtonStyle.secondary, emoji="🔒")
             lock_btn.callback = _cb_gold_lock(author_id)
             container.add_item(Section(
                 TextDisplay(f"**{emoji} {label}** ✨\n-# Réservé aux serveurs Gold+"),
                 accessory=lock_btn,
             ))
+
         else:
             if role:
                 role_display = role.mention
@@ -115,7 +85,7 @@ async def create_autorole_view(
                 role_display = "`Non configuré`"
             gold_hint = " ✨" if gold_only else ""
 
-            set_btn = Button(label="Modifier", style=ButtonStyle.secondary, emoji="✏️")
+            set_btn = Button(label="Modifier", style=ButtonStyle.secondary, emoji="<:modifier:1495444144712192003>")
             set_btn.callback = _cb_set_role(guild_id, bot, author_id, key)
             container.add_item(Section(
                 TextDisplay(f"**{emoji} {label}{gold_hint}**\n-# {role_display}"),
@@ -124,7 +94,7 @@ async def create_autorole_view(
 
             if role_id:
                 remove_btn = Button(
-                    label="Retirer le rôle", style=ButtonStyle.danger, emoji="🗑️"
+                    label="Retirer le rôle", style=ButtonStyle.danger, emoji="<:supprimer:1495444051623809075>"
                 )
                 remove_btn.callback = _cb_remove_role(guild_id, bot, author_id, key)
                 container.add_item(ActionRow(remove_btn))
@@ -136,7 +106,7 @@ async def create_autorole_view(
         label="Documentation", style=ButtonStyle.link, url=DOC_URL, emoji="📚"
     )))
     container.add_item(Separator())
-    container.add_item(TextDisplay("-# GuideON Studio"))
+    container.add_item(TextDisplay("-# GuideOn Studio"))
 
     view.add_item(container)
     return view
@@ -150,10 +120,11 @@ def _guard(author_id: Optional[int]):
     async def check(interaction: Interaction) -> bool:
         if author_id is not None and interaction.user.id != author_id:
             await interaction.response.send_message(
-                view=error_container("Seul l'auteur de la commande peut utiliser ce menu."),
+                view=error_container("Seul l'**auteur** de la commande peut utiliser ce __menu__."),
                 ephemeral=True,
             )
             return False
+        
         member = interaction.user
         if not isinstance(member, discord.Member) or not member.guild_permissions.administrator:
             await interaction.response.send_message(
@@ -169,7 +140,7 @@ async def _rerender(interaction: Interaction, guild_id: int, bot, author_id):
     new_view = await create_autorole_view(guild_id, bot, author_id)
     if new_view is None:
         await interaction.response.send_message(
-            view=error_container("Serveur introuvable."), ephemeral=True
+            view=error_container("Serveur **introuvable**."), ephemeral=True
         )
         return
     if interaction.response.is_done():
@@ -191,7 +162,6 @@ def _cb_toggle(guild_id, bot, author_id):
 
 
 def _cb_gold_lock(author_id):
-    # Pas de garde auteur ici : on informe simplement de la limite Gold.
     async def cb(interaction: Interaction):
         await send_gold_error(interaction)
     return cb
@@ -246,19 +216,19 @@ class SetRoleModal(Modal, title="✏️ Définir un rôle automatique"):
 
         if not value.isdigit():
             return await interaction.response.send_message(
-                view=error_container("L'ID doit être un nombre entier."), ephemeral=True
+                view=error_container("L'**ID** doit être un __nombre entier__."), ephemeral=True
             )
 
         role = guild.get_role(int(value))
         if not isinstance(role, discord.Role):
             return await interaction.response.send_message(
-                view=error_container("Rôle introuvable sur ce serveur."), ephemeral=True
+                view=error_container("Rôle **introuvable** sur ce serveur."), ephemeral=True
             )
 
         if role.position >= guild.me.top_role.position:
             return await interaction.response.send_message(
                 view=error_container(
-                    "Ce rôle est au-dessus ou au même niveau que mon rôle.\n"
+                    "Ce rôle est __au-dessus__ ou au même niveau que mon rôle.\n"
                     "-# Placez mon rôle plus haut dans la hiérarchie."
                 ),
                 ephemeral=True,
