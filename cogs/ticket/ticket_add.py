@@ -32,11 +32,11 @@ log = logging.getLogger(__name__)
 @app_commands.describe(utilisateur="Utilisateur à ajouter au ticket")
 async def ticket_add(interaction: discord.Interaction, utilisateur: discord.Member) -> None:
 
-    # 🛡️ Vérification ban utilisateur
+    # 🛡️ Vérification ban utilisateur.
     if not await verifier_ban_utilisateur(interaction):
         return
     
-    # 🕒 Defer
+    # 🕒 Defer.
     try:
         await interaction.response.defer(ephemeral=True)
     except (discord.NotFound, discord.HTTPException):
@@ -50,7 +50,7 @@ async def ticket_add(interaction: discord.Interaction, utilisateur: discord.Memb
     channel = interaction.channel
     ticket = await tm.get_ticket(channel.id)
 
-    # 🔎 Véirification que le salon soit bien un ticket.
+    # 🔎 Vérification que le salon soit bien un ticket.
     if not ticket:
         return await interaction.followup.send(
             view=error_container("Vous n'êtes pas dans un **ticket**."), ephemeral=True
