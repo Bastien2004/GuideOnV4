@@ -113,6 +113,7 @@ class GuideONBot(commands.Bot):
         from cogs.config.bienvenue import bienvenue
         from cogs.config.autorole import autorole
         from cogs.config.role_all import role_all
+        from cogs.config.role_react import role_reaction
 
         # ── IMPORT TICKET ──
         from cogs.ticket.ticket_panel_create import ticket_panel_create
@@ -165,7 +166,7 @@ class GuideONBot(commands.Bot):
 
          # 🔩 ── CONFIG ──
         groupCONFIG = groupeCONFIG()
-        for cmd in [bienvenue, autorole, role_all]:
+        for cmd in [bienvenue, autorole, role_all, role_reaction]:
             groupCONFIG.add_command(cmd)
 
         
