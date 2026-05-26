@@ -51,7 +51,7 @@ async def role_all(interaction: discord.Interaction) -> None:
     # 📊 Tracking.
     await tracker_commande(interaction, "config_role_all")
 
-    # 🧩 Création et envoi de la View.
+    # 🧩 Création et envoi de l'interface.
     try:
         view = await create_role_all_view(
             guild=interaction.guild,

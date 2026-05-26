@@ -53,7 +53,7 @@ async def bienvenue(interaction: discord.Interaction) -> None:
     await tracker_commande(interaction, "config_bienvenue")
 
 
-    # 🪟 Création et envoie de la View.
+    # 🧩 Création et envoi de l'interface.
     try:
         view = await BienvenueConfigView.create(
             guild_id=interaction.guild.id,
