@@ -119,12 +119,7 @@ def build_view(version: str, coords_text: str):
 @app_commands.checks.cooldown(1, 10)
 @app_commands.command(name="autel", description="⛪ Affiche les informations sur les autels NationsGlory")
 @app_commands.describe(version="Choisis ta version du jeu")
-@app_commands.choices(
-    version=[
-        app_commands.Choice(name="Java", value="java"),
-        app_commands.Choice(name="Bedrock", value="bedrock")
-    ]
-)
+@app_commands.choices(version=[app_commands.Choice(name="Java", value="java"), app_commands.Choice(name="Bedrock", value="bedrock")])
 async def autel(interaction: Interaction, version: str):
 
     # 🛡️ Vérification ban utilisateur.
@@ -145,7 +140,7 @@ async def autel(interaction: Interaction, version: str):
     await tracker_commande(interaction, "ng_autel")
 
 
-    # 📁 Chargement JSON.
+    # 📁 Chargement des données.
     data = load_coords()
     if data is None:
         return await interaction.followup.send(

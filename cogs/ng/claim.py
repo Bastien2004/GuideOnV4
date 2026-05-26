@@ -288,24 +288,24 @@ async def get_claim_data(serveur: str, pays: str,) -> dict:
 @app_commands.choices(serveur=SERVER_CHOICES)
 async def claim(interaction: Interaction, serveur: str, pays: str,):
 
-    # 🛡️ Vérification ban
+    # 🛡️ Vérification ban utilisateur.
     if not await verifier_ban_utilisateur(interaction):
         return
     
-    # 🕒 Defer
+    # 🕒 Defer.
     try:
         await interaction.response.defer(ephemeral=True)
     except (discord.NotFound, discord.HTTPException):
         return
 
-    # ⚙️ Vérification activation
+    # ⚙️ Vérification maintenance.
     if not await verifier_commande(interaction, "ng_claim"):
         return
 
-    # 📊 Tracking
+    # 📊 Tracking.
     await tracker_commande(interaction, "ng_claim")
 
-    # 📦 Chargement et traitement des données
+    # 📁 Chargement des données.
     try:
 
         serveur = serveur.lower().strip()

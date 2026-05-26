@@ -1,5 +1,5 @@
 """
-Commande /ng convert — Convertit une quantité d'items Minecraft en stacks, coffres ou double-coffres.
+Commande /ng convert — Convertit une quantité d'items en stacks, coffres ou double-coffres.
 """
 from __future__ import annotations
 
@@ -138,32 +138,32 @@ def build_convert_view(quantite: int, conversion_label: str, result: str) -> Lay
 )
 async def convert(interaction: Interaction, quantite: int, type_conversion: str):
 
-    # 🛡️ Vérification ban
+    # 🛡️ Vérification ban utilisateur.
     if not await verifier_ban_utilisateur(interaction):
         return
 
-    # 🕒 Defer
+    # 🕒 Defer.
     try:
         await interaction.response.defer(ephemeral=True)
     except (discord.NotFound, discord.HTTPException):
         return
 
-    # ⚙️ Vérification activation
+    # ⚙️ Vérification maintenance.
     if not await verifier_commande(interaction, "ng_convert"):
         return
 
-    # 📊 Tracking
+    # 📊 Tracking.
     await tracker_commande(interaction, "ng_convert")
 
-    # 🔎 Vérification quantité
+    # 🔎 Vérification quantité.
     if quantite <= 0:
         await interaction.followup.send(
-            view=error_container("La quantité doit être un nombre **positif** ❗"),
+            view=error_container("La __quantité__ doit être un nombre **positif** ❗"),
             ephemeral=True,
         )
         return
 
-    # 🧮 Calcul + construction view
+    # 🧮 Calcul + Construction view.
     try:
         result, conversion_label = compute_conversion(quantite, type_conversion)
         view = build_convert_view(quantite, conversion_label, result)

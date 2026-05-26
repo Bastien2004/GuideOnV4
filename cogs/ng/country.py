@@ -75,7 +75,7 @@ async def api_get(endpoint: str) -> dict | None:
             async with session.get(NG_URL + endpoint, headers=NG_HEADERS) as r:
                 return await r.json() if r.status == 200 else None
     except Exception:
-        log.exception("Erreur API NG GET %s", endpoint)
+        log.exception("[NG Country] Erreur API NG GET %s", endpoint)
         return None
 
 
@@ -87,7 +87,7 @@ async def api_get_notations(server: str, country: str, week: int) -> list | None
             async with session.get(url, headers=NG_HEADERS) as r:
                 return await r.json() if r.status == 200 else None
     except Exception:
-        log.exception("Erreur API NG notations %s/%s", server, country)
+        log.exception("[NG country] Erreur API NG notations %s/%s", server, country)
         return None
 
 
