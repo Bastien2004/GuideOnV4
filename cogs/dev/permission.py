@@ -28,7 +28,7 @@ VIEW_TIMEOUT = 300
 
 
 # ============================================================
-# 🔐 Garde créateurs
+# 🔐 Vérifications créateurs
 # ============================================================
 
 def _is_creator(interaction: discord.Interaction) -> bool:

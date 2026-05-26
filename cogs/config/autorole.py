@@ -48,10 +48,10 @@ async def autorole(interaction: discord.Interaction) -> None:
     if not await verifier_commande(interaction, "config_autorole"):
         return
 
-    # 📊 Tracking
+    # 📊 Tracking.
     await tracker_commande(interaction, "config_autorole")
 
-    # 🪟 Création et envoi de la View
+    # 🪟 Création et envoi de la View.
     try:
         view = await create_autorole_view(
             guild_id=interaction.guild.id,
