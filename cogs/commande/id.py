@@ -34,7 +34,6 @@ def extract_id(value: str) -> int | None:
 
 def get_avatar_url(user: discord.User) -> str:
     """Retourne l'URL de l'avatar utilisateur."""
-
     return user.display_avatar.replace(
         size=1024,
         format="gif" if user.display_avatar.is_animated() else "png"
@@ -47,7 +46,6 @@ def get_avatar_url(user: discord.User) -> str:
 
 def get_creation_date(user: discord.User) -> str:
     """Retourne la date de création formatée."""
-
     return discord.utils.format_dt(user.created_at, style="F")
 
 
@@ -57,7 +55,6 @@ def get_creation_date(user: discord.User) -> str:
 
 def build_user_infos_section(container: Container, user: discord.User, created_at: str) -> None:
     """Création de la section informations utilisateur."""
-
     container.add_item(
         TextDisplay(
             "## <:info:1495443961144152094> Informations\n"
@@ -82,7 +79,6 @@ def build_avatar_section(container: Container, avatar_url: str) -> None:
     container.add_item(TextDisplay("## <:fichier:1495446721520730242> Avatar"))
 
     container.add_item(MediaGallery(MediaGalleryItem(media=avatar_url)))
-
     container.add_item(Separator())
 
     container.add_item(
@@ -102,7 +98,6 @@ def build_avatar_section(container: Container, avatar_url: str) -> None:
             )
         )
     )
-
     container.add_item(Separator())
 
 
@@ -117,7 +112,6 @@ def build_user_view(user: discord.User) -> LayoutView:
     created_at = get_creation_date(user)
 
     view = LayoutView(timeout=None)
-
     container = Container()
 
     # Header
@@ -147,61 +141,60 @@ class UserID(commands.Cog):
         self.bot = bot
 
     @app_commands.guild_only()
-    @app_commands.checks.cooldown(1, 15)
+    @app_commands.checks.cooldown(1, 10)
     @app_commands.command(name="id", description="👤 Récupère les informations d’un utilisateur via son ID ou sa mention.")
     @app_commands.describe(user_id="L’ID ou la mention de l’utilisateur")
     async def id_command(self, interaction: discord.Interaction, user_id: str):
 
-        # 🛡️ Vérification ban utilisateur
+        # 🛡️ Vérification ban utilisateur.
         if not await verifier_ban_utilisateur(interaction):
             return
+        
+        # 🕒 Defer.
+        try:
+            await interaction.response.defer(ephemeral=True)
+        except (discord.NotFound, discord.HTTPException):
+            return
 
-        # ⚙️ Vérification activation commande
+        # ⚙️ Vérification maintenance.
         if not await verifier_commande(interaction, "id_command"):
             return
 
-        # ⏳ Defer
-        await interaction.response.defer()
-
-        # 📊 Tracking commande
+        # 📊 Tracking.
         await tracker_commande(interaction, "id_command")
 
-        # 🔍 Extraction ID
+        # 🔍 Extraction ID.
         uid = extract_id(user_id)
 
         if uid is None:
             return await interaction.followup.send(
                 view=error_container(
-                    "Format invalide.\n"
+                    "Format **invalide**.\n"
                     "Merci de fournir un **ID Discord** ou une **mention** __valide__."
                 ),
                 ephemeral=True
             )
 
-        # 🌐 Récupération utilisateur
+        # 🌐 Récupération utilisateur.
         try:
             user = await self.bot.fetch_user(uid)
 
         except discord.NotFound:
             return await interaction.followup.send(
-                view=error_container(
-                    "Aucun utilisateur trouvé avec cet ID."
-                ),
+                view=error_container("**Aucun utilisateur** trouvé avec cet __ID__."),
                 ephemeral=True
             )
 
         except discord.HTTPException as e:
             return await interaction.followup.send(
-                view=error_container(
-                    f"Erreur réseau Discord :\n`{e}`"
-                ),
+                view=error_container(f"Erreur **réseau** Discord :\n`{e}`"),
                 ephemeral=True
             )
 
-        # 🧩 Construction view
+        # 🧩 Construction view.
         view = build_user_view(user)
 
-        # 🚀 Envoi
+        # 🚀 Envoi.
         await interaction.followup.send(view=view)
 
 

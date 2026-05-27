@@ -40,16 +40,11 @@ def build_ping_view(latency_ms: int) -> LayoutView:
     """Construction de la view ping."""
 
     emoji, status = get_latency_status(latency_ms)
-
     view = LayoutView(timeout=None)
-
     container = Container()
 
     # Header
-    container.add_item(
-        TextDisplay("# <:notifier:1495444487206604833> Pong !")
-    )
-
+    container.add_item(TextDisplay("# <:notifier:1495444487206604833> Pong !"))
     container.add_item(Separator())
 
     # Informations ping
@@ -65,7 +60,6 @@ def build_ping_view(latency_ms: int) -> LayoutView:
 
     # Footer
     container.add_item(TextDisplay("-# GuideOn Studio"))
-
     view.add_item(container)
 
     return view
@@ -85,27 +79,30 @@ class Ping(commands.Cog):
     @app_commands.command(name="ping", description="🏓 Affiche la latence du bot.")
     async def ping_command(self, interaction: discord.Interaction):
 
-        # 🛡️ Vérification ban utilisateur
+        # 🛡️ Vérification ban utilisateur.
         if not await verifier_ban_utilisateur(interaction):
             return
 
-        # ⚙️ Vérification activation commande
+        # 🕒 Defer.
+        try:
+            await interaction.response.defer(ephemeral=True)
+        except (discord.NotFound, discord.HTTPException):
+            return
+
+        # ⚙️ Vérification maintenance.
         if not await verifier_commande(interaction, "ping_command"):
             return
 
-        # ⏳ Defer
-        await interaction.response.defer(ephemeral=True)
-
-        # 📊 Tracking commande
+        # 📊 Tracking.
         await tracker_commande(interaction, "ping_command")
 
-        # 📡 Calcul latence
+        # 📡 Calcul latence.
         latency_ms = round(self.bot.latency * 1000)
 
-        # 🧩 Construction view
+        # 🧩 Construction view.
         view = build_ping_view(latency_ms)
 
-        # 🚀 Envoi
+        # 🚀 Envoi.
         await interaction.followup.send(view=view, ephemeral=True)
 
     # ============================================================

@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     guild_support_id: int = 1184114738813227059
     guild_anniv_id: int = 1411296579528294402
 
+    report_channel_id: int = 1488233511277297976
+
     # Database
     database_url: str = "postgresql+asyncpg://guideon:guideon@localhost:5432/guideon"
     database_echo: bool = False

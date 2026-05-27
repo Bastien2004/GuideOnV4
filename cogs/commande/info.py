@@ -104,19 +104,25 @@ class Info(commands.Cog):
     @app_commands.command(name="info", description="❔ Découvrir GuideON")
     async def info(self, interaction: Interaction) -> None:
 
-        # 🛡️ Vérification ban utilisateur
+        # 🛡️ Vérification ban utilisateur.
         if not await verifier_ban_utilisateur(interaction):
             return
+        
+        # 🕒 Defer.
+        try:
+            await interaction.response.defer(ephemeral=True)
+        except (discord.NotFound, discord.HTTPException):
+            return
 
-        # ⚙️ Vérification activation commande
+        # ⚙️ Vérification maintenance.
         if not await verifier_commande(interaction, "info"):
             return
 
-        # 📊 Tracking commande
+        # 📊 Tracking.
         await tracker_commande(interaction, "info")
 
-        # 🚀 Envoi
-        await interaction.response.send_message(view=InfoView(self.bot))
+        # 🚀 Envoi.
+        await interaction.followup.send(view=InfoView(self.bot))
 
 
     # ============================================================
@@ -131,12 +137,12 @@ class Info(commands.Cog):
             if channel.permissions_for(guild.me).send_messages:
                 try:
                     await channel.send(view=view)
-                    log.info("Message de présentation envoyé dans #%s (%s)", channel.name, guild.name)
+                    log.info("[Info GuideOn] Message de présentation envoyé dans #%s (%s)", channel.name, guild.name)
                     return
                 except discord.HTTPException as e:
-                    log.warning("Échec envoi présentation dans #%s : %s", channel.name, e)
+                    log.warning("[Info GuideOn] Échec envoi présentation dans #%s : %s", channel.name, e)
 
-        log.warning("Aucun salon disponible pour envoyer la présentation sur %s", guild.name)
+        log.warning("[Info GuideOn] Aucun salon disponible pour envoyer la présentation sur %s", guild.name)
 
 
     # ============================================================
