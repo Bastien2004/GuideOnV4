@@ -1,6 +1,7 @@
 """
 Commande /ping — Affiche la latence du bot.
 """
+from __future__ import annotations
 
 import discord
 
@@ -66,7 +67,7 @@ def build_ping_view(latency_ms: int) -> LayoutView:
 
 
 # ============================================================
-# 🏓 Commande principale
+# 🏓 Commande principale : /ping
 # ============================================================
 
 class Ping(commands.Cog):

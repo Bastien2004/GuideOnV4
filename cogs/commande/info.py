@@ -92,7 +92,7 @@ class InfoView(LayoutView):
 
 
 # ============================================================
-# 🎛 Cog
+# 👤 Commande principale : /info
 # ============================================================
 
 class Info(commands.Cog):

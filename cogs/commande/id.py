@@ -1,6 +1,7 @@
 """
 Commande /id — Affiche les informations de l'utilisateur donné.
 """
+from __future__ import annotations
 
 import re
 import discord
@@ -132,7 +133,7 @@ def build_user_view(user: discord.User) -> LayoutView:
 
 
 # ============================================================
-# 👤 Commande principale
+# 👤 Commande principale : /id
 # ============================================================
 
 class UserID(commands.Cog):
