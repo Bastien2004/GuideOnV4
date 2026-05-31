@@ -1,15 +1,5 @@
 """
 utils/control_admin.py — Gestion du système de maintenance.py des commandes.
-
-🟡 En attente Lewyvernien :
-- verifier_commande() retourne toujours True (= aucune commande désactivée)
-- La logique sera complétée avec la table command_toggles en DB
-
-À FAIRE Lewyvernien (DB) :
-    Implémenter une fonction async qui retourne True/False selon l'état de la commande dans la table `command_toggles`.
-
-Signature attendue côté DB :
-    async def is_command_enabled(guild_id: int | None, command_name: str) -> bool
 """
 from __future__ import annotations
 

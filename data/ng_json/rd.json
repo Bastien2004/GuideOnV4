@@ -1,0 +1,2488 @@
+{
+  "bedrock": {
+
+    "GENERAL": {
+
+      "1": {
+        "condition": [
+            "1500$ en banque"
+        ] ,
+
+        "recompense": [
+            "20 Membres maximum",
+            "5 Relations maximum",
+            "1k de valeur HDV Pays"
+        ]
+      },
+
+
+      "2": {
+        "condition": [
+            "5 Membres de pays",
+            "2 Relations",
+            "15 Claims",
+            "Avoir un MOTD"
+        ] ,
+
+        "recompense": [
+            "30 Membres maximum",
+            "10 Relations maximum",
+            "3 Officiers maximum",
+            "50k de valeur HDV Pays"
+        ]
+      },
+
+
+      "3": {
+        "condition": [
+            "5 Relations",
+            "1 Officier",
+            "10 Membres de pays",
+            "40 Claims"
+        ] ,
+
+        "recompense": [
+            "40 Membres maximum",
+            "15 Relations maximum"
+        ]
+      },
+
+
+      "4": {
+        "condition": [
+            "Donner 5 Onyx",
+            "10 Niveaux de pays",
+            "50.000$ de PIB"
+        ] ,
+
+        "recompense": [
+            "50 Membres maximum",
+            "20 Relations maximum",
+            "100k de valeur HDV Pays"
+        ]
+      },
+
+
+      "5": {
+        "condition": [
+            "20 Niveaux de pays",
+            "Définir un tag de pays",
+            "15 Membres de pays",
+            "Top 150 Notations",
+            "10 Relations"
+        ] ,
+
+        "recompense": [
+            "60 Membres maximum",
+            "18 slots Coffre de pays",
+            "5 Officiers maximum"
+        ]
+      },
+
+
+      "6": {
+        "condition": [
+            "1 Entreprise dans le pays",
+            "Top 100 Notations",
+            "3 Officiers"
+        ] ,
+
+        "recompense": [
+            "80 Membres maximum",
+            "25 Relations maximum",
+            "1 Warp de pays"
+        ]
+      },
+
+
+      "7": {
+        "condition": [
+            "100.000$ de PIB",
+            "30 Niveaux de pays",
+            "25 levels Skills cumulés"
+        ] ,
+
+        "recompense": [
+            "100 Membres maximum",
+            "7 Officiers maximum",
+            "Pouvoir vendre 1 Action de pays",
+            "150k de valeur HDV Pays"
+        ]
+      },
+
+      "8": {
+        "condition": [
+            "Payer 50.000$",
+            "Acheter une Action de pays",
+            "4 Officiers"
+        ] ,
+
+        "recompense": [
+            "150 Membres maximum",
+            "30 Relations maximum",
+            "2 Warp de pays",
+            "Pouvoir renommer les rôles de pays",
+            "Accès au catalog des meubles HDV"
+        ]
+      },
+
+
+      "9": {
+        "condition": [
+            "40 Niveaux de pays",
+            "2 Entreprises dans le pays",
+            "50.000$ de CA entreprise",
+            "Créer 1 Warp de pays",
+            "Avoir renommé un Rôle de pays",
+            "Palier 4 R&D militaire"
+        ] ,
+
+        "recompense": [
+            "27 slots Coffre de pays",
+            "10 Officiers maximum",
+            "Pouvoir vendre 3 Actions de pays"
+        ]
+      },
+
+
+      "10": {
+        "condition": [
+            "50 Niveaux de pays",
+            "40 Membres de pays",
+            "50 levels Skills cumulés",
+            "6 Officiers",
+            "Payer 50.000$"
+        ] ,
+
+        "recompense": [
+            "180 Membres maximum",
+            "35 Relations maximum",
+            "3 Warp de pays",
+            "Pouvoir postuler au programme Unesco",
+            "-10% coût de Réparation de pays",
+            "200k de valeur HDV Pays"
+        ]
+      },
+
+
+      "11": {
+        "condition": [
+            "Possèder une fusée spatiale",
+            "250.000$ en banque",
+            "Acheter 2 actions de pays",
+            "Top 75 notations",
+            "Surface construite x1"
+        ] ,
+
+        "recompense": [
+            "40 Relations maximum",
+            "Passage Empire possible"
+        ]
+      },
+
+
+      "12": {
+        "condition": [
+            "60 Niveaux de pays",
+            "Payer 250.000$",
+            "Top 50 notations",
+            "Créer 2 Warps de pays"
+        ] ,
+
+        "recompense": [
+            "200 Membres maximum",
+            "2 Colonies maximum",
+            "45 Relations maximum",
+            "36 emplacements Coffre de pays",
+            "Pouvoir vendre 5 Actions de pays"
+        ]
+      },
+
+
+      "13": {
+        "condition": [
+            "Possèder un missile Antimatter",
+            "Top 25 notations",
+            "Payer 250.000$",
+            "Palier 10 R&D Industrie"
+        ] ,
+
+        "recompense": [
+            "250 Membres maximum",
+            "3 Colonies maximum",
+            "50 Relations maximum",
+            "45 emplacements Coffre de pays",
+            "Pouvoir vendre 8 Actions de pays",
+            "250k de valeur HDV Pays"
+        ]
+      },
+
+
+      "14": {
+        "condition": [
+            "Acheter 5 Actions de pays",
+            "Possèder un bâtiment Unesco",
+            "500.000$ de CA Entreprise pays",
+            "Surface construite x1.5",
+            "Note de beauté globale > 3"
+        ] ,
+
+        "recompense": [
+            "5 Colonies maximum",
+            "50 Relations maximum",
+            "4 Warps de pays",
+            "Pouvoir postuler au programme Merveille",
+            "-20% coût de Réparation de pays",
+            "Réplique Antimetter"
+        ]
+      },
+
+
+      "15": {
+        "condition": [
+            "Possèder un missile Endbringer",
+            "Tuer 1 Voriack",
+            "Top 1 notations",
+            "5.000.000$ de PIB",
+            "Créer 4 Warps de pays"
+        ] ,
+
+        "recompense": [
+            "Aucune limite de Membre",
+            "8 Colonies maximum",
+            "54 emplacements Coffre de pays",
+            "5 Warps de pays",
+            "+1 Point missile",
+            "500k de valeur HDV Pays"
+        ]
+      }
+
+    },
+
+
+
+
+
+    "MILITAIRE": {
+
+      "1": {
+        "condition": [
+          "Payer 100$"
+        ],
+
+        "recompense": [
+            "Possibilité de déclarer 1 guerre"
+        ]
+      },
+
+
+      "2": {
+        "condition": [
+          "30 Power disponible",
+          "Payer 500$"
+
+        ],
+
+        "recompense": [
+            "Utilisation des armes à feu"
+        ]
+      },
+
+
+      "3": {
+        "condition": [
+          "Récolter 32 TNT",
+          "Allier 1 pays",
+          "Lancer 1 assaut"
+        ],
+
+        "recompense": [
+            "Débloquage craft plateforme de lancement",
+            "Pouvoir déclarer 3 guerres",
+            "Pouvoir lancer des missiles T1"
+        ]
+      },
+
+
+      "4": {
+        "condition": [
+          "Donner 10 boissons espion",
+          "Contester la warzone",
+          "Allier 3 pays",
+          "Crafter 1 plateforme",
+          "Miner 32 obsidiennes"
+        ],
+
+        "recompense": [
+            "Débloquage craft reinforced concrete",
+            "+5% de temps sur les potions"
+        ]
+      },
+
+
+      "5": {
+        "condition": [
+          "Récolter 64 TNT",
+          "Tirer 3 missiles T1",
+          "50 MMR",
+          "Palier 5 R&D Industrie"
+        ],
+
+        "recompense": [
+            "Débloquage craft missile T2",
+            "Pouvoir utiliser la réparation de pays",
+            "Pouvoir lancer les missiles T2",
+            "+1 point missile"
+        ]
+      },
+
+
+      "6": {
+        "condition": [
+          "TOP10 classement wz quotidien",
+          "4000 points wz hebdomadaire",
+          "Effectuer 25 kills",
+          "90 MMR",
+          "100 powerboost wz petrol",
+          "Crafter 30 têtes nucléaires 2"
+        ],
+
+        "recompense": [
+            "Annonce d'entré d'un ennemis sur le territoire"
+        ]
+      },
+
+
+      "7": {
+        "condition": [
+          "Récolter 100 poudres à canon",
+          "Réparer 500 blocs avec la réparation de pays",
+          "Tirer 3 missiles T2",
+          "Gagner 15 assauts",
+          "TOP10 classement wz hebdomadaire",
+          "110 MMR"
+        ],
+
+        "recompense": [
+            "-10% coût de réparation de pays",
+            "Pouvoir déclarer 5 guerres"
+        ]
+      },
+
+
+      "8": {
+        "condition": [
+          "Récolter 264 TNT",
+          "35 kills",
+          "TOP5 classement wz quotidien",
+          "10.000 points wz hebdomadaire",
+          "Gagner 1 guerre",
+          "Tirer 5 EMP",
+          "Tirer 3 missiles Fragmentation"
+        ],
+
+        "recompense": [
+            "Pouvoir utiliser le rocket launcher",
+            "Augmentation rayon de l'EMP de 20 blocs",
+            "-5% sur les effets de potions négatifs"
+        ]
+      },
+
+
+      "9": {
+        "condition": [
+          "Récolter 400 poudres à canon",
+          "3 guerres actives",
+          "5000 blocs détruit par missile",
+          "TOP5 classement wz hebdomadaire",
+          "Gagner 25 assauts",
+          "Gagner 2 guerres"
+        ],
+
+        "recompense": [
+            "Débloquage craft tourelle anti-missile",
+            "Pouvoir lancer des missiles T3",
+            "+15% de temps sur les potions",
+            "Débloquage craft rocket launcher",
+            "Réparation de pays jusqu'à 50%"
+        ]
+      },
+
+
+      "10": {
+        "condition": [
+          "Donner 10 boissons énergisantes",
+          "Détruire 1 missile",
+          "20.000 blocs détruit par missile",
+          "150 MMR",
+          "Gagner 3 guerres",
+          "7000 points wz hebdomadaire",
+          "Crafter 1 rocket launcher"
+        ],
+
+        "recompense": [
+            "Débloquage craft Endothermique",
+            "+30% de temps sur les potions",
+            "+20% portée de la tourelle",
+            "Pouvoir déclarer 7 guerres"
+        ]
+      },
+
+
+      "11": {
+        "condition": [
+          "Récolter 900 poudres à canon",
+          "5 guerres actives",
+          "100.000 blocs détruit par missile",
+          "Possèder 5 T3 dans le f chest",
+          "Réparer 3 fois le pays",
+          "200 power disponible",
+          "Tirer 5 missiles Endothermique",
+          "Crafter 30 têtes nucléaires 3"
+        ],
+
+        "recompense": [
+            "Débloquage craft missile Drill",
+            "Débloquage craft Electromagnétique",
+            "-10% sur les effets de potions négatifs"
+        ]
+      },
+
+
+      "12": {
+        "condition": [
+          "Récolter 764 TNT",
+          "Gagner 35 assauts",
+          "Détruire 3 missiles",
+          "4 points en notation militaire",
+          "Tirer 10 missiles T3",
+          "TOP1 classement wz quotidien",
+          "Crafter 1 missile endothermique",
+          "Faire 5 kill au thermobaric", 
+          "Tirer 3 missiles Drill"
+        ],
+
+        "recompense": [
+           "Débloquage craft missile nucléaire",
+           "-15% sur les effets de potions négatifs",
+           "Réplique Antimatter"
+        ]
+      },
+
+
+      "13": {
+        "condition": [
+          "Possèder 8 T3 dans le f chest",
+          "Effectuer 100 kills",
+          "5 points en notation militaire",
+          "Payer 50.000$",
+          "TOP1 classement wz hebdomadaire",
+          "Tirer 14 missile T3",
+          "Tirer au total 50 missiles",
+          "Palier 8 R&D Industrie",
+          "Tirer 2 missiles Nucléaire Cluster",
+          "Tirer 3 missiles Nucléaire"
+        ],
+
+        "recompense": [
+            "Débloquage craft Nuclear Cluster",
+            "Débloquage craft EarthQuake",
+            "+1 point missile",
+            "Pouvoir tirer un missile Antimatter"
+        ]
+      },
+
+
+      "14": {
+        "condition": [
+          "Récolter 1900 poudres à canon",
+          "400 MMR",
+          "600.000 blocs détruit par missile",
+          "Détruire 4 missiles",
+          "6 guerres actives",
+          "Gagner 10 guerres",
+          "Tirer 5 missiles sur la Lune",
+          "Gagner 75 assauts",
+          "Crafter 1 missile EarthQuake",
+          "Payer 350.000$"
+        ],
+
+        "recompense": [
+            "+45% de temps sur les potions",
+            "Débloquage craft Antimatter",
+            "+1 point missile",
+            "Pouvoir tirer un Redmatter",
+            "-20% coût de réparation de pays",
+            "Réparation de pays jusqu'à 80%"
+        ]
+      },
+
+
+      "15": {
+        "condition": [
+          "Tirer 2 missiles EarthQuake",
+          "Tirer 1 missile Antimatter",
+          "Crafter 1 missile Antimatter",
+          "600 MMR",
+          "Effectuer 100 kills",
+          "Gagner 100 assauts",
+          "Détruire 5 missiles",
+          "7 guerres actives",
+          "3 de beauté générale"
+        ],
+
+        "recompense": [
+            "Débloquage craft Redmatter",
+            "Réparation de pays jusqu'à 100%"
+        ]
+      },
+
+
+      "16": {
+        "condition": [
+          "Possèder 2 Redmatter",
+          "Possèder 2 Antimatter",
+          "Crafter 1 missile Redmatter",
+          "Crafter 3 rocket launcher",
+          "800 MMR",
+          "Tirer 100 missiles T3",
+          "Gagner 30 guerres",
+          "Gagner 150 assauts",
+          "6 points en notation militaire"
+        ],
+
+        "recompense": [
+            "Débloquage craft EndBringer",
+            "Pouvoir tirer un EndBringer",
+            "-20% sur les effets de potions négatifs",
+            "+1 point missile"
+        ]
+      }
+    },
+
+    
+
+
+
+    "RESSOURCE": {
+
+      "1": {
+        "condition": [
+          "Voter 1 fois"
+        ],
+
+        "recompense": [
+            "1k de valeur à l'HDV"
+        ]
+      },
+
+
+      "2": {
+        "condition": [
+          "Miner 500 blocs en /mine",
+          "Payer 500$",
+          "Voter 2 fois"
+        ],
+
+        "recompense": [
+            "Débloquage outils en onyx",
+            "Debloquage End et Nether",
+            "30k de valeur à l'HDV"
+        ]
+      },
+
+
+      "3": {
+        "condition": [
+          "Donner 16 Enders Perles",
+          "Donner 32 Diamants",
+          "5.000$ en banque",
+          "Tuer 15 zombies"
+        ],
+
+        "recompense": [
+            "Debloquage craft alambic"
+        ]
+      },
+
+
+      "4": {
+        "condition": [
+          "Donner 100 obsidiennes",
+          "Donner 500 bûches de chêne",
+          "Donner 64 lingots d'Or",
+          "Miner 5 ashstone",
+          "Avoir une note architecturale",
+          "10.000$ en banque"
+        ],
+
+        "recompense": [
+            "Débloquage entreprise de construction",
+            "Débloquage entreprise d'ingénieur",
+            "Débloquage craft table d'enchantement",
+            "60k de valeur à l'HDV"
+        ]
+      },
+
+
+      "5": {
+        "condition": [
+          "Donner 100 graines de citrouille",
+          "Donner 100 blés",
+          "Donner 100 pommes de terre",
+          "Donner 100 carrotes",
+          "Donner 100 graines de pastèque",
+          "Donner 100 lingots de Copper",
+          "Payer 5.000$"
+        ],
+
+        "recompense": [
+            "Débloquage action de pays",
+            "+10% XP skills"
+        ]
+      },
+
+
+      "6": {
+        "condition": [
+          "Donner 200 lingots de Copper",
+          "Donner 100 pommes rouges",
+          "Donner 1.000 cacaos",
+          "Obtenir 15 minutes ATM",
+          "Dépenser 500$ dans le catalog HDV",
+          "Crafter 250 reinforced concrete ",
+          "Payer 10.000$"
+        ],
+
+        "recompense": [
+            "+2% de loot fibre de bois milénaire"
+        ]
+      },
+
+
+      "7": {
+        "condition": [
+          "Donner 3000 Lapis Lazuli",
+          "Donner 5000 buches de chêne",
+          "Donner 3000 pains",
+          "Miner 30 minerais obscurs",
+          "20.000$ en banque",
+          "Récolter 5 fibres de bois milénaires",
+          "Détruire 35 météorites"
+        ],
+
+        "recompense": [
+            "+2% de loot minerais obscurs",
+            "Débloquage entreprise pétrolière",
+            "Débloquage entreprise électrique",
+            "80k de valeur à l'HDV"
+        ]
+      },
+
+
+      "8": {
+        "condition": [
+          "Donner 2.000 Redstone",
+          "Donner 1.000 silex",
+          "50 lvls skills cumulés",
+          "50.000$ de CA entreprise du pays",
+          "Payer 50.000$",
+          "Voter 50 fois"
+        ],
+
+        "recompense": [
+            "+20% XP skills",
+            "Débloquage pub hdv",
+            "Débloquage entreprise de réparation"
+        ]
+      },
+
+
+      "9": {
+        "condition": [
+          "70.000 en banque de pays",
+          "Miner 400 minerais obscurs",
+          "Récolter 200 fibres de bois milénaires",
+          "Payer 50.000$"
+        ],
+
+        "recompense": [
+            "100k de valeur à l'HDV"
+        ]
+      },
+
+
+      "10": {
+        "condition": [
+          "Donner 2.800 Redstone",
+          "Donner 1.000 verrue du nether",
+          "Donner 1.000 graines de blé",
+          "Récolter 50 Tiber",
+          "Aller sur la Lune"
+        ],
+
+        "recompense": [
+            "Débloquage entreprise de Casino",
+            "+10% chance de loot Tiber",
+            "Débloquage craft outils électriques"
+        ]
+      },
+
+
+      "11": {
+        "condition": [
+          "Récolter 1.000 cannes à sucre",
+          "Récolter 1.000 Brick",
+          "Acheter 2.000L de Fuel",
+          "Vendre 2.000L de Fuel",
+          "Payer 100.000$"
+        ],
+
+        "recompense": [
+            "+30% XP skills"
+        ]
+      },
+
+
+      "12": {
+        "condition": [
+          "Donner 1000 cuir",
+          "Donner 1.000 citrouilles",
+          "200.000$ en banque de pays",
+          "Payer 150.000$",
+          "Voter 100 fois",
+          "Palier 7 R&D General"
+        ],
+
+        "recompense": [
+            "Débloquage entreprise de Trading",
+            "+3% de chance de loot fibre de bois milénaire"
+        ]
+      },
+
+
+      "13": {
+        "condition": [
+          "Donner 1.000 ficelles",
+          "Donner 8.000 chairs putréfiées",
+          "TOP10 notations",
+          "Avoir un joueur lvl 5 d'un métier",
+          "Miner 500 minerais de Desh",
+          "Dépenser 350.000$ dans le catalog HDV",
+          "Récolter 200 Tiber"
+        ],
+
+        "recompense": [
+            "150k de valeur à l'HDV",
+            "Débloquage outils en Zirconium"
+        ]
+      },
+
+
+      "14": {
+        "condition": [
+          "Donner 1.000 block de pastèque",
+          "Donner 32 lingot de Volcanite",
+          "Payer 250.000$",
+          "Miner 800 minerais obscurs",
+          "2.500.000$ de PIB"
+        ],
+
+        "recompense": [
+            "+5% de bonus trading"
+        ]
+      },
+
+
+      "15": {
+        "condition": [
+          "Donner 500 lingots de Desh",
+          "Donner 50 Tiber",
+          "Donner 10 Zirconium",
+          "Donner un Crystal d'Astéroïde",
+          "Récolter 500 fibres de bois milénaires",
+          "Avoir 5 joueurs lvl 5 d'un métier",
+          "Possèder 5 entreprises avec 1M de CA",
+          "Crafter 1 fusée spatiale",
+          "Tuer un Voriak"
+        ],
+
+        "recompense": [
+            "Débloquage craft outils électriques améliorés",
+            "200k de valeur à l'HDV"
+        ]
+      }
+    },
+
+
+    "INDUSTRIE": {
+
+      "1": {
+        "condition": [
+          "Donner 30 lingots de Fer",
+          "Donner 64 Charbons"
+        ],
+
+        "recompense": [
+            "Débloquage craft Compresseur électrique",
+            "Debloquage craft Générateur à charbon"
+        ]
+      },
+
+
+      "2": {
+        "condition": [
+          "Donner 50 répéteur de Redstone",
+          "Payer 500$",
+          "Crafter 1 Générateur à charbon",
+          "Crafter 200 poudres de Steel"
+        ],
+
+        "recompense": [
+            "Débloquage craft Panneau solaire",
+            "Débloquage craft du Moteur"
+        ]
+      },
+
+
+      "3": {
+        "condition": [
+          "Donner 100 lingots d'Aluminium",
+          "Crafter 10 Panneaux solaires",
+          "Crafter 40 Bronze brut",
+          "Faire 10 Steel compréssés"
+        ],
+
+        "recompense": [
+            "Débloquage craft Machine à potion"
+        ]
+      },
+
+
+      "4": {
+        "condition": [
+          "Donner 10 circuits élites",
+          "Payer 5.000$",
+          "Fabriquer 100 potions avec la machine à potion",
+          "Palier 4 R&D Ressource",
+          "10.000$ en banque de pays"
+        ],
+
+        "recompense": [
+            "Débloquage craft Ecotron",
+            "Débloquage craft Batterie"
+        ]
+      },
+
+
+      "5": {
+        "condition": [
+          "Donner 300 lingots d'Aluminium",
+          "Donner 30 lingots d'Or",
+          "Avoir un lvl 1 ingénieur"
+        ],
+
+        "recompense": [
+            "Débloquage craft Imprimante",
+            "Débloquage craft Concasseur"
+        ]
+      },
+
+
+      "6": {
+        "condition": [
+          "Donner 300 lingots d'Etain",
+          "Récolter 1 Météore",
+          "Payer 10.000$"
+        ],
+
+        "recompense": [
+            "Débloquage craft Compresseur d'oxygène",
+            "Débloquage craft Collecteur d'oxygène",
+            "Débloquage craft Panneau solaire amélioré"
+        ]
+      },
+
+
+      "7": {
+        "condition": [
+          "Palier 6 R&D General",
+          "Crafter 10 Panneaux solaires améliorés",
+          "Payer 50.000$"
+        ],
+
+        "recompense": [
+            "Débloquage craft Bio générateur",
+            "Débloquage craft Chargeur de Fuel",
+            "Débloquage craft Chargeur électrique"
+        ]
+      },
+
+
+      "8": {
+        "condition": [
+          "Donner 160 circuits élites",
+          "Donner 1.000 lingots de Fer",
+          "Avoir un lvl 2 ingénieur"
+        ],
+
+        "recompense": [
+            "Débloquage craft Raffinerie",
+            "Débloquage craft Machine de réparation",
+            "Débloquage craft Citerne",
+            "Débloquage craft Fusée"
+        ]
+      },
+
+
+      "9": {
+        "condition": [
+          "Donner 3 Kevlars",
+          "Crafter 1 Citerne",
+          "Acheter 10.000L de Fuel",
+          "Avoir 5 lvls d'ingénieur cumulés",
+          "Récolter 1 Propulseur de missile"
+        ],
+
+        "recompense": [
+            "Débloquage craft Batterie améliorée",
+            "Débloquage craft Machine à casino"
+        ]
+      },
+
+
+      "10": {
+        "condition": [
+          "Donner 3 niobium",
+          "Donner 41 Kevlars",
+          "Crafter 50 Panneaux solaires amélioré",
+          "Crafter 10 Batteries améliorées",
+          "Avoir 10 lvls d'ingénieur cumulés",
+          "Imprimer 1 livre"
+        ],
+
+        "recompense": [
+            "Débloquage craft Pétrolier",
+            "Débloquage craft Réparateur industriel",
+            "Débloquage craft Armure de Gaz"
+        ]
+      },
+
+
+      "11": {
+        "condition": [
+          "Donner 810 circuits élites",
+          "Donner 5 Guidages de missile",
+          "Crafter 1 fusée spatiale",
+          "Crafter 3 pétroliers",
+          "Payer 150.000$",
+          "TOP75 notations",
+          "Palier 10 R&D Ressource"
+        ],
+
+        "recompense": [
+            "Débloquage craft Serveur",
+            "Débloquage craft Extracteur de Gaz",
+            "Débloquage craft Compresseur de Gaz",
+            "Débloquage craft Réservoir de Gaz"
+        ]
+      },
+
+
+      "12": {
+        "condition": [
+          "Donner 2.000 Caoutchouc",
+          "Donner 3 Propulseurs de missile",
+          "Donner 64 Eco compréssés",
+          "Avoir 15 lvls d'ingénieur cumulés"
+        ],
+
+        "recompense": [
+            "Débloquage craft Amélioration Fusée spatiale",
+            "Débloquage d'Edora"
+        ]
+      }
+    },
+
+
+
+    "TECHNOLOGIE": {
+
+      "1": {
+        "condition": [
+          "Donner 20 Frozens Stone n°3",
+          "Donner 1 lingot de Plomb",
+          "Aller sur Edora",
+          "Miner 60 Fronzens Stone n°1"
+        ],
+
+        "recompense": [
+            "Débloquage craft Chaudière",
+            "Débloquage craft Extracteur d'Uranium",
+            "Débloquage utilisation du lanceur Mark 1"
+        ]
+      },
+
+
+      "2": {
+        "condition": [
+          "Donner 2 Uranium brut",
+          "Donner 350 Souffres",
+          "Payer 80.000$",
+          "Crafter 1 Extracteur de Gaz"
+        ],
+
+        "recompense": [
+            "Débloquage craft Raffinerie d'Uranium",
+            "-30% de consommation de Gaz"
+        ]
+      },
+
+
+      "3": {
+        "condition": [
+          "Donner 5 poudres d'Uranium 235",
+          "Donner 32 fruit violet d'Edora",
+          "Miner 20 minerais d'Uranium",
+          "Miner 5 minerais de Cryolite",
+          "Crafter 1 Citerne à Gaz"
+        ],
+
+        "recompense": [
+            "Débloquage craft Générateur d'Azote",
+            "Débloquage craft Chambre Nucléaire",
+            "Débloquage craft Centrifugeuse",
+            "Débloquage craft Collecteur de Gaz"
+        ]
+      },
+
+
+      "4": {
+        "condition": [
+          "Faire 150 Plombs compressés",
+          "Faire 50 Cryolites comprésées",
+          "Faire 100 Steels compressés",
+          "Faire 500 Fers compressés"
+        ],
+
+        "recompense": [
+            "Débloquage craft Synthétiseur de Tritium",
+            "Débloquage craft Combinaison de protection Nucléaire",
+            "Débloquage craft Collecteur de déchet Radioactif",
+            "Débloquage craft Accumulateur de Plasma",
+            "Débloquage craft Structure de Plasma",
+            "Débloquage utilisation du lanceur Mark 2"
+        ]
+      },
+
+
+      "5": {
+        "condition": [
+          "Donner 100 Cryolites compressées",
+          "Palier 10 R&D General",
+          "Miner 1.000 minerais d'Uranium",
+          "Faire 1.000 Plombs compréssés"
+        ],
+
+        "recompense": [
+            "Débloquage craft Compacteur d'Uranium",
+            "Débloquage craft Turbine",
+            "Débloquage craft Bouilloire à Gaz",
+            "Débloquage craft Réacteur Nucléaire",
+            "Débloquage craft Coeur du Réacteur",
+            "Débloquage craft Structure nucléaire",
+            "Débloquage craft lanceur Mark 1",
+            "Débloquage craft Cheminée de Réacteur"
+        ]
+      },
+
+
+      "6": {
+        "condition": [
+          "Donner 21 Uranium Rode 235",
+          "Crafter un Réacteur Nucléaire",
+          "Crafter 5 lanceur Mark 1",
+          "Tuer 200 Reapers",
+          "Crafter 1 hâche électrique",
+          "Miner 2.500 minerais de Plomb",
+          "Crafter 1 accumulateur de Plasma",
+          "Crafter 30 alliages de confinement"
+        ],
+
+        "recompense": [
+            "Débloquage craft Résonance Plasma",
+            "Débloquage craft lanceur Mark 2"
+        ]
+      },
+
+
+      "7": {
+        "condition": [
+          "Payer 300.000$",
+          "Palier 14 R&D General",
+          "Palier 14 R&D Ressource",
+          "2.000.000$ en banque de pays",
+          "Miner 1000 minerais d'Uranium",
+          "Tuer 1 Voriak"
+        ],
+
+        "recompense": [
+            "Débloquage craft Générateur Solaire",
+            "Débloquage craft lanceur Mark 3",
+            "Débloquage craft Forge Nucléaire",
+            "Débloquage craft Chargeur Nucléaire"
+        ]
+      }
+    }
+},
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  "java": {
+
+
+
+    "GENERAL": {
+
+
+
+      "1": {
+        "condition": [
+            "3 joueurs dans le pays",
+            "Personaliser le drapeau de pays",
+            "Définir une description de pays",
+            "3 claims",
+            "1500$ en banque"
+        ],
+
+
+        "recompense": [
+            "20 membres maximum",
+            "5 relations maximum",
+            "10 parcelles"
+        ],
+
+
+        "temps_recherche": [
+          "5 minutes"
+        ] 
+      },
+
+
+
+      "2": {
+        "condition": [
+            "5 joueurs dans le pays",
+            "15 claims",
+            "Définir un MOTD"
+        ],
+
+
+        "recompense": [
+            "30 membres maximum",
+            "10 relations maximum",
+            "3 officiers maximum"
+        ],
+
+
+        "temps_recherche": [
+          "15 minutes"
+        ] 
+      },
+
+
+
+      "3": {
+        "condition": [
+            "10 joueurs dans le pays",
+            "40 claims",
+            "1 Officier"
+        ],
+
+
+        "recompense": [
+            "40 membres maximum",
+            "15 relations maximum",
+            "50 parcelles",
+            "5 panneaux solaires/chunk",
+            "Accès coffre de pays"
+        ],
+
+
+        "temps_recherche": [
+          "45 minutes"
+        ] 
+      },
+
+
+
+      "4": {
+        "condition": [
+            "Payer 10.000$",
+            "10 niveaux de pays",
+            "50.000$ de PIB",
+            "Déposer 5 onyx"
+        ],
+
+
+        "recompense": [
+            "50 membres maximum",
+            "20 relations maximum",
+            "1 image galerie",
+            "Pouvoir vendre 1 action de pays"
+        ],
+
+
+        "temps_recherche": [
+          "2 heures"
+        ] 
+      },
+
+
+
+      "5": {
+        "condition": [
+            "20 niveaux de pays",
+            "15 joueurs dans le pays",
+            "Définir des tags de pays",
+            "Top 150 notations"
+        ],
+
+
+        "recompense": [
+            "60 membres maximum",
+            "3 images galerie",
+            "18 slots coffre de pays",
+            "5 officiers maximum",
+            "Rejoindre une alliance"
+        ],
+
+
+        "temps_recherche": [
+          "4 heure"
+        ] 
+      },
+      
+
+
+      "6": {
+        "condition": [
+            "1 entreprise dans le pays",
+            "Top 100 notations",
+            "3 Officiers",
+            "Participer aux notations"
+        ],
+
+
+        "recompense": [
+            "80 membres maximum",
+            "25 relations maximum",
+            "100 parcelles",
+            "4 images galerie",
+            "1 warp de pays"
+        ],
+
+
+        "temps_recherche": [
+          "12 heures"
+        ] 
+      },
+
+
+
+      "7": {
+        "condition": [
+            "Payer 25.000$",
+            "30 niveaux de pays",
+            "100.000$ de PIB",
+            "25 level skill cumulé"
+        ],
+
+
+        "recompense": [
+            "100 membres maximum",
+            "Lien Discord pays",
+            "6 images galerie",
+            "7 Officiers maximum"
+        ],
+
+
+        "temps_recherche": [
+          "1 jour"
+        ] 
+      },
+
+
+
+      "8": {
+        "condition": [
+            "Payer 50.000$",
+            "Associer un Discord de pays",
+            "4 Officiers"
+        ],
+
+
+        "recompens": [
+            "150 membres maximum",
+            "2 warp de pays",
+            "30 relations maximum",
+            "Pouvoir renommer les rôles de pays",
+            "Accès au catalog 'Meubles'"
+        ],
+
+
+        "temps_recherche": [
+          "1 jour"
+        ] 
+      },
+
+
+
+      "9": {
+        "condition": [
+            "40 niveaux de pays",
+            "2 entreprises dans le pays",
+            "50.000$ de CA entreprise",
+            "Créer 1 warp de pays",
+            "Avoir renommé un rôle de pays",
+            "Palier 4 R&D militaire"
+        ],
+
+
+        "recompense": [
+            "27 slots coffre pays",
+            "8 images galerie",
+            "150 parcelles",
+            "10 Officiers maximum",
+            "10 panneaux solaires/chunk",
+            "Pouvoir vendre 3 actions de pays" 
+        ],
+
+
+        "temps_recherche": [
+          "1 jour"
+        ] 
+      },
+
+
+
+      "10": {
+        "condition": [
+            "50 niveaux de pays",
+            "50 level skill cumulé",
+            "6 Officiers",
+            "Payer 50.000$",
+            "Surface construite x1"
+        ],
+
+
+        "recompense": [
+            "180 membres maximum",
+            "3 warp de pays",
+            "Pouvoir postuler au programme Unesco",
+            "-10% coût de Réparation de pays",
+            "Création d'alliance"  
+        ],
+
+
+        "temps_recherche": [
+          "2 jours"
+        ] 
+      },
+
+
+
+      "11": {
+        "condition": [
+            "Possèder une fusée spatiale",
+            "60 Niveaux de pays",
+            "250.000$ en banque",
+            "Acheter 2 actions de pays",
+            "Top 75 notations",
+            "100.000 minutes de jeu (ATM)",
+            "Note de beauté globale > 1"
+        ],
+
+
+        "recompense": [
+            "40 relations maximum",
+            "250 parcelles",
+            "Passage Empire possible",
+            "15 panneaux solaires/chunk",
+            "Personnalisation banière de pays"
+        ],
+
+
+        "temps_recherche": [
+          "2 jours"
+        ] 
+      },
+
+
+
+      "12": {
+        "condition": [
+            "65 Niveaux de pays",
+            "Payer 150.000$",
+            "Top 50 notations",
+            "Créer 2 Warps de pays",
+            "Note globale de 40 aux notations",
+            "Note architecturale > 25"
+        ],
+
+
+        "recompense": [
+            "200 membres maximum",
+            "45 relations maximum",
+            "10 images galerie",
+            "36 slots coffre pays",
+            "Pouvoir vendre 5 Actions de pays"
+        ],
+
+
+        "temps_recherche": [
+          "3 jours"
+        ] 
+      },
+
+
+
+      "13": {
+        "condition": [
+            "Tirer 1 missile Antimatter",
+            "Top 25 notations",
+            "Payer 250.000$",
+            "Palier 10 R&D Industrie",
+            "80 joueurs dans le pays"
+        ],
+
+
+        "recompense": [
+            "250 membres maximum",
+            "45 slots coffre pays",
+            "20 panneaux solaires/chunk",
+            "400 parcelles",
+            "Pouvoir vendre 8 Actions de pays"
+        ],
+
+
+        "temps_recherche": [
+          "3 jours"
+        ] 
+      },
+
+
+
+      "14": {
+        "condition": [
+            "Acheter 5 Actions de pays",
+            "Possèder 1 Unesco",
+            "500.000$ de CA entreprise du pays",
+            "Surface construite x2",
+            "3 de beauté générale",
+            "Note architecturale > 35"
+        ],
+
+
+        "recompense": [
+            "50 relations maximum",
+            "600 parcelles",
+            "4 Warps de pays",
+            "25 panneaux solaires/chunk",
+            "-10% coût de Réparation de pays",
+            "Réplique Antimatter"
+        ],
+
+
+        "temps_recherche": [
+          "4 jours"
+        ] 
+      },
+
+
+      "15": {
+        "condition": [
+            "Possèder un missile Endbringer",
+            "Créer 4 Warps de pays",
+            "10.000.000$ de PIB",
+            "Note globale de 30 aux notations",
+            "Tuer un EnderDragons",
+            "Tuer un Voriak",
+            "Tuer un Mégalodon",
+            "Top 1 notations"
+        ],
+
+
+        "recompense": [
+            "Membres infinis",
+            "900 parcelles",
+            "5 Warps de pays",
+            "+1 Point missile",
+            "54 slots coffre pays"
+        ],
+
+
+        "temps_recherche": [
+          "5 jours"
+        ] 
+      }
+
+    },
+
+
+    "MILITAIRE": {
+
+
+      "1": {
+        "condition": [
+          "Payer 1.000$"
+        ],
+
+
+        "recompense": [
+            "Déclarer 1 guerre"
+        ],
+
+
+        "temps_recherche": [
+          "10 minutes"
+        ] 
+      },
+
+
+      "2": {
+        "condition": [
+          "Possèder +30 Powers",
+          "1 Téléportation en Warzone"
+        ],
+
+
+        "recompense": [
+          "Utiliser les armes à feu"
+        ],
+
+
+        "temps_recherche": [
+          "30 minutes"
+        ] 
+      },
+
+
+      "3": {
+        "condition": [
+          "Déposer 30 TNT",
+          "Payer 5.000$"
+        ],
+
+
+        "recompense": [
+          "Déclarer 3 guerres",
+          "Débloquage craft plateforme T1"  
+        ],
+
+
+        "temps_recherche": [
+
+        ] 
+      },
+
+
+      "4": {
+        "condition": [
+
+        ],
+
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ] 
+      },
+
+
+      "5": {
+        "condition": [
+
+        ],
+
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ] 
+      },
+
+
+      "6": {
+        "condition": [
+
+        ],
+
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ] 
+      },
+
+
+      "7": {
+        "condition": [
+
+        ],
+
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ] 
+      },
+
+
+      "8": {
+        "condition": [
+
+        ],
+
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ] 
+      },
+
+
+      "9": {
+        "condition": [
+
+        ],
+
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ] 
+      },
+
+
+      "10": {
+        "condition": [
+
+        ],
+
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ] 
+      },
+
+
+      "11": {
+        "condition": [
+
+        ],
+
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ] 
+      },
+
+
+      "12": {
+        "condition": [
+
+        ],
+
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ] 
+      },
+
+
+      "13": {
+        "condition": [
+
+        ],
+
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ] 
+      },
+
+
+      "14": {
+        "condition": [
+
+        ],
+
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ] 
+      },
+
+
+      "15": {
+        "condition": [
+
+        ],
+
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ] 
+      },
+
+
+      "16": {
+        "condition": [
+
+        ],
+
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ] 
+      }
+
+    },
+
+
+
+
+
+    "RESSOURCE": {
+
+      "1": {
+        "condition": [
+
+        ],
+
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "2": {
+        "condition": [
+
+        ],
+
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "3": {
+        "condition": [
+
+        ],
+
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "4": {
+        "condition": [
+
+        ],
+
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "5": {
+        "condition": [
+
+        ],
+
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "6": {
+        "condition": [
+
+        ],
+
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "7": {
+        "condition": [
+
+        ],
+
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "8": {
+        "condition": [
+
+        ],
+
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "9": {
+        "condition": [
+
+        ],
+
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "10": {
+        "condition": [
+
+        ],
+
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "11": {
+        "condition": [
+
+        ],
+
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "12": {
+        "condition": [
+
+        ],
+
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "13": {
+        "condition": [
+
+        ],
+
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "14": {
+        "condition": [
+
+        ],
+
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "15": {
+        "condition": [
+
+        ],
+
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      }
+      
+    },
+
+
+
+    "INDUSTRIE": {
+
+      "1": {
+        "condition": [
+
+        ],
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "2": {
+        "condition": [
+
+        ],
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "3": {
+        "condition": [
+
+        ],
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "4": {
+        "condition": [
+
+        ],
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "5": {
+        "condition": [
+
+        ],
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "6": {
+        "condition": [
+
+        ],
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "7": {
+        "condition": [
+
+        ],
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "8": {
+        "condition": [
+
+        ],
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "9": {
+        "condition": [
+
+        ],
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "10": {
+        "condition": [
+
+        ],
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "11": {
+        "condition": [
+
+        ],
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "12": {
+        "condition": [
+
+        ],
+
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      }
+
+    },
+
+
+
+
+    "TECHNOLOGIE": {
+
+      "1": {
+        "condition": [
+
+        ],
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "2": {
+        "condition": [
+
+        ],
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "3": {
+        "condition": [
+
+        ],
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "4": {
+        "condition": [
+
+        ],
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "5": {
+        "condition": [
+
+        ],
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "6": {
+        "condition": [
+
+        ],
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      },
+
+
+      "7": {
+        "condition": [
+
+        ],
+
+        "recompense": [
+            
+        ],
+
+
+        "temps_recherche": [
+
+        ]
+      }
+
+    }
+    
+
+  }
+
+  
+}
