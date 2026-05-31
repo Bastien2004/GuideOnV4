@@ -200,7 +200,7 @@ class GuideONBot(commands.Bot):
         # 🎁 ── BIRTHDAY ──
         groupBIRTHDAY = groupeBIRTHDAY()
         for cmd in [birthday_config, birthday_next, birthday_list, birthday_add]:
-            self._groupBIRTHDAY.add_command(cmd)
+            groupBIRTHDAY.add_command(cmd)
 
 
         # 💻 ── DEV ──
