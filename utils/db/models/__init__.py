@@ -10,6 +10,7 @@ from utils.db.models.reaction_role import ReactionRoleCouple, ReactionRoleMessag
 from utils.db.models.bug_report import BugReport
 from utils.db.models.invite import InviteConfig, InviteLink, InviteStat
 from utils.db.models.birthday import BirthdayConfig, BirthdayUser
+from utils.db.models.giveaway import Giveaway, GiveawayBlacklist, GiveawayParticipant
 
 __all__ = [
     "Base",
@@ -26,4 +27,7 @@ __all__ = [
     "InviteStat",
     "BirthdayConfig",
     "BirthdayUser",
+    "Giveaway",
+    "GiveawayBlacklist",
+    "GiveawayParticipant",
 ]
