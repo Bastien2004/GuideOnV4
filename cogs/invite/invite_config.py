@@ -1,13 +1,5 @@
 """
 cogs/invite/invite_config.py — Commande /invite config.
-
-Ouvre le panneau de configuration du système d'invite tracking. Pattern
-identique à cogs/config/bienvenue.py : fonction libre décorée (PAS un Cog)
-attachée au groupe groupeINV() dans bot.py via _register_command_groups.
-
-Pipeline canonique :
-    verifier_ban_utilisateur → check_admin → defer → verifier_commande
-    → tracker_commande → InviteConfigView.create
 """
 from __future__ import annotations
 
@@ -17,11 +9,12 @@ import discord
 from discord import app_commands
 
 from utils.botbancmd import verifier_ban_utilisateur
-from utils.container_universel import error_container
+from utils.track_commande import tracker_commande
 from utils.control_admin import verifier_commande
+
 from utils.error_handler import handle_app_command_error
 from utils.perm_admin import check_admin
-from utils.track_commande import tracker_commande
+from utils.container_universel import error_container
 
 from views.invite.config_view import InviteConfigView
 
@@ -33,11 +26,8 @@ log = logging.getLogger(__name__)
 # ============================================================
 
 @app_commands.guild_only()
-@app_commands.checks.cooldown(1, 10)
-@app_commands.command(
-    name="config",
-    description="📨 Configure le système d'invitations",
-)
+@app_commands.checks.cooldown(1, 15)
+@app_commands.command(name="config", description="📨 Configure le système d'invitations")
 async def invite_config(interaction: discord.Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.
@@ -69,8 +59,9 @@ async def invite_config(interaction: discord.Interaction) -> None:
             bot=interaction.client,
         )
         await interaction.followup.send(view=view, ephemeral=True)
+
     except Exception:
-        log.exception("Ouverture /invite config échouée (guild=%s)", interaction.guild.id)
+        log.exception("[INVITE] Ouverture /invite config échouée (guild=%s)", interaction.guild.id)
         await interaction.followup.send(
             view=error_container("Impossible d'ouvrir la **configuration**."),
             ephemeral=True,
@@ -82,7 +73,5 @@ async def invite_config(interaction: discord.Interaction) -> None:
 # ============================================================
 
 @invite_config.error
-async def invite_config_error(
-    interaction: discord.Interaction, error: app_commands.AppCommandError
-) -> None:
+async def invite_config_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
     await handle_app_command_error(interaction, error)

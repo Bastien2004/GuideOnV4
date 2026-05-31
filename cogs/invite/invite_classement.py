@@ -1,13 +1,5 @@
 """
 cogs/invite/invite_classement.py — Commande /invite classement.
-
-Affiche le classement paginé des invitations du serveur. Commande publique
-(pas d'admin requis). Les flèches de pagination sont réservées à l'auteur
-(owner_id de la PaginatedView).
-
-Pipeline :
-    verifier_ban_utilisateur → defer → verifier_commande → tracker_commande
-    → InviteLeaderboardView
 """
 from __future__ import annotations
 
@@ -27,7 +19,6 @@ from views.invite.leaderboard_view import InviteLeaderboardView
 
 log = logging.getLogger(__name__)
 
-# Plafond raisonnable de membres affichés (10 pages de 10).
 LEADERBOARD_MAX = 100
 
 
@@ -36,20 +27,17 @@ LEADERBOARD_MAX = 100
 # ============================================================
 
 @app_commands.guild_only()
-@app_commands.checks.cooldown(1, 5)
-@app_commands.command(
-    name="classement",
-    description="🏆 Affiche le classement des invitations du serveur",
-)
+@app_commands.checks.cooldown(1, 10)
+@app_commands.command(name="classement", description="🏆 Affiche le classement des invitations du serveur",)
 async def invite_classement(interaction: discord.Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.
     if not await verifier_ban_utilisateur(interaction):
         return
 
-    # 🕒 Defer (public).
+    # 🕒 Defer.
     try:
-        await interaction.response.defer()
+        await interaction.response.defer(ephemeral=True)
     except (discord.NotFound, discord.HTTPException):
         return
 
@@ -60,36 +48,24 @@ async def invite_classement(interaction: discord.Interaction) -> None:
     # 📊 Tracking.
     await tracker_commande(interaction, "invite_classement")
 
-    # 🧩 Récup entrées + affichage paginé.
+    # 🧩 Récupère le classement d'invitations.
     try:
-        entries = await get_leaderboard(
-            interaction.guild.id, limit=LEADERBOARD_MAX, offset=0
-        )
-        # On retire les entrées à total ≤ 0 pour ne pas polluer le classement public.
+        entries = await get_leaderboard(interaction.guild.id, limit=LEADERBOARD_MAX, offset=0)
         entries = [(uid, s) for uid, s in entries if s["total"] > 0]
 
         if not entries:
             await interaction.followup.send(
-                view=info_container(
-                    "Aucun membre n'a encore d'invitations enregistrées sur ce serveur."
-                ),
+                view=info_container("**Aucun membre** n'a encore d'__invitations__ sur ce serveur."),
             )
             return
 
-        view = InviteLeaderboardView(
-            entries,
-            guild=interaction.guild,
-            owner_id=interaction.user.id,
-            per_page=10,
-        )
+        view = InviteLeaderboardView(entries, guild=interaction.guild, owner_id=interaction.user.id, per_page=10)
         await interaction.followup.send(view=view)
+
     except Exception:
-        log.exception(
-            "Affichage /invite classement échoué (guild=%s)", interaction.guild.id
-        )
+        log.exception("[Invite] Affichage /invite classement échoué (guild=%s)", interaction.guild.id)
         await interaction.followup.send(
-            view=error_container("Impossible d'afficher le **classement**."),
-        )
+            view=error_container("Impossible d'afficher le **classement**."))
 
 
 # ============================================================
@@ -97,7 +73,5 @@ async def invite_classement(interaction: discord.Interaction) -> None:
 # ============================================================
 
 @invite_classement.error
-async def invite_classement_error(
-    interaction: discord.Interaction, error: app_commands.AppCommandError
-) -> None:
+async def invite_classement_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
     await handle_app_command_error(interaction, error)

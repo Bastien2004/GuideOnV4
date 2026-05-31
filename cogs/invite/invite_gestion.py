@@ -1,12 +1,5 @@
 """
 cogs/invite/invite_gestion.py — Commande /invite gestion <membre>.
-
-Ouvre le panneau d'ajustement manuel des compteurs d'un membre (admin only).
-Argument requis : `membre` (discord.Member). Les bots sont refusés.
-
-Pipeline canonique :
-    verifier_ban_utilisateur → check_admin → defer → verifier_commande
-    → tracker_commande → InviteGestionView.create
 """
 from __future__ import annotations
 
@@ -32,15 +25,10 @@ log = logging.getLogger(__name__)
 # ============================================================
 
 @app_commands.guild_only()
-@app_commands.checks.cooldown(1, 5)
-@app_commands.command(
-    name="gestion",
-    description="🛠️ Ajuste manuellement les compteurs d'invitations d'un membre",
-)
+@app_commands.checks.cooldown(1, 10)
+@app_commands.command(name="gestion", description="🛠️ Ajuste manuellement les compteurs d'invitations d'un membre")
 @app_commands.describe(membre="Le membre dont tu veux gérer les compteurs")
-async def invite_gestion(
-    interaction: discord.Interaction, membre: discord.Member
-) -> None:
+async def invite_gestion(interaction: discord.Interaction, membre: discord.Member) -> None:
 
     # 🛡️ Vérification ban utilisateur.
     if not await verifier_ban_utilisateur(interaction):
@@ -80,15 +68,15 @@ async def invite_gestion(
             bot=interaction.client,
         )
         await interaction.followup.send(view=view, ephemeral=True)
+
     except Exception:
         log.exception(
-            "Ouverture /invite gestion échouée (guild=%s, target=%s)",
-            interaction.guild.id, membre.id,
-        )
+            "[INVITE] Ouverture /invite gestion échouée (guild=%s, target=%s)",
+            interaction.guild.id, membre.id
+            )
         await interaction.followup.send(
-            view=error_container("Impossible d'ouvrir la **gestion**."),
-            ephemeral=True,
-        )
+            view=error_container("Impossible d'ouvrir l'interface de **gestion**."), ephemeral=True
+            )
 
 
 # ============================================================
@@ -96,7 +84,5 @@ async def invite_gestion(
 # ============================================================
 
 @invite_gestion.error
-async def invite_gestion_error(
-    interaction: discord.Interaction, error: app_commands.AppCommandError
-) -> None:
+async def invite_gestion_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
     await handle_app_command_error(interaction, error)

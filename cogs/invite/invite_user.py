@@ -1,12 +1,5 @@
 """
 cogs/invite/invite_user.py — Commande /invite user [membre].
-
-Affiche les compteurs d'invitations d'un membre (par défaut soi-même) ainsi que
-l'inviteur d'origine si connu. Commande publique (pas d'admin requis).
-
-Pipeline :
-    verifier_ban_utilisateur → defer → verifier_commande → tracker_commande
-    → build_user_stats_view
 """
 from __future__ import annotations
 
@@ -34,21 +27,15 @@ log = logging.getLogger(__name__)
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 5)
-@app_commands.command(
-    name="user",
-    description="📨 Affiche les invitations d'un membre (toi par défaut)",
-)
+@app_commands.command(name="user", description="📨 Affiche les invitations d'un membre (toi par défaut)",)
 @app_commands.describe(membre="Le membre dont tu veux voir les invitations (toi par défaut)")
-async def invite_user(
-    interaction: discord.Interaction,
-    membre: Optional[discord.Member] = None,
-) -> None:
+async def invite_user(interaction: discord.Interaction, membre: Optional[discord.Member] = None) -> None:
 
     # 🛡️ Vérification ban utilisateur.
     if not await verifier_ban_utilisateur(interaction):
         return
 
-    # 🕒 Defer (public : la personne peut vouloir partager le résultat).
+    # 🕒 Defer.
     try:
         await interaction.response.defer()
     except (discord.NotFound, discord.HTTPException):
@@ -76,13 +63,14 @@ async def invite_user(
         link = await get_link(interaction.guild.id, target.id)
         view = build_user_stats_view(target, stats, link, interaction.guild)
         await interaction.followup.send(view=view)
+
     except Exception:
         log.exception(
             "Affichage /invite user échoué (guild=%s, target=%s)",
             interaction.guild.id, target.id,
         )
         await interaction.followup.send(
-            view=error_container("Impossible d'afficher les **invitations**."),
+            view=error_container("Impossible d'afficher les **invitations**.")
         )
 
 

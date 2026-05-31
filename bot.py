@@ -145,7 +145,10 @@ class GuideONBot(commands.Bot):
         # from cogs.exp.exemple import ...
 
         # ── IMPORT INVITE ──
-        # from cogs.invite.exemple import ...
+        from cogs.invite.invite_config import invite_config
+        from cogs.invite.invite_classement import invite_classement
+        from cogs.invite.invite_gestion import invite_gestion
+        from cogs.invite.invite_user import invite_user
 
         # ── IMPORT GIVEAWAY ──
         # from cogs.giveaway.exemple import ...
@@ -154,7 +157,7 @@ class GuideONBot(commands.Bot):
         # from cogs.alpha.exemple import ...
 
 
-        from utils.groupes import (groupeDEV, groupeCONFIG, groupeNG, groupeTICKET)
+        from utils.groupes import (groupeDEV, groupeCONFIG, groupeNG, groupeTICKET, groupeINV)
 
         ##SOON##
         #from utils.groupes import (
@@ -195,16 +198,18 @@ class GuideONBot(commands.Bot):
         for cmd in [autel, claim]:
             groupNG.add_command(cmd)
 
+
+        # 📧 ── INVITE ──
+        groupINV = groupeINV()
+        for cmd in [invite_config, invite_classement, invite_gestion, invite_user]:
+            groupINV.add_command(cmd)
+
+
         '''
         # 🧩 ── EXP ──
         groupEXP = groupeEXP()
         for cmd in []:
             groupEXP.add_command(cmd)
-
-        # 📧 ── INVITE ──
-        groupINV = groupeINV()
-        for cmd in []:
-            groupINV.add_command(cmd)
 
         # 🎁 ── GIVEAWAY ──
         groupGIVE = groupeGIVE()
