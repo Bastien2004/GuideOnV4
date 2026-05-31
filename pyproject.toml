@@ -5,7 +5,6 @@ description = "Bot Discord GuideON V4"
 requires-python = ">=3.12"
 
 dependencies = [
-
     # Discord
     "discord.py>=2.4,<3.0",
 
@@ -35,7 +34,7 @@ dependencies = [
     "pynacl>=1.5",
 
     # Gestion
-    "matplotlib">=3.10.9
+    "matplotlib>=3.10.9",
 
     # Temps
     "tzdata>=2024.1; sys_platform == 'win32'"
