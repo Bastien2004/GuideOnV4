@@ -140,6 +140,22 @@ class GuideONBot(commands.Bot):
         # ── IMPORT NG ──
         from cogs.ng.autel import autel
         from cogs.ng.claim import claim
+        from cogs.ng.classement import ng_classement
+        from cogs.ng.convert import convert
+        from cogs.ng.country import country
+        from cogs.ng.dynmaps import dynmaps
+        from cogs.ng.info import ng_info
+        from cogs.ng.lvl import lvl
+        from cogs.ng.mmr import mmr
+        from cogs.ng.ngprofil import ngprofil
+        from cogs.ng.ngversion import version
+        from cogs.ng.onu import onu
+        from cogs.ng.pillage import pillage
+        from cogs.ng.rd import rd
+        from cogs.ng.sanction import sanction
+        from cogs.ng.serveur_stat import serveur_stat
+        from cogs.ng.skin import skin
+        
 
         # ── IMPORT EXP ──
         # from cogs.exp.exemple import ...
@@ -156,6 +172,8 @@ class GuideONBot(commands.Bot):
         # ── IMPORT ALPHA ──
         # from cogs.alpha.exemple import ...
 
+        # ── IMPORT BIRTHDAY ──
+        # from cogs.birthday.exemple import ...
 
         from utils.groupes import (groupeDEV, groupeCONFIG, groupeNG, groupeTICKET, groupeINV)
 
@@ -185,6 +203,11 @@ class GuideONBot(commands.Bot):
         for cmd in []:
             groupMOD.add_command(cmd)
 
+        # 🎁 ── BIRTHDAY ──
+        self._groupDEV = groupeDEV()
+        for cmd in [maintenance, permissions]:
+            self._groupDEV.add_command(cmd)
+
         '''
 
         # 💻 ── DEV ──
@@ -195,7 +218,8 @@ class GuideONBot(commands.Bot):
         
         # 🌐 ── NG ──
         groupNG = groupeNG()
-        for cmd in [autel, claim]:
+        for cmd in [autel, claim, ng_classement, convert, country, dynmaps, ng_info, lvl, mmr, ngprofil, version, onu, pillage, rd,
+                    sanction, serveur_stat, skin]:
             groupNG.add_command(cmd)
 
 

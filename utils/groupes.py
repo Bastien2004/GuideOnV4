@@ -94,6 +94,15 @@ def groupeALPHA():
     return GroupeALPHA()
 
 
+# Groupe Birthday
+class GroupeBIRTHDAY(app_commands.Group):
+    def __init__(self):
+        super().__init__(name="birthday", description="Commandes anniversaire")
+
+def groupeBIRTHDAY():
+    return GroupeBIRTHDAY()
+
+
 # Groupe Anniversaire
 class GroupeANNIV(app_commands.Group):
     def __init__(self):

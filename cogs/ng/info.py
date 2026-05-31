@@ -219,7 +219,7 @@ def build_info_view(selected_key: str | None = None, owner_id: int = 0) -> Layou
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
 @app_commands.command(name="info", description="📌 Informations NationsGlory")
-async def info(interaction: Interaction):
+async def ng_info(interaction: Interaction):
 
     # 🛡️ Vérification ban
     if not await verifier_ban_utilisateur(interaction):
@@ -247,6 +247,6 @@ async def info(interaction: Interaction):
 # ❌ Gestion erreurs
 # ============================================================
 
-@info.error
-async def info_error(interaction: Interaction, error: app_commands.AppCommandError):
+@ng_info.error
+async def ng_info_error(interaction: Interaction, error: app_commands.AppCommandError):
     await handle_app_command_error(interaction, error)

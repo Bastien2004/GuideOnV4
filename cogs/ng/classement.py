@@ -312,7 +312,7 @@ def setup_classement_callbacks(bot: discord.Client) -> None:
 @app_commands.checks.cooldown(1, 10)
 @app_commands.command(name="classement", description="📊 Classements serveurs NationsGlory")
 @app_commands.choices(serveur=SERVER_CHOICES)
-async def ngclassement(interaction: Interaction, serveur: str):
+async def ng_classement(interaction: Interaction, serveur: str):
 
     # 🛡️ Vérification ban
     if not await verifier_ban_utilisateur(interaction):
@@ -353,6 +353,6 @@ async def ngclassement(interaction: Interaction, serveur: str):
 # ❌ Gestion erreurs
 # ============================================================
 
-@ngclassement.error
-async def ngclassement_error(interaction: Interaction, error: app_commands.AppCommandError):
+@ng_classement.error
+async def ng_classement_error(interaction: Interaction, error: app_commands.AppCommandError):
     await handle_app_command_error(interaction, error)
