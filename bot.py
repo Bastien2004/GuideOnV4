@@ -16,8 +16,11 @@ from discord.ext import commands
 from utils.settings import settings
 from utils.logging_config import setup_logging
 from cogs.api.api_app import run_api_server
+
 from utils.managers.boutique_manager import refresh_cache, cache_refresher_loop
 from utils.managers.permission_manager import refresh_cache as refresh_perms, cache_refresher_loop as perms_refresher_loop
+
+from utils.groupes import groupeDEV, groupeCONFIG, groupeNG, groupeTICKET, groupeINV, groupeBIRTHDAY
 
 
 log = logging.getLogger(__name__)
@@ -130,9 +133,6 @@ class GuideONBot(commands.Bot):
         from cogs.ticket.ticket_unban import ticket_unban
         from cogs.ticket.ticket_wakeup import ticket_wakeup
 
-        # ── IMPORT MOD ──
-        # from cogs.mod.exemple import ...
-
         # ── IMPORT DEV ──
         from cogs.dev.maintenance import maintenance
         from cogs.dev.permission import permissions
@@ -155,10 +155,6 @@ class GuideONBot(commands.Bot):
         from cogs.ng.sanction import sanction
         from cogs.ng.serveur_stat import serveur_stat
         from cogs.ng.skin import skin
-        
-
-        # ── IMPORT EXP ──
-        # from cogs.exp.exemple import ...
 
         # ── IMPORT INVITE ──
         from cogs.invite.invite_config import invite_config
@@ -166,25 +162,25 @@ class GuideONBot(commands.Bot):
         from cogs.invite.invite_gestion import invite_gestion
         from cogs.invite.invite_user import invite_user
 
-        # ── IMPORT GIVEAWAY ──
-        # from cogs.giveaway.exemple import ...
-        
-        # ── IMPORT ALPHA ──
-        # from cogs.alpha.exemple import ...
-
         # ── IMPORT BIRTHDAY ──
         from cogs.birthday.birthday_config import birthday_config
         from cogs.birthday.birthday_next import birthday_next
         from cogs.birthday.birthday_list import birthday_list
         from cogs.birthday.birthday_add import birthday_add
 
-        from utils.groupes import (groupeDEV, groupeCONFIG, groupeNG, groupeTICKET, groupeINV, groupeBIRTHDAY)
+                
+        # ── IMPORT MOD ──
+        # from cogs.mod.exemple import ...
+        
+        # ── IMPORT EXP ──
+        # from cogs.exp.exemple import ...
 
-        ##SOON##
-        #from utils.groupes import (
-        #   groupeTICKET, groupeMOD, groupeDEV, groupeCONFIG,
-        #   groupeNG, groupeEXP, groupeINV, groupeGIVE, groupeALPHA,
-        #)
+        # ── IMPORT GIVEAWAY ──
+        # from cogs.giveaway.exemple import ...
+        
+        # ── IMPORT ALPHA ──
+        # from cogs.alpha.exemple import ...
+
 
         ### ASSEMBLAGE DES GROUPES DE COMMANDES ###
 
@@ -200,14 +196,6 @@ class GuideONBot(commands.Bot):
                     ticket_close, ticket_delete, ticket_remove, ticket_rename, ticket_unban, ticket_wakeup]:
             groupTICKET.add_command(cmd)
 
-        '''
-        # 🛡️ ── MOD ──
-        groupMOD = groupeMOD()
-        for cmd in []:
-            groupMOD.add_command(cmd)
-
-        
-        '''
 
         # 🎁 ── BIRTHDAY ──
         groupBIRTHDAY = groupeBIRTHDAY()
@@ -235,6 +223,11 @@ class GuideONBot(commands.Bot):
 
 
         '''
+        # 🛡️ ── MOD ──
+        groupMOD = groupeMOD()
+        for cmd in []:
+            groupMOD.add_command(cmd)
+
         # 🧩 ── EXP ──
         groupEXP = groupeEXP()
         for cmd in []:
@@ -251,10 +244,6 @@ class GuideONBot(commands.Bot):
             self._groupALPHA.add_command(cmd)
         '''
 
-        '''
-        for group in [groupNG, groupMOD, groupCONFIG, groupEXP, groupINV, groupGIVE, groupTICKET]:
-            self.tree.add_command(group)
-        '''
 
         for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY]:
             self.tree.add_command(group)
