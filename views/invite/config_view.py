@@ -339,5 +339,5 @@ class InviteConfigView:
     async def create(cls, guild_id: int, author_id: int, bot) -> LayoutView:
         view = await create_invite_view(guild_id, bot, author_id)
         if view is None:
-            return error_container("**Impossible** de charger la __configuration__ (serveur introuvable).")
+            return error_container("**Impossible** de charger la __configuration__ (serveur introuvable)." )
         return view
