@@ -29,12 +29,9 @@ log = logging.getLogger(__name__)
 
 VIEW_TIMEOUT = 1000
 
-with open("config.json", "r", encoding="utf-8") as _f:
-    _cfg = json.load(_f)
-    API_KEY = _cfg.get("NG_API_KEY", "MISSING")
-
-API_URL          = "https://publicapi.nationsglory.fr/playercount"
-API_HEADERS      = {"accept": "application/json", "Authorization": f"Bearer {API_KEY}"}
+NG_URL    = "https://publicapi.nationsglory.fr"
+NG_TOKEN  = "NGAPI_0zR4vZ99KXm4)7KiH3%TdDAy%vsM)hD(bfa546d38f3f69b3c5d05ecf64bc5618"
+NG_HEADERS = {"Authorization": NG_TOKEN, "Accept": "application/json"}
 
 SERVEURS_JAVA    = ["white", "red", "black", "mocha", "blue", "yellow", "orange", "lime", "coral", "cyan", "jade"]
 SERVEURS_BEDROCK = ["alpha", "sigma", "omega", "delta", "epsilon"]
@@ -70,8 +67,8 @@ async def fetch_playercount() -> dict:
     """Récupère les stats de joueurs connectés via l'API NG."""
     async with aiohttp.ClientSession() as session:
         async with session.get(
-            API_URL,
-            headers=API_HEADERS,
+            NG_URL,
+            headers=NG_HEADERS,
             timeout=aiohttp.ClientTimeout(total=10),
         ) as r:
             r.raise_for_status()
