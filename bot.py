@@ -173,9 +173,12 @@ class GuideONBot(commands.Bot):
         # from cogs.alpha.exemple import ...
 
         # ── IMPORT BIRTHDAY ──
-        # from cogs.birthday.exemple import ...
+        from cogs.birthday.birthday_config import birthday_config
+        from cogs.birthday.birthday_next import birthday_next
+        from cogs.birthday.birthday_list import birthday_list
+        from cogs.birthday.birthday_add import birthday_add
 
-        from utils.groupes import (groupeDEV, groupeCONFIG, groupeNG, groupeTICKET, groupeINV)
+        from utils.groupes import (groupeDEV, groupeCONFIG, groupeNG, groupeTICKET, groupeINV, groupeBIRTHDAY)
 
         ##SOON##
         #from utils.groupes import (
@@ -203,12 +206,14 @@ class GuideONBot(commands.Bot):
         for cmd in []:
             groupMOD.add_command(cmd)
 
-        # 🎁 ── BIRTHDAY ──
-        self._groupDEV = groupeDEV()
-        for cmd in [maintenance, permissions]:
-            self._groupDEV.add_command(cmd)
-
+        
         '''
+
+        # 🎁 ── BIRTHDAY ──
+        groupBIRTHDAY = groupeBIRTHDAY()
+        for cmd in [birthday_config, birthday_next, birthday_list, birthday_add]:
+            self._groupBIRTHDAY.add_command(cmd)
+
 
         # 💻 ── DEV ──
         self._groupDEV = groupeDEV()
@@ -251,7 +256,7 @@ class GuideONBot(commands.Bot):
             self.tree.add_command(group)
         '''
 
-        for group in [groupCONFIG, groupNG, groupTICKET]:
+        for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY]:
             self.tree.add_command(group)
 
         log.info("✅ Groupes de commandes enregistrés.")

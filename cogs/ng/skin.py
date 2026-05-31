@@ -110,7 +110,7 @@ async def skin(interaction: discord.Interaction, pseudo: str):
     
     # 🕒 Defer.
     try:
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
     except (discord.NotFound, discord.HTTPException):
         return
     
