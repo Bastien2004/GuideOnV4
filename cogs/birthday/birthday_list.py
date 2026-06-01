@@ -1,12 +1,7 @@
 """
-cogs/birthday/birthday_list.py — Commande /birthday list (VIP).
-
-Affiche les anniversaires des 30 prochains jours, triés par proximité, paginé.
-
-Pipeline :
-    verifier_ban_utilisateur → vip check → defer → verifier_commande
-    → tracker_commande → BirthdayListView
+cogs/birthday/birthday_list.py — Affiche les anniversaires des 30 prochains jours (VIP).
 """
+
 from __future__ import annotations
 
 import logging
@@ -31,24 +26,25 @@ log = logging.getLogger(__name__)
 PARIS_TZ = ZoneInfo("Europe/Paris")
 
 
+# ============================================================
+# 🎁 Commande : /birthday list
+# ============================================================
+
 @app_commands.guild_only()
-@app_commands.checks.cooldown(1, 5)
-@app_commands.command(
-    name="list",
-    description="🎂 Affiche les anniversaires des 30 prochains jours (VIP)",
-)
+@app_commands.checks.cooldown(1, 10)
+@app_commands.command(name="list", description="🎂 [VIP] Affiche les anniversaires des 30 prochains jours")
 async def birthday_list(interaction: discord.Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.
     if not await verifier_ban_utilisateur(interaction):
         return
 
-    # 🌟 Vérification VIP (sync).
+    # 🌟 Vérification VIP.
     if not is_vip(interaction.user.id):
         await send_vip_error(interaction)
         return
 
-    # 🕒 Defer ephemeral (commande VIP perso).
+    # 🕒 Defer..
     try:
         await interaction.response.defer(ephemeral=True)
     except (discord.NotFound, discord.HTTPException):
@@ -61,16 +57,14 @@ async def birthday_list(interaction: discord.Interaction) -> None:
     # 📊 Tracking.
     await tracker_commande(interaction, "birthday_list")
 
-    # 🧩 Récup + affichage.
+    # 🧩 Récupération des données et envoie.
     try:
         today = datetime.now(PARIS_TZ).date()
         entries = await get_upcoming(interaction.guild.id, today, days=30)
 
         if not entries:
             await interaction.followup.send(
-                view=info_container(
-                    "Aucun anniversaire enregistré dans les **30 prochains jours**."
-                ),
+                view=info_container("Aucun anniversaire enregistré dans les **30 prochains jours**."),
                 ephemeral=True,
             )
             return
@@ -83,16 +77,19 @@ async def birthday_list(interaction: discord.Interaction) -> None:
             per_page=20,
         )
         await interaction.followup.send(view=view, ephemeral=True)
+
     except Exception:
-        log.exception("/birthday list échoué (guild=%s)", interaction.guild.id)
+        log.exception("[BIRTHDAY] /birthday list échoué (guild=%s)", interaction.guild.id)
         await interaction.followup.send(
-            view=error_container("Impossible d'afficher la **liste**."),
+            view=error_container("Impossible d'afficher la **liste** des prochains anniversaires."),
             ephemeral=True,
         )
 
 
+# ============================================================
+# ❌ Gestion des erreurs
+# ============================================================
+
 @birthday_list.error
-async def birthday_list_error(
-    interaction: discord.Interaction, error: app_commands.AppCommandError
-) -> None:
+async def birthday_list_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
     await handle_app_command_error(interaction, error)

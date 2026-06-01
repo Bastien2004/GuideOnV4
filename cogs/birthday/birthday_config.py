@@ -1,10 +1,7 @@
 """
-cogs/birthday/birthday_config.py — Commande /birthday config.
-
-Pipeline canonique :
-    verifier_ban_utilisateur → check_admin → defer → verifier_commande
-    → tracker_commande → BirthdayConfigView.create
+cogs/birthday/birthday_config.py — Permet de configurer le système d'anniversaire du serveur.
 """
+
 from __future__ import annotations
 
 import logging
@@ -13,23 +10,25 @@ import discord
 from discord import app_commands
 
 from utils.botbancmd import verifier_ban_utilisateur
-from utils.container_universel import error_container
+from utils.track_commande import tracker_commande
 from utils.control_admin import verifier_commande
+
 from utils.error_handler import handle_app_command_error
 from utils.perm_admin import check_admin
-from utils.track_commande import tracker_commande
+from utils.container_universel import error_container
 
 from views.birthday.config_view import BirthdayConfigView
 
 log = logging.getLogger(__name__)
 
 
+# ============================================================
+# 🎁 Commande : /birthday config
+# ============================================================
+
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(
-    name="config",
-    description="🎂 Configure le système d'anniversaires",
-)
+@app_commands.command(name="config", description="🎂 Configure le système d'anniversaires",)
 async def birthday_config(interaction: discord.Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.
@@ -61,16 +60,19 @@ async def birthday_config(interaction: discord.Interaction) -> None:
             bot=interaction.client,
         )
         await interaction.followup.send(view=view, ephemeral=True)
+
     except Exception:
-        log.exception("Ouverture /birthday config échouée (guild=%s)", interaction.guild.id)
+        log.exception("[BIRTHDAY] Ouverture de la configuration échouée (guild=%s)", interaction.guild.id)
         await interaction.followup.send(
             view=error_container("Impossible d'ouvrir la **configuration**."),
             ephemeral=True,
         )
 
 
+# ============================================================
+# ❌ Gestion des erreurs
+# ============================================================
+
 @birthday_config.error
-async def birthday_config_error(
-    interaction: discord.Interaction, error: app_commands.AppCommandError
-) -> None:
+async def birthday_config_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
     await handle_app_command_error(interaction, error)

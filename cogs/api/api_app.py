@@ -101,7 +101,7 @@ class ShopPayload(BaseModel):
 # ──────────────────────────────────────────────────────────────────────────
 
 @app.get("/health")
-@limiter.limit("60/minute")
+@limiter.limit("10/minute")
 
 async def health(request: Request):
     age = bm.cache_age_seconds()
@@ -113,14 +113,14 @@ async def health(request: Request):
 
 
 @app.get("/boutique", dependencies=[Depends(require_token)])
-@limiter.limit("30/minute")
+@limiter.limit("2/minute")
 
 async def get_all(request: Request):
     return await bm.list_entries()
 
 
 @app.get("/boutique/{role}", dependencies=[Depends(require_token)])
-@limiter.limit("30/minute")
+@limiter.limit("1/minute")
 
 async def get_role(request: Request, role: str):
     try:
@@ -132,7 +132,7 @@ async def get_role(request: Request, role: str):
 
 
 @app.post("/boutique/add", dependencies=[Depends(require_token)])
-@limiter.limit("20/minute")
+@limiter.limit("1/minute")
 
 async def add(request: Request, payload: ShopPayload):
     role: ShopRole = bm.role_from_str(payload.role)
@@ -145,7 +145,7 @@ async def add(request: Request, payload: ShopPayload):
 
 
 @app.post("/boutique/remove", dependencies=[Depends(require_token)])
-@limiter.limit("20/minute")
+@limiter.limit("1/minute")
 
 async def remove(request: Request, payload: ShopPayload):
     role: ShopRole = bm.role_from_str(payload.role)

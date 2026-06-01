@@ -1,6 +1,7 @@
 """
 cogs/invite/invite_classement.py — Commande /invite classement.
 """
+
 from __future__ import annotations
 
 import logging

@@ -1,18 +1,7 @@
 """
-cogs/birthday/birthday_add.py — Commande /birthday add <date>.
-
-Enregistre la date d'anniversaire de l'utilisateur courant.
-Format accepté : `JJ/MM` ou `JJ/MM/AAAA`.
-
-Règles (strict CdC) :
-- Une seule date par utilisateur et par serveur
-- Pas d'écrasement : si une date existe déjà, refus (l'admin doit la supprimer)
-- Validation complète (jour/mois cohérent, année dans une plage raisonnable)
-
-Pipeline :
-    verifier_ban_utilisateur → defer → verifier_commande → tracker_commande
-    → parse + validate → set_user_birthday
+cogs/birthday/birthday_add.py — Permet aux utilisateurs d'enregistrer leur date d'anniversaire.
 """
+
 from __future__ import annotations
 
 import logging
@@ -22,24 +11,25 @@ import discord
 from discord import app_commands
 
 from utils.botbancmd import verifier_ban_utilisateur
-from utils.container_universel import error_container, success_container
 from utils.control_admin import verifier_commande
-from utils.error_handler import handle_app_command_error
-from utils.managers.birthday_manager import (
-    get_user_birthday,
-    set_user_birthday,
-    validate_date,
-)
 from utils.track_commande import tracker_commande
+
+from utils.container_universel import error_container, success_container
+from utils.error_handler import handle_app_command_error
+
+from utils.managers.birthday_manager import get_user_birthday, set_user_birthday, validate_date
+
 
 log = logging.getLogger(__name__)
 
 
+# ============================================================
+# 📁 Fonction utilitaire
+# ============================================================
+
 def _parse_date_input(s: str) -> Optional[tuple[int, int, Optional[int]]]:
-    """
-    Parse "JJ/MM" ou "JJ/MM/AAAA". Retourne (day, month, year|None) ou None
-    si le format est invalide. NE valide PAS la cohérence (utiliser validate_date).
-    """
+    """Vérifie le bon format de la date donnée par l'utilisateur."""
+
     s = s.strip()
     parts = s.split("/")
     if len(parts) not in (2, 3):
@@ -53,12 +43,13 @@ def _parse_date_input(s: str) -> Optional[tuple[int, int, Optional[int]]]:
     return day, month, year
 
 
+# ============================================================
+# 🎁 Commande : /birthday add
+# ============================================================
+
 @app_commands.guild_only()
-@app_commands.checks.cooldown(1, 5)
-@app_commands.command(
-    name="add",
-    description="🎂 Enregistre ta date d'anniversaire (format JJ/MM ou JJ/MM/AAAA)",
-)
+@app_commands.checks.cooldown(1, 15)
+@app_commands.command(name="add", description="🎂 Enregistre ta date d'anniversaire (format JJ/MM ou JJ/MM/AAAA)")
 @app_commands.describe(date="Ta date d'anniversaire (JJ/MM ou JJ/MM/AAAA)")
 async def birthday_add(interaction: discord.Interaction, date: str) -> None:
 
@@ -66,7 +57,7 @@ async def birthday_add(interaction: discord.Interaction, date: str) -> None:
     if not await verifier_ban_utilisateur(interaction):
         return
 
-    # 🕒 Defer ephemeral (date de naissance = donnée personnelle).
+    # 🕒 Defer.
     try:
         await interaction.response.defer(ephemeral=True)
     except (discord.NotFound, discord.HTTPException):
@@ -83,7 +74,7 @@ async def birthday_add(interaction: discord.Interaction, date: str) -> None:
     if interaction.user.bot:
         return
 
-    # 📅 Parse du format.
+    # 📅 Vérification du format.
     parsed = _parse_date_input(date)
     if parsed is None:
         await interaction.followup.send(
@@ -97,7 +88,7 @@ async def birthday_add(interaction: discord.Interaction, date: str) -> None:
 
     day, month, year = parsed
 
-    # ✅ Validation métier (jour/mois cohérent, année dans la plage).
+    # 🔎 Vérification d'erreur.
     ok, error_msg = validate_date(day, month, year)
     if not ok:
         await interaction.followup.send(
@@ -106,7 +97,7 @@ async def birthday_add(interaction: discord.Interaction, date: str) -> None:
         )
         return
 
-    # 🚧 Vérification "pas déjà enregistré" (strict CdC).
+    # 🚧 Vérification que l'utilisateur ne donne pas plusieurs dates.
     existing = await get_user_birthday(interaction.guild.id, interaction.user.id)
     if existing is not None:
         year_txt = f"/{existing['year']}" if existing.get("year") else ""
@@ -122,14 +113,10 @@ async def birthday_add(interaction: discord.Interaction, date: str) -> None:
 
     # 💾 Enregistrement.
     try:
-        created = await set_user_birthday(
-            interaction.guild.id, interaction.user.id, day, month, year
-        )
+        created = await set_user_birthday(interaction.guild.id, interaction.user.id, day, month, year)
+
     except Exception:
-        log.exception(
-            "Échec set_user_birthday (guild=%s, user=%s)",
-            interaction.guild.id, interaction.user.id,
-        )
+        log.exception("[BIRTHDAY] Échec set_user_birthday (guild=%s, user=%s)", interaction.guild.id, interaction.user.id)
         await interaction.followup.send(
             view=error_container("Une erreur est survenue lors de l'**enregistrement**."),
             ephemeral=True,
@@ -137,11 +124,8 @@ async def birthday_add(interaction: discord.Interaction, date: str) -> None:
         return
 
     if not created:
-        # Race condition : un autre call est passé entre get et set
         await interaction.followup.send(
-            view=error_container(
-                "Tu as déjà une date enregistrée. Contacte un administrateur pour la modifier."
-            ),
+            view=error_container("Tu as déjà une **date enregistrée**. Contacte un __administrateur__ pour la **modifier**."),
             ephemeral=True,
         )
         return
@@ -155,8 +139,10 @@ async def birthday_add(interaction: discord.Interaction, date: str) -> None:
     )
 
 
+# ============================================================
+# ❌ Gestion des erreurs
+# ============================================================
+
 @birthday_add.error
-async def birthday_add_error(
-    interaction: discord.Interaction, error: app_commands.AppCommandError
-) -> None:
+async def birthday_add_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
     await handle_app_command_error(interaction, error)
