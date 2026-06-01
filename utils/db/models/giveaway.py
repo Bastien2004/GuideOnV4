@@ -97,7 +97,7 @@ class GiveawayBlacklist(Base, TimestampMixin):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     added_by: Mapped[int] = mapped_column(BigInteger, nullable=False)
 
-    __table_args__ = (Index("ix_giveaway_blacklist_guild", "guild_id"))
+    __table_args__ = (Index("ix_giveaway_blacklist_guild", "guild_id"),)
 
     def to_dict(self) -> dict:
         return {
