@@ -20,7 +20,7 @@ from cogs.api.api_app import run_api_server
 from utils.managers.boutique_manager import refresh_cache, cache_refresher_loop
 from utils.managers.permission_manager import refresh_cache as refresh_perms, cache_refresher_loop as perms_refresher_loop
 
-from utils.groupes import groupeDEV, groupeCONFIG, groupeNG, groupeTICKET, groupeINV, groupeBIRTHDAY
+from utils.groupes import groupeDEV, groupeCONFIG, groupeNG, groupeTICKET, groupeINV, groupeBIRTHDAY, groupeGIVE
 
 
 log = logging.getLogger(__name__)
@@ -168,15 +168,17 @@ class GuideONBot(commands.Bot):
         from cogs.birthday.birthday_list import birthday_list
         from cogs.birthday.birthday_add import birthday_add
 
+        # ── IMPORT GIVEAWAY ──
+        from cogs.giveaway.giveaway_blacklist import giveaway_blacklist
+        from cogs.giveaway.giveaway_create import giveaway_create
+        from cogs.giveaway.giveaway_list import giveaway_list
+        from cogs.giveaway.giveaway_manage import giveaway_manage
                 
         # ── IMPORT MOD ──
         # from cogs.mod.exemple import ...
         
         # ── IMPORT EXP ──
         # from cogs.exp.exemple import ...
-
-        # ── IMPORT GIVEAWAY ──
-        # from cogs.giveaway.exemple import ...
         
         # ── IMPORT ALPHA ──
         # from cogs.alpha.exemple import ...
@@ -221,6 +223,11 @@ class GuideONBot(commands.Bot):
         for cmd in [invite_config, invite_classement, invite_gestion, invite_user]:
             groupINV.add_command(cmd)
 
+        # 🎁 ── GIVEAWAY ──
+        groupGIVE = groupeGIVE()
+        for cmd in [giveaway_blacklist, giveaway_create, giveaway_list, giveaway_manage]:
+            groupGIVE.add_command(cmd)
+
 
         '''
         # 🛡️ ── MOD ──
@@ -233,11 +240,6 @@ class GuideONBot(commands.Bot):
         for cmd in []:
             groupEXP.add_command(cmd)
 
-        # 🎁 ── GIVEAWAY ──
-        groupGIVE = groupeGIVE()
-        for cmd in []:
-            groupGIVE.add_command(cmd)
-
         # 💋 ── ALPHA ──
         self._groupALPHA = groupeALPHA()
         for cmd in []:
@@ -245,7 +247,7 @@ class GuideONBot(commands.Bot):
         '''
 
 
-        for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY]:
+        for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY, groupGIVE]:
             self.tree.add_command(group)
 
         log.info("✅ Groupes de commandes enregistrés.")

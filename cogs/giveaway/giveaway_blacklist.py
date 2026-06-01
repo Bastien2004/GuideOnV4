@@ -1,12 +1,12 @@
 """
-cogs/giveaway/giveaway_create.py — Commande /giveaway create (admin).
+cogs/giveaway/giveaway_blacklist.py — Commande /giveaway blacklist (admin).
 
-Ouvre le wizard interactif de création de giveaway. Le wizard gère ensuite
-toute la chaîne (saisie des champs, validation, création DB, envoi du panel).
+Ouvre le panneau interactif de gestion de la blacklist du serveur :
+liste paginée + ajout (avec raison/durée optionnelles) + retrait + purge.
 
-Pipeline canonique :
+Pipeline :
     verifier_ban_utilisateur → check_admin → defer → verifier_commande
-    → tracker_commande → GiveawayCreateView.create
+    → tracker_commande → GiveawayBlacklistView.create
 """
 from __future__ import annotations
 
@@ -22,25 +22,25 @@ from utils.error_handler import handle_app_command_error
 from utils.perm_admin import check_admin
 from utils.track_commande import tracker_commande
 
-from views.giveaway.create_view import GiveawayCreateView
+from views.giveaway.blacklist_view import GiveawayBlacklistView
 
 log = logging.getLogger(__name__)
 
 
 @app_commands.guild_only()
-@app_commands.checks.cooldown(1, 10)
+@app_commands.checks.cooldown(1, 5)
 @app_commands.command(
-    name="create",
-    description="🎉 Crée un nouveau giveaway",
+    name="blacklist",
+    description="🚫 Gère la blacklist du système de giveaway",
 )
-async def giveaway_create(interaction: discord.Interaction) -> None:
+async def giveaway_blacklist(interaction: discord.Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.
     if not await verifier_ban_utilisateur(interaction):
         return
 
     # 🔐 Vérification Administrateur.
-    if not await check_admin(interaction, "créer un **giveaway**"):
+    if not await check_admin(interaction, "gérer la **blacklist giveaway**"):
         return
 
     # 🕒 Defer.
@@ -50,29 +50,31 @@ async def giveaway_create(interaction: discord.Interaction) -> None:
         return
 
     # ⚙️ Vérification maintenance.
-    if not await verifier_commande(interaction, "giveaway_create"):
+    if not await verifier_commande(interaction, "giveaway_blacklist"):
         return
 
     # 📊 Tracking.
-    await tracker_commande(interaction, "giveaway_create")
+    await tracker_commande(interaction, "giveaway_blacklist")
 
-    # 🧩 Ouverture du wizard.
+    # 🧩 Ouverture du panneau.
     try:
-        view = await GiveawayCreateView.create(
+        view = await GiveawayBlacklistView.create(
             guild=interaction.guild,
-            author_id=interaction.user.id,
+            owner_id=interaction.user.id,
         )
         await interaction.followup.send(view=view, ephemeral=True)
     except Exception:
-        log.exception("Ouverture /giveaway create échouée (guild=%s)", interaction.guild.id)
+        log.exception(
+            "Ouverture /giveaway blacklist échouée (guild=%s)", interaction.guild.id
+        )
         await interaction.followup.send(
-            view=error_container("Impossible d'ouvrir l'**interface de création**."),
+            view=error_container("Impossible d'ouvrir la **blacklist**."),
             ephemeral=True,
         )
 
 
-@giveaway_create.error
-async def giveaway_create_error(
+@giveaway_blacklist.error
+async def giveaway_blacklist_error(
     interaction: discord.Interaction, error: app_commands.AppCommandError
 ) -> None:
     await handle_app_command_error(interaction, error)
