@@ -32,12 +32,13 @@ log = logging.getLogger(__name__)
 def _build_derank_announcement(membre: discord.Member, pseudo_jeu: str, old_grade: str) -> LayoutView:
     """Construit le message de derank envoyé dans le salon rank-derank."""
 
+    label = GRADE_LABELS.get(old_grade, old_grade)
     view = LayoutView(timeout=None)
     c = Container()
 
-    c.add_item(TextDisplay("# 👋 Départ du staff Alpha"))
-    c.add_item(TextDisplay(f"Merci à <@{membre.id}>) qui quitte le staff Alpha."))
-    
+    c.add_item(TextDisplay(f"Merci à <@{membre.id}> pour son travail en tant que (**{label}**) !"))
+
+    view.add_item(c)
     return view
 
 
