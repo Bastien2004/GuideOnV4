@@ -35,7 +35,7 @@ def _role(val: int | None) -> str:
 # 🏠 Vue principale
 # ════════════════════════════════════════════════════════════
 
-class ConfigAlphaView(LayoutView):
+class ConfigRankView(LayoutView):
     """Dashboard principal — aperçu de la config + boutons de section."""
 
     def __init__(self, guild_id: int, cfg: dict, owner_id: int) -> None:
@@ -81,15 +81,24 @@ class ConfigAlphaView(LayoutView):
         btn_salons = Button(label="📡 Salons", style=ButtonStyle.primary, custom_id="cfg_salons")
         btn_pings  = Button(label="🔔 Pings",  style=ButtonStyle.primary, custom_id="cfg_pings")
         btn_roles1 = Button(label="🎭 Rôles",  style=ButtonStyle.primary, custom_id="cfg_roles1")
+        btn_back   = Button(label="↩️ Tableau de bord", style=ButtonStyle.secondary, custom_id="cfg_back_dash")
         btn_salons.callback = self._on_salons
         btn_pings.callback  = self._on_pings
         btn_roles1.callback = self._on_roles1
+        btn_back.callback   = self._on_back_dash
 
         c.add_item(ActionRow(btn_salons, btn_pings, btn_roles1))
+        c.add_item(ActionRow(btn_back))
         c.add_item(TextDisplay("-# GuideOn Studio"))
         self.add_item(c)
 
     # ── Callbacks de navigation ──────────────────────────────
+
+    async def _on_back_dash(self, interaction: Interaction) -> None:
+        from views.alpha.config_dashboard_view import ConfigDashboardView
+        await interaction.response.edit_message(
+            view=ConfigDashboardView(self.guild_id, self.owner_id)
+        )
 
     async def _on_salons(self, interaction: Interaction) -> None:
         cfg = await load_rank_config(self.guild_id)
@@ -168,7 +177,7 @@ class _SalonsView(LayoutView):
     async def _on_back(self, interaction: Interaction) -> None:
         cfg = await load_rank_config(self.guild_id)
         await interaction.response.edit_message(
-            view=ConfigAlphaView(self.guild_id, cfg, self.owner_id)
+            view=ConfigRankView(self.guild_id, cfg, self.owner_id)
         )
 
 
@@ -228,7 +237,7 @@ class _PingsView(LayoutView):
     async def _on_back(self, interaction: Interaction) -> None:
         cfg = await load_rank_config(self.guild_id)
         await interaction.response.edit_message(
-            view=ConfigAlphaView(self.guild_id, cfg, self.owner_id)
+            view=ConfigRankView(self.guild_id, cfg, self.owner_id)
         )
 
 
@@ -323,5 +332,5 @@ class _RolesView(LayoutView):
     async def _on_back(self, interaction: Interaction) -> None:
         cfg = await load_rank_config(self.guild_id)
         await interaction.response.edit_message(
-            view=ConfigAlphaView(self.guild_id, cfg, self.owner_id)
+            view=ConfigRankView(self.guild_id, cfg, self.owner_id)
         )

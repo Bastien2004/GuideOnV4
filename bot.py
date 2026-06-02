@@ -187,9 +187,9 @@ class GuideONBot(commands.Bot):
         from cogs.alpha.regle_interne import regle_interne
         from cogs.alpha.nous_rejoindre import nous_rejoindre
         from cogs.alpha.index import index
+        from cogs.alpha.stafflist import stafflist
         from cogs.alpha.rank import rank
         from cogs.alpha.derank import derank
-        from cogs.alpha.stafflist import stafflist
 
 
         ### ASSEMBLAGE DES GROUPES DE COMMANDES ###
@@ -251,12 +251,15 @@ class GuideONBot(commands.Bot):
 
         # 💋 ── ALPHA ──
         self._groupALPHA = groupeALPHA()
-        for cmd in [test_alpha, regle_interne, nous_rejoindre, index, stafflist,
-                    rank, derank]:
+        for cmd in [test_alpha, regle_interne, nous_rejoindre, index,
+                    stafflist, rank, derank]:
             self._groupALPHA.add_command(cmd)
 
 
-        for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY, groupGIVE, self._groupALPHA]:
+        # ⚠️  groupDEV et groupALPHA sont exclus ici :
+        # ils sont enregistrés uniquement par guild dans _sync_commands.
+        # Les y ajouter ici aussi provoquerait un double affichage dans Discord.
+        for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY, groupGIVE]:
             self.tree.add_command(group)
 
         log.info("✅ Groupes de commandes enregistrés.")
@@ -371,9 +374,12 @@ class GuideONBot(commands.Bot):
 
 
 async def main() -> None:
-    bot = GuideONBot()
-    await bot.start(settings.discord_token)
+    async with GuideONBot() as bot:
+        await bot.start(settings.discord_token)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass
