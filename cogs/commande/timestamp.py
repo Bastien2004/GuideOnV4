@@ -32,10 +32,7 @@ class Timestamp(commands.Cog):
 
     @app_commands.guild_only()
     @app_commands.checks.cooldown(1, 10)
-    @app_commands.command(
-        name="timestamp",
-        description="⏱️ Convertit une date en timestamp Discord",
-    )
+    @app_commands.command(name="timestamp", description="⏱️ Convertit une date en timestamp Discord",)
     async def timestamp_command(self, interaction: discord.Interaction) -> None:
 
         # 🛡️ Vérification ban utilisateur.
@@ -71,9 +68,7 @@ class Timestamp(commands.Cog):
     # ============================================================
 
     @timestamp_command.error
-    async def timestamp_command_error(
-        self, interaction: discord.Interaction, error: app_commands.AppCommandError,
-    ) -> None:
+    async def timestamp_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
         await handle_app_command_error(interaction, error)
 
 
