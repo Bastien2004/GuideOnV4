@@ -95,11 +95,11 @@ def build_result_view(timestamp: int) -> LayoutView:
         f"`{timestamp}`\n\n"
 
         f"**Formats Discord :**\n"
-        f"`<t:{timestamp}:F>` → <t:{timestamp}:F>\n"
-        f"`<t:{timestamp}:f>` → <t:{timestamp}:f>\n"
-        f"`<t:{timestamp}:d>` → <t:{timestamp}:d>\n"
-        f"`<t:{timestamp}:t>` → <t:{timestamp}:t>\n"
-        f"`<t:{timestamp}:R>` → <t:{timestamp}:R>"
+        f"• `<t:{timestamp}:F>` → <t:{timestamp}:F>\n"
+        f"• `<t:{timestamp}:f>` → <t:{timestamp}:f>\n"
+        f"• `<t:{timestamp}:d>` → <t:{timestamp}:d>\n"
+        f"• `<t:{timestamp}:t>` → <t:{timestamp}:t>\n"
+        f"• `<t:{timestamp}:R>` → <t:{timestamp}:R>"
     ))
 
     container.add_item(Separator())
