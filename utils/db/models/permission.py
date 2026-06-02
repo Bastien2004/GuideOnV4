@@ -17,6 +17,8 @@ class PermissionRole(str, enum.Enum):
     DEV = "DEV"
     STAFF_GUIDEON = "STAFF_GUIDEON"
     OP_ALPHA = "OP_ALPHA"
+    MODO_PLUS_ALPHA = "MODO_PLUS_ALPHA"
+    MODO_ALPHA = "MODO_ALPHA"
 
 
 class PermissionEntry(Base, TimestampMixin):

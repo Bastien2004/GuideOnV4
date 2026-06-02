@@ -11,6 +11,7 @@ from utils.db.models.bug_report import BugReport
 from utils.db.models.invite import InviteConfig, InviteLink, InviteStat
 from utils.db.models.birthday import BirthdayConfig, BirthdayUser
 from utils.db.models.giveaway import Giveaway, GiveawayBlacklist, GiveawayParticipant
+from utils.db.models.alpha import AlphaMessageConfig
 
 __all__ = [
     "Base",
@@ -30,4 +31,5 @@ __all__ = [
     "Giveaway",
     "GiveawayBlacklist",
     "GiveawayParticipant",
+    "AlphaMessageConfig",
 ]

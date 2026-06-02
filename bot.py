@@ -20,7 +20,7 @@ from cogs.api.api_app import run_api_server
 from utils.managers.boutique_manager import refresh_cache, cache_refresher_loop
 from utils.managers.permission_manager import refresh_cache as refresh_perms, cache_refresher_loop as perms_refresher_loop
 
-from utils.groupes import groupeDEV, groupeCONFIG, groupeNG, groupeTICKET, groupeINV, groupeBIRTHDAY, groupeGIVE
+from utils.groupes import groupeDEV, groupeCONFIG, groupeNG, groupeTICKET, groupeINV, groupeBIRTHDAY, groupeGIVE, groupeALPHA
 
 
 log = logging.getLogger(__name__)
@@ -181,7 +181,10 @@ class GuideONBot(commands.Bot):
         # from cogs.exp.exemple import ...
         
         # ── IMPORT ALPHA ──
-        # from cogs.alpha.exemple import ...
+        from cogs.alpha.test import test_alpha
+        from cogs.alpha.regle_interne import regle_interne
+        from cogs.alpha.nous_rejoindre import nous_rejoindre
+        from cogs.alpha.index import index
 
 
         ### ASSEMBLAGE DES GROUPES DE COMMANDES ###
@@ -239,15 +242,15 @@ class GuideONBot(commands.Bot):
         groupEXP = groupeEXP()
         for cmd in []:
             groupEXP.add_command(cmd)
+        '''
 
         # 💋 ── ALPHA ──
         self._groupALPHA = groupeALPHA()
-        for cmd in []:
+        for cmd in [test_alpha, regle_interne, nous_rejoindre, index]:
             self._groupALPHA.add_command(cmd)
-        '''
 
 
-        for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY, groupGIVE]:
+        for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY, groupGIVE, self._groupALPHA]:
             self.tree.add_command(group)
 
         log.info("✅ Groupes de commandes enregistrés.")
@@ -280,7 +283,6 @@ class GuideONBot(commands.Bot):
             except Exception as e:
                 log.error(f"❌ Erreur DEV ({gid}) : {e}")
 
-        '''
         # ── Sync ALPHA par guild ──
         for gid in [ID_SERVEUR_DISCORD_ALPHA]:
             guild_obj = discord.Object(id=gid)
@@ -293,7 +295,6 @@ class GuideONBot(commands.Bot):
                 log.info(f"🧪 Commandes ALPHA synchronisées sur {gid} ({len(synced)} cmd).")
             except Exception as e:
                 log.error(f"❌ Erreur ALPHA ({gid}) : {e}")
-        '''
 
         # ── Sync serveur support ──
         try:
