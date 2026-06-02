@@ -1,16 +1,7 @@
 """
 cogs/alpha/derank.py — Commande /alpha derank.
-
-Processus complet de derank :
-  1. Retire de la DB
-  2. Retire le rôle Discord lié au grade
-  3. Remet le username Discord d'origine
-  4. Message d'au revoir dans le salon rank/derank
-  5. Message aux journalistes pour l'affiche de derank
-  6. Rafraîchissement automatique du message stafflist
-
-Accessible : OP Alpha et supérieurs.
 """
+
 from __future__ import annotations
 
 import logging
@@ -20,11 +11,13 @@ from discord import app_commands, Interaction
 from discord.ui import ActionRow, Button, Container, LayoutView, Separator, TextDisplay
 
 from utils.botbancmd import verifier_ban_utilisateur
-from utils.perm_alpha import check_op_alpha
 from utils.control_admin import verifier_commande
 from utils.track_commande import tracker_commande
-from utils.container_universel import error_container, success_container, warning_container
+
+from utils.container_universel import success_container, warning_container
 from utils.error_handler import handle_app_command_error
+from utils.perm_alpha import check_op_alpha
+
 from utils.managers.alpha_staff_manager import get_staff_member, remove_staff_member
 from utils.managers.alpha_rank_config_manager import load_rank_config
 from utils.db.models.alpha_staff import GRADE_LABELS, GRADE_TO_ROLE_ATTR
@@ -32,26 +25,19 @@ from utils.db.models.alpha_staff import GRADE_LABELS, GRADE_TO_ROLE_ATTR
 log = logging.getLogger(__name__)
 
 
-# ── Builders de messages ────────────────────────────────────
+# ============================================================
+#  📁 Fonctions utilitaires
+# ============================================================
 
-def _build_derank_announcement(
-    membre: discord.Member,
-    pseudo_jeu: str,
-    old_grade: str,
-) -> LayoutView:
-    label = GRADE_LABELS.get(old_grade, old_grade)
+def _build_derank_announcement(membre: discord.Member, pseudo_jeu: str, old_grade: str) -> LayoutView:
+    """Construit le message de derank envoyé dans le salon rank-derank."""
+
     view = LayoutView(timeout=None)
     c = Container()
+
     c.add_item(TextDisplay("# 👋 Départ du staff Alpha"))
-    c.add_item(Separator())
-    c.add_item(TextDisplay(
-        f"**{pseudo_jeu}** (<@{membre.id}>) quitte le staff Alpha (**{label}**).\n\n"
-        f"Merci pour ton travail et ton investissement ! 💙\n"
-        f"Bonne continuation à toi ! 🙏"
-    ))
-    c.add_item(Separator())
-    c.add_item(TextDisplay("-# GuideOn Studio"))
-    view.add_item(c)
+    c.add_item(TextDisplay(f"Merci à <@{membre.id}>) qui quitte le staff Alpha."))
+    
     return view
 
 
