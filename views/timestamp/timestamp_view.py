@@ -1,16 +1,7 @@
 """
 views/timestamp/timestamp_view.py — Convertisseur de date en timestamp Discord.
-
-Construit le panneau interactif de /timestamp et son modal de saisie.
-La date est interprétée en heure d'Europe/Paris (le timestamp produit est
-universel — Discord l'affiche ensuite dans le fuseau de chaque lecteur).
-
-Trois éléments :
-- build_main_view()          → panneau d'accueil avec bouton "Saisir une date"
-- build_result_view(ts)      → vue résultat avec les différents formats Discord
-- TimestampModal             → modal de saisie (jour/mois/année/heure/minute)
-- parse_date_input(...)      → helper pur, validation + conversion en timestamp
 """
+
 from __future__ import annotations
 
 import logging
@@ -20,16 +11,7 @@ from zoneinfo import ZoneInfo
 
 import discord
 from discord import ButtonStyle, Interaction
-from discord.ui import (
-    ActionRow,
-    Button,
-    Container,
-    LayoutView,
-    Modal,
-    Separator,
-    TextDisplay,
-    TextInput,
-)
+from discord.ui import ActionRow, Button, Container, LayoutView, Modal, Separator, TextDisplay, TextInput
 
 log = logging.getLogger(__name__)
 
@@ -40,15 +22,8 @@ PARIS_TZ = ZoneInfo("Europe/Paris")
 # 🧩 Helper pur : parsing + validation
 # ============================================================
 
-def parse_date_input(
-    jour: str, mois: str, annee: str, heure: str, minute: str
-) -> Optional[int]:
-    """
-    Convertit les 5 champs saisis en timestamp Unix (UTC).
-    Retourne None si la date est invalide.
-
-    Les valeurs sont interprétées comme heure d'Europe/Paris.
-    """
+def parse_date_input(jour: str, mois: str, annee: str, heure: str, minute: str) -> Optional[int]:
+    """Coonvertit les champs du modal en timestamp Discord."""
     try:
         dt = datetime(
             year=int(annee),
@@ -64,7 +39,7 @@ def parse_date_input(
 
 
 # ============================================================
-# 🎨 Vue principale (panneau d'accueil)
+# 🎨 View principale
 # ============================================================
 
 def build_main_view() -> LayoutView:
@@ -74,13 +49,12 @@ def build_main_view() -> LayoutView:
     container = Container()
 
     # Header
-    container.add_item(TextDisplay("# ⏱️ __Convertisseur Timestamp__"))
+    container.add_item(TextDisplay("# <:temps:1511260273506259024> __Convertisseur Timestamp__"))
     container.add_item(Separator())
 
     # Description
     container.add_item(TextDisplay(
-        "Transforme une **date précise** en timestamp utilisable\n"
-        "directement dans **Discord**."
+        "-# Transforme une **date** en timestamp Discord."
     ))
 
     # Bouton de saisie
@@ -102,7 +76,7 @@ def build_main_view() -> LayoutView:
 
 
 # ============================================================
-# 🎨 Vue résultat (affichage des formats)
+# 🎨 View résultat
 # ============================================================
 
 def build_result_view(timestamp: int) -> LayoutView:
@@ -112,13 +86,14 @@ def build_result_view(timestamp: int) -> LayoutView:
     container = Container()
 
     # Header
-    container.add_item(TextDisplay("# ⏱️ __Timestamp Discord généré__"))
+    container.add_item(TextDisplay("# <:temps:1511260273506259024> __Timestamp Discord__"))
     container.add_item(Separator())
 
     # Timestamp brut + formats
     container.add_item(TextDisplay(
         f"**Timestamp brut :**\n"
         f"`{timestamp}`\n\n"
+
         f"**Formats Discord :**\n"
         f"`<t:{timestamp}:F>` → <t:{timestamp}:F>\n"
         f"`<t:{timestamp}:f>` → <t:{timestamp}:f>\n"
@@ -139,9 +114,7 @@ def build_result_view(timestamp: int) -> LayoutView:
     container.add_item(ActionRow(retour_btn))
 
     # Footer
-    container.add_item(TextDisplay(
-        "-# Discord affiche le résultat dans le **fuseau de chaque lecteur**."
-    ))
+    container.add_item(TextDisplay("-# GuideOn Studio"))
 
     view.add_item(container)
     return view
@@ -170,8 +143,7 @@ class TimestampModal(Modal, title="📅 Conversion en timestamp"):
         )
 
         if timestamp is None:
-            # Import local pour éviter un import circulaire si error_container
-            # venait à utiliser cette vue plus tard.
+
             from utils.container_universel import error_container
             await interaction.response.send_message(
                 view=error_container(
@@ -182,11 +154,11 @@ class TimestampModal(Modal, title="📅 Conversion en timestamp"):
             )
             return
 
-        # Édite le message du panneau d'accueil avec la vue résultat
         try:
             await interaction.response.edit_message(view=build_result_view(timestamp))
+
         except (discord.NotFound, discord.HTTPException):
-            log.warning("[Timestamp] Édition du message échouée — fallback ephemeral")
+            log.warning("[Timestamp] Édition du message échouée (user=%s)", interaction.user.id)
             await interaction.response.send_message(
                 view=build_result_view(timestamp), ephemeral=True
             )
