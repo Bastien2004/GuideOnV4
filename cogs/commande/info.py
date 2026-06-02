@@ -31,13 +31,13 @@ class InfoView(LayoutView):
 
         container = Container()
 
-        container.add_item(TextDisplay("# <:GuideON:1490361480980332676> __GuideON — Bot Discord__"))
+        container.add_item(TextDisplay("# <:GuideON:1490361480980332676> __GuideOn — Bot Discord__"))
         container.add_item(Separator())
 
         container.add_item(
             TextDisplay(
                 "👋 **Bienvenue !**\n\n"
-                "Je suis **GuideON**, un bot Discord français conçu pour\n"
+                "Je suis **GuideOn**, un bot Discord français conçu pour\n"
                 "**simplifier, sécuriser et enrichir** la __gestion__ de ton serveur.\n\n"
                 "Que tu gères une **communauté classique** ou un serveur\n"
                 "**NationsGlory**, je t'accompagne au quotidien."

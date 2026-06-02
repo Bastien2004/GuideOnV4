@@ -23,7 +23,7 @@ import discord
 from discord import ButtonStyle, Interaction
 from discord.ui import ActionRow, Button, Container, LayoutView, Section, Separator, TextDisplay
 
-from utils.container_universel import error_container, info_container, success_container
+from utils.container_universel import error_container
 from utils.managers.birthday_manager import (
     delete_user_birthday,
     get_all_for_guild,
@@ -33,7 +33,6 @@ from utils.managers.birthday_manager import (
     save_birthday_config,
 )
 from views._components.channel_select import ChannelSelect
-from views._components.confirm_view import ConfirmView
 from views._components.paginated_view import PaginatedView
 from views._components.role_select import RoleSelect
 from views._components.user_select import UserSelect
@@ -250,46 +249,54 @@ def _cb_pick_channel(guild_id, bot, author_id):
         if not await check(interaction):
             return
 
-        parent = interaction
-
         async def on_select(sel: Interaction, channel_id: int):
             ch = sel.guild.get_channel(channel_id)
             if ch is None:
-                await sel.response.edit_message(view=error_container("Salon **introuvable**."))
+                await sel.response.send_message(
+                    view=error_container("Salon **introuvable**."),
+                    ephemeral=True,
+                )
                 return
-            # Vérifie qu'on peut écrire dedans
             me = sel.guild.me
             if me is not None:
                 perms = ch.permissions_for(me)
                 if not perms.send_messages:
-                    await sel.response.edit_message(
+                    await sel.response.send_message(
                         view=error_container(
                             f"Je n'ai **pas la permission** d'écrire dans {ch.mention}."
-                        )
+                        ),
+                        ephemeral=True,
                     )
                     return
             await save_birthday_config(guild_id, {"channel_id": channel_id})
-            await sel.response.edit_message(
-                view=success_container(f"Salon d'annonce défini sur {ch.mention} !")
-            )
+            # Retour direct à la vue principale (qui affichera le nouveau salon)
             new_view = await create_birthday_view(guild_id, bot, author_id)
-            if new_view:
-                try:
-                    await parent.edit_original_response(view=new_view)
-                except (discord.NotFound, discord.HTTPException):
-                    log.warning("[Birthday] Re-render après pick_channel impossible")
+            await sel.response.edit_message(view=new_view)
+
+        async def on_cancel(cancel_inter: Interaction):
+            new_view = await create_birthday_view(guild_id, bot, author_id)
+            await cancel_inter.response.edit_message(view=new_view)
 
         select = ChannelSelect(
             placeholder="Sélectionner un salon",
             on_select=on_select,
             channel_types=[discord.ChannelType.text],
         )
+        btn_cancel = Button(label="Annuler", style=ButtonStyle.secondary, emoji="↩️")
+        btn_cancel.callback = on_cancel
+
         temp = LayoutView(timeout=120)
         c = Container()
-        c.add_item(TextDisplay("📢 Choisis le salon où les vœux seront postés :"))
+        c.add_item(TextDisplay("# 📢 Choisir le salon d'annonce"))
+        c.add_item(TextDisplay("-# Sélectionne le salon où les vœux seront postés à 7h00."))
+        c.add_item(Separator())
         c.add_item(ActionRow(select))
+        c.add_item(Separator())
+        c.add_item(ActionRow(btn_cancel))
         temp.add_item(c)
-        await interaction.response.send_message(view=temp, ephemeral=True)
+
+        # ÉDITE le message parent au lieu d'en ouvrir un nouveau
+        await interaction.response.edit_message(view=temp)
     return cb
 
 
@@ -299,48 +306,49 @@ def _cb_pick_role(guild_id, bot, author_id):
         if not await check(interaction):
             return
 
-        parent = interaction
-
         async def on_select(sel: Interaction, role_ids: list[int]):
             if not role_ids:
                 return
             role_id = role_ids[0]
             role = sel.guild.get_role(role_id)
             if role is None:
-                await sel.response.edit_message(view=error_container("Rôle **introuvable**."))
+                await sel.response.send_message(
+                    view=error_container("Rôle **introuvable**."),
+                    ephemeral=True,
+                )
                 return
             if role.is_default():
-                await sel.response.edit_message(
-                    view=error_container("Le rôle **@everyone** ne peut pas être utilisé.")
+                await sel.response.send_message(
+                    view=error_container("Le rôle **@everyone** ne peut pas être utilisé."),
+                    ephemeral=True,
                 )
                 return
             if role.managed:
-                await sel.response.edit_message(
+                await sel.response.send_message(
                     view=error_container(
                         "Ce rôle est **géré** par une intégration et ne peut pas être attribué."
-                    )
+                    ),
+                    ephemeral=True,
                 )
                 return
             me = sel.guild.me
             if me is not None and role >= me.top_role:
-                await sel.response.edit_message(
+                await sel.response.send_message(
                     view=error_container(
                         f"Je ne peux pas attribuer {role.mention} : son rang est "
                         f"**supérieur ou égal** au mien."
-                    )
+                    ),
+                    ephemeral=True,
                 )
                 return
 
             await save_birthday_config(guild_id, {"role_id": role_id})
-            await sel.response.edit_message(
-                view=success_container(f"Rôle anniversaire défini sur {role.mention} !")
-            )
             new_view = await create_birthday_view(guild_id, bot, author_id)
-            if new_view:
-                try:
-                    await parent.edit_original_response(view=new_view)
-                except (discord.NotFound, discord.HTTPException):
-                    log.warning("[Birthday] Re-render après pick_role impossible")
+            await sel.response.edit_message(view=new_view)
+
+        async def on_cancel(cancel_inter: Interaction):
+            new_view = await create_birthday_view(guild_id, bot, author_id)
+            await cancel_inter.response.edit_message(view=new_view)
 
         select = RoleSelect(
             placeholder="Sélectionner un rôle",
@@ -348,12 +356,20 @@ def _cb_pick_role(guild_id, bot, author_id):
             min_values=1,
             max_values=1,
         )
+        btn_cancel = Button(label="Annuler", style=ButtonStyle.secondary, emoji="↩️")
+        btn_cancel.callback = on_cancel
+
         temp = LayoutView(timeout=120)
         c = Container()
-        c.add_item(TextDisplay("🎈 Choisis le rôle anniversaire :"))
+        c.add_item(TextDisplay("# 🎈 Choisir le rôle anniversaire"))
+        c.add_item(TextDisplay("-# Attribué de 7h00 à 00h00 le jour J."))
+        c.add_item(Separator())
         c.add_item(ActionRow(select))
+        c.add_item(Separator())
+        c.add_item(ActionRow(btn_cancel))
         temp.add_item(c)
-        await interaction.response.send_message(view=temp, ephemeral=True)
+
+        await interaction.response.edit_message(view=temp)
     return cb
 
 
@@ -369,16 +385,34 @@ def _cb_view_all(guild_id, bot, author_id):
             )
             return
         users = await get_all_for_guild(guild_id)
+
+        # Bouton de retour à la vue principale
+        async def on_back(back_inter: Interaction):
+            new_view = await create_birthday_view(guild_id, bot, author_id)
+            await back_inter.response.edit_message(view=new_view)
+        btn_back = Button(label="Retour", style=ButtonStyle.secondary, emoji="↩️")
+        btn_back.callback = on_back
+
         if not users:
-            await interaction.response.send_message(
-                view=info_container("Aucune date d'anniversaire enregistrée sur ce serveur."),
-                ephemeral=True,
-            )
+            # Vue minimale avec juste un message + bouton retour
+            empty_view = LayoutView(timeout=300)
+            c = Container()
+            c.add_item(TextDisplay("# 📋 Dates enregistrées"))
+            c.add_item(Separator())
+            c.add_item(TextDisplay("-# Aucune date d'anniversaire enregistrée sur ce serveur."))
+            c.add_item(Separator())
+            c.add_item(ActionRow(btn_back))
+            empty_view.add_item(c)
+            await interaction.response.edit_message(view=empty_view)
             return
+
         # Tri stable par (mois, jour)
         users_sorted = sorted(users, key=lambda u: (u["month"], u["day"]))
-        view = _BirthdayAdminListView(users_sorted, guild=guild, owner_id=author_id or interaction.user.id)
-        await interaction.response.send_message(view=view, ephemeral=True)
+        view = _BirthdayAdminListView(
+            users_sorted, guild=guild, owner_id=author_id or interaction.user.id,
+            back_button=btn_back,
+        )
+        await interaction.response.edit_message(view=view)
     return cb
 
 
@@ -388,50 +422,56 @@ def _cb_delete_user(guild_id, bot, author_id):
         if not await check(interaction):
             return
 
-        parent = interaction
+        async def back_to_main(inter: Interaction):
+            new_view = await create_birthday_view(guild_id, bot, author_id)
+            await inter.response.edit_message(view=new_view)
 
         async def on_select(sel: Interaction, user_ids: list[int]):
             if not user_ids:
                 return
             uid = user_ids[0]
-
             existing = await get_user_birthday(guild_id, uid)
 
             if existing is None:
-                await sel.response.edit_message(
-                    view=info_container("Cet utilisateur **n'a pas** de date enregistrée.")
-                )
+                # Pas de date → message d'info dans la vue + retour
+                empty = LayoutView(timeout=120)
+                c = Container()
+                c.add_item(TextDisplay("# 🗑️ Suppression"))
+                c.add_item(Separator())
+                c.add_item(TextDisplay(
+                    f"-# ℹ️ <@{uid}> n'a **aucune date** enregistrée."
+                ))
+                c.add_item(Separator())
+                btn_back = Button(label="Retour", style=ButtonStyle.secondary, emoji="↩️")
+                btn_back.callback = back_to_main
+                c.add_item(ActionRow(btn_back))
+                empty.add_item(c)
+                await sel.response.edit_message(view=empty)
                 return
 
-            # Confirmation
-            confirm = ConfirmView(
-                owner_id=author_id or sel.user.id,
-                question=f"Supprimer la date <@{uid}> "
-                         f"({existing['day']:02d}/{existing['month']:02d}) ?",
-                confirm_label="Supprimer",
-                cancel_label="Annuler",
-                confirm_style=ButtonStyle.danger,
-            )
-            await sel.response.send_message(view=confirm, ephemeral=True)
-            await confirm.wait()
-            if not confirm.confirmed:
-                return
+            # Vue de confirmation INTÉGRÉE (pas de ConfirmView séparé)
+            async def on_confirm(conf_inter: Interaction):
+                await delete_user_birthday(guild_id, uid)
+                new_view = await create_birthday_view(guild_id, bot, author_id)
+                await conf_inter.response.edit_message(view=new_view)
 
-            await delete_user_birthday(guild_id, uid)
-            try:
-                await sel.followup.send(
-                    view=success_container(f"Date d'anniversaire de <@{uid}> supprimée !"),
-                    ephemeral=True,
-                )
-            except (discord.NotFound, discord.HTTPException):
-                pass
-            # Re-render parent
-            new_view = await create_birthday_view(guild_id, bot, author_id)
-            if new_view:
-                try:
-                    await parent.edit_original_response(view=new_view)
-                except (discord.NotFound, discord.HTTPException):
-                    log.warning("[Birthday] Re-render après delete_user impossible")
+            year_txt = f"/{existing['year']}" if existing.get("year") else ""
+            confirm_view = LayoutView(timeout=120)
+            c = Container()
+            c.add_item(TextDisplay("# 🗑️ Confirmer la suppression"))
+            c.add_item(Separator())
+            c.add_item(TextDisplay(
+                f"-# Tu vas supprimer la date d'anniversaire de <@{uid}>\n"
+                f"-# Date enregistrée : **{existing['day']:02d}/{existing['month']:02d}{year_txt}**"
+            ))
+            c.add_item(Separator())
+            btn_confirm = Button(label="Supprimer", style=ButtonStyle.danger, emoji="🗑️")
+            btn_confirm.callback = on_confirm
+            btn_cancel_inner = Button(label="Annuler", style=ButtonStyle.secondary, emoji="↩️")
+            btn_cancel_inner.callback = back_to_main
+            c.add_item(ActionRow(btn_confirm, btn_cancel_inner))
+            confirm_view.add_item(c)
+            await sel.response.edit_message(view=confirm_view)
 
         select = UserSelect(
             placeholder="Sélectionner un membre",
@@ -439,12 +479,20 @@ def _cb_delete_user(guild_id, bot, author_id):
             min_values=1,
             max_values=1,
         )
+        btn_cancel = Button(label="Annuler", style=ButtonStyle.secondary, emoji="↩️")
+        btn_cancel.callback = back_to_main
+
         temp = LayoutView(timeout=120)
         c = Container()
-        c.add_item(TextDisplay("🗑️ Choisis le membre dont supprimer la date :"))
+        c.add_item(TextDisplay("# 🗑️ Supprimer une date"))
+        c.add_item(TextDisplay("-# Sélectionne le membre dont supprimer la date."))
+        c.add_item(Separator())
         c.add_item(ActionRow(select))
+        c.add_item(Separator())
+        c.add_item(ActionRow(btn_cancel))
         temp.add_item(c)
-        await interaction.response.send_message(view=temp, ephemeral=True)
+
+        await interaction.response.edit_message(view=temp)
     return cb
 
 
@@ -455,8 +503,12 @@ def _cb_delete_user(guild_id, bot, author_id):
 class _BirthdayAdminListView(PaginatedView):
     """Liste paginée de TOUTES les dates enregistrées (vue admin)."""
 
-    def __init__(self, users: list[dict], *, guild: discord.Guild, owner_id: int):
+    def __init__(
+        self, users: list[dict], *, guild: discord.Guild, owner_id: int,
+        back_button: Optional[Button] = None,
+    ):
         self.guild = guild
+        self.back_button = back_button
         super().__init__(users, per_page=15, owner_id=owner_id)
 
     def build_page_container(self, page_items: list) -> Container:
@@ -466,17 +518,22 @@ class _BirthdayAdminListView(PaginatedView):
 
         if not page_items:
             container.add_item(TextDisplay("-# Aucune date enregistrée."))
-            return container
+        else:
+            lines: list[str] = []
+            for u in page_items:
+                member = self.guild.get_member(u["user_id"])
+                display = member.mention if member else f"`utilisateur {u['user_id']} (parti)`"
+                year_txt = f"/{u['year']}" if u.get("year") else ""
+                lines.append(
+                    f"-# 🎂 {display} — **{u['day']:02d}/{u['month']:02d}{year_txt}**"
+                )
+            container.add_item(TextDisplay("\n".join(lines)))
 
-        lines: list[str] = []
-        for u in page_items:
-            member = self.guild.get_member(u["user_id"])
-            display = member.mention if member else f"`utilisateur {u['user_id']} (parti)`"
-            year_txt = f"/{u['year']}" if u.get("year") else ""
-            lines.append(
-                f"-# 🎂 {display} — **{u['day']:02d}/{u['month']:02d}{year_txt}**"
-            )
-        container.add_item(TextDisplay("\n".join(lines)))
+        # Bouton retour si fourni (en plus des contrôles de pagination héritée)
+        if self.back_button is not None:
+            container.add_item(Separator())
+            container.add_item(ActionRow(self.back_button))
+
         return container
 
 

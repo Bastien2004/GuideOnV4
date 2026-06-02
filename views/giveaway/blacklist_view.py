@@ -187,25 +187,34 @@ class BlacklistView(LayoutView):
     # ─── Actions ──────────────────────────────────────────
 
     async def _on_add(self, interaction: Interaction):
-        parent = interaction
+        async def back_to_main(back_inter: Interaction):
+            entries = await get_blacklist(self.guild.id, include_expired=False)
+            new_view = BlacklistView(
+                guild=self.guild, entries=entries,
+                owner_id=self.owner_id, page=0,
+            )
+            await back_inter.response.edit_message(view=new_view)
 
         async def on_user_select(sel: Interaction, user_ids: list[int]):
             if not user_ids:
                 return
             uid = user_ids[0]
             if uid == sel.user.id:
-                await sel.response.edit_message(
-                    view=error_container("Tu ne peux pas te **blacklist toi-même**.")
+                await sel.response.send_message(
+                    view=error_container("Tu ne peux pas te **blacklist toi-même**."),
+                    ephemeral=True,
                 )
                 return
             member = sel.guild.get_member(uid)
             if member is not None and member.bot:
-                await sel.response.edit_message(
-                    view=error_container("Les **bots** ne peuvent pas être blacklist.")
+                await sel.response.send_message(
+                    view=error_container("Les **bots** ne peuvent pas être blacklist."),
+                    ephemeral=True,
                 )
                 return
 
-            # Ouvre un modal pour raison + durée (les deux optionnels)
+            # Modal raison + durée (les deux optionnels). Discord ouvre le modal
+            # par-dessus naturellement, pas de problème UX.
             async def on_submit(inter: Interaction, reason: str, duration: str):
                 reason = reason.strip() or None
                 days = _parse_duration_days(duration)
@@ -224,21 +233,13 @@ class BlacklistView(LayoutView):
                         ephemeral=True,
                     )
                     return
-                exp_txt = f" jusqu'à <t:{int(expires_at.timestamp())}:f>" if expires_at else " **(permanent)**"
-                await inter.response.send_message(
-                    view=success_container(f"<@{uid}> ajouté à la blacklist{exp_txt}."),
-                    ephemeral=True,
-                )
-                # Re-render parent
+                # Retour direct à la vue principale (l'entrée s'y verra)
                 entries = await get_blacklist(self.guild.id, include_expired=False)
                 new_view = BlacklistView(
                     guild=self.guild, entries=entries,
                     owner_id=self.owner_id, page=0,
                 )
-                try:
-                    await parent.edit_original_response(view=new_view)
-                except (discord.NotFound, discord.HTTPException):
-                    pass
+                await inter.response.edit_message(view=new_view)
 
             modal = _BlacklistAddModal(
                 title=f"🚫 Blacklist · {uid}",
@@ -246,14 +247,23 @@ class BlacklistView(LayoutView):
             )
             await sel.response.send_modal(modal)
 
-        select = UserSelect(placeholder="Sélectionner un utilisateur",
-                            on_select=on_user_select, min_values=1, max_values=1)
+        select = UserSelect(
+            placeholder="Sélectionner un utilisateur",
+            on_select=on_user_select, min_values=1, max_values=1,
+        )
+        btn_cancel = Button(label="Annuler", style=ButtonStyle.secondary, emoji="↩️")
+        btn_cancel.callback = back_to_main
+
         temp = LayoutView(timeout=120)
         c = Container()
-        c.add_item(TextDisplay("➕ Choisis l'utilisateur à blacklist :"))
+        c.add_item(TextDisplay("# ➕ Ajouter à la blacklist"))
+        c.add_item(TextDisplay("-# Sélectionne l'utilisateur à blacklist."))
+        c.add_item(Separator())
         c.add_item(ActionRow(select))
+        c.add_item(Separator())
+        c.add_item(ActionRow(btn_cancel))
         temp.add_item(c)
-        await interaction.response.send_message(view=temp, ephemeral=True)
+        await interaction.response.edit_message(view=temp)
 
     async def _on_remove(self, interaction: Interaction):
         if not self.entries:
@@ -263,7 +273,13 @@ class BlacklistView(LayoutView):
             )
             return
 
-        parent = interaction
+        async def back_to_main(back_inter: Interaction):
+            entries = await get_blacklist(self.guild.id, include_expired=False)
+            new_view = BlacklistView(
+                guild=self.guild, entries=entries,
+                owner_id=self.owner_id, page=0,
+            )
+            await back_inter.response.edit_message(view=new_view)
 
         async def on_user_select(sel: Interaction, user_ids: list[int]):
             if not user_ids:
@@ -271,31 +287,46 @@ class BlacklistView(LayoutView):
             uid = user_ids[0]
             removed = await remove_from_blacklist(sel.guild.id, uid)
             if not removed:
-                await sel.response.edit_message(
-                    view=info_container(f"<@{uid}> n'était **pas** dans la blacklist.")
-                )
+                # Pas dans la blacklist → message d'info dans la vue + retour
+                empty = LayoutView(timeout=120)
+                c = Container()
+                c.add_item(TextDisplay("# ➖ Retrait"))
+                c.add_item(Separator())
+                c.add_item(TextDisplay(
+                    f"-# ℹ️ <@{uid}> n'était **pas** dans la blacklist."
+                ))
+                c.add_item(Separator())
+                btn_back = Button(label="Retour", style=ButtonStyle.secondary, emoji="↩️")
+                btn_back.callback = back_to_main
+                c.add_item(ActionRow(btn_back))
+                empty.add_item(c)
+                await sel.response.edit_message(view=empty)
                 return
-            await sel.response.edit_message(
-                view=success_container(f"<@{uid}> retiré de la blacklist.")
-            )
+            # Retour direct à la vue principale (l'entrée a disparu)
             entries = await get_blacklist(self.guild.id, include_expired=False)
             new_view = BlacklistView(
                 guild=self.guild, entries=entries,
                 owner_id=self.owner_id, page=0,
             )
-            try:
-                await parent.edit_original_response(view=new_view)
-            except (discord.NotFound, discord.HTTPException):
-                pass
+            await sel.response.edit_message(view=new_view)
 
-        select = UserSelect(placeholder="Sélectionner l'utilisateur à retirer",
-                            on_select=on_user_select, min_values=1, max_values=1)
+        select = UserSelect(
+            placeholder="Sélectionner l'utilisateur à retirer",
+            on_select=on_user_select, min_values=1, max_values=1,
+        )
+        btn_cancel = Button(label="Annuler", style=ButtonStyle.secondary, emoji="↩️")
+        btn_cancel.callback = back_to_main
+
         temp = LayoutView(timeout=120)
         c = Container()
-        c.add_item(TextDisplay("➖ Choisis l'utilisateur à **retirer** de la blacklist :"))
+        c.add_item(TextDisplay("# ➖ Retirer de la blacklist"))
+        c.add_item(TextDisplay("-# Sélectionne l'utilisateur à retirer."))
+        c.add_item(Separator())
         c.add_item(ActionRow(select))
+        c.add_item(Separator())
+        c.add_item(ActionRow(btn_cancel))
         temp.add_item(c)
-        await interaction.response.send_message(view=temp, ephemeral=True)
+        await interaction.response.edit_message(view=temp)
 
     async def _on_purge(self, interaction: Interaction):
         await interaction.response.defer()

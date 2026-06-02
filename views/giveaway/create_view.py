@@ -370,37 +370,49 @@ def _cb_channel(guild, ctx, author_id):
     async def cb(interaction: Interaction):
         if not await check(interaction):
             return
-        parent = interaction
+
         async def on_select(sel: Interaction, channel_id: int):
             ch = sel.guild.get_channel(channel_id)
             if ch is None:
-                await sel.response.edit_message(view=error_container("Salon **introuvable**."))
+                await sel.response.send_message(
+                    view=error_container("Salon **introuvable**."), ephemeral=True,
+                )
                 return
             me = sel.guild.me
             if me is not None and not ch.permissions_for(me).send_messages:
-                await sel.response.edit_message(view=error_container(
-                    f"Je n'ai **pas la permission** d'écrire dans {ch.mention}."
-                ))
+                await sel.response.send_message(
+                    view=error_container(
+                        f"Je n'ai **pas la permission** d'écrire dans {ch.mention}."
+                    ),
+                    ephemeral=True,
+                )
                 return
             ctx["channel_id"] = channel_id
-            await sel.response.edit_message(view=success_container(f"Salon défini sur {ch.mention} !"))
             new_view = await create_giveaway_setup_view(guild, ctx, author_id)
-            try:
-                await parent.edit_original_response(view=new_view)
-            except (discord.NotFound, discord.HTTPException):
-                pass
+            await sel.response.edit_message(view=new_view)
+
+        async def on_cancel(cancel_inter: Interaction):
+            new_view = await create_giveaway_setup_view(guild, ctx, author_id)
+            await cancel_inter.response.edit_message(view=new_view)
 
         select = ChannelSelect(
             placeholder="Sélectionner un salon",
             on_select=on_select,
             channel_types=[discord.ChannelType.text],
         )
+        btn_cancel = Button(label="Annuler", style=ButtonStyle.secondary, emoji="↩️")
+        btn_cancel.callback = on_cancel
+
         temp = LayoutView(timeout=120)
         c = Container()
-        c.add_item(TextDisplay("📢 Choisis le salon d'envoi :"))
+        c.add_item(TextDisplay("# 📢 Choisir le salon d'envoi"))
+        c.add_item(TextDisplay("-# Le giveaway sera publié dans ce salon."))
+        c.add_item(Separator())
         c.add_item(ActionRow(select))
+        c.add_item(Separator())
+        c.add_item(ActionRow(btn_cancel))
         temp.add_item(c)
-        await interaction.response.send_message(view=temp, ephemeral=True)
+        await interaction.response.edit_message(view=temp)
     return cb
 
 
@@ -410,53 +422,59 @@ def _cb_role(guild, ctx, author_id, key: str, label: str):
     async def cb(interaction: Interaction):
         if not await check(interaction):
             return
-        parent = interaction
+
+        async def back_to_wizard(inter: Interaction):
+            new_view = await create_giveaway_setup_view(guild, ctx, author_id)
+            await inter.response.edit_message(view=new_view)
+
         async def on_select(sel: Interaction, role_ids: list[int]):
             if not role_ids:
                 return
             role_id = role_ids[0]
             role = sel.guild.get_role(role_id)
             if role is None:
-                await sel.response.edit_message(view=error_container("Rôle **introuvable**."))
+                await sel.response.send_message(
+                    view=error_container("Rôle **introuvable**."), ephemeral=True,
+                )
                 return
             if role.is_default():
-                await sel.response.edit_message(
-                    view=error_container("Le rôle **@everyone** ne peut pas être utilisé.")
+                await sel.response.send_message(
+                    view=error_container("Le rôle **@everyone** ne peut pas être utilisé."),
+                    ephemeral=True,
                 )
                 return
             ctx.setdefault("requirements", {})[key] = role_id
-            await sel.response.edit_message(view=success_container(f"{label.capitalize()} défini sur {role.mention}."))
             new_view = await create_giveaway_setup_view(guild, ctx, author_id)
-            try:
-                await parent.edit_original_response(view=new_view)
-            except (discord.NotFound, discord.HTTPException):
-                pass
+            await sel.response.edit_message(view=new_view)
+
+        async def on_clear(clear_inter: Interaction):
+            ctx.setdefault("requirements", {})[key] = None
+            new_view = await create_giveaway_setup_view(guild, ctx, author_id)
+            await clear_inter.response.edit_message(view=new_view)
 
         select = RoleSelect(
             placeholder=f"Sélectionner un {label}",
             on_select=on_select,
             min_values=1, max_values=1,
         )
+        btn_cancel = Button(label="Annuler", style=ButtonStyle.secondary, emoji="↩️")
+        btn_cancel.callback = back_to_wizard
+
         temp = LayoutView(timeout=120)
         c = Container()
-        c.add_item(TextDisplay(f"Choisis le **{label}** :"))
-        # Si déjà défini, permettre de retirer
+        c.add_item(TextDisplay(f"# 🎭 Choisir le **{label}**"))
+        c.add_item(Separator())
+        c.add_item(ActionRow(select))
+        c.add_item(Separator())
+        # Si déjà défini, bouton de retrait + Annuler
         if ctx.get("requirements", {}).get(key):
-            btn_clear = Button(label="Retirer", style=ButtonStyle.danger, emoji="🗑️")
-            async def cb_clear(inter: Interaction):
-                ctx["requirements"][key] = None
-                await inter.response.edit_message(view=success_container(f"{label.capitalize()} retiré."))
-                new_view = await create_giveaway_setup_view(guild, ctx, author_id)
-                try:
-                    await parent.edit_original_response(view=new_view)
-                except (discord.NotFound, discord.HTTPException):
-                    pass
-            btn_clear.callback = cb_clear
-            c.add_item(ActionRow(select, btn_clear))
+            btn_clear = Button(label="Retirer ce rôle", style=ButtonStyle.danger, emoji="🗑️")
+            btn_clear.callback = on_clear
+            c.add_item(ActionRow(btn_clear, btn_cancel))
         else:
-            c.add_item(ActionRow(select))
+            c.add_item(ActionRow(btn_cancel))
         temp.add_item(c)
-        await interaction.response.send_message(view=temp, ephemeral=True)
+        await interaction.response.edit_message(view=temp)
     return cb
 
 

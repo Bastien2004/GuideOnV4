@@ -50,8 +50,9 @@ class Report(commands.Cog):
         clear_draft(interaction.user.id)
         try:
             await interaction.response.send_message(view=home_view(), ephemeral=True)
+
         except discord.HTTPException:
-            log.exception("Ouverture /report échouée (user=%s)", interaction.user.id)
+            log.exception("[Report] Ouverture /report échouée (user=%s)", interaction.user.id)
             if not interaction.response.is_done():
                 await interaction.response.send_message(
                     view=error_container("**Impossible** d'ouvrir le formulaire de report."),

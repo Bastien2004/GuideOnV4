@@ -20,7 +20,7 @@ from discord.ui import (
     ActionRow, Button, Container, LayoutView, Section, Separator, TextDisplay,
 )
 
-from utils.container_universel import error_container, info_container, success_container
+from utils.container_universel import error_container, success_container
 from utils.managers.giveaway_manager import (
     count_participants,
     delete_giveaway,
@@ -382,31 +382,45 @@ def _cb_view_participants(gid, guild, owner_id, is_gold_guild):
             from utils.boutique.gold_manager import send_gold_error
             await send_gold_error(interaction)
             return
-        await interaction.response.defer(ephemeral=True)
+
         participants = await get_participants(gid)
-        if not participants:
-            await interaction.followup.send(
-                view=info_container("Aucun participant pour l'instant."),
-                ephemeral=True,
-            )
-            return
-        # Affichage paginé simple : on liste tout dans un container
-        lines = [f"-# 👤 <@{uid}>" for uid in participants]
-        # Trim si trop long (Discord limite à ~4000 chars sur un TextDisplay)
-        text = "\n".join(lines)
-        if len(text) > 3500:
-            text = "\n".join(lines[:150]) + f"\n-# *...et {len(lines) - 150} autre(s)*"
+
+        # Bouton retour à la vue manage
+        async def on_back(back_inter: Interaction):
+            fresh = await get_giveaway(gid)
+            if fresh is None:
+                # Le giveaway a été supprimé entre-temps
+                await back_inter.response.edit_message(
+                    view=error_container("Giveaway **introuvable** (supprimé ?).")
+                )
+                return
+            new_view = await create_manage_view(fresh, guild, owner_id, is_gold_guild)
+            await back_inter.response.edit_message(view=new_view)
+        btn_back = Button(label="Retour", style=ButtonStyle.secondary, emoji="↩️")
+        btn_back.callback = on_back
 
         view = LayoutView(timeout=300)
         c = Container()
         c.add_item(TextDisplay(f"# 👥 Participants · `{gid}`"))
-        c.add_item(TextDisplay(f"-# Total : **{len(participants)}**"))
+        c.add_item(TextDisplay(f"-# Total : **{len(participants)}** · ✨ Gold+"))
         c.add_item(Separator())
-        c.add_item(TextDisplay(text))
+
+        if not participants:
+            c.add_item(TextDisplay("-# 🤷 Aucun participant pour l'instant."))
+        else:
+            lines = [f"-# 👤 <@{uid}>" for uid in participants]
+            text = "\n".join(lines)
+            # Discord limite ~4000 chars sur un TextDisplay
+            if len(text) > 3500:
+                text = "\n".join(lines[:150]) + f"\n-# *...et {len(lines) - 150} autre(s)*"
+            c.add_item(TextDisplay(text))
+
+        c.add_item(Separator())
+        c.add_item(ActionRow(btn_back))
         c.add_item(Separator())
         c.add_item(TextDisplay("-# GuideOn Studio · ✨ Gold+"))
         view.add_item(c)
-        await interaction.followup.send(view=view, ephemeral=True)
+        await interaction.response.edit_message(view=view)
     return cb
 
 
