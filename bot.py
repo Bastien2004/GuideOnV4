@@ -136,6 +136,8 @@ class GuideONBot(commands.Bot):
         # ── IMPORT DEV ──
         from cogs.dev.maintenance import maintenance
         from cogs.dev.permission import permissions
+        from cogs.dev.config_alpha import config_alpha
+        from cogs.dev.edit_list import edit_list
 
         # ── IMPORT NG ──
         from cogs.ng.autel import autel
@@ -185,6 +187,9 @@ class GuideONBot(commands.Bot):
         from cogs.alpha.regle_interne import regle_interne
         from cogs.alpha.nous_rejoindre import nous_rejoindre
         from cogs.alpha.index import index
+        from cogs.alpha.rank import rank
+        from cogs.alpha.derank import derank
+        from cogs.alpha.stafflist import stafflist
 
 
         ### ASSEMBLAGE DES GROUPES DE COMMANDES ###
@@ -210,7 +215,7 @@ class GuideONBot(commands.Bot):
 
         # 💻 ── DEV ──
         self._groupDEV = groupeDEV()
-        for cmd in [maintenance, permissions]:
+        for cmd in [maintenance, permissions, config_alpha, edit_list]:
             self._groupDEV.add_command(cmd)
 
         
@@ -246,7 +251,8 @@ class GuideONBot(commands.Bot):
 
         # 💋 ── ALPHA ──
         self._groupALPHA = groupeALPHA()
-        for cmd in [test_alpha, regle_interne, nous_rejoindre, index]:
+        for cmd in [test_alpha, regle_interne, nous_rejoindre, index, stafflist,
+                    rank, derank]:
             self._groupALPHA.add_command(cmd)
 
 
