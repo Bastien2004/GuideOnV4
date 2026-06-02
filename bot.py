@@ -189,7 +189,7 @@ class GuideONBot(commands.Bot):
         from cogs.alpha.index import index
         from cogs.alpha.stafflist import stafflist
         from cogs.alpha.rank import rank
-        from cogs.alpha.derank import derank
+        from cogs.alpha.derank import alpha_derank
 
 
         ### ASSEMBLAGE DES GROUPES DE COMMANDES ###
@@ -252,7 +252,7 @@ class GuideONBot(commands.Bot):
         # 💋 ── ALPHA ──
         self._groupALPHA = groupeALPHA()
         for cmd in [test_alpha, regle_interne, nous_rejoindre, index,
-                    stafflist, rank, derank]:
+                    stafflist, rank, alpha_derank]:
             self._groupALPHA.add_command(cmd)
 
 
