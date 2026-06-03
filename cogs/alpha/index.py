@@ -1,11 +1,7 @@
 """
-cogs/alpha/index.py — Commande /alpha index.
-
-Envoie (ou met à jour) le message d'index du serveur Alpha.
-Le salon et l'emoji sont chargés depuis AlphaRankConfig (configurable via /dev config_alpha).
-Le message_id est persisté en DB via AlphaMessageConfig pour permettre l'édition.
-Réservé aux OP Alpha et supérieurs.
+cogs/alpha/index.py — Gère l'interface d'information "Index" du serveur Alpha.
 """
+
 from __future__ import annotations
 
 import logging
@@ -16,17 +12,22 @@ from discord import app_commands, Interaction, MediaGalleryItem
 from discord.ui import LayoutView, Container, TextDisplay, Separator, MediaGallery
 
 from utils.botbancmd import verifier_ban_utilisateur
-from utils.perm_alpha import check_op_alpha
 from utils.control_admin import verifier_commande
 from utils.track_commande import tracker_commande
+
 from utils.container_universel import error_container, success_container
 from utils.error_handler import handle_app_command_error
+from utils.perm_alpha import check_op_alpha
+
 from utils.managers.alpha_rank_config_manager import load_rank_config
-from utils.managers.alpha_message_manager import (
-    get_alpha_message, upsert_alpha_message, clear_alpha_message,
-)
+from utils.managers.alpha_message_manager import get_alpha_message, upsert_alpha_message, clear_alpha_message
 
 log = logging.getLogger(__name__)
+
+
+# ============================================================
+# 🏆 Commande : /alpha index
+# ============================================================
 
 MESSAGE_KEY = "index"
 
@@ -54,6 +55,7 @@ def build_index_view(files: list[discord.File]) -> LayoutView:
     c1 = Container()
     c1.add_item(TextDisplay("# <:alpha:1496906799612428368> Index du Alpha"))
     c1.add_item(Separator())
+
     if _has(files, "alpha_affiche.png"):
         c1.add_item(MediaGallery(MediaGalleryItem("attachment://alpha_affiche.png")))
     view.add_item(c1)
@@ -108,16 +110,35 @@ def build_index_view(files: list[discord.File]) -> LayoutView:
     c5.add_item(TextDisplay(
         "**🌐 __Global__**\n"
         "- <:NationsGlory:1500414113384366261> NationsGlory : https://discord.gg/nationsglory\n"
-        "- 📻 NG-Radio : https://discord.gg/cxMZqCNKvD\n\n"
+        "- 📻 LyxiaRadio (ex. NG Radio) :https://discord.gg/cxMZqCNKvD\n"
+        "- ⚒️  "
+
         "**🎮 __Bedrock__**\n"
         "- <:Alpha:1500414179650048070> Alpha : https://discord.gg/KxC9E2VPeX\n"
         "- <:Sigma:1500414355773329548> Sigma : https://discord.gg/RcJeepJB2V\n"
-        "- <:Omega:1500414132560723978> Oméga : https://discord.gg/cy48ux3Bk2\n\n"
+        "- <:Omega:1500414132560723978> Oméga : https://discord.gg/cy48ux3Bk2\n"
+        "- <:Delta:1500414247098650725> Delta : https://discord.gg/nationsglory-delta-948880111753625642\n"
+        "- <:Epsilon:1500414274999418970> Epsilon : https://discord.gg/SAjHxuJTQY\n\n"
+
+
         "**💻 __Java__**\n"
+        "- <:Jade:1500415549727838238> Jade : https://discord.gg/fphbKQSrH9\n"
+        "- <:Mocha:1500415522192228453> Mocha : https://discord.gg/zbTkjGFMZB\n"
         "- <:Blue:1500415616744685648> Blue : https://discord.gg/wQgpfTzAwp\n"
-        "- <:Orange:1500414101493387354> Orange : https://discord.gg/HtET56bBQs\n"
-        "- <:Yellow:1500414000859447408> Yellow : https://discord.gg/z8bBMnwTCW"
+        "- <:White:1500414056710799380> White : https://discord.gg/bf6bNkt2SM\n"
+        "- <:Black:1500415629621067826> Black : https://discord.gg/Ck9s96FDCe\n"
+        "- <:Cyan:1500415587669643294> Cyan : https://discord.gg/RxAjxtuE2U\n"
+        "- <:Lime:1500415534771212439> Lime : https://discord.gg/h54m7VqmWY\n"
+        "- <:Coral:1500415601300996226> Coral : https://discord.gg/mZx4CdqngA\n"
+        "- <:Pink:1500414086499008612> Pink : https://discord.gg/WXhRE2AN2Y **(close)**\n"
+        "- <:Purple:1500414072250695740> Purple : https://discord.gg/bbgqmJjQSB **(close)**\n"
+        "- <:Green:1500415562461872198> Green : https://discord.gg/kQHABDCF3W **(close)**\n"
+        "- <:Orange:1500414101493387354> Orange : https://discord.gg/HtET56bBQs (close)\n"
+        "- <:Yellow:1500414000859447408> Yellow : https://discord.gg/z8bBMnwTCW (close)\n"
+        "- <:RED:1500410048273322035> Red : https://discord.gg/rYGPtgKkpt (close)\n"
+        "- <:NG_US:1500414650909724834> Ruby : https://discord.gg/W2qyJ8WNSs **(close)**"
     ))
+
     view.add_item(c5)
 
     c6 = Container()
@@ -139,14 +160,18 @@ def build_index_view(files: list[discord.File]) -> LayoutView:
     return view
 
 
+# ============================================================
+# 🏆 Commande : /invite classement
+# ============================================================
+
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="index", description="📋 Envoie ou met à jour l'index du serveur Alpha")
+@app_commands.command(name="index", description="📋 [OP] Envoie de l'interface d'information (index) du serveur Alpha")
 async def index(interaction: Interaction) -> None:
 
     if not await verifier_ban_utilisateur(interaction):
         return
-    if not await check_op_alpha(interaction, "gérer l'index"):
+    if not await check_op_alpha(interaction, "gérer l'**index**"):
         return
 
     try:
@@ -223,7 +248,7 @@ async def index(interaction: Interaction) -> None:
         )
 
     except discord.HTTPException:
-        log.exception("Erreur /alpha index | guild=%s", guild_id)
+        log.exception("[INDEX ALPHA] Erreur /alpha index | guild=%s", guild_id)
         return await interaction.followup.send(
             view=error_container("Une erreur Discord est survenue."),
             ephemeral=True,
