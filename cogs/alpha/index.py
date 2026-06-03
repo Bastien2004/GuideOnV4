@@ -32,9 +32,9 @@ log = logging.getLogger(__name__)
 MESSAGE_KEY = "index"
 
 _IMAGES = [
-    ("source/alpha_affiche.png",          "alpha_affiche.png"),
-    ("source/tableau_sanction_alpha.png",  "tableau_sanction_alpha.png"),
-    ("source/npc_alpha_all.png",           "npc_alpha_all.png"),
+    ("source/alpha_affiche.webp",          "alpha_affiche.webp"),
+    ("source/tableau_sanction_alpha.webp",  "tableau_sanction_alpha.webp"),
+    ("source/npc_alpha_all.webp",           "npc_alpha_all.webp"),
 ]
 
 
@@ -56,8 +56,8 @@ def build_index_view(files: list[discord.File]) -> LayoutView:
     c1.add_item(TextDisplay("# <:alpha:1496906799612428368> Index du Alpha"))
     c1.add_item(Separator())
 
-    if _has(files, "alpha_affiche.png"):
-        c1.add_item(MediaGallery(MediaGalleryItem("attachment://alpha_affiche.png")))
+    if _has(files, "alpha_affiche.webp"):
+        c1.add_item(MediaGallery(MediaGalleryItem("attachment://alpha_affiche.webp")))
     view.add_item(c1)
 
     c2 = Container()
@@ -144,15 +144,15 @@ def build_index_view(files: list[discord.File]) -> LayoutView:
     c6 = Container()
     c6.add_item(TextDisplay("## ⚖️ __Tableau des Sanctions__ :"))
     c6.add_item(Separator())
-    if _has(files, "tableau_sanction_alpha.png"):
-        c6.add_item(MediaGallery(MediaGalleryItem("attachment://tableau_sanction_alpha.png")))
+    if _has(files, "tableau_sanction_alpha.webp"):
+        c6.add_item(MediaGallery(MediaGalleryItem("attachment://tableau_sanction_alpha.webp")))
     view.add_item(c6)
 
     c7 = Container()
     c7.add_item(TextDisplay("## 👥 __NPCs du Alpha__ :"))
     c7.add_item(Separator())
-    if _has(files, "npc_alpha_all.png"):
-        c7.add_item(MediaGallery(MediaGalleryItem("attachment://npc_alpha_all.png")))
+    if _has(files, "npc_alpha_all.webp"):
+        c7.add_item(MediaGallery(MediaGalleryItem("attachment://npc_alpha_all.webp")))
     c7.add_item(Separator())
     c7.add_item(TextDisplay("-# GuideOn Studio"))
     view.add_item(c7)
