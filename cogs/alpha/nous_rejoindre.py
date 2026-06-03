@@ -1,10 +1,7 @@
 """
-cogs/alpha/nous_rejoindre.py — Commande /alpha nous_rejoindre.
-
-Envoie le tutoriel pour rejoindre le serveur Alpha Bedrock dans un salon cible.
-Le salon, le ping et l'emoji sont chargés depuis AlphaRankConfig (configurable via /dev config_alpha).
-Réservé aux Modérateurs+ et supérieurs.
+cogs/alpha/nous_rejoindre.py — Gestion de l'interface nous_rejoindre.
 """
+
 from __future__ import annotations
 
 import logging
@@ -15,7 +12,7 @@ from discord import app_commands, Interaction, MediaGalleryItem
 from discord.ui import LayoutView, Container, TextDisplay, Separator, MediaGallery, ActionRow
 
 from utils.botbancmd import verifier_ban_utilisateur
-from utils.perm_alpha import check_modo_plus
+from utils.perm_alpha import check_op_alpha
 from utils.control_admin import verifier_commande
 from utils.track_commande import tracker_commande
 from utils.container_universel import error_container, success_container
@@ -23,6 +20,11 @@ from utils.error_handler import handle_app_command_error
 from utils.managers.alpha_rank_config_manager import load_rank_config
 
 log = logging.getLogger(__name__)
+
+
+# ============================================================
+# 📁  Fonctions utilitaires
+# ============================================================
 
 _IMAGES = [
     ("source/join_alpha.webp",        "join_alpha.webp"),
@@ -47,16 +49,16 @@ def build_nous_rejoindre_view(files: list[discord.File], role_to_ping: int | Non
     view = LayoutView(timeout=None)
 
     c1 = Container()
-    c1.add_item(TextDisplay(
-        f"# <:alpha:1496906799612428368> Nous rejoindre — Serveur Alpha{ping_str}"
-    ))
+    c1.add_item(TextDisplay(f"# <:alpha:1496906799612428368> Nous rejoindre — Serveur Alpha{ping_str}"))
     c1.add_item(Separator())
+
     c1.add_item(TextDisplay(
         "## 🎮 Bienvenue sur NationsGlory Alpha\n\n"
         "Voici un guide simple pour **rejoindre** le serveur __Alpha NationsGlory Bedrock__.\n"
         "Lis attentivement chaque étape pour éviter les erreurs. 📒"
     ))
     c1.add_item(Separator())
+
     if _has(files, "join_alpha.webp"):
         c1.add_item(MediaGallery(MediaGalleryItem("attachment://join_alpha.webp")))
     view.add_item(c1)
@@ -72,6 +74,7 @@ def build_nous_rejoindre_view(files: list[discord.File], role_to_ping: int | Non
         "Ensuite, tu as **plusieurs façons** de te __connecter__ sur notre serveur."
     ))
     c2.add_item(Separator())
+
     c2.add_item(TextDisplay(
         "1️⃣ __**Connexion via bot**__\n\n"
         "Tu devras **ajouter** en ami Minecraft, l'un des comptes suivants :\n"
@@ -89,6 +92,7 @@ def build_nous_rejoindre_view(files: list[discord.File], role_to_ping: int | Non
         "Tu recevras ainsi une **invitation** pour rejoindre le serveur sur Minecraft en partie **'LAN'**."
     ))
     c2.add_item(Separator())
+
     view.add_item(c2)
 
     c3 = Container()
@@ -107,11 +111,13 @@ def build_nous_rejoindre_view(files: list[discord.File], role_to_ping: int | Non
         "les __staffs__ sont à ta disposition pour t'**aider** !"
     ))
     c3.add_item(Separator())
+
     view.add_item(c3)
 
     c4 = Container()
     c4.add_item(TextDisplay("## 🐛 __Erreurs fréquentes__ :"))
     c4.add_item(Separator())
+
     c4.add_item(TextDisplay(
         "1️⃣ __**Erreur : 'Version obsolète'**__\n\n"
         "Pour te connecter au serveur **NationsGlory Alpha**, ton jeu doit être sur la **même version** que le serveur. "
@@ -122,9 +128,11 @@ def build_nous_rejoindre_view(files: list[discord.File], role_to_ping: int | Non
         "qui ne sera de toute façon pas en mesure de t'aider."
     ))
     c4.add_item(Separator())
+
     if _has(files, "version_obsolete.webp"):
         c4.add_item(MediaGallery(MediaGalleryItem("attachment://version_obsolete.webp")))
     c4.add_item(Separator())
+
     c4.add_item(TextDisplay(
         "2️⃣ __**Erreur : 'Liste blanche'**__\n\n"
         "Si tu reçois le **message d'erreur** t'expliquant que le serveur est en **liste blanche**, "
@@ -133,35 +141,48 @@ def build_nous_rejoindre_view(files: list[discord.File], role_to_ping: int | Non
         "Son objectif est de __garantir__ la **meilleure expérience** de jeu pour les joueurs !\n\n"
         "Si cela t'arrive, il faut **patienter** et rester **informé** par les __canaux officiels de NationsGlory__."
     ))
+
     if _has(files, "wl.webp"):
         c4.add_item(MediaGallery(MediaGalleryItem("attachment://wl.webp")))
     c4.add_item(Separator())
+
     c4.add_item(TextDisplay("-# GuideOn Studio"))
     view.add_item(c4)
 
     return view
 
 
+# ============================================================
+# 🚪 Commande : /alpha nous_rejoindre
+# ============================================================
+
 @app_commands.guild_only()
-@app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="nous_rejoindre", description="🚪 [OP] Envoie le tutoriel pour rejoindre le serveur Alpha")
+@app_commands.checks.cooldown(1, 15)
+@app_commands.command(name="nous_rejoindre", description="🚪 [OP] Envoie du tutoriel pour rejoindre le serveur Alpha")
 async def nous_rejoindre(interaction: Interaction) -> None:
 
+    # 🛡️ Vérification ban utilisateur.
     if not await verifier_ban_utilisateur(interaction):
         return
-    if not await check_modo_plus(interaction, "envoyer le tutoriel"):
+    
+    # 🔐 Vérification Opérateur.
+    if not await check_op_alpha(interaction, "envoyer le tutoriel"):
         return
 
+    # 🕒 Defer.
     try:
         await interaction.response.defer(ephemeral=True)
     except (discord.NotFound, discord.HTTPException):
         return
 
+    # ⚙️ Vérification maintenance.
     if not await verifier_commande(interaction, "alpha_nous_rejoindre"):
         return
+    
+    # 📊 Tracking.
     await tracker_commande(interaction, "alpha_nous_rejoindre")
 
-    # 📋 Config
+    # 🧩 Récupération de la configuration.
     cfg = await load_rank_config(interaction.guild_id)
     channel_id  = cfg.get("content_nous_rejoindre_channel_id")
     ping_id     = cfg.get("content_nous_rejoindre_ping_id")
@@ -170,8 +191,8 @@ async def nous_rejoindre(interaction: Interaction) -> None:
     if not channel_id:
         return await interaction.followup.send(
             view=error_container(
-                "Le salon n'est pas configuré.\n"
-                "Utilisez `/dev config_alpha` → **Contenu Discord** pour le définir."
+                "Le salon n'est pas **configuré**.\n"
+                "Utilisez `/dev config_alpha` pour le définir."
             ),
             ephemeral=True,
         )
@@ -182,7 +203,7 @@ async def nous_rejoindre(interaction: Interaction) -> None:
             channel = await interaction.client.fetch_channel(channel_id)
         except (discord.NotFound, discord.HTTPException):
             return await interaction.followup.send(
-                view=error_container("Salon introuvable (ID invalide ou bot sans accès)."),
+                view=error_container("Salon **introuvable** (ID invalide ou bot sans accès)."),
                 ephemeral=True,
             )
 
@@ -195,9 +216,9 @@ async def nous_rejoindre(interaction: Interaction) -> None:
     try:
         sent = await channel.send(**kwargs)
     except discord.HTTPException:
-        log.exception("Erreur /alpha nous_rejoindre | guild=%s", interaction.guild_id)
+        log.exception("[NOUS REJOINDRE ALPHA] Erreur /alpha nous_rejoindre | guild=%s", interaction.guild_id)
         return await interaction.followup.send(
-            view=error_container("Une erreur Discord est survenue lors de l'envoi."),
+            view=error_container("Une **erreur** Discord est survenue lors de l'envoi."),
             ephemeral=True,
         )
 
@@ -206,13 +227,17 @@ async def nous_rejoindre(interaction: Interaction) -> None:
         try:
             await sent.add_reaction(emoji_str)
         except discord.HTTPException:
-            log.warning("Impossible d'ajouter la réaction | guild=%s", interaction.guild_id)
+            log.warning("[NOUS REJOINDRE ALPHA] Impossible d'ajouter la réaction | guild=%s", interaction.guild_id)
 
     await interaction.followup.send(
-        view=success_container(f"Tutoriel envoyé dans {channel.mention} !"),
+        view=success_container(f"**Tutoriel** envoyé dans {channel.mention} !"),
         ephemeral=True,
     )
 
+
+# ============================================================
+# ❌ Gestion des erreurs
+# ============================================================
 
 @nous_rejoindre.error
 async def nous_rejoindre_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:

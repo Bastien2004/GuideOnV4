@@ -164,7 +164,7 @@ def build_index_view(files: list[discord.File]) -> LayoutView:
 
 
 # ============================================================
-# 🏆 Commande : /alpha index
+# 📖 Commande : /alpha index
 # ============================================================
 
 @app_commands.guild_only()

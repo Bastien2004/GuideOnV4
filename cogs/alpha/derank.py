@@ -1,5 +1,5 @@
 """
-cogs/alpha/derank.py — Commande /alpha derank.
+cogs/alpha/derank.py — Gestion d'un derank du staff Alpha
 """
 
 from __future__ import annotations

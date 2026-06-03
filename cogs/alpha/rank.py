@@ -1,17 +1,7 @@
 """
-cogs/alpha/rank.py — Commande /alpha rank.
-
-Processus complet de rank-up :
-  1. Upsert en DB (nouveau staff ou promotion)
-  2. Gestion des rôles Discord (retire l'ancien, ajoute le nouveau)
-  3. Rename Discord : "Préfixe | pseudo_jeu"
-  4. Message de félicitations dans le salon rank/derank
-  5. Message aux journalistes pour l'affiche
-  6. Si nouveau staff → ping devs pour l'emoji skin
-  7. Rafraîchissement automatique du message stafflist
-
-Accessible : OP Alpha et supérieurs.
+cogs/alpha/rank.py — Gestion d'un rank-up du staff Alpha
 """
+
 from __future__ import annotations
 
 import logging
@@ -21,21 +11,23 @@ from discord import app_commands, Interaction
 from discord.ui import Container, LayoutView, Separator, TextDisplay
 
 from utils.botbancmd import verifier_ban_utilisateur
-from utils.perm_alpha import check_op_alpha
 from utils.control_admin import verifier_commande
 from utils.track_commande import tracker_commande
-from utils.container_universel import error_container, success_container, warning_container
+
+from utils.container_universel import success_container
 from utils.error_handler import handle_app_command_error
+from utils.perm_alpha import check_op_alpha
+
 from utils.managers.alpha_staff_manager import get_staff_member, upsert_staff_member
 from utils.managers.alpha_rank_config_manager import load_rank_config
-from utils.db.models.alpha_staff import (
-    GRADES_ORDER, GRADE_LABELS, GRADE_PREFIXES, GRADE_TO_ROLE_ATTR,
-)
+from utils.db.models.alpha_staff import GRADES_ORDER, GRADE_LABELS, GRADE_PREFIXES, GRADE_TO_ROLE_ATTR
 
 log = logging.getLogger(__name__)
 
 
-# ── Choices ────────────────────────────────────────────────
+# ============================================================
+#  📁 Fonctions utilitaires
+# ============================================================
 
 GRADE_CHOICES = [
     app_commands.Choice(name=GRADE_LABELS[g], value=g)
@@ -43,13 +35,9 @@ GRADE_CHOICES = [
 ]
 
 
-# ── Helpers ────────────────────────────────────────────────
+async def _send_to_channel(bot: discord.Client, channel_id: int | None, view: LayoutView) -> bool:
+    """Envoie une view dans un salon donné."""
 
-async def _send_to_channel(
-    bot: discord.Client,
-    channel_id: int | None,
-    view: LayoutView,
-) -> bool:
     if not channel_id:
         return False
     channel = bot.get_channel(channel_id) or await _fetch_channel(bot, channel_id)
@@ -59,7 +47,7 @@ async def _send_to_channel(
         await channel.send(view=view)
         return True
     except discord.HTTPException:
-        log.warning("Impossible d'envoyer dans le salon %d", channel_id)
+        log.warning("[RANK ALPHA] Impossible d'envoyer dans le salon %d", channel_id)
         return False
 
 
@@ -70,45 +58,29 @@ async def _fetch_channel(bot: discord.Client, channel_id: int):
         return None
 
 
-def _build_rank_announcement(
-    membre: discord.Member,
-    pseudo_jeu: str,
-    grade: str,
-    is_promotion: bool,
-    old_grade: str | None,
-) -> LayoutView:
+def _build_rank_announcement(membre: discord.Member, pseudo_jeu: str, grade: str, is_promotion: bool, old_grade: str | None) -> LayoutView:
+    """Construction du message de rank du salon rank-derank."""
+
     label = GRADE_LABELS.get(grade, grade)
     old_label = GRADE_LABELS.get(old_grade, old_grade) if old_grade else None
 
     view = LayoutView(timeout=None)
     c = Container()
-    c.add_item(TextDisplay("# 🎉 Rank-Up Alpha"))
-    c.add_item(Separator())
 
     if is_promotion and old_label:
-        c.add_item(TextDisplay(
-            f"Félicitations à **{pseudo_jeu}** (<@{membre.id}>) qui passe :\n"
-            f"**{old_label}** → **{label}** !\n\n"
-            f"Bravo pour ton travail et ta progression ! 🚀"
-        ))
+        c.add_item(TextDisplay(f"<:Alpha:1500414179650048070> Félicitations à <@{membre.id}> qui passe de **{old_label}** à **{label}** !"))
+
     else:
-        c.add_item(TextDisplay(
-            f"Bienvenue à **{pseudo_jeu}** (<@{membre.id}>) qui rejoint le staff en tant que **{label}** !\n\n"
-            f"Bienvenue dans l'équipe et bonne chance ! 🎊"
-        ))
+        c.add_item(TextDisplay(f"<:Alpha:1500414179650048070> Bienvenue à <@{membre.id}> qui rejoint le staff en tant que **{label}** !"))
 
     c.add_item(Separator())
+
     c.add_item(TextDisplay("-# GuideOn Studio"))
     view.add_item(c)
     return view
 
 
-def _build_journaliste_message(
-    pseudo_jeu: str,
-    grade: str,
-    journaliste_ping_id: int | None,
-    is_promotion: bool,
-) -> LayoutView:
+def _build_journaliste_message(pseudo_jeu: str, grade: str, journaliste_ping_id: int | None, is_promotion: bool) -> LayoutView:
     label = GRADE_LABELS.get(grade, grade)
     ping = f"<@&{journaliste_ping_id}> " if journaliste_ping_id else ""
     action = "promu" if is_promotion else "ranké"
