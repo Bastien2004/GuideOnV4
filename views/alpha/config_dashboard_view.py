@@ -1,13 +1,11 @@
 """
 views/alpha/config_dashboard_view.py — Hub de configuration Alpha.
-
-Dashboard principal ouvert par /dev config_alpha.
-Un select menu liste tous les systèmes configurables.
 """
+
 from __future__ import annotations
 
 import discord
-from discord import ButtonStyle, Interaction
+from discord import Interaction
 from discord.ui import ActionRow, Container, LayoutView, Separator, TextDisplay
 
 from utils.managers.alpha_rank_config_manager import load_rank_config
@@ -21,32 +19,32 @@ _OPTIONS = [
     discord.SelectOption(
         label="Système Rank / Derank",
         value="rank",
-        description="Salons d'annonce, rôles Discord par grade, pings",
+        description="Configuration du système de rank/derank.",
         emoji="⚙️",
     ),
     discord.SelectOption(
         label="Contenu Discord",
         value="content",
-        description="Salons, pings et emojis de Nous rejoindre, Index, Règle interne",
+        description="Configuration des systèmes du Discord Alpha. ",
         emoji="📢",
     ),
     discord.SelectOption(
         label="Système Notations",
         value="notations",
-        description="Bientôt disponible",
+        description="Configuration du système de notations.",
         emoji="📋",
     ),
     discord.SelectOption(
         label="Système ONU",
         value="onu",
-        description="Bientôt disponible",
+        description="Configuration du système d'ONU.",
         emoji="🌐",
     ),
 ]
 
 
 class ConfigDashboardView(LayoutView):
-    """Hub de configuration — select menu des systèmes Alpha."""
+    """Interface de sélection des systèmes à configurer."""
 
     def __init__(self, guild_id: int, owner_id: int) -> None:
         super().__init__(timeout=300)
@@ -56,19 +54,16 @@ class ConfigDashboardView(LayoutView):
 
     async def interaction_check(self, interaction: Interaction) -> bool:
         if interaction.user.id != self.owner_id:
-            await interaction.response.send_message(
-                "Seul l'auteur peut utiliser ce menu.", ephemeral=True
-            )
+            await interaction.response.send_message("Seul l'**auteur** peut utiliser ce menu.", ephemeral=True)
             return False
         return True
 
     def _build(self) -> None:
         c = Container()
-        c.add_item(TextDisplay("# ⚙️ Configuration Alpha — Hub"))
+        c.add_item(TextDisplay("# <:parametre:1495444004328706059> Configuration Alpha"))
         c.add_item(Separator())
-        c.add_item(TextDisplay(
-            "Sélectionnez un système dans le menu ci-dessous pour le configurer."
-        ))
+
+        c.add_item(TextDisplay("Sélectionnez un système à configurer."))
         c.add_item(Separator())
 
         select = discord.ui.Select(
@@ -77,6 +72,7 @@ class ConfigDashboardView(LayoutView):
             min_values=1,
             max_values=1,
         )
+
         select.callback = self._on_select
         c.add_item(ActionRow(select))
 
@@ -100,6 +96,4 @@ class ConfigDashboardView(LayoutView):
                 view=ConfigContentView(self.guild_id, cfg, self.owner_id)
             )
         else:
-            await interaction.response.send_message(
-                "Ce système n'est pas encore disponible. 🔜", ephemeral=True
-            )
+            await interaction.response.send_message("Ce système n'est pas encore disponible. 🔜", ephemeral=True)

@@ -1,10 +1,5 @@
 """
 views/alpha/config_alpha_view.py — Dashboard de configuration du système rank Alpha.
-
-Navigation :
-  Vue principale → [Salons | Pings | Rôles (p.1) | Rôles (p.2)]
-  Chaque select sauvegarde immédiatement et raffraîchit la vue (edit_message).
-  Bouton ↩️ Retour sur toutes les sous-vues.
 """
 from __future__ import annotations
 
@@ -15,7 +10,6 @@ from discord import ButtonStyle, Interaction
 from discord.ui import ActionRow, Button, Container, LayoutView, Separator, TextDisplay
 
 from utils.managers.alpha_rank_config_manager import load_rank_config, save_rank_config
-from utils.db.models.alpha_staff import GRADE_LABELS
 from views._components.channel_select import ChannelSelect
 from views._components.role_select import RoleSelect
 
@@ -25,10 +19,10 @@ log = logging.getLogger(__name__)
 # ── Helpers d'affichage ──────────────────────────────────────
 
 def _ch(val: int | None) -> str:
-    return f"<#{val}>" if val else "*Non configuré*"
+    return f"<#{val}>" if val else "`Non configuré`"
 
 def _role(val: int | None) -> str:
-    return f"<@&{val}>" if val else "*Non configuré*"
+    return f"<@&{val}>" if val else "`Non configuré`"
 
 
 # ════════════════════════════════════════════════════════════
