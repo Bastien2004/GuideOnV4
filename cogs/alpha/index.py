@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 
 
 # ============================================================
-# 🏆 Commande : /alpha index
+# 📁  Fonctions utilitaires
 # ============================================================
 
 MESSAGE_KEY = "index"
@@ -84,8 +84,9 @@ def build_index_view(files: list[discord.File]) -> LayoutView:
         "● <:Tiktok:1500400096033112175> Compte **TikTok** : [Visiter](https://www.tiktok.com/@nationsgloryfr?lang=fr)"
     ))
     c3.add_item(Separator())
+
     c3.add_item(TextDisplay(
-        "📱 N'hésite pas à __visiter__ nos **réseaux sociaux** pour rester __informé__ des **dernières actualités** !"
+        "📱 N'hésite pas à __t'abonner__ à nos **réseaux sociaux** pour rester __informé__ des **dernières actualités** !"
     ))
     view.add_item(c3)
 
@@ -99,6 +100,7 @@ def build_index_view(files: list[discord.File]) -> LayoutView:
         "● <:Modo_2:1500406266231783565> La **Modération** → [Candidater](https://nationsglory.fr/forums/category/recrutement-builder.288)."
     ))
     c4.add_item(Separator())
+
     c4.add_item(TextDisplay(
         "N'hésitez pas à __rejoindre__ nos **équipes** ! Attention à la **qualité** de votre **candidature** !"
     ))
@@ -110,8 +112,8 @@ def build_index_view(files: list[discord.File]) -> LayoutView:
     c5.add_item(TextDisplay(
         "**🌐 __Global__**\n"
         "- <:NationsGlory:1500414113384366261> NationsGlory : https://discord.gg/nationsglory\n"
-        "- 📻 LyxiaRadio (ex. NG Radio) :https://discord.gg/cxMZqCNKvD\n"
-        "- ⚒️  "
+        "- 📻 LyxiaRadio (ex. NG Radio) : https://discord.gg/cxMZqCNKvD\n"
+        "- ⚒️ Association Helyxia https://discord.gg/hcAPsBbsEp\n\n"
 
         "**🎮 __Bedrock__**\n"
         "- <:Alpha:1500414179650048070> Alpha : https://discord.gg/KxC9E2VPeX\n"
@@ -133,9 +135,9 @@ def build_index_view(files: list[discord.File]) -> LayoutView:
         "- <:Pink:1500414086499008612> Pink : https://discord.gg/WXhRE2AN2Y **(close)**\n"
         "- <:Purple:1500414072250695740> Purple : https://discord.gg/bbgqmJjQSB **(close)**\n"
         "- <:Green:1500415562461872198> Green : https://discord.gg/kQHABDCF3W **(close)**\n"
-        "- <:Orange:1500414101493387354> Orange : https://discord.gg/HtET56bBQs (close)\n"
-        "- <:Yellow:1500414000859447408> Yellow : https://discord.gg/z8bBMnwTCW (close)\n"
-        "- <:RED:1500410048273322035> Red : https://discord.gg/rYGPtgKkpt (close)\n"
+        "- <:Orange:1500414101493387354> Orange : https://discord.gg/HtET56bBQs **(close)**\n"
+        "- <:Yellow:1500414000859447408> Yellow : https://discord.gg/z8bBMnwTCW **(close)**\n"
+        "- <:RED:1500410048273322035> Red : https://discord.gg/rYGPtgKkpt **(close)**\n"
         "- <:NG_US:1500414650909724834> Ruby : https://discord.gg/W2qyJ8WNSs **(close)**"
     ))
 
@@ -153,6 +155,7 @@ def build_index_view(files: list[discord.File]) -> LayoutView:
     c7.add_item(Separator())
     if _has(files, "npc_alpha_all.webp"):
         c7.add_item(MediaGallery(MediaGalleryItem("attachment://npc_alpha_all.webp")))
+
     c7.add_item(Separator())
     c7.add_item(TextDisplay("-# GuideOn Studio"))
     view.add_item(c7)
@@ -161,29 +164,36 @@ def build_index_view(files: list[discord.File]) -> LayoutView:
 
 
 # ============================================================
-# 🏆 Commande : /invite classement
+# 🏆 Commande : /alpha index
 # ============================================================
 
 @app_commands.guild_only()
-@app_commands.checks.cooldown(1, 10)
+@app_commands.checks.cooldown(1, 15)
 @app_commands.command(name="index", description="📋 [OP] Envoie de l'interface d'information (index) du serveur Alpha")
 async def index(interaction: Interaction) -> None:
 
+    # 🛡️ Vérification ban utilisateur.
     if not await verifier_ban_utilisateur(interaction):
         return
+    
+    # 🔐 Vérification Opérateur.
     if not await check_op_alpha(interaction, "gérer l'**index**"):
         return
 
+    # 🕒 Defer.
     try:
         await interaction.response.defer(ephemeral=True)
     except (discord.NotFound, discord.HTTPException):
         return
 
+    # ⚙️ Vérification maintenance.
     if not await verifier_commande(interaction, "alpha_index"):
         return
+    
+    # 📊 Tracking.
     await tracker_commande(interaction, "alpha_index")
 
-    # 📋 Config
+    # 🧩 Récupération de la configuration.
     cfg = await load_rank_config(interaction.guild_id)
     channel_id = cfg.get("content_index_channel_id")
     emoji_str  = cfg.get("content_index_emoji")
@@ -192,8 +202,8 @@ async def index(interaction: Interaction) -> None:
     if not channel_id:
         return await interaction.followup.send(
             view=error_container(
-                "Le salon n'est pas configuré.\n"
-                "Utilisez `/dev config_alpha` → **Contenu Discord** pour le définir."
+                "Le salon n'est pas **configuré**.\n"
+                "Utilisez `/dev config_alpha` pour le définir."
             ),
             ephemeral=True,
         )
@@ -204,14 +214,14 @@ async def index(interaction: Interaction) -> None:
             channel = await interaction.client.fetch_channel(channel_id)
         except (discord.NotFound, discord.HTTPException):
             return await interaction.followup.send(
-                view=error_container("Salon introuvable (ID invalide ou bot sans accès)."),
+                view=error_container("Salon **introuvable** (ID invalide ou bot sans accès)."),
                 ephemeral=True,
             )
 
     fresh_files = _get_fresh_files()
     view = build_index_view(fresh_files)
 
-    # Message existant en DB ?
+    # 🔎 Vérification existence du message.
     existing_msg: discord.Message | None = None
     db_cfg = await get_alpha_message(guild_id, MESSAGE_KEY)
     if db_cfg and db_cfg.message_id:
@@ -235,12 +245,12 @@ async def index(interaction: Interaction) -> None:
         sent = await channel.send(**kwargs)
         await upsert_alpha_message(guild_id, MESSAGE_KEY, channel_id, sent.id)
 
-        # Réaction emoji
+        # 🤪 Ajout de l'emoji
         if emoji_str:
             try:
                 await sent.add_reaction(emoji_str)
             except discord.HTTPException:
-                log.warning("Impossible d'ajouter la réaction | guild=%s", guild_id)
+                log.warning("[INDEX ALPHA] Impossible d'ajouter la réaction | guild=%s", guild_id)
 
         return await interaction.followup.send(
             view=success_container(f"Index créé dans {channel.mention} !"),
@@ -250,10 +260,14 @@ async def index(interaction: Interaction) -> None:
     except discord.HTTPException:
         log.exception("[INDEX ALPHA] Erreur /alpha index | guild=%s", guild_id)
         return await interaction.followup.send(
-            view=error_container("Une erreur Discord est survenue."),
+            view=error_container("Une **erreur** Discord est survenue."),
             ephemeral=True,
         )
+    
 
+# ============================================================
+# ❌ Gestion des erreurs
+# ============================================================
 
 @index.error
 async def index_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:

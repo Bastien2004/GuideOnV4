@@ -25,9 +25,9 @@ from utils.managers.alpha_rank_config_manager import load_rank_config
 log = logging.getLogger(__name__)
 
 _IMAGES = [
-    ("source/join_alpha.png",        "join_alpha.png"),
-    ("source/version_obsolete.png",  "version_obsolete.png"),
-    ("source/wl.png",                "wl.png"),
+    ("source/join_alpha.webp",        "join_alpha.webp"),
+    ("source/version_obsolete.webp",  "version_obsolete.webp"),
+    ("source/wl.webp",                "wl.webp"),
 ]
 
 
@@ -57,8 +57,8 @@ def build_nous_rejoindre_view(files: list[discord.File], role_to_ping: int | Non
         "Lis attentivement chaque étape pour éviter les erreurs. 📒"
     ))
     c1.add_item(Separator())
-    if _has(files, "join_alpha.png"):
-        c1.add_item(MediaGallery(MediaGalleryItem("attachment://join_alpha.png")))
+    if _has(files, "join_alpha.webp"):
+        c1.add_item(MediaGallery(MediaGalleryItem("attachment://join_alpha.webp")))
     view.add_item(c1)
 
     c2 = Container()
@@ -122,8 +122,8 @@ def build_nous_rejoindre_view(files: list[discord.File], role_to_ping: int | Non
         "qui ne sera de toute façon pas en mesure de t'aider."
     ))
     c4.add_item(Separator())
-    if _has(files, "version_obsolete.png"):
-        c4.add_item(MediaGallery(MediaGalleryItem("attachment://version_obsolete.png")))
+    if _has(files, "version_obsolete.webp"):
+        c4.add_item(MediaGallery(MediaGalleryItem("attachment://version_obsolete.webp")))
     c4.add_item(Separator())
     c4.add_item(TextDisplay(
         "2️⃣ __**Erreur : 'Liste blanche'**__\n\n"
@@ -133,8 +133,8 @@ def build_nous_rejoindre_view(files: list[discord.File], role_to_ping: int | Non
         "Son objectif est de __garantir__ la **meilleure expérience** de jeu pour les joueurs !\n\n"
         "Si cela t'arrive, il faut **patienter** et rester **informé** par les __canaux officiels de NationsGlory__."
     ))
-    if _has(files, "wl.png"):
-        c4.add_item(MediaGallery(MediaGalleryItem("attachment://wl.png")))
+    if _has(files, "wl.webp"):
+        c4.add_item(MediaGallery(MediaGalleryItem("attachment://wl.webp")))
     c4.add_item(Separator())
     c4.add_item(TextDisplay("-# GuideOn Studio"))
     view.add_item(c4)
@@ -144,7 +144,7 @@ def build_nous_rejoindre_view(files: list[discord.File], role_to_ping: int | Non
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="nous_rejoindre", description="🚪 Envoie le tutoriel pour rejoindre le serveur Alpha")
+@app_commands.command(name="nous_rejoindre", description="🚪 [OP] Envoie le tutoriel pour rejoindre le serveur Alpha")
 async def nous_rejoindre(interaction: Interaction) -> None:
 
     if not await verifier_ban_utilisateur(interaction):
