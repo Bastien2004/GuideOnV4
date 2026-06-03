@@ -2,6 +2,7 @@
 cogs/alpha/regle_interne.py — Commande /alpha regle_interne.
 
 Envoie les règles internes du serveur Alpha dans un salon cible.
+Le salon et l'emoji sont chargés depuis AlphaRankConfig (configurable via /dev config_alpha).
 Réservé aux Modérateurs+ et supérieurs.
 """
 from __future__ import annotations
@@ -18,27 +19,16 @@ from utils.control_admin import verifier_commande
 from utils.track_commande import tracker_commande
 from utils.container_universel import error_container, success_container
 from utils.error_handler import handle_app_command_error
+from utils.managers.alpha_rank_config_manager import load_rank_config
 
 log = logging.getLogger(__name__)
 
-# ============================================================
-# 📁 Constantes
-# ============================================================
-
-TARGET_CHANNEL_ID = 1496770597101764688
-
-
-# ============================================================
-# 🧱 View
-# ============================================================
 
 def build_regle_interne_view() -> LayoutView:
     view = LayoutView(timeout=None)
-
     c = Container()
     c.add_item(TextDisplay("# <:Alpha:1500414179650048070> Les Règles Internes du Alpha"))
     c.add_item(Separator())
-
     c.add_item(TextDisplay(
         "●  Règles **spécifiques** du Alpha : 📙 [Consulter](https://nationsglory.fr/forums/thread/les-regles-diverses.77236).\n"
         "●  Règles sur les **Unescos** : 🏦 [Consulter](https://nationsglory.fr/forums/thread/les-regles-sur-les-unesco.77231).\n"
@@ -46,74 +36,78 @@ def build_regle_interne_view() -> LayoutView:
         "●  Règles sur les **Assauts** : 🪖 [Consulter](https://nationsglory.fr/forums/thread/les-regles-sur-les-assauts.77234).\n"
         "●  Règles sur l'**Architecture** : 🧱 [Consulter](https://nationsglory.fr/forums/thread/les-regles-sur-l039architecture.77233)."
     ))
-
     c.add_item(Separator())
     c.add_item(TextDisplay("-# GuideOn Studio"))
-
     view.add_item(c)
     return view
 
-
-# ============================================================
-# 🧭 Commande
-# ============================================================
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
 @app_commands.command(name="regle_interne", description="⚖️ Envoie les règles internes du Alpha")
 async def regle_interne(interaction: Interaction) -> None:
 
-    # 🛡️ Ban bot
     if not await verifier_ban_utilisateur(interaction):
         return
-
-    # 🔐 Permission Modo+
     if not await check_modo_plus(interaction, "envoyer les règles internes"):
         return
 
-    # 🕒 Defer
     try:
         await interaction.response.defer(ephemeral=True)
     except (discord.NotFound, discord.HTTPException):
         return
 
-    # ⚙️ Activation commande
     if not await verifier_commande(interaction, "alpha_regle_interne"):
         return
-
-    # 📊 Tracking
     await tracker_commande(interaction, "alpha_regle_interne")
 
-    # 💻 Récupération salon
-    channel = interaction.client.get_channel(TARGET_CHANNEL_ID)
+    # 📋 Config
+    cfg = await load_rank_config(interaction.guild_id)
+    channel_id = cfg.get("content_regle_interne_channel_id")
+    emoji_id   = cfg.get("content_regle_interne_emoji_id")
+
+    if not channel_id:
+        return await interaction.followup.send(
+            view=error_container(
+                "Le salon n'est pas configuré.\n"
+                "Utilisez `/dev config_alpha` → **Contenu Discord** pour le définir."
+            ),
+            ephemeral=True,
+        )
+
+    channel = interaction.client.get_channel(channel_id)
     if channel is None:
         try:
-            channel = await interaction.client.fetch_channel(TARGET_CHANNEL_ID)
+            channel = await interaction.client.fetch_channel(channel_id)
         except (discord.NotFound, discord.HTTPException):
             return await interaction.followup.send(
-                view=error_container("Salon introuvable."),
+                view=error_container("Salon introuvable (ID invalide ou bot sans accès)."),
                 ephemeral=True,
             )
 
-    # 🚀 Envoi
     try:
-        await channel.send(view=build_regle_interne_view())
+        sent = await channel.send(view=build_regle_interne_view())
     except discord.HTTPException:
         log.exception("Erreur /alpha regle_interne | guild=%s", interaction.guild_id)
         return await interaction.followup.send(
-            view=error_container("Une erreur Discord est survenue."),
+            view=error_container("Une erreur Discord est survenue lors de l'envoi."),
             ephemeral=True,
         )
+
+    # Réaction emoji
+    if emoji_id:
+        try:
+            emoji = interaction.guild.get_emoji(emoji_id)
+            if emoji:
+                await sent.add_reaction(emoji)
+        except discord.HTTPException:
+            log.warning("Impossible d'ajouter la réaction | guild=%s", interaction.guild_id)
 
     await interaction.followup.send(
         view=success_container(f"Règles internes envoyées dans {channel.mention} !"),
         ephemeral=True,
     )
 
-
-# ============================================================
-# ❌ Erreurs
-# ============================================================
 
 @regle_interne.error
 async def regle_interne_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:

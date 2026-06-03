@@ -53,21 +53,40 @@ class AlphaRankConfig(Base, TimestampMixin):
     role_super_moderateur_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     role_administrateur_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
+    # ── Contenu Discord (messages permanents) ─────────────────
+    content_nous_rejoindre_channel_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    content_nous_rejoindre_ping_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    content_nous_rejoindre_emoji_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+
+    content_index_channel_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    content_index_emoji_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+
+    content_regle_interne_channel_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    content_regle_interne_emoji_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+
     def to_dict(self) -> dict:
         return {
-            "guild_id":                   self.guild_id,
-            "rank_channel_id":            self.rank_channel_id,
-            "journaliste_channel_id":     self.journaliste_channel_id,
-            "dev_channel_id":             self.dev_channel_id,
-            "journaliste_ping_id":        self.journaliste_ping_id,
-            "dev_ping_id":                self.dev_ping_id,
-            "role_journaliste_id":        self.role_journaliste_id,
-            "role_guide_id":              self.role_guide_id,
-            "role_moderateur_test_id":    self.role_moderateur_test_id,
+            "guild_id":                    self.guild_id,
+            "rank_channel_id":             self.rank_channel_id,
+            "journaliste_channel_id":      self.journaliste_channel_id,
+            "dev_channel_id":              self.dev_channel_id,
+            "journaliste_ping_id":         self.journaliste_ping_id,
+            "dev_ping_id":                 self.dev_ping_id,
+            "role_journaliste_id":         self.role_journaliste_id,
+            "role_guide_id":               self.role_guide_id,
+            "role_moderateur_test_id":     self.role_moderateur_test_id,
             "role_moderateur_confirme_id": self.role_moderateur_confirme_id,
-            "role_moderateur_plus_id":    self.role_moderateur_plus_id,
-            "role_super_moderateur_id":   self.role_super_moderateur_id,
-            "role_administrateur_id":     self.role_administrateur_id,
+            "role_moderateur_plus_id":     self.role_moderateur_plus_id,
+            "role_super_moderateur_id":    self.role_super_moderateur_id,
+            "role_administrateur_id":      self.role_administrateur_id,
+            # Contenu
+            "content_nous_rejoindre_channel_id": self.content_nous_rejoindre_channel_id,
+            "content_nous_rejoindre_ping_id":    self.content_nous_rejoindre_ping_id,
+            "content_nous_rejoindre_emoji_id":   self.content_nous_rejoindre_emoji_id,
+            "content_index_channel_id":          self.content_index_channel_id,
+            "content_index_emoji_id":            self.content_index_emoji_id,
+            "content_regle_interne_channel_id":  self.content_regle_interne_channel_id,
+            "content_regle_interne_emoji_id":    self.content_regle_interne_emoji_id,
         }
 
     def __repr__(self) -> str:

@@ -2,15 +2,17 @@
 cogs/alpha/nous_rejoindre.py — Commande /alpha nous_rejoindre.
 
 Envoie le tutoriel pour rejoindre le serveur Alpha Bedrock dans un salon cible.
+Le salon, le ping et l'emoji sont chargés depuis AlphaRankConfig (configurable via /dev config_alpha).
 Réservé aux Modérateurs+ et supérieurs.
 """
 from __future__ import annotations
 
 import logging
+import os
 
 import discord
 from discord import app_commands, Interaction, MediaGalleryItem
-from discord.ui import LayoutView, Container, TextDisplay, Separator, MediaGallery
+from discord.ui import LayoutView, Container, TextDisplay, Separator, MediaGallery, ActionRow
 
 from utils.botbancmd import verifier_ban_utilisateur
 from utils.perm_alpha import check_modo_plus
@@ -18,53 +20,35 @@ from utils.control_admin import verifier_commande
 from utils.track_commande import tracker_commande
 from utils.container_universel import error_container, success_container
 from utils.error_handler import handle_app_command_error
+from utils.managers.alpha_rank_config_manager import load_rank_config
 
 log = logging.getLogger(__name__)
 
-# ============================================================
-# 📁 Constantes
-# ============================================================
-
-TARGET_CHANNEL_ID = 1496765741125468180
-ROLE_TO_PING      = 1496771752142049351
-EMOJI_TO_ADD      = 1496902732316016665
-
-# Chemins des images (fichiers statiques dans source/)
 _IMAGES = [
-    ("source/join_alpha.png",         "join_alpha.png"),
-    ("source/version_obsolete.png",   "version_obsolete.png"),
-    ("source/wl.png",                 "wl.png"),
+    ("source/join_alpha.png",        "join_alpha.png"),
+    ("source/version_obsolete.png",  "version_obsolete.png"),
+    ("source/wl.png",                "wl.png"),
 ]
 
 
-# ============================================================
-# 🖼️ Helpers fichiers
-# ============================================================
-
 def _get_fresh_files() -> list[discord.File]:
-    import os
-    files = []
-    for path, filename in _IMAGES:
-        if os.path.exists(path):
-            files.append(discord.File(path, filename=filename))
-    return files
+    return [
+        discord.File(path, filename=fn)
+        for path, fn in _IMAGES if os.path.exists(path)
+    ]
 
 
 def _has(files: list[discord.File], name: str) -> bool:
     return any(f.filename == name for f in files)
 
 
-# ============================================================
-# 🧱 View
-# ============================================================
-
-def build_nous_rejoindre_view(files: list[discord.File]) -> LayoutView:
+def build_nous_rejoindre_view(files: list[discord.File], role_to_ping: int | None) -> LayoutView:
+    ping_str = f" | <@&{role_to_ping}>" if role_to_ping else ""
     view = LayoutView(timeout=None)
 
-    # ── Container 1 — Introduction ────────────────────────────────────────
     c1 = Container()
     c1.add_item(TextDisplay(
-        f"# <:alpha:1496906799612428368> Nous rejoindre — Serveur Alpha | <@&{ROLE_TO_PING}>"
+        f"# <:alpha:1496906799612428368> Nous rejoindre — Serveur Alpha{ping_str}"
     ))
     c1.add_item(Separator())
     c1.add_item(TextDisplay(
@@ -77,7 +61,6 @@ def build_nous_rejoindre_view(files: list[discord.File]) -> LayoutView:
         c1.add_item(MediaGallery(MediaGalleryItem("attachment://join_alpha.png")))
     view.add_item(c1)
 
-    # ── Container 2 — Console ─────────────────────────────────────────────
     c2 = Container()
     c2.add_item(TextDisplay(
         "## 🧭 __Étapes pour rejoindre le serveur__ :\n\n"
@@ -108,7 +91,6 @@ def build_nous_rejoindre_view(files: list[discord.File]) -> LayoutView:
     c2.add_item(Separator())
     view.add_item(c2)
 
-    # ── Container 3 — PC & Mobile ─────────────────────────────────────────
     c3 = Container()
     c3.add_item(TextDisplay(
         "### 2. __Joueurs PC et Téléphone (iOS & Android)__ 💻\n"
@@ -127,7 +109,6 @@ def build_nous_rejoindre_view(files: list[discord.File]) -> LayoutView:
     c3.add_item(Separator())
     view.add_item(c3)
 
-    # ── Container 4 — Erreurs fréquentes ─────────────────────────────────
     c4 = Container()
     c4.add_item(TextDisplay("## 🐛 __Erreurs fréquentes__ :"))
     c4.add_item(Separator())
@@ -161,50 +142,52 @@ def build_nous_rejoindre_view(files: list[discord.File]) -> LayoutView:
     return view
 
 
-# ============================================================
-# 🧭 Commande
-# ============================================================
-
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
 @app_commands.command(name="nous_rejoindre", description="🚪 Envoie le tutoriel pour rejoindre le serveur Alpha")
 async def nous_rejoindre(interaction: Interaction) -> None:
 
-    # 🛡️ Ban bot
     if not await verifier_ban_utilisateur(interaction):
         return
-
-    # 🔐 Permission Modo+
     if not await check_modo_plus(interaction, "envoyer le tutoriel"):
         return
 
-    # 🕒 Defer
     try:
         await interaction.response.defer(ephemeral=True)
     except (discord.NotFound, discord.HTTPException):
         return
 
-    # ⚙️ Activation commande
     if not await verifier_commande(interaction, "alpha_nous_rejoindre"):
         return
-
-    # 📊 Tracking
     await tracker_commande(interaction, "alpha_nous_rejoindre")
 
-    # 💻 Récupération salon
-    channel = interaction.client.get_channel(TARGET_CHANNEL_ID)
+    # 📋 Config
+    cfg = await load_rank_config(interaction.guild_id)
+    channel_id  = cfg.get("content_nous_rejoindre_channel_id")
+    ping_id     = cfg.get("content_nous_rejoindre_ping_id")
+    emoji_id    = cfg.get("content_nous_rejoindre_emoji_id")
+
+    if not channel_id:
+        return await interaction.followup.send(
+            view=error_container(
+                "Le salon n'est pas configuré.\n"
+                "Utilisez `/dev config_alpha` → **Contenu Discord** pour le définir."
+            ),
+            ephemeral=True,
+        )
+
+    channel = interaction.client.get_channel(channel_id)
     if channel is None:
         try:
-            channel = await interaction.client.fetch_channel(TARGET_CHANNEL_ID)
+            channel = await interaction.client.fetch_channel(channel_id)
         except (discord.NotFound, discord.HTTPException):
             return await interaction.followup.send(
-                view=error_container("Salon introuvable."),
+                view=error_container("Salon introuvable (ID invalide ou bot sans accès)."),
                 ephemeral=True,
             )
 
-    # 🚀 Envoi
     fresh_files = _get_fresh_files()
-    view = build_nous_rejoindre_view(fresh_files)
+    view = build_nous_rejoindre_view(fresh_files, ping_id)
     kwargs: dict = {"view": view}
     if fresh_files:
         kwargs["files"] = fresh_files
@@ -214,27 +197,24 @@ async def nous_rejoindre(interaction: Interaction) -> None:
     except discord.HTTPException:
         log.exception("Erreur /alpha nous_rejoindre | guild=%s", interaction.guild_id)
         return await interaction.followup.send(
-            view=error_container("Une erreur Discord est survenue."),
+            view=error_container("Une erreur Discord est survenue lors de l'envoi."),
             ephemeral=True,
         )
 
-    # ➕ Réaction
-    try:
-        emoji = interaction.guild.get_emoji(EMOJI_TO_ADD)
-        if emoji:
-            await sent.add_reaction(emoji)
-    except discord.HTTPException:
-        log.warning("Impossible d'ajouter la réaction | guild=%s", interaction.guild_id)
+    # Réaction emoji
+    if emoji_id:
+        try:
+            emoji = interaction.guild.get_emoji(emoji_id)
+            if emoji:
+                await sent.add_reaction(emoji)
+        except discord.HTTPException:
+            log.warning("Impossible d'ajouter la réaction | guild=%s", interaction.guild_id)
 
     await interaction.followup.send(
         view=success_container(f"Tutoriel envoyé dans {channel.mention} !"),
         ephemeral=True,
     )
 
-
-# ============================================================
-# ❌ Erreurs
-# ============================================================
 
 @nous_rejoindre.error
 async def nous_rejoindre_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
