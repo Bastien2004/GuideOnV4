@@ -6,7 +6,7 @@ Stocke les IDs Discord de salons, pings et rôles par grade.
 """
 from __future__ import annotations
 
-from sqlalchemy import BigInteger
+from sqlalchemy import BigInteger, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from utils.db.base import Base, TimestampMixin
@@ -56,13 +56,15 @@ class AlphaRankConfig(Base, TimestampMixin):
     # ── Contenu Discord (messages permanents) ─────────────────
     content_nous_rejoindre_channel_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     content_nous_rejoindre_ping_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
-    content_nous_rejoindre_emoji_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    content_nous_rejoindre_emoji: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     content_index_channel_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
-    content_index_emoji_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    content_index_emoji: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     content_regle_interne_channel_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
-    content_regle_interne_emoji_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    content_regle_interne_emoji: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    content_stafflist_channel_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
     def to_dict(self) -> dict:
         return {
@@ -82,11 +84,12 @@ class AlphaRankConfig(Base, TimestampMixin):
             # Contenu
             "content_nous_rejoindre_channel_id": self.content_nous_rejoindre_channel_id,
             "content_nous_rejoindre_ping_id":    self.content_nous_rejoindre_ping_id,
-            "content_nous_rejoindre_emoji_id":   self.content_nous_rejoindre_emoji_id,
+            "content_nous_rejoindre_emoji":      self.content_nous_rejoindre_emoji,
             "content_index_channel_id":          self.content_index_channel_id,
-            "content_index_emoji_id":            self.content_index_emoji_id,
+            "content_index_emoji":               self.content_index_emoji,
             "content_regle_interne_channel_id":  self.content_regle_interne_channel_id,
-            "content_regle_interne_emoji_id":    self.content_regle_interne_emoji_id,
+            "content_regle_interne_emoji":       self.content_regle_interne_emoji,
+            "content_stafflist_channel_id":      self.content_stafflist_channel_id,
         }
 
     def __repr__(self) -> str:

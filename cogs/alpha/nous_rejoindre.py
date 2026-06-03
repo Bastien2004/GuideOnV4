@@ -165,7 +165,7 @@ async def nous_rejoindre(interaction: Interaction) -> None:
     cfg = await load_rank_config(interaction.guild_id)
     channel_id  = cfg.get("content_nous_rejoindre_channel_id")
     ping_id     = cfg.get("content_nous_rejoindre_ping_id")
-    emoji_id    = cfg.get("content_nous_rejoindre_emoji_id")
+    emoji_str   = cfg.get("content_nous_rejoindre_emoji")
 
     if not channel_id:
         return await interaction.followup.send(
@@ -202,11 +202,9 @@ async def nous_rejoindre(interaction: Interaction) -> None:
         )
 
     # Réaction emoji
-    if emoji_id:
+    if emoji_str:
         try:
-            emoji = interaction.guild.get_emoji(emoji_id)
-            if emoji:
-                await sent.add_reaction(emoji)
+            await sent.add_reaction(emoji_str)
         except discord.HTTPException:
             log.warning("Impossible d'ajouter la réaction | guild=%s", interaction.guild_id)
 

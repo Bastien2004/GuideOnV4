@@ -32,9 +32,10 @@ _FIELDS = {
     "role_moderateur_plus_id", "role_super_moderateur_id", "role_administrateur_id",
     # Contenu Discord
     "content_nous_rejoindre_channel_id", "content_nous_rejoindre_ping_id",
-    "content_nous_rejoindre_emoji_id",
-    "content_index_channel_id", "content_index_emoji_id",
-    "content_regle_interne_channel_id", "content_regle_interne_emoji_id",
+    "content_nous_rejoindre_emoji",
+    "content_index_channel_id", "content_index_emoji",
+    "content_regle_interne_channel_id", "content_regle_interne_emoji",
+    "content_stafflist_channel_id",
 }
 
 _DEFAULT: dict = {f: None for f in _FIELDS}

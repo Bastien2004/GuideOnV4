@@ -161,7 +161,7 @@ async def index(interaction: Interaction) -> None:
     # 📋 Config
     cfg = await load_rank_config(interaction.guild_id)
     channel_id = cfg.get("content_index_channel_id")
-    emoji_id   = cfg.get("content_index_emoji_id")
+    emoji_str  = cfg.get("content_index_emoji")
     guild_id   = interaction.guild_id
 
     if not channel_id:
@@ -211,11 +211,9 @@ async def index(interaction: Interaction) -> None:
         await upsert_alpha_message(guild_id, MESSAGE_KEY, channel_id, sent.id)
 
         # Réaction emoji
-        if emoji_id:
+        if emoji_str:
             try:
-                emoji = interaction.guild.get_emoji(emoji_id)
-                if emoji:
-                    await sent.add_reaction(emoji)
+                await sent.add_reaction(emoji_str)
             except discord.HTTPException:
                 log.warning("Impossible d'ajouter la réaction | guild=%s", guild_id)
 

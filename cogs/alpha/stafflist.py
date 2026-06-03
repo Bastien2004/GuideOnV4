@@ -20,6 +20,7 @@ from utils.track_commande import tracker_commande
 from utils.container_universel import error_container, success_container
 from utils.error_handler import handle_app_command_error
 from utils.managers.alpha_staff_manager import list_staff
+from utils.managers.alpha_rank_config_manager import load_rank_config
 from utils.managers.alpha_message_manager import (
     get_alpha_message,
     upsert_alpha_message,
@@ -29,12 +30,7 @@ from utils.db.models.alpha_staff import GRADES_ORDER, GRADE_LABELS, GRADE_EMOJIS
 
 log = logging.getLogger(__name__)
 
-# ============================================================
-# 📁 Constantes
-# ============================================================
-
-TARGET_CHANNEL_ID = 1496770821966925895
-MESSAGE_KEY       = "stafflist"
+MESSAGE_KEY = "stafflist"
 
 
 # ============================================================
@@ -87,15 +83,21 @@ def build_stafflist_view(members: list[dict]) -> LayoutView:
 
 async def refresh_staff_message(bot: discord.Client, guild_id: int) -> None:
     """
-    Rafraîchit silencieusement le message staff en DB.
+    Rafraîchit silencieusement le message staff depuis la config.
     Appelable après add/remove/edit pour garder le message à jour.
     """
-    channel = bot.get_channel(TARGET_CHANNEL_ID)
+    cfg = await load_rank_config(guild_id)
+    channel_id = cfg.get("content_stafflist_channel_id")
+    if not channel_id:
+        log.warning("refresh_staff_message : salon non configuré pour guild=%d", guild_id)
+        return
+
+    channel = bot.get_channel(channel_id)
     if channel is None:
         try:
-            channel = await bot.fetch_channel(TARGET_CHANNEL_ID)
+            channel = await bot.fetch_channel(channel_id)
         except (discord.NotFound, discord.HTTPException):
-            log.warning("refresh_staff_message : salon %d introuvable", TARGET_CHANNEL_ID)
+            log.warning("refresh_staff_message : salon %d introuvable", channel_id)
             return
 
     members = await list_staff()
@@ -116,7 +118,7 @@ async def refresh_staff_message(bot: discord.Client, guild_id: int) -> None:
             await existing.edit(view=view)
         else:
             sent = await channel.send(view=view)
-            await upsert_alpha_message(guild_id, MESSAGE_KEY, TARGET_CHANNEL_ID, sent.id)
+            await upsert_alpha_message(guild_id, MESSAGE_KEY, channel_id, sent.id)
     except discord.HTTPException:
         log.exception("refresh_staff_message : erreur HTTP | guild=%d", guild_id)
 
@@ -151,14 +153,26 @@ async def stafflist(interaction: Interaction) -> None:
     # 📊 Tracking
     await tracker_commande(interaction, "alpha_stafflist")
 
+    # 📋 Config → salon
+    rank_cfg = await load_rank_config(interaction.guild_id)
+    channel_id = rank_cfg.get("content_stafflist_channel_id")
+    if not channel_id:
+        return await interaction.followup.send(
+            view=error_container(
+                "Le salon n'est pas configuré.\n"
+                "Utilisez `/dev config_alpha` → **Contenu Discord** pour le définir."
+            ),
+            ephemeral=True,
+        )
+
     # 💻 Récupération salon
-    channel = interaction.client.get_channel(TARGET_CHANNEL_ID)
+    channel = interaction.client.get_channel(channel_id)
     if channel is None:
         try:
-            channel = await interaction.client.fetch_channel(TARGET_CHANNEL_ID)
+            channel = await interaction.client.fetch_channel(channel_id)
         except (discord.NotFound, discord.HTTPException):
             return await interaction.followup.send(
-                view=error_container("Salon introuvable."),
+                view=error_container("Salon introuvable (ID invalide ou bot sans accès)."),
                 ephemeral=True,
             )
 
@@ -167,12 +181,12 @@ async def stafflist(interaction: Interaction) -> None:
     view = build_stafflist_view(members)
 
     # 🔍 Récupération message existant
-    cfg = await get_alpha_message(guild_id, MESSAGE_KEY)
+    msg_cfg = await get_alpha_message(guild_id, MESSAGE_KEY)
     existing: discord.Message | None = None
 
-    if cfg and cfg.message_id:
+    if msg_cfg and msg_cfg.message_id:
         try:
-            existing = await channel.fetch_message(cfg.message_id)
+            existing = await channel.fetch_message(msg_cfg.message_id)
         except (discord.NotFound, discord.HTTPException):
             existing = None
             await clear_alpha_message(guild_id, MESSAGE_KEY)
@@ -187,7 +201,7 @@ async def stafflist(interaction: Interaction) -> None:
             )
 
         sent = await channel.send(view=view)
-        await upsert_alpha_message(guild_id, MESSAGE_KEY, TARGET_CHANNEL_ID, sent.id)
+        await upsert_alpha_message(guild_id, MESSAGE_KEY, channel_id, sent.id)
         return await interaction.followup.send(
             view=success_container(f"Liste du staff créée dans {channel.mention} !"),
             ephemeral=True,
