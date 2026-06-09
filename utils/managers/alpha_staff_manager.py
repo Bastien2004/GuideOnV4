@@ -1,16 +1,15 @@
 """
 utils/managers/alpha_staff_manager.py — CRUD staff Alpha.
-
-Remplace les fonctions JSON V3 (load_staff_config / save_staff_config).
 Cache mémoire TTL 1 min — invalidé à chaque écriture.
 
 API publique :
-    await list_staff()                                  -> list[dict]
-    await get_staff_member(discord_id)                  -> dict | None
-    await add_staff_member(discord_id, pseudo, grade, skin_emoji) -> bool (False si déjà présent)
-    await remove_staff_member(discord_id)               -> bool (False si absent)
-    await update_staff_member(discord_id, **fields)     -> bool (False si absent)
-    await staff_exists(discord_id)                      -> bool
+    await list_staff()                                           -> list[dict]
+    await get_staff_member(discord_id)                          -> dict | None
+    await upsert_staff_member(discord_id, pseudo, grade, ...)   -> bool (True si créé)
+    await add_staff_member(discord_id, pseudo, grade, ...)      -> bool (False si déjà présent)
+    await remove_staff_member(discord_id)                       -> bool (False si absent)
+    await update_staff_member(discord_id, **fields)             -> bool (False si absent)
+    await staff_exists(discord_id)                              -> bool
 """
 from __future__ import annotations
 
@@ -27,7 +26,6 @@ log = logging.getLogger(__name__)
 
 CACHE_TTL_SECONDS = 60
 
-# Cache global : liste triée de dicts, + timestamp
 _cache: list[dict] | None = None
 _cache_at: float = 0.0
 _lock = asyncio.Lock()
@@ -48,7 +46,6 @@ def _invalidate() -> None:
 
 
 def _sort(members: list[dict]) -> list[dict]:
-    """Trie par GRADES_ORDER puis par pseudo_jeu."""
     def key(m: dict) -> tuple:
         try:
             return (GRADES_ORDER.index(m["grade"]), m["pseudo_jeu"].lower())
@@ -80,12 +77,10 @@ async def _get_cache() -> list[dict]:
 # ════════════════════════════════════════════════════════════
 
 async def list_staff() -> list[dict]:
-    """Retourne la liste complète triée (grade → pseudo)."""
     return await _get_cache()
 
 
 async def get_staff_member(discord_id: int) -> dict | None:
-    """Retourne le dict d'un membre ou None s'il est absent."""
     members = await _get_cache()
     for m in members:
         if m["discord_id"] == discord_id:
@@ -106,10 +101,12 @@ async def upsert_staff_member(
     pseudo_jeu: str,
     grade: str,
     skin_head_emoji: str = "",
+    is_journaliste: bool | None = None,  # None = préserver la valeur existante
 ) -> bool:
     """
     Ajoute ou met à jour un membre. Retourne True si créé, False si mis à jour.
-    Si skin_head_emoji est vide et que le membre existait déjà, l'emoji existant est conservé.
+    - skin_head_emoji vide → préserve l'existant si mise à jour
+    - is_journaliste None → préserve l'existant si mise à jour (False si création)
     """
     async with _lock:
         async with get_session() as session:
@@ -122,6 +119,7 @@ async def upsert_staff_member(
                     pseudo_jeu=pseudo_jeu,
                     grade=grade,
                     skin_head_emoji=skin_head_emoji,
+                    is_journaliste=is_journaliste if is_journaliste is not None else False,
                 ))
                 created = True
             else:
@@ -129,6 +127,8 @@ async def upsert_staff_member(
                 row.grade = grade
                 if skin_head_emoji:
                     row.skin_head_emoji = skin_head_emoji
+                if is_journaliste is not None:
+                    row.is_journaliste = is_journaliste
                 created = False
         _invalidate()
     log.info(
@@ -144,16 +144,13 @@ async def add_staff_member(
     pseudo_jeu: str,
     grade: str,
     skin_head_emoji: str = "",
+    is_journaliste: bool = False,
 ) -> bool:
-    """
-    Ajoute un membre. Retourne False si discord_id est déjà présent.
-    """
+    """Ajoute un membre. Retourne False si discord_id est déjà présent."""
     async with _lock:
         async with get_session() as session:
             exists = await session.scalar(
-                select(AlphaStaffMember.id).where(
-                    AlphaStaffMember.discord_id == discord_id
-                )
+                select(AlphaStaffMember.id).where(AlphaStaffMember.discord_id == discord_id)
             )
             if exists is not None:
                 return False
@@ -162,6 +159,7 @@ async def add_staff_member(
                 pseudo_jeu=pseudo_jeu,
                 grade=grade,
                 skin_head_emoji=skin_head_emoji,
+                is_journaliste=is_journaliste,
             ))
         _invalidate()
     log.info("Staff Alpha ajouté : %s (%s) — %s", pseudo_jeu, discord_id, grade)
@@ -169,15 +167,11 @@ async def add_staff_member(
 
 
 async def remove_staff_member(discord_id: int) -> bool:
-    """
-    Retire un membre. Retourne False s'il est absent.
-    """
+    """Retire un membre. Retourne False s'il est absent."""
     async with _lock:
         async with get_session() as session:
             result = await session.execute(
-                delete(AlphaStaffMember).where(
-                    AlphaStaffMember.discord_id == discord_id
-                )
+                delete(AlphaStaffMember).where(AlphaStaffMember.discord_id == discord_id)
             )
             deleted = result.rowcount > 0
         if deleted:
@@ -189,10 +183,11 @@ async def remove_staff_member(discord_id: int) -> bool:
 
 async def update_staff_member(discord_id: int, **fields: object) -> bool:
     """
-    Met à jour les champs d'un membre (pseudo_jeu, grade, skin_head_emoji).
+    Met à jour les champs d'un membre.
+    Champs acceptés : pseudo_jeu, grade, skin_head_emoji, is_journaliste.
     Retourne False si le membre est absent.
     """
-    allowed = {"pseudo_jeu", "grade", "skin_head_emoji"}
+    allowed = {"pseudo_jeu", "grade", "skin_head_emoji", "is_journaliste"}
     clean = {k: v for k, v in fields.items() if k in allowed}
     if not clean:
         return False
@@ -200,9 +195,7 @@ async def update_staff_member(discord_id: int, **fields: object) -> bool:
     async with _lock:
         async with get_session() as session:
             row = await session.scalar(
-                select(AlphaStaffMember).where(
-                    AlphaStaffMember.discord_id == discord_id
-                )
+                select(AlphaStaffMember).where(AlphaStaffMember.discord_id == discord_id)
             )
             if row is None:
                 return False

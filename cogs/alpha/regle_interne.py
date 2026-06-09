@@ -17,8 +17,13 @@ from utils.track_commande import tracker_commande
 from utils.container_universel import error_container, success_container
 from utils.error_handler import handle_app_command_error
 from utils.managers.alpha_rank_config_manager import load_rank_config
+from utils.managers.alpha_message_manager import (
+    get_alpha_message, upsert_alpha_message, clear_alpha_message,
+)
 
 log = logging.getLogger(__name__)
+
+MESSAGE_KEY = "regle_interne"
 
 
 # ============================================================
@@ -101,26 +106,48 @@ async def regle_interne(interaction: Interaction) -> None:
                 ephemeral=True,
             )
 
+    guild_id = interaction.guild_id
+
+    # 🔍 Message existant en DB ?
+    msg_cfg = await get_alpha_message(guild_id, MESSAGE_KEY)
+    existing: discord.Message | None = None
+    if msg_cfg and msg_cfg.message_id:
+        try:
+            existing = await channel.fetch_message(msg_cfg.message_id)
+        except (discord.NotFound, discord.HTTPException):
+            existing = None
+            await clear_alpha_message(guild_id, MESSAGE_KEY)
+
+    built_view = build_regle_interne_view()
+
     try:
-        sent = await channel.send(view=build_regle_interne_view())
+        if existing:
+            await existing.edit(view=built_view)
+            return await interaction.followup.send(
+                view=success_container(f"Règles internes **mises à jour** dans {channel.mention} !"),
+                ephemeral=True,
+            )
+
+        sent = await channel.send(view=built_view)
+        await upsert_alpha_message(guild_id, MESSAGE_KEY, channel_id, sent.id)
+
+        if emoji_str:
+            try:
+                await sent.add_reaction(emoji_str)
+            except discord.HTTPException:
+                log.warning("[REGLE_INTERNE ALPHA] Impossible d'ajouter la réaction | guild=%s", guild_id)
+
+        return await interaction.followup.send(
+            view=success_container(f"Règles internes envoyées dans {channel.mention} !"),
+            ephemeral=True,
+        )
+
     except discord.HTTPException:
-        log.exception("[REGLE_INTERNE ALPHA] Erreur /alpha regle_interne | guild=%s", interaction.guild_id)
+        log.exception("[REGLE_INTERNE ALPHA] Erreur | guild=%s", guild_id)
         return await interaction.followup.send(
             view=error_container("Une erreur **Discord** est survenue lors de l'envoi."),
             ephemeral=True,
         )
-
-    # 🤪 Ajout de l'emoji.
-    if emoji_str:
-        try:
-            await sent.add_reaction(emoji_str)
-        except discord.HTTPException:
-            log.warning("[REGLE_INTERNE ALPHA] Impossible d'ajouter la réaction | guild=%s", interaction.guild_id)
-
-    await interaction.followup.send(
-        view=success_container(f"Règles internes envoyées dans {channel.mention} !"),
-        ephemeral=True,
-    )
 
 
 # ============================================================

@@ -36,6 +36,7 @@ _FIELDS = {
     "content_index_channel_id", "content_index_emoji",
     "content_regle_interne_channel_id", "content_regle_interne_emoji",
     "content_stafflist_channel_id",
+    "rank_emoji",
 }
 
 _DEFAULT: dict = {f: None for f in _FIELDS}

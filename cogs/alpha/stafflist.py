@@ -54,9 +54,10 @@ def build_stafflist_view(members: list[dict]) -> LayoutView:
 
         block = ""
         for m in grade_members:
+            journ_badge = " 📰" if m.get("is_journaliste") and grade != "journaliste" else ""
             block += (
                 f"{m['skin_head_emoji']} "
-                f"**{m['pseudo_jeu']}** — <@{m['discord_id']}> — `{m['discord_id']}`\n"
+                f"**{m['pseudo_jeu']}** — <@{m['discord_id']}> — `{m['discord_id']}`{journ_badge}\n"
             )
 
         c.add_item(TextDisplay(block.rstrip()))

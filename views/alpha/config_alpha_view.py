@@ -68,21 +68,25 @@ class ConfigRankView(LayoutView):
             f"• Modo confirmé : {_role(cfg.get('role_moderateur_confirme_id'))}\n"
             f"• Modo+ : {_role(cfg.get('role_moderateur_plus_id'))}\n"
             f"• Super-Modo : {_role(cfg.get('role_super_moderateur_id'))}\n"
-            f"• Admin : {_role(cfg.get('role_administrateur_id'))}"
+            f"• Admin : {_role(cfg.get('role_administrateur_id'))}\n\n"
+            f"**🎭 Emoji annonce**\n"
+            f"• Réaction rank/derank : {cfg.get('rank_emoji') or '`Non configuré`'}"
         ))
         c.add_item(Separator())
 
         btn_salons = Button(label="📡 Salons", style=ButtonStyle.primary, custom_id="cfg_salons")
         btn_pings  = Button(label="🔔 Pings",  style=ButtonStyle.primary, custom_id="cfg_pings")
         btn_roles1 = Button(label="🎭 Rôles",  style=ButtonStyle.primary, custom_id="cfg_roles1")
+        btn_emoji  = Button(label="🎭 Emoji annonce", style=ButtonStyle.secondary, custom_id="cfg_emoji")
         btn_back   = Button(label="↩️ Tableau de bord", style=ButtonStyle.secondary, custom_id="cfg_back_dash")
         btn_salons.callback = self._on_salons
         btn_pings.callback  = self._on_pings
         btn_roles1.callback = self._on_roles1
+        btn_emoji.callback  = self._on_emoji
         btn_back.callback   = self._on_back_dash
 
         c.add_item(ActionRow(btn_salons, btn_pings, btn_roles1))
-        c.add_item(ActionRow(btn_back))
+        c.add_item(ActionRow(btn_emoji, btn_back))
         c.add_item(TextDisplay("-# GuideOn Studio"))
         self.add_item(c)
 
@@ -111,6 +115,27 @@ class ConfigRankView(LayoutView):
         await interaction.response.edit_message(
             view=_RolesView(self.guild_id, cfg, self.owner_id, page=1)
         )
+
+    async def _on_emoji(self, interaction: Interaction) -> None:
+        from views._components.text_modal import TextModal
+        current = self.cfg.get("rank_emoji") or ""
+
+        async def on_submit(inter: Interaction, value: str) -> None:
+            cfg = await save_rank_config(self.guild_id, rank_emoji=value.strip() or None)
+            await inter.response.edit_message(
+                view=ConfigRankView(self.guild_id, cfg, self.owner_id)
+            )
+
+        modal = TextModal(
+            title="Emoji annonce rank/derank",
+            label="Emoji (custom ou unicode, vide = désactiver)",
+            placeholder="Ex: <:Alpha:1500414179650048070> ou 🎉",
+            default=current,
+            min_length=0,
+            max_length=100,
+            on_submit=on_submit,
+        )
+        await interaction.response.send_modal(modal)
 
 
 # ════════════════════════════════════════════════════════════

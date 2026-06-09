@@ -1,20 +1,13 @@
 """
 utils/db/models/alpha_staff.py — Modèle des membres du staff Alpha.
-
-Remplace staff_config.json. La liste des grades et leur ordre sont gérés
-dans ce fichier (GRADES_ORDER), les membres sont stockés en DB.
 """
 from __future__ import annotations
 
-from sqlalchemy import BigInteger, String, Index
+from sqlalchemy import BigInteger, Boolean, String, Index
 from sqlalchemy.orm import Mapped, mapped_column
 
 from utils.db.base import Base, TimestampMixin
 
-
-# ══════════════════════════════════════════════════════════════
-# 📋 Référentiels de grades (ordre = du plus haut au plus bas)
-# ══════════════════════════════════════════════════════════════
 
 GRADES_ORDER: list[str] = [
     "administrateur",
@@ -43,10 +36,9 @@ GRADE_EMOJIS: dict[str, str] = {
     "moderateur_confirme": "<:Moderateur:1493513069039714335>",
     "moderateur_test":     "<:Moderateur:1493513069039714335>",
     "guide":               "<:Guide:1493513088610209822>",
-    "journaliste":         "📰",  # À remplacer par l'emoji custom Discord
+    "journaliste":         "📰",
 }
 
-# Préfixe utilisé pour le rename Discord : "Préfixe | pseudo_jeu"
 GRADE_PREFIXES: dict[str, str] = {
     "administrateur":      "Admin",
     "super_moderateur":    "SM",
@@ -57,7 +49,6 @@ GRADE_PREFIXES: dict[str, str] = {
     "journaliste":         "Journaliste",
 }
 
-# Clé DB du rôle Discord correspondant (pour AlphaRankConfig)
 GRADE_TO_ROLE_ATTR: dict[str, str] = {
     "administrateur":      "role_administrateur_id",
     "super_moderateur":    "role_super_moderateur_id",
@@ -68,10 +59,9 @@ GRADE_TO_ROLE_ATTR: dict[str, str] = {
     "journaliste":         "role_journaliste_id",
 }
 
+# Grades incompatibles avec le statut journaliste (trop élevés dans la hiérarchie)
+JOURNALISTE_INCOMPATIBLE_GRADES: set[str] = {"super_moderateur", "administrateur"}
 
-# ══════════════════════════════════════════════════════════════
-# 🗃️ Modèle
-# ══════════════════════════════════════════════════════════════
 
 class AlphaStaffMember(Base, TimestampMixin):
     """Un membre du staff Alpha. Clé unique : discord_id."""
@@ -85,6 +75,12 @@ class AlphaStaffMember(Base, TimestampMixin):
     grade: Mapped[str] = mapped_column(String(32), nullable=False)
     skin_head_emoji: Mapped[str] = mapped_column(String(128), nullable=False, default="")
 
+    # Statut journaliste cumulable (indépendant du grade de modération)
+    # True si le membre a aussi le rôle Journaliste (impossible pour SM/Admin)
+    is_journaliste: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+
     __table_args__ = (
         Index("ix_alpha_staff_grade", "grade"),
     )
@@ -95,10 +91,11 @@ class AlphaStaffMember(Base, TimestampMixin):
             "pseudo_jeu":      self.pseudo_jeu,
             "grade":           self.grade,
             "skin_head_emoji": self.skin_head_emoji,
+            "is_journaliste":  self.is_journaliste,
         }
 
     def __repr__(self) -> str:
         return (
             f"<AlphaStaffMember id={self.id} pseudo={self.pseudo_jeu!r} "
-            f"grade={self.grade!r}>"
+            f"grade={self.grade!r} journaliste={self.is_journaliste}>"
         )

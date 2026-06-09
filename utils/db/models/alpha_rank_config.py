@@ -66,6 +66,9 @@ class AlphaRankConfig(Base, TimestampMixin):
 
     content_stafflist_channel_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
+    # ── Emoji annonce (réaction sur les messages rank/derank) ─
+    rank_emoji: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
     def to_dict(self) -> dict:
         return {
             "guild_id":                    self.guild_id,
@@ -90,6 +93,7 @@ class AlphaRankConfig(Base, TimestampMixin):
             "content_regle_interne_channel_id":  self.content_regle_interne_channel_id,
             "content_regle_interne_emoji":       self.content_regle_interne_emoji,
             "content_stafflist_channel_id":      self.content_stafflist_channel_id,
+            "rank_emoji":                           self.rank_emoji,
         }
 
     def __repr__(self) -> str:

@@ -18,8 +18,13 @@ from utils.track_commande import tracker_commande
 from utils.container_universel import error_container, success_container
 from utils.error_handler import handle_app_command_error
 from utils.managers.alpha_rank_config_manager import load_rank_config
+from utils.managers.alpha_message_manager import (
+    get_alpha_message, upsert_alpha_message, clear_alpha_message,
+)
 
 log = logging.getLogger(__name__)
+
+MESSAGE_KEY = "nous_rejoindre"
 
 
 # ============================================================
@@ -213,26 +218,46 @@ async def nous_rejoindre(interaction: Interaction) -> None:
     if fresh_files:
         kwargs["files"] = fresh_files
 
+    guild_id = interaction.guild_id
+
+    # 🔍 Message existant en DB ?
+    msg_cfg = await get_alpha_message(guild_id, MESSAGE_KEY)
+    existing: discord.Message | None = None
+    if msg_cfg and msg_cfg.message_id:
+        try:
+            existing = await channel.fetch_message(msg_cfg.message_id)
+        except (discord.NotFound, discord.HTTPException):
+            existing = None
+            await clear_alpha_message(guild_id, MESSAGE_KEY)
+
     try:
+        if existing:
+            await existing.edit(view=view, attachments=fresh_files)
+            return await interaction.followup.send(
+                view=success_container(f"**Tutoriel** mis à jour dans {channel.mention} !"),
+                ephemeral=True,
+            )
+
         sent = await channel.send(**kwargs)
+        await upsert_alpha_message(guild_id, MESSAGE_KEY, channel_id, sent.id)
+
+        if emoji_str:
+            try:
+                await sent.add_reaction(emoji_str)
+            except discord.HTTPException:
+                log.warning("[NOUS REJOINDRE ALPHA] Impossible d'ajouter la réaction | guild=%s", guild_id)
+
+        return await interaction.followup.send(
+            view=success_container(f"**Tutoriel** envoyé dans {channel.mention} !"),
+            ephemeral=True,
+        )
+
     except discord.HTTPException:
-        log.exception("[NOUS REJOINDRE ALPHA] Erreur /alpha nous_rejoindre | guild=%s", interaction.guild_id)
+        log.exception("[NOUS REJOINDRE ALPHA] Erreur | guild=%s", guild_id)
         return await interaction.followup.send(
             view=error_container("Une **erreur** Discord est survenue lors de l'envoi."),
             ephemeral=True,
         )
-
-    # Réaction emoji
-    if emoji_str:
-        try:
-            await sent.add_reaction(emoji_str)
-        except discord.HTTPException:
-            log.warning("[NOUS REJOINDRE ALPHA] Impossible d'ajouter la réaction | guild=%s", interaction.guild_id)
-
-    await interaction.followup.send(
-        view=success_container(f"**Tutoriel** envoyé dans {channel.mention} !"),
-        ephemeral=True,
-    )
 
 
 # ============================================================
