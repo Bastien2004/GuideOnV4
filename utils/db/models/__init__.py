@@ -16,6 +16,7 @@ from utils.db.models.alpha import AlphaMessageConfig
 from utils.db.models.alpha_staff import AlphaStaffMember
 from utils.db.models.alpha_rank_config import AlphaRankConfig
 from utils.db.models.alpha_onu_config import AlphaONUConfig, AlphaONUPingMember
+from utils.db.models.alpha_nota_config import AlphaNotaConfig, AlphaNotaWeekState, AlphaNotaAvailability, AlphaNotaHistory
 
 __all__ = [
     "Base",
@@ -40,4 +41,8 @@ __all__ = [
     "AlphaRankConfig",
     "AlphaONUConfig",
     "AlphaONUPingMember",
+    "AlphaNotaConfig",
+    "AlphaNotaWeekState",
+    "AlphaNotaAvailability",
+    "AlphaNotaHistory",
 ]

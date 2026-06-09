@@ -102,5 +102,12 @@ class ConfigDashboardView(LayoutView):
             await interaction.response.edit_message(
                 view=ONUConfigView(self.guild_id, cfg, self.owner_id)
             )
+        elif value == "notations":
+            from utils.managers.alpha_nota_manager import load_nota_config
+            from views.alpha.config_nota_view import NotaConfigView
+            cfg = await load_nota_config(self.guild_id)
+            await interaction.response.edit_message(
+                view=NotaConfigView(self.guild_id, cfg, self.owner_id)
+            )
         else:
             await interaction.response.send_message("Ce système n'est pas encore disponible. 🔜", ephemeral=True)
