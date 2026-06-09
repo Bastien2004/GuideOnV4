@@ -172,7 +172,7 @@ class _ConfirmDerank(LayoutView):
 
 
 # ============================================================
-# ⏱️ Commande principale : /derank
+# ⏱️ Commande principale : /alpha derank
 # ============================================================
 
 @app_commands.guild_only()

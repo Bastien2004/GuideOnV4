@@ -1,10 +1,7 @@
 """
-cogs/alpha/regle_interne.py — Commande /alpha regle_interne.
-
-Envoie les règles internes du serveur Alpha dans un salon cible.
-Le salon et l'emoji sont chargés depuis AlphaRankConfig (configurable via /dev config_alpha).
-Réservé aux Modérateurs+ et supérieurs.
+cogs/alpha/regle_interne.py — Gestion de l'interface d'affichage des règles internes du Alpha
 """
+
 from __future__ import annotations
 
 import logging
