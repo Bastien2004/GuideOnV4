@@ -1,9 +1,7 @@
 """
-cogs/alpha/test.py — Commande /alpha test.
-
-Commande de test pour vérifier que le groupe /alpha fonctionne.
-Accessible aux Modérateurs Alpha et supérieurs.
+cogs/alpha/test.py — Système de test de fonctionnalité du module Alpha.
 """
+
 from __future__ import annotations
 
 import discord
@@ -11,11 +9,12 @@ from discord import app_commands, Interaction
 from discord.ui import LayoutView, Container, TextDisplay, Separator
 
 from utils.botbancmd import verifier_ban_utilisateur
-from utils.perm_alpha import check_modo
-
 from utils.control_admin import verifier_commande
 from utils.track_commande import tracker_commande
+
 from utils.error_handler import handle_app_command_error
+from utils.container_universel import error_container
+from utils.createur import is_creator
 
 
 # ============================================================
@@ -45,28 +44,28 @@ def build_test_view() -> LayoutView:
 @app_commands.command(name="test", description="🧪 Commande de test Alpha")
 async def test_alpha(interaction: Interaction) -> None:
 
-    # 🛡️ Ban bot
+    # 🛡️ Vérification ban utilisateur.
     if not await verifier_ban_utilisateur(interaction):
         return
 
-    # 🔐 Permission Modo minimum
-    if not await check_modo(interaction, "utiliser cette commande"):
-        return
-
-    # 🕒 Defer
+    # 🔐 Créateurs uniquement.
+    if not is_creator(interaction.user.id):
+        return await interaction.response.send_message(view=error_container("Cette commande est réservée aux **créateurs**."), ephemeral=True)
+    
+    # 🕒 Defer.
     try:
         await interaction.response.defer(ephemeral=True)
     except (discord.NotFound, discord.HTTPException):
         return
 
-    # ⚙️ Activation commande
+    # ⚙️ Vérification maintenance.
     if not await verifier_commande(interaction, "alpha_test"):
         return
 
-    # 📊 Tracking
+    # 📊 Tracking.
     await tracker_commande(interaction, "alpha_test")
 
-    # ✅ Réponse
+    # ✅ Envoi du message de test.
     await interaction.followup.send(view=build_test_view(), ephemeral=True)
 
 

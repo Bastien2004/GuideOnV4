@@ -184,10 +184,10 @@ async def rank(interaction: Interaction, membre: discord.Member, pseudo_jeu: str
     except (discord.Forbidden, discord.HTTPException):
         log.warning("[RANK ALPHA] Impossible de renommer %s", membre.id)
 
-    # 📢 Envoie message salon rank/derank.
+    # 📢 Envoi message salon rank/derank.
     await _send_to_channel(interaction.client, cfg.get("rank_channel_id"), _build_rank_announcement(membre, pseudo_jeu.strip(), grade.value, is_promotion, old_grade))
 
-    # 📸 Envoie message journalistes.
+    # 📸 Envoi message journalistes.
     await _send_to_channel(
         interaction.client,
         cfg.get("journaliste_channel_id"),
@@ -198,7 +198,7 @@ async def rank(interaction: Interaction, membre: discord.Member, pseudo_jeu: str
         ),
     )
 
-    # 🎨 Envoie message dev pour l'emoji (nouveau staff only).
+    # 🎨 Envoi message dev pour l'emoji (nouveau staff only).
     if not is_promotion:
         await _send_to_channel(
             interaction.client,

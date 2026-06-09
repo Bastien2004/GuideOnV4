@@ -1,5 +1,5 @@
 """
-cogs/dev/edit_list.py — Commande /dev edit_list.
+cogs/dev/edit_list.py — Commande /dev edit_stafflist_alpha.
 
 Ouvre le dashboard CRUD de la liste staff Alpha.
 Permet d'ajouter / modifier / supprimer des entrées sans les messages
@@ -27,10 +27,10 @@ from views.alpha.edit_list_view import EditListView
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 5)
 @app_commands.command(
-    name="edit_list",
+    name="edit_stafflist_alpha",
     description="📋 Dashboard CRUD de la liste staff Alpha (sans effets rank/derank)",
 )
-async def edit_list(interaction: Interaction) -> None:
+async def edit_stafflist_alpha(interaction: Interaction) -> None:
 
     # 🔐 Créateurs uniquement
     if not is_creator(interaction.user.id):
@@ -46,11 +46,11 @@ async def edit_list(interaction: Interaction) -> None:
         return
 
     # ⚙️ Activation commande
-    if not await verifier_commande(interaction, "dev_edit_list"):
+    if not await verifier_commande(interaction, "dev_edit_stafflist_alpha"):
         return
 
     # 📊 Tracking
-    await tracker_commande(interaction, "dev_edit_list")
+    await tracker_commande(interaction, "dev_edit_stafflist_alpha")
 
     # 📋 Chargement de la liste courante
     members = await list_staff()
@@ -65,8 +65,8 @@ async def edit_list(interaction: Interaction) -> None:
 
 # ── Erreurs ────────────────────────────────────────────────
 
-@edit_list.error
-async def edit_list_error(
+@edit_stafflist_alpha.error
+async def edit_stafflist_alpha_error(
     interaction: discord.Interaction,
     error: app_commands.AppCommandError,
 ) -> None:

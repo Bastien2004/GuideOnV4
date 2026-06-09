@@ -1,31 +1,25 @@
 """
-cogs/alpha/stafflist.py — Commande /alpha stafflist.
-
-Met à jour (ou crée) le message persistant de la liste du staff Alpha.
-Le message_id est stocké en DB via AlphaMessageConfig (key='stafflist').
-Accessible aux Modo+ et supérieurs.
+cogs/alpha/stafflist.py — Gère l'affichage de la liste du staff Alpha.
 """
+
 from __future__ import annotations
 
 import logging
-
 import discord
 from discord import app_commands, Interaction
 from discord.ui import LayoutView, Container, TextDisplay, Separator
 
 from utils.botbancmd import verifier_ban_utilisateur
-from utils.perm_alpha import check_modo_plus
 from utils.control_admin import verifier_commande
 from utils.track_commande import tracker_commande
+
 from utils.container_universel import error_container, success_container
 from utils.error_handler import handle_app_command_error
+from utils.perm_alpha import check_op_alpha
+
 from utils.managers.alpha_staff_manager import list_staff
 from utils.managers.alpha_rank_config_manager import load_rank_config
-from utils.managers.alpha_message_manager import (
-    get_alpha_message,
-    upsert_alpha_message,
-    clear_alpha_message,
-)
+from utils.managers.alpha_message_manager import get_alpha_message, upsert_alpha_message, clear_alpha_message
 from utils.db.models.alpha_staff import GRADES_ORDER, GRADE_LABELS, GRADE_EMOJIS
 
 log = logging.getLogger(__name__)
@@ -34,7 +28,7 @@ MESSAGE_KEY = "stafflist"
 
 
 # ============================================================
-# 🧱 View
+# 🧩 Création de l'interface
 # ============================================================
 
 def build_stafflist_view(members: list[dict]) -> LayoutView:
@@ -78,18 +72,16 @@ def build_stafflist_view(members: list[dict]) -> LayoutView:
 
 
 # ============================================================
-# 🔄 Fonction de mise à jour (réutilisable par d'autres commandes)
+# 🔄 Fonction de mise à jour (réutilisable par d'autres commandes) 
 # ============================================================
 
 async def refresh_staff_message(bot: discord.Client, guild_id: int) -> None:
-    """
-    Rafraîchit silencieusement le message staff depuis la config.
-    Appelable après add/remove/edit pour garder le message à jour.
-    """
+    """Rafraîchit la liste des staffs depuis la DB."""
+
     cfg = await load_rank_config(guild_id)
     channel_id = cfg.get("content_stafflist_channel_id")
     if not channel_id:
-        log.warning("refresh_staff_message : salon non configuré pour guild=%d", guild_id)
+        log.warning("[STAFFLIST ALPHA] Refresh_staff_message : salon non configuré pour guild=%d", guild_id)
         return
 
     channel = bot.get_channel(channel_id)
@@ -97,7 +89,7 @@ async def refresh_staff_message(bot: discord.Client, guild_id: int) -> None:
         try:
             channel = await bot.fetch_channel(channel_id)
         except (discord.NotFound, discord.HTTPException):
-            log.warning("refresh_staff_message : salon %d introuvable", channel_id)
+            log.warning("[STAFFLIST ALPHA] Refresh_staff_message : salon %d introuvable", channel_id)
             return
 
     members = await list_staff()
@@ -120,40 +112,40 @@ async def refresh_staff_message(bot: discord.Client, guild_id: int) -> None:
             sent = await channel.send(view=view)
             await upsert_alpha_message(guild_id, MESSAGE_KEY, channel_id, sent.id)
     except discord.HTTPException:
-        log.exception("refresh_staff_message : erreur HTTP | guild=%d", guild_id)
+        log.exception("[STAFFLIST ALPHA] Refresh_staff_message : erreur HTTP | guild=%d", guild_id)
 
 
 # ============================================================
-# 🧭 Commande
+# 🧭 Commande : /alpha stafflist
 # ============================================================
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="stafflist", description="📋 Met à jour la liste du staff Alpha")
+@app_commands.command(name="stafflist", description="📋 Crée ou met à jour la liste du staff Alpha")
 async def stafflist(interaction: Interaction) -> None:
 
-    # 🛡️ Ban bot
+    # 🛡️ Vérification ban utilisateur.
     if not await verifier_ban_utilisateur(interaction):
         return
 
-    # 🔐 Permission Modo+
-    if not await check_modo_plus(interaction, "mettre à jour la liste du staff"):
+    # 🔐 Permission OP Alpha.
+    if not await check_op_alpha(interaction, "**créer** ou **mettre à jour** la liste du staff"):
         return
 
-    # 🕒 Defer
+    # 🕒 Defer.
     try:
         await interaction.response.defer(ephemeral=True)
     except (discord.NotFound, discord.HTTPException):
         return
 
-    # ⚙️ Activation commande
+    # ⚙️ Vérification maintenance.
     if not await verifier_commande(interaction, "alpha_stafflist"):
         return
 
-    # 📊 Tracking
+    # 📊 Tracking.
     await tracker_commande(interaction, "alpha_stafflist")
 
-    # 📋 Config → salon
+    # 📋 Récupèration de la configuration.
     rank_cfg = await load_rank_config(interaction.guild_id)
     channel_id = rank_cfg.get("content_stafflist_channel_id")
     if not channel_id:
@@ -165,14 +157,14 @@ async def stafflist(interaction: Interaction) -> None:
             ephemeral=True,
         )
 
-    # 💻 Récupération salon
+    # 💻 Récupération du salon
     channel = interaction.client.get_channel(channel_id)
     if channel is None:
         try:
             channel = await interaction.client.fetch_channel(channel_id)
         except (discord.NotFound, discord.HTTPException):
             return await interaction.followup.send(
-                view=error_container("Salon introuvable (ID invalide ou bot sans accès)."),
+                view=error_container("Salon **introuvable** (ID invalide ou bot sans accès)."),
                 ephemeral=True,
             )
 
@@ -196,19 +188,19 @@ async def stafflist(interaction: Interaction) -> None:
         if existing:
             await existing.edit(view=view)
             return await interaction.followup.send(
-                view=success_container(f"Liste du staff mise à jour dans {channel.mention} !"),
+                view=success_container(f"Liste du staff **mise à jour** dans {channel.mention} !"),
                 ephemeral=True,
             )
 
         sent = await channel.send(view=view)
         await upsert_alpha_message(guild_id, MESSAGE_KEY, channel_id, sent.id)
         return await interaction.followup.send(
-            view=success_container(f"Liste du staff créée dans {channel.mention} !"),
+            view=success_container(f"Liste du staff **créée** dans {channel.mention} !"),
             ephemeral=True,
         )
 
     except discord.HTTPException:
-        log.exception("Erreur /alpha stafflist | guild=%s", guild_id)
+        log.exception("[STAFFLIST ALPHA] Erreur /alpha stafflist | guild=%s", guild_id)
         return await interaction.followup.send(
             view=error_container("Une erreur Discord est survenue."),
             ephemeral=True,
@@ -216,7 +208,7 @@ async def stafflist(interaction: Interaction) -> None:
 
 
 # ============================================================
-# ❌ Erreurs
+# ❌ Gestion des erreurs
 # ============================================================
 
 @stafflist.error
