@@ -258,7 +258,7 @@ async def rank(
         await _send_to_channel(
             interaction.client,
             cfg.get("journaliste_channel_id"),
-            _build_journaliste_message(pseudo, display_grade, cfg.get("journaliste_ping_id"), bool(existing)),
+            _build_journaliste_message(pseudo, "journaliste", cfg.get("journaliste_ping_id"), bool(existing)),
         )
         if is_new_staff:
             await _send_to_channel(

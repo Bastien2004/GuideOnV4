@@ -15,6 +15,7 @@ from utils.db.models.giveaway import Giveaway, GiveawayBlacklist, GiveawayPartic
 from utils.db.models.alpha import AlphaMessageConfig
 from utils.db.models.alpha_staff import AlphaStaffMember
 from utils.db.models.alpha_rank_config import AlphaRankConfig
+from utils.db.models.alpha_onu_config import AlphaONUConfig, AlphaONUPingMember
 
 __all__ = [
     "Base",
@@ -37,4 +38,6 @@ __all__ = [
     "AlphaMessageConfig",
     "AlphaStaffMember",
     "AlphaRankConfig",
+    "AlphaONUConfig",
+    "AlphaONUPingMember",
 ]

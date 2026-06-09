@@ -37,7 +37,7 @@ _OPTIONS = [
     discord.SelectOption(
         label="Système ONU",
         value="onu",
-        description="Configuration du système d'ONU.",
+        description="Boucle automatique, pré-annonce, ping MP",
         emoji="🌐",
     ),
 ]
@@ -94,6 +94,13 @@ class ConfigDashboardView(LayoutView):
             from views.alpha.config_content_view import ConfigContentView
             await interaction.response.edit_message(
                 view=ConfigContentView(self.guild_id, cfg, self.owner_id)
+            )
+        elif value == "onu":
+            from utils.managers.alpha_onu_manager import load_onu_config
+            from views.alpha.config_onu_view import ONUConfigView
+            cfg = await load_onu_config(self.guild_id)
+            await interaction.response.edit_message(
+                view=ONUConfigView(self.guild_id, cfg, self.owner_id)
             )
         else:
             await interaction.response.send_message("Ce système n'est pas encore disponible. 🔜", ephemeral=True)
