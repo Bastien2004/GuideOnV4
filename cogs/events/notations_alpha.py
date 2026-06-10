@@ -33,7 +33,7 @@ from utils.managers.alpha_nota_manager import (
     set_state_fields,
     toggle_availability,
 )
-from views.alpha.nota_views import build_presence_view, build_public_nota_view
+from views.alpha.nota_view import build_presence_view, build_public_nota_view
 
 log = logging.getLogger(__name__)
 
