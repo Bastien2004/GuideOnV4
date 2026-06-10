@@ -43,6 +43,7 @@ PARIS_TZ = ZoneInfo("Europe/Paris")
 class NotationsAlphaListener(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
+        self._deadline_greyed: dict[int, bool] = {}  # mémoire : déjà grisé cette semaine ?
         self._nota_task.start()
 
     def cog_unload(self) -> None:
@@ -96,6 +97,17 @@ class NotationsAlphaListener(commands.Cog):
         ):
             await self._send_reminders(cfg)
 
+        # 2b. Griser le bouton à la deadline (une seule fois, en mémoire)
+        if (
+            is_past_deadline(cfg["deadline_weekday"], cfg["deadline_hour"], cfg["deadline_minute"])
+            and state.get("availability_message_id") is not None
+            and state.get("public_message_id") is None
+            and not self._deadline_greyed.get(gid, False)
+            and cfg.get("channel_staff_id")
+        ):
+            self._deadline_greyed[gid] = True
+            await self._update_presence_message(cfg, state, deadline_passed=True)
+
         # 3. Envoi public + reset
         if (
             is_time_now(cfg["send_public_weekday"], cfg["send_public_hour"], cfg["send_public_minute"])
@@ -135,7 +147,7 @@ class NotationsAlphaListener(commands.Cog):
 
         operators = await get_all_nota_operators(cfg["guild_id"])
         available  = await get_available_operators(cfg["guild_id"])
-        view = build_presence_view(operators, available)
+        view = build_presence_view(operators, available, deadline_passed=False)
 
         try:
             msg = await channel.send(view=view)
@@ -143,7 +155,12 @@ class NotationsAlphaListener(commands.Cog):
             log.exception("[NOTATIONS] Erreur envoi présence | guild=%d", cfg["guild_id"])
             return
 
-        await set_state_fields(cfg["guild_id"], availability_message_id=msg.id)
+        await set_state_fields(
+            cfg["guild_id"],
+            availability_message_id=msg.id,
+            public_message_id=None,   # reset du sentinel pour le nouveau cycle
+        )
+        self._deadline_greyed[cfg["guild_id"]] = False  # nouvelle semaine → reset
         log.info("[NOTATIONS] Message de présence envoyé | guild=%d", cfg["guild_id"])
 
     async def _send_reminders(self, cfg: dict) -> None:
@@ -187,6 +204,8 @@ class NotationsAlphaListener(commands.Cog):
 
         if not assignments:
             await self._send_log(cfg, "⚠️ Aucun opérateur disponible — envoi annulé.")
+            # Sentinel -1 : semaine tentée sans résultat → empêche les re-déclenchements
+            await set_state_fields(cfg["guild_id"], public_message_id=-1)
             await reset_nota_week(cfg["guild_id"], [])
             return
 
@@ -216,8 +235,8 @@ class NotationsAlphaListener(commands.Cog):
 
         await reset_nota_week(cfg["guild_id"], assignments)
 
-    async def _update_presence_message(self, cfg: dict, state: dict) -> None:
-        """Rafraîchit le message de présence après un toggle."""
+    async def _update_presence_message(self, cfg: dict, state: dict, deadline_passed: bool = False) -> None:
+        """Rafraîchit le message de présence. Grise le bouton si deadline_passed."""
         msg_id = state.get("availability_message_id")
         if not msg_id:
             return
@@ -231,7 +250,7 @@ class NotationsAlphaListener(commands.Cog):
 
         operators = await get_all_nota_operators(cfg["guild_id"])
         available  = await get_available_operators(cfg["guild_id"])
-        view = build_presence_view(operators, available)
+        view = build_presence_view(operators, available, deadline_passed=deadline_passed)
         try:
             await msg.edit(view=view)
         except discord.HTTPException:

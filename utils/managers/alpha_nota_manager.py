@@ -194,7 +194,6 @@ async def reset_nota_week(guild_id: int, assignments: list[tuple[int, int, int]]
             session.add(state)
         else:
             state.availability_message_id = None
-            state.public_message_id = None
             state.reminder_sent = False
             state.assigned_ranges = "[]"
 

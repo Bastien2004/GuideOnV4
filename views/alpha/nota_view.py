@@ -13,7 +13,11 @@ from discord.ui import (
 )
 
 
-def build_presence_view(operators: list[dict], available_ids: list[int]) -> LayoutView:
+def build_presence_view(
+    operators: list[dict],
+    available_ids: list[int],
+    deadline_passed: bool = False,
+) -> LayoutView:
     """
     operators : liste de dicts {discord_id, label, skin_head_emoji}
     available_ids : liste des discord_id qui ont confirmé leur présence
@@ -56,10 +60,11 @@ def build_presence_view(operators: list[dict], available_ids: list[int]) -> Layo
     # ── Bouton toggle ────────────────────────────────────────
     c_btn = Container()
     c_btn.add_item(ActionRow(Button(
-        label="Je suis présent",
-        style=ButtonStyle.success,
+        label="Vote fermé" if deadline_passed else "Je suis présent",
+        style=ButtonStyle.secondary if deadline_passed else ButtonStyle.success,
         custom_id="notation_presence_toggle",
-        emoji="✍️",
+        emoji="🔒" if deadline_passed else "✍️",
+        disabled=deadline_passed,
     )))
     view.add_item(c_btn)
 
