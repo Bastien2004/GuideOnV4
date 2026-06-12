@@ -168,8 +168,8 @@ def build_index_view(files: list[discord.File]) -> LayoutView:
 # ============================================================
 
 @app_commands.guild_only()
-@app_commands.checks.cooldown(1, 15)
-@app_commands.command(name="index", description="📋 [OP] Envoie de l'interface d'information (index) du serveur Alpha")
+@app_commands.checks.cooldown(1, 20)
+@app_commands.command(name="index", description="📋 [OP] Envoi ou mise à jour de l'interface d'information (index) du serveur Alpha")
 async def index(interaction: Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.
@@ -253,12 +253,13 @@ async def index(interaction: Interaction) -> None:
                 log.warning("[INDEX ALPHA] Impossible d'ajouter la réaction | guild=%s", guild_id)
 
         return await interaction.followup.send(
-            view=success_container(f"Index créé dans {channel.mention} !"),
+            view=success_container(f"**Index** créé dans {channel.mention} !"),
             ephemeral=True,
         )
 
     except discord.HTTPException:
         log.exception("[INDEX ALPHA] Erreur /alpha index | guild=%s", guild_id)
+        
         return await interaction.followup.send(
             view=error_container("Une **erreur** Discord est survenue."),
             ephemeral=True,

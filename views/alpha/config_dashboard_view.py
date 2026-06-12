@@ -29,6 +29,12 @@ _OPTIONS = [
         emoji="📢",
     ),
     discord.SelectOption(
+        label="🔔 Rôle Réaction",
+        value="role_react",
+        description="Boutons de notification auto-assignés par les membres",
+        emoji="🔔",
+    ),
+    discord.SelectOption(
         label="Système Notations",
         value="notations",
         description="Configuration du système de notations.",
@@ -101,6 +107,14 @@ class ConfigDashboardView(LayoutView):
             cfg = await load_onu_config(self.guild_id)
             await interaction.response.edit_message(
                 view=ONUConfigView(self.guild_id, cfg, self.owner_id)
+            )
+        elif value == "role_react":
+            from utils.managers.alpha_role_react_manager import load_rr_config, get_rr_entries
+            from views.alpha.config_role_react_view import RoleReactConfigView
+            rr_cfg = await load_rr_config(self.guild_id)
+            entries = await get_rr_entries(self.guild_id)
+            await interaction.response.edit_message(
+                view=RoleReactConfigView(self.guild_id, rr_cfg, entries, self.owner_id)
             )
         elif value == "notations":
             from utils.managers.alpha_nota_manager import load_nota_config

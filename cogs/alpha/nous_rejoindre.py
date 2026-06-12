@@ -12,15 +12,15 @@ from discord import app_commands, Interaction, MediaGalleryItem
 from discord.ui import LayoutView, Container, TextDisplay, Separator, MediaGallery, ActionRow
 
 from utils.botbancmd import verifier_ban_utilisateur
-from utils.perm_alpha import check_op_alpha
 from utils.control_admin import verifier_commande
 from utils.track_commande import tracker_commande
+
 from utils.container_universel import error_container, success_container
 from utils.error_handler import handle_app_command_error
+from utils.perm_alpha import check_op_alpha
+
 from utils.managers.alpha_rank_config_manager import load_rank_config
-from utils.managers.alpha_message_manager import (
-    get_alpha_message, upsert_alpha_message, clear_alpha_message,
-)
+from utils.managers.alpha_message_manager import get_alpha_message, upsert_alpha_message, clear_alpha_message
 
 log = logging.getLogger(__name__)
 
@@ -162,8 +162,8 @@ def build_nous_rejoindre_view(files: list[discord.File], role_to_ping: int | Non
 # ============================================================
 
 @app_commands.guild_only()
-@app_commands.checks.cooldown(1, 15)
-@app_commands.command(name="nous_rejoindre", description="🚪 [OP] Envoie du tutoriel pour rejoindre le serveur Alpha")
+@app_commands.checks.cooldown(1, 20)
+@app_commands.command(name="nous_rejoindre", description="🚪 [OP] Envoi ou mise à jour du tutoriel pour rejoindre le serveur Alpha")
 async def nous_rejoindre(interaction: Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.
@@ -254,6 +254,7 @@ async def nous_rejoindre(interaction: Interaction) -> None:
 
     except discord.HTTPException:
         log.exception("[NOUS REJOINDRE ALPHA] Erreur | guild=%s", guild_id)
+        
         return await interaction.followup.send(
             view=error_container("Une **erreur** Discord est survenue lors de l'envoi."),
             ephemeral=True,

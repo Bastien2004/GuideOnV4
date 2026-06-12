@@ -1,5 +1,5 @@
 """
-cogs/alpha/regle_interne.py — Gestion de l'interface d'affichage des règles internes du Alpha
+cogs/alpha/regle_interne.py — Gestion de l'interface des règles internes du Alpha
 """
 
 from __future__ import annotations
@@ -11,15 +11,15 @@ from discord import app_commands, Interaction
 from discord.ui import LayoutView, Container, TextDisplay, Separator
 
 from utils.botbancmd import verifier_ban_utilisateur
-from utils.perm_alpha import check_op_alpha
 from utils.control_admin import verifier_commande
 from utils.track_commande import tracker_commande
+
 from utils.container_universel import error_container, success_container
 from utils.error_handler import handle_app_command_error
+from utils.perm_alpha import check_op_alpha
+
 from utils.managers.alpha_rank_config_manager import load_rank_config
-from utils.managers.alpha_message_manager import (
-    get_alpha_message, upsert_alpha_message, clear_alpha_message,
-)
+from utils.managers.alpha_message_manager import get_alpha_message, upsert_alpha_message, clear_alpha_message
 
 log = logging.getLogger(__name__)
 
@@ -55,8 +55,8 @@ def build_regle_interne_view() -> LayoutView:
 # ════════════════════════════════════════════════════════════
 
 @app_commands.guild_only()
-@app_commands.checks.cooldown(1, 15)
-@app_commands.command(name="regle_interne", description="⚖️ Envoie les règles internes du Alpha")
+@app_commands.checks.cooldown(1, 20)
+@app_commands.command(name="regle_interne", description="⚖️ Envoi ou mise à jour des règles internes du Alpha")
 async def regle_interne(interaction: Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.
@@ -144,6 +144,7 @@ async def regle_interne(interaction: Interaction) -> None:
 
     except discord.HTTPException:
         log.exception("[REGLE_INTERNE ALPHA] Erreur | guild=%s", guild_id)
+        
         return await interaction.followup.send(
             view=error_container("Une erreur **Discord** est survenue lors de l'envoi."),
             ephemeral=True,
