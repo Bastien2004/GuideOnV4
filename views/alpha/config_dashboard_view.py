@@ -29,6 +29,12 @@ _OPTIONS = [
         emoji="📢",
     ),
     discord.SelectOption(
+        label="🎮 Système Events",
+        value="events",
+        description="start_event, event_list, gestion des statuts",
+        emoji="🎮",
+    ),
+    discord.SelectOption(
         label="🔔 Rôle Réaction",
         value="role_react",
         description="Boutons de notification auto-assignés par les membres",
@@ -107,6 +113,13 @@ class ConfigDashboardView(LayoutView):
             cfg = await load_onu_config(self.guild_id)
             await interaction.response.edit_message(
                 view=ONUConfigView(self.guild_id, cfg, self.owner_id)
+            )
+        elif value == "events":
+            from utils.managers.alpha_event_config_manager import load_event_config
+            from views.alpha.config_event_view import EventConfigView
+            ev_cfg = await load_event_config(self.guild_id)
+            await interaction.response.edit_message(
+                view=EventConfigView(self.guild_id, ev_cfg, self.owner_id)
             )
         elif value == "role_react":
             from utils.managers.alpha_role_react_manager import load_rr_config, get_rr_entries
