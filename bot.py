@@ -326,19 +326,19 @@ class GuideONBot(commands.Bot):
 
 
 
-        async def on_ready(self) -> None:
-            if not hasattr(self, "_ready_done"):
-                self._ready_done = True
+    async def on_ready(self) -> None:
+        if not hasattr(self, "_ready_done"):
+            self._ready_done = True
 
-                await self._set_guild_avatars()
+            await self._set_guild_avatars()
 
-            log.info("Connecté en tant que %s (%s)", self.user, self.user.id if self.user else "?")
-            log.info("%d serveurs connectés", len(self.guilds))
+        log.info("Connecté en tant que %s (%s)", self.user, self.user.id if self.user else "?")
+        log.info("%d serveurs connectés", len(self.guilds))
 
-            await self.change_presence(
-                status=discord.Status.online,
-                activity=discord.Game(name="GuideON V4"),
-            )
+        await self.change_presence(
+            status=discord.Status.online,
+            activity=discord.Game(name="GuideON V4"),
+        )
 
 
 
