@@ -1,6 +1,7 @@
 """
 Commande /dev maintenance — Active ou désactive des commandes via une interface DEV.
-Stockage : PostgreSQL via SQLAlchemy (modèle CommandControl).
+Stockage : PostgreSQL via SQLAlchemy (modèle CommandControl), accès via
+utils.managers.command_toggle_manager (cache 60s, système global).
 """
 
 from __future__ import annotations
@@ -8,10 +9,8 @@ from __future__ import annotations
 import discord
 from discord import app_commands, Interaction
 from discord.ui import LayoutView, Container, TextDisplay, Separator, ActionRow, Button, Modal, TextInput, Section
-from sqlalchemy import select, update
 
-from utils.db.engine import get_session
-from utils.db.models.control_admin import CommandControl
+from utils.managers.command_toggle_manager import get_all_commands, toggle_command
 from utils.track_commande import tracker_commande
 from utils.control_admin import verifier_commande
 from utils.container_universel import error_container
@@ -26,42 +25,6 @@ from utils.perm_dev import check_dev
 VIEW_TIMEOUT = 300
 COMMANDS_PER_PAGE = 5
 SEARCH_LIMIT = 5
-
-
-# ============================================================
-# 📦 Accès DB
-# ============================================================
-
-async def get_all_commands() -> dict[str, bool]:
-    """Retourne {command_name: enabled} pour toutes les entrées."""
-    async with get_session() as session:
-        result = await session.execute(select(CommandControl))
-        rows = result.scalars().all()
-        return {row.command_name: row.enabled for row in rows}
-
-
-async def toggle_command(command_name: str) -> dict[str, bool]:
-    """
-    Inverse l'état d'une commande.
-    Crée la ligne si elle n'existe pas encore.
-    Retourne le dict complet après modification.
-    """
-    async with get_session() as session:
-        result = await session.execute(
-            select(CommandControl).where(CommandControl.command_name == command_name)
-        )
-        row = result.scalar_one_or_none()
-
-        if row is None:
-            # Première fois qu'on toggle cette commande → on la crée désactivée
-            row = CommandControl(command_name=command_name, enabled=False)
-            session.add(row)
-        else:
-            row.enabled = not row.enabled
-
-        await session.commit()
-
-    return await get_all_commands()
 
 
 # ============================================================
@@ -266,13 +229,11 @@ async def maintenance(interaction: Interaction) -> None:
     try:
         data = await get_all_commands()
         view = await create_maintenance_view(data)
-    except Exception as e:
-        print(f"[❌ dev_maintenance] Erreur interface : {e}")
-        await interaction.followup.send(
+    except Exception:
+        return await interaction.followup.send(
             view=error_container("Impossible de charger l'interface de maintenance."),
             ephemeral=True,
         )
-        return
 
     await interaction.followup.send(view=view, ephemeral=True)
 

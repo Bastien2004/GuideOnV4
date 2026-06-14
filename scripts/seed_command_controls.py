@@ -1,8 +1,53 @@
+"""
+scripts/seed_command_controls.py — Seed/maj de la table command_controls.
+
+Idempotent : utilise ON CONFLICT DO NOTHING, donc relançable sans erreur
+pour ajouter les nouvelles commandes (ex: système Alpha) sans toucher
+aux togglings déjà faits via /dev maintenance.
+"""
+
 import asyncio
+
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+
 from utils.db.engine import get_session
 from utils.db.models.control_admin import CommandControl
 
 COMMANDS = {
+    # ── ALPHA ──
+    "alpha_derank": True,
+    "alpha_event_list": False,
+    "alpha_event_regle": False,
+    "alpha_event_start": False,
+    "alpha_index": True,
+    "alpha_nous_rejoindre": True,
+    "alpha_rank": True,
+    "alpha_regle_interne": True,
+    "alpha_stafflist": True,
+    "alpha_test": True,
+
+    # ── BIRTHDAY ──
+    "birthday_add": True,
+    "birthday_config": True,
+    "birthday_list": True,
+    "birthday_next": True,
+
+    # ── CONFIG ──
+    "config_autorole": True,
+    "config_bienvenue": True,
+    "config_role_all": True,
+    "config_role_reaction": False,
+
+    # ── DEV ──
+    "dev_config_alpha": True,
+    "dev_delete_message": True,
+    "dev_edit_stafflist_alpha" : True,
+    "dev_kick" : True,
+    "dev_maintenance" : True,
+    "dev_permissions" : True,
+    "dev_stat_server" : True,
+
+    # ── NG ──
     "ng_autel": True,
     "ng_convert": True,
     "ng_rd": True,
@@ -21,19 +66,18 @@ COMMANDS = {
     "ng_version": True,
     "ng_onu": True,
     "ng_dynmaps": True,
+    # ── MOD ──
     "mod_control": True,
     "mod_reglement": True,
     "mod_inspect": True,
     "mod_registre": True,
     "mod_clear": True,
-    "config_bienvenue": True,
-    "config_autorole": True,
-    "config_exp": True,
-    "config_role_reaction": True,
-    "config_role_all": True,
+
+    # ── EXP ──
     "exp_gestion": True,
     "exp_level": True,
     "exp_leaderboard": True,
+    # ── TICKET ──
     "ticket_panel_create": True,
     "ticket_panel_edit": True,
     "ticket_panel_delete": True,
@@ -44,26 +88,17 @@ COMMANDS = {
     "ticket_ban": True,
     "ticket_rename": True,
     "ticket_remove": True,
+    # ── INVITE ──
     "invite_config": True,
     "invite_gestion": True,
     "invite_classement": True,
     "invite_user": True,
+    # ── GIVEAWAY ──
     "giveaway_create": True,
     "giveaway_manage": True,
     "giveaway_list": True,
-    "dev_setngversion": True,
-    "dev_botban": True,
-    "dev_stats": True,
-    "dev_message_recurrent": True,
-    "dev_annonce": True,
-    "dev_maintenance": True,
-    "dev_kick": True,
-    "dev_channel_stats": True,
-    "alpha_stafflist": True,
-    "alpha_nous_rejoindre": True,
-    "alpha_test": True,
-    "alpha_index": True,
-    "alpha_regle_interne": True,
+
+    # ── ANNIV ──
     "anniv_anniversaire": True,
     "anniv_kit": True,
     "anniv_classement": True,
@@ -78,6 +113,7 @@ COMMANDS = {
     "anniv_admin_reset": True,
     "anniv_admin_reset_all": True,
     "anniv_admin_setup": True,
+    # ── GLOBAL ──
     "boutique": True,
     "wiki": True,
     "id_command": True,
@@ -92,12 +128,17 @@ COMMANDS = {
 }
 
 
-async def seed():
+async def seed() -> None:
     async with get_session() as session:
-        for name, enabled in COMMANDS.items():
-            session.add(CommandControl(command_name=name, enabled=enabled))
+        stmt = pg_insert(CommandControl).values(
+            [{"command_name": name, "enabled": enabled} for name, enabled in COMMANDS.items()]
+        )
+        stmt = stmt.on_conflict_do_nothing(index_elements=["command_name"])
+        result = await session.execute(stmt)
         await session.commit()
-    print(f"✅ {len(COMMANDS)} commandes insérées en base.")
+    print(f"✅ Seed terminé — {result.rowcount} nouvelle(s) commande(s) insérée(s) "
+          f"({len(COMMANDS)} référencées au total).")
 
 
-asyncio.run(seed())
+if __name__ == "__main__":
+    asyncio.run(seed())

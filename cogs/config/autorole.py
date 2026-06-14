@@ -1,5 +1,5 @@
 """
-cogs/config/autorole.py — Commande /config autorole.
+cogs/config/autorole.py — Interface de configuration du système d'autorôle.
 """
 from __future__ import annotations
 

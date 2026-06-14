@@ -1,5 +1,5 @@
 """
-Modèle CommandControl — toggle des commandes.
+utils/db/models/control_admin.py - Modèle CommandControl, toggle des commandes.
 """
 from __future__ import annotations
 

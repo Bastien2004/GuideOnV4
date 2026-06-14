@@ -92,8 +92,8 @@ async def event_start(interaction: Interaction, event: str) -> None:
     except (discord.NotFound, discord.HTTPException):
         return
 
-    if not await verifier_commande(interaction, "alpha_start_event"): return
-    await tracker_commande(interaction, "alpha_start_event")
+    if not await verifier_commande(interaction, "alpha_event_start"): return
+    await tracker_commande(interaction, "alpha_event_start")
 
     # Récupération de l'event
     try:

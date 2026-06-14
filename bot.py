@@ -137,7 +137,7 @@ class GuideONBot(commands.Bot):
         from cogs.dev.maintenance import maintenance
         from cogs.dev.permission import permissions
         from cogs.dev.config_alpha import config_alpha
-        from cogs.dev.edit_list import edit_stafflist_alpha
+        from cogs.dev.edit_stafflist import edit_stafflist_alpha
 
         # ── IMPORT NG ──
         from cogs.ng.autel import autel
