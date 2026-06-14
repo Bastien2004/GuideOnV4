@@ -240,7 +240,7 @@ async def rank(interaction: Interaction, membre: discord.Member, pseudo_jeu: str
         await _send_with_reaction(
             interaction.client,
             cfg.get("rank_channel_id"),
-            _build_rank_announcement(membre, pseudo, display_grade, bool(existing), old_grade_for_msg, journaliste_only),
+            _build_rank_announcement(membre, display_grade, bool(existing), old_grade_for_msg, journaliste_only),
             cfg.get("rank_emoji"),
         )
 
