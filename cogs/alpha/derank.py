@@ -306,7 +306,7 @@ class _ConfirmDerank(LayoutView):
         await _send_with_reaction(
             interaction.client,
             cfg.get("rank_channel_id"),
-            _build_derank_announcement(membre, d["pseudo_jeu"], display_grade, role),
+            _build_derank_announcement(membre, display_grade, role),
             cfg.get("rank_emoji"),
         )
 

@@ -274,7 +274,7 @@ class GuideONBot(commands.Bot):
     async def _sync_commands(self):
 
         ID_SERVEUR_DISCORD_DEV = 1505970079500734695
-        ID_SERVEUR_DISCORD_ALPHA = 1505970079500734695
+        ID_SERVEUR_DISCORD_ALPHA = 751903718135431188
         ID_SERVEUR_DISCORD_SUPPORT = 1505970079500734695
 
 
@@ -326,14 +326,43 @@ class GuideONBot(commands.Bot):
 
 
 
-    async def on_ready(self) -> None:
-        log.info("Connecté en tant que %s (%s)", self.user, self.user.id if self.user else "?")
-        log.info("%d serveurs connectés", len(self.guilds))
+        async def on_ready(self) -> None:
+            if not hasattr(self, "_ready_done"):
+                self._ready_done = True
 
-        await self.change_presence(
-            status=discord.Status.online,
-            activity=discord.Game(name="GuideON V4"),
-        )
+                await self._set_guild_avatars()
+
+            log.info("Connecté en tant que %s (%s)", self.user, self.user.id if self.user else "?")
+            log.info("%d serveurs connectés", len(self.guilds))
+
+            await self.change_presence(
+                status=discord.Status.online,
+                activity=discord.Game(name="GuideON V4"),
+            )
+
+
+
+    ### GUILD AVATARS ###
+    async def _set_guild_avatars(self):
+        GUILD_AVATARS = {
+            751903718135431188 : "source/GuideON Staff.webp",
+        }
+
+        for guild_id, avatar_path in GUILD_AVATARS.items():
+            guild = self.get_guild(guild_id)
+            if not guild:
+                log.warning(f"⚠️ [GUILD AVATAR] Serveur {guild_id} introuvable.")
+                continue
+            try:
+                with open(avatar_path, "rb") as f:
+                    image_data = f.read()
+                await guild.me.edit(avatar=image_data)
+                log.info(f"🖼️ [GUILD AVATAR] Avatar défini pour {guild.name} ({guild_id})")
+            except FileNotFoundError:
+                log.error(f"❌ [GUILD AVATAR] Fichier introuvable : {avatar_path}")
+            except Exception as e:
+                log.error(f"❌ [GUILD AVATAR] Erreur pour {guild_id} : {e}")
+
 
     async def _load_cogs_from_directory(self, base: str) -> None:
         """
