@@ -1,41 +1,33 @@
 """
-utils/gestion_stats.py — Tracking statistiques.
+utils/gestion_stats.py — Gestion des statistiques de commandes.
 
-🟡 STUB à remplir par le collègue (DB).
-
-Signature attendue :
-    def incrementer_commande(
-        nom_commande: str,
-        user_id: int,
-        guild_id: int | None,
-    ) -> None
-
-Doit écrire dans la table `command_stats` (et éventuellement `user_command_stats`
-si on veut tracker par utilisateur).
-
-Pour l'instant : ne fait rien (no-op). N'impacte pas le bot.
+🟡 STUB : À compléter par le collègue responsable de la base de données.
 """
-from __future__ import annotations
 
-import logging
-
-log = logging.getLogger(__name__)
-
-
-def incrementer_commande(
-    nom_commande: str,
-    user_id: int,
-    guild_id: int | None,
-) -> None:
+def incrementer_commande(nom_commande: str, user_id: int, guild_id: int | None):
     """
-    🟡 STUB : à câbler à la DB.
+    Fonction appelée à chaque utilisation d'une commande.
 
-    Devra incrémenter la table command_stats pour cette commande.
+    PARAMÈTRES :
+    - nom_commande : str → nom interne de la commande (ex: "ng_dynmaps")
+    - user_id      : int → ID Discord de l'utilisateur
+    - guild_id     : int | None → ID du serveur (toujours présent grâce à tracker_commande)
+
+    À FAIRE :
+    - Insérer ou mettre à jour une ligne dans la table des stats
+    - Incrémenter un compteur d'utilisation
+    - Enregistrer la date/heure
+    - Optionnel : stocker par utilisateur, par serveur, etc.
+
+    ⚠️ IMPORTANT :
+    - Cette fonction NE DOIT PAS lever d'erreur.
+    - Si la DB est indisponible, log + return.
     """
-    # TODO (collègue) :
-    #   from utils.managers.stats_manager import increment_command_sync
-    #   increment_command_sync(nom_commande, user_id, guild_id)
-    log.debug(
-        "Stats stub | cmd=%s user=%s guild=%s",
-        nom_commande, user_id, guild_id,
-    )
+
+    # Exemple de squelette (à remplacer par la vraie DB) :
+    try:
+        # TODO: écrire ici la logique SQLAlchemy / asyncpg / autre
+        pass
+
+    except Exception as e:
+        print(f"[GESTION_STATS] Erreur DB : {e}")
