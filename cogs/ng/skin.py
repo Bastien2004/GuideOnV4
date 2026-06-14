@@ -99,7 +99,7 @@ async def create_skin_view(pseudo: str, mode: str = "corps_3d") -> LayoutView:
 # ============================================================
 
 @app_commands.guild_only()
-@app_commands.checks.cooldown(1, 10)
+@app_commands.checks.cooldown(1, 3)
 @app_commands.command(name="skin", description="🧥 Récupère le skin d'un joueur NationsGlory")
 @app_commands.describe(pseudo="Pseudo EXACT du joueur dans NationsGlory")
 async def skin(interaction: discord.Interaction, pseudo: str):

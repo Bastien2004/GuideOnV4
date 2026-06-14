@@ -1,7 +1,5 @@
 """
-Commande /dev maintenance — Active ou désactive des commandes via une interface DEV.
-Stockage : PostgreSQL via SQLAlchemy (modèle CommandControl), accès via
-utils.managers.command_toggle_manager (cache 60s, système global).
+Commande /dev maintenance — Gère le système de maintenance commande.
 """
 
 from __future__ import annotations
@@ -10,12 +8,14 @@ import discord
 from discord import app_commands, Interaction
 from discord.ui import LayoutView, Container, TextDisplay, Separator, ActionRow, Button, Modal, TextInput, Section
 
-from utils.managers.command_toggle_manager import get_all_commands, toggle_command
 from utils.track_commande import tracker_commande
 from utils.control_admin import verifier_commande
+
 from utils.container_universel import error_container
 from utils.error_handler import handle_app_command_error
 from utils.perm_dev import check_dev
+
+from utils.managers.command_toggle_manager import get_all_commands, toggle_command
 
 
 # ============================================================
@@ -31,13 +31,9 @@ SEARCH_LIMIT = 5
 # 🧱 Ajout ligne commande
 # ============================================================
 
-async def add_command_section(
-    container: Container,
-    command_name: str,
-    enabled: bool,
-    page: int,
-    search_query: str | None = None,
-) -> None:
+async def add_command_section(container: Container, command_name: str, enabled: bool, page: int, search_query: str | None = None) -> None:
+    """Ajoute la section des commandes sur l'interface de gestion des maintenances."""
+
     button = Button(
         label="ON" if enabled else "OFF",
         style=discord.ButtonStyle.success if enabled else discord.ButtonStyle.danger,
@@ -64,10 +60,12 @@ async def add_command_section(
 
 
 # ============================================================
-# 🛠️ Vue principale
+# 🛠️ Construction de l'interface
 # ============================================================
 
 async def create_maintenance_view(data: dict[str, bool], page: int = 0) -> LayoutView:
+    """Création de l'interface principal."""
+
     view = LayoutView(timeout=VIEW_TIMEOUT)
     container = Container()
 
@@ -100,7 +98,7 @@ async def create_maintenance_view(data: dict[str, bool], page: int = 0) -> Layou
     container.add_item(TextDisplay(f"-# Page {page + 1} / {total_pages}"))
 
     # ◀️ Précédent
-    btn_prev = Button(emoji="◀️", style=discord.ButtonStyle.secondary, disabled=(page <= 0))
+    btn_prev = Button(emoji="<:precedent:1515658763913138236>", style=discord.ButtonStyle.secondary, disabled=(page <= 0))
 
     async def prev_callback(interaction: discord.Interaction) -> None:
         if not await check_dev(interaction):
@@ -111,7 +109,7 @@ async def create_maintenance_view(data: dict[str, bool], page: int = 0) -> Layou
     btn_prev.callback = prev_callback
 
     # ▶️ Suivant
-    btn_next = Button(emoji="▶️", style=discord.ButtonStyle.secondary, disabled=(page >= total_pages - 1))
+    btn_next = Button(emoji="<:suivant:1515658825913339904>", style=discord.ButtonStyle.secondary, disabled=(page >= total_pages - 1))
 
     async def next_callback(interaction: discord.Interaction) -> None:
         if not await check_dev(interaction):
@@ -122,7 +120,7 @@ async def create_maintenance_view(data: dict[str, bool], page: int = 0) -> Layou
     btn_next.callback = next_callback
 
     # 🔍 Recherche
-    btn_search = Button(label="Rechercher", emoji="🔍", style=discord.ButtonStyle.primary)
+    btn_search = Button(label="Rechercher", emoji="<:recherche:1515659396712104006>", style=discord.ButtonStyle.primary)
 
     async def search_callback(interaction: discord.Interaction) -> None:
         if not await check_dev(interaction):
@@ -140,10 +138,12 @@ async def create_maintenance_view(data: dict[str, bool], page: int = 0) -> Layou
 
 
 # ============================================================
-# 🔍 Vue résultats recherche
+# 🔍 Construction affichage des recherches
 # ============================================================
 
 async def create_search_result_view(query: str, results: dict[str, bool], origin_page: int) -> LayoutView:
+    """Construction interface d'affichage des recherches."""
+
     view = LayoutView(timeout=VIEW_TIMEOUT)
     container = Container()
 
@@ -159,7 +159,7 @@ async def create_search_result_view(query: str, results: dict[str, bool], origin
 
     container.add_item(Separator())
 
-    btn_back = Button(label="Retour", emoji="↩️", style=discord.ButtonStyle.secondary)
+    btn_back = Button(label="Retour", emoji="<:retour:1515658955190308995>", style=discord.ButtonStyle.secondary)
 
     async def back_callback(interaction: discord.Interaction) -> None:
         if not await check_dev(interaction):
@@ -187,7 +187,7 @@ class SearchCommandModal(Modal):
         self.origin_page = origin_page
         self.query = TextInput(
             label="Commande",
-            placeholder="ticket, dev_, config_...",
+            placeholder="ticket, dev, config ...",
             required=True,
             max_length=60,
         )
@@ -205,11 +205,11 @@ class SearchCommandModal(Modal):
 
 
 # ============================================================
-# 🧭 Commande principale
+# 🧭 Commande : /dev maintenance
 # ============================================================
 
 @app_commands.guild_only()
-@app_commands.checks.cooldown(1, 15)
+@app_commands.checks.cooldown(1, 10)
 @app_commands.command(name="maintenance", description="🛠️ [DEV] Gérer les commandes du bot")
 async def maintenance(interaction: Interaction) -> None:
 

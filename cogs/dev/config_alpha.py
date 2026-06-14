@@ -18,7 +18,7 @@ from views.alpha.config_dashboard_view import ConfigDashboardView
 
 
 # ============================================================
-# 🧭 Commande : /config autorole
+# 🧭 Commande : /dev config_alpha
 # ============================================================
 
 @app_commands.guild_only()
@@ -26,7 +26,7 @@ from views.alpha.config_dashboard_view import ConfigDashboardView
 @app_commands.command(name="config_alpha", description="⚙️ [DEV] Dashboard configuration systèmes Alpha")
 async def config_alpha(interaction: Interaction) -> None:
 
-    # 🔐 Créateurs uniquement.
+    # 🔐 Vérification des permissions.
     if not is_creator(interaction.user.id):
         return await interaction.response.send_message(view=error_container("Cette commande est __réservée__ aux **développeurs**."), ephemeral=True)
 
@@ -44,16 +44,14 @@ async def config_alpha(interaction: Interaction) -> None:
     await tracker_commande(interaction, "dev_config_alpha")
 
     # 🚀 Dashboard
-    view = ConfigDashboardView(
-        guild_id=interaction.guild_id,
-        owner_id=interaction.user.id,
-    )
+    view = ConfigDashboardView(guild_id=interaction.guild_id, owner_id=interaction.user.id)
     await interaction.followup.send(view=view, ephemeral=True)
 
 
+# ============================================================
+# ❌ Gestion des erreurs
+# ============================================================
+
 @config_alpha.error
-async def config_alpha_error(
-    interaction: discord.Interaction,
-    error: app_commands.AppCommandError,
-) -> None:
+async def config_alpha_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
     await handle_app_command_error(interaction, error)
