@@ -1,6 +1,7 @@
 """
-Commande /dev permissions — Gérer les rôles internes (DEV, STAFF, OP_ALPHA).
+Commande /dev permissions — Gére les permissions internes (DEV, STAFF, OP_ALPHA).
 """
+
 from __future__ import annotations
 
 import logging
@@ -9,10 +10,11 @@ import discord
 from discord import app_commands, Interaction
 from discord.ui import ActionRow, Button, Container, LayoutView, Modal, Section, Separator, TextDisplay, TextInput
 
-from utils.container_universel import error_container, success_container
-from utils.error_handler import handle_app_command_error
 from utils.track_commande import tracker_commande
 from utils.control_admin import verifier_commande
+
+from utils.container_universel import error_container, success_container
+from utils.error_handler import handle_app_command_error
 
 from utils.managers.permission_manager import PermissionRole, add_entry, list_all, remove_entry
 from utils.createur import is_creator
@@ -38,16 +40,19 @@ def _is_creator(interaction: discord.Interaction) -> bool:
 async def _guard_creator(interaction: discord.Interaction) -> bool:
     if _is_creator(interaction):
         return True
+    
     if interaction.response.is_done():
         await interaction.followup.send(
             view=error_container("Seuls les **créateurs** peuvent gérer les permissions."),
             ephemeral=True,
         )
+
     else:
         await interaction.response.send_message(
             view=error_container("Seuls les **créateurs** peuvent gérer les permissions."),
             ephemeral=True,
         )
+
     return False
 
 
@@ -73,7 +78,7 @@ async def create_permissions_view(bot, author_id: int) -> LayoutView:
         else:
             liste = "-# *aucun membre*"
 
-        btn_add = Button(label="Ajouter", emoji="<:ajouter:1495444111505752154>", style=discord.ButtonStyle.success)
+        btn_add = Button(label="Ajouter", emoji="<:plus:1495444111505752154>", style=discord.ButtonStyle.success)
         btn_add.callback = _cb_add(bot, author_id, role)
         container.add_item(Section(
             TextDisplay(f"### {role.value}  ({len(ids)})\n{liste}"),
@@ -81,7 +86,7 @@ async def create_permissions_view(bot, author_id: int) -> LayoutView:
         ))
 
         if ids:
-            btn_remove = Button(label="Retirer", emoji="<:annuler:1495444256754761979>", style=discord.ButtonStyle.danger)
+            btn_remove = Button(label="Retirer", emoji="<:moins:1508532114465882285>", style=discord.ButtonStyle.danger)
             btn_remove.callback = _cb_remove(bot, author_id, role)
             container.add_item(ActionRow(btn_remove))
 
@@ -133,7 +138,6 @@ class IdModal(Modal):
             txt = (f"<@{raw}> retiré de **{self.role.value}**." if deleted
                    else f"<@{raw}> n'était pas dans **{self.role.value}**.")
 
-        # Rafraîchit la vue principale
         new_view = await create_permissions_view(self.bot, self.author_id)
         await interaction.response.edit_message(view=new_view)
         await interaction.followup.send(view=success_container(txt), ephemeral=True)
@@ -164,40 +168,42 @@ def _cb_remove(bot, author_id: int, role: PermissionRole):
 # ============================================================
 
 @app_commands.guild_only()
-@app_commands.checks.cooldown(1, 15)
+@app_commands.checks.cooldown(1, 10)
 @app_commands.command(name="permissions", description="🔐 [DEV] Gérer les permissions internes du bot")
 async def permissions(interaction: Interaction):
 
-    # 🔐 Vérification permissions
+    # 🔐 Vérification des permissions.
     if not await _guard_creator(interaction):
         return
 
-    # 🕒 Defer
+    # 🕒 Defer.
     try:
         await interaction.response.defer(ephemeral=True)
     except (discord.NotFound, discord.HTTPException):
         return
 
-    # ⚙️ Vérification activation
+    # ⚙️ Activation commande.
     if not await verifier_commande(interaction, "dev_permissions"):
         return
 
-    # 📊 Tracking
+    # 📊 Tracking.
     await tracker_commande(interaction, "dev_permissions")
 
-    # 🧩 Création interface
+    # 🧩 Création interface.
     try:
         view = await create_permissions_view(interaction.client, interaction.user.id)
+
     except Exception:
-        log.exception("Erreur interface permissions")
+        log.exception("[DEV PERMISSIONS] Erreur interface permissions")
         await interaction.followup.send(
-            view=error_container("Impossible de charger l'interface des permissions."),
+            view=error_container("Impossible de charger l'**interface des permissions**."),
             ephemeral=True,
         )
         return
 
-    # 📤 Envoi
+    # 📤 Envoi de l'interface.
     await interaction.followup.send(view=view, ephemeral=True)
+
 
 # ============================================================
 # ❌ Gestion erreurs

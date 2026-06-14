@@ -138,6 +138,9 @@ class GuideONBot(commands.Bot):
         from cogs.dev.permission import permissions
         from cogs.dev.config_alpha import config_alpha
         from cogs.dev.edit_stafflist import edit_stafflist_alpha
+        from cogs.dev.delete_message import delete_message
+        from cogs.dev.kick import kick
+        from cogs.dev.stat_server import stat_server
 
         # ── IMPORT NG ──
         from cogs.ng.autel import autel
@@ -218,7 +221,7 @@ class GuideONBot(commands.Bot):
 
         # 💻 ── DEV ──
         self._groupDEV = groupeDEV()
-        for cmd in [maintenance, permissions, config_alpha, edit_stafflist_alpha]:
+        for cmd in [maintenance, permissions, config_alpha, edit_stafflist_alpha, delete_message, kick, stat_server]:
             self._groupDEV.add_command(cmd)
 
         

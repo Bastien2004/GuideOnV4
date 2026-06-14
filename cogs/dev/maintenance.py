@@ -213,28 +213,35 @@ class SearchCommandModal(Modal):
 @app_commands.command(name="maintenance", description="🛠️ [DEV] Gérer les commandes du bot")
 async def maintenance(interaction: Interaction) -> None:
 
+    # 🔐 Vérification des permissions.
     if not await check_dev(interaction, "gérer la maintenance du bot"):
         return
 
+    # 🕒 Defer.
     try:
         await interaction.response.defer(ephemeral=True)
     except (discord.NotFound, discord.HTTPException):
         return
 
+    # ⚙️ Vérification maintenance.
     if not await verifier_commande(interaction, "dev_maintenance"):
         return
 
+    # 📊 Tracking.
     await tracker_commande(interaction, "dev_maintenance")
 
+    # 📋 Récupération des données.
     try:
         data = await get_all_commands()
         view = await create_maintenance_view(data)
+
     except Exception:
         return await interaction.followup.send(
-            view=error_container("Impossible de charger l'interface de maintenance."),
+            view=error_container("Impossible de charger l'**interface de maintenance**."),
             ephemeral=True,
         )
 
+    # ✉️ Envoi de l'interface
     await interaction.followup.send(view=view, ephemeral=True)
 
 
