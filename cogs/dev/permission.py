@@ -164,7 +164,7 @@ def _cb_remove(bot, author_id: int, role: PermissionRole):
 
 
 # ============================================================
-# 🧭 Commande principale
+# 🧭 Commande principale : /dev permissions
 # ============================================================
 
 @app_commands.guild_only()

@@ -1,6 +1,7 @@
 """
-views/alpha/config_alpha_view.py — Dashboard de configuration du système rank Alpha.
+views/alpha/config_alpha_view.py — Dashboard de configuration du système de rank Alpha.
 """
+
 from __future__ import annotations
 
 import logging
@@ -50,17 +51,25 @@ class ConfigRankView(LayoutView):
     def _build(self) -> None:
         cfg = self.cfg
         c = Container()
-        c.add_item(TextDisplay("# ⚙️ Config Alpha — Système Rank"))
+        c.add_item(TextDisplay("# <:parametre:1495444004328706059> Config Alpha — Système Rank"))
         c.add_item(Separator())
 
         c.add_item(TextDisplay(
-            f"**📡 Salons**\n"
-            f"• Rank/Derank : {_ch(cfg.get('rank_channel_id'))}\n"
-            f"• Journalistes : {_ch(cfg.get('journaliste_channel_id'))}\n"
-            f"• Développeurs : {_ch(cfg.get('dev_channel_id'))}\n\n"
-            f"**🔔 Pings**\n"
-            f"• Journaliste : {_role(cfg.get('journaliste_ping_id'))}\n"
-            f"• Développeur : {_role(cfg.get('dev_ping_id'))}\n\n"
+            f"__**<:salons:1508535670333902999> Salons**__\n"
+            f"➢ **Rank/Derank** : {_ch(cfg.get('rank_channel_id'))}\n"
+            f"➢ **Journalistes** : {_ch(cfg.get('journaliste_channel_id'))}\n"
+            f"➢ **Développeurs** : {_ch(cfg.get('dev_channel_id'))}\n\n"
+        ))
+        c.add_item(Separator())
+
+        c.add_item(TextDisplay(
+            f"__**<:notifier:1495444487206604833> Pings**__\n"
+            f"➢ **Journaliste** : {_role(cfg.get('journaliste_ping_id'))}\n"
+            f"➢ **Développeur** : {_role(cfg.get('dev_ping_id'))}\n\n"
+        ))
+        c.add_item(Separator())
+
+        c.add_item(TextDisplay(
             f"**🎭 Rôles Discord**\n"
             f"• Journaliste : {_role(cfg.get('role_journaliste_id'))}\n"
             f"• Guide : {_role(cfg.get('role_guide_id'))}\n"
@@ -69,6 +78,10 @@ class ConfigRankView(LayoutView):
             f"• Modo+ : {_role(cfg.get('role_moderateur_plus_id'))}\n"
             f"• Super-Modo : {_role(cfg.get('role_super_moderateur_id'))}\n"
             f"• Admin : {_role(cfg.get('role_administrateur_id'))}\n\n"
+        ))
+        c.add_item(Separator())
+
+        c.add_item(TextDisplay(
             f"**🎭 Emoji annonce**\n"
             f"• Réaction rank/derank : {cfg.get('rank_emoji') or '`Non configuré`'}"
         ))

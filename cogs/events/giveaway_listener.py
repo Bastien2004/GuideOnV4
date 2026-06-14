@@ -1,37 +1,11 @@
 """
-cogs/events/giveaway_listener.py — Cœur métier du système de giveaway.
-
-Trois mécanismes :
-
-1. ⏰ tasks.loop(seconds=30) — check_giveaways
-   Clôture automatique des giveaways dont end_time <= now. Tirage des gagnants
-   par random.sample (uniforme), refresh du panel public, DM aux gagnants en
-   Components V2, annonce publique avec mentions.
-   Anti double-end : set _ending en mémoire.
-
-2. 🎉 on_raw_reaction_add (emoji 🎉)
-   Vérifications successives avant ajout du participant :
-     a. Le message est-il un giveaway de ce serveur ?
-     b. Giveaway encore actif (non terminé, non expiré) ?
-     c. User non-bot et non-self
-     d. Pas dans la blacklist du serveur (is_blacklisted)
-     e. Conditions de participation :
-        - role_id requis
-        - forbidden_role_id (ne pas avoir)
-        - min_invites (via invite_manager.get_user_stats)
-        - min_server_age_days (via member.joined_at)
-   En cas d'échec : DM explicatif + retrait de la réaction.
-   En cas de succès : add_participant + DM de confirmation + refresh du panel.
-
-3. ❌ on_raw_reaction_remove
-   Retrait du participant + refresh du panel + DM de retrait (optionnel).
+cogs/events/giveaway_listener.py — Gestion du système de giveaway.
 """
+
 from __future__ import annotations
 
-import asyncio
 import logging
 import random
-import traceback
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -39,7 +13,9 @@ import discord
 from discord.ext import commands, tasks
 from discord.ui import Container, LayoutView, Separator, TextDisplay
 
-from utils.container_universel import error_container, info_container, success_container
+from utils.container_universel import error_container
+
+from views.giveaway.panel_view import build_giveaway_panel
 from utils.managers.giveaway_manager import (
     add_participant,
     count_participants,
@@ -51,11 +27,7 @@ from utils.managers.giveaway_manager import (
     is_blacklisted,
     remove_participant,
 )
-from views.giveaway.panel_view import build_giveaway_panel
 
-# Manager invite : optionnel — si min_invites est configuré, on l'utilise.
-# Import paresseux dans la fonction _check_conditions pour ne pas tirer
-# tout le module au démarrage si non utilisé.
 
 log = logging.getLogger(__name__)
 
