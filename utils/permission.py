@@ -1,61 +1,28 @@
 """
-Décorateurs et checks de permissions.
-
-Centralise toute la logique d'autorisation pour ne pas l'éparpiller dans les cogs.
-
-Usage :
-    @app_commands.command(...)
-    @is_guild_admin()
-    async def ma_commande(interaction): ...
+utils/permission.py — Accès aux permissions.
 """
 from __future__ import annotations
 
-import discord
-from discord import app_commands
+import logging
 
-from utils.settings import settings
+from utils.managers.permission_manager import get_ids_sync, role_from_str
 
-
-def is_guild_admin():
-    """L'utilisateur doit avoir les perms admin sur le serveur."""
-
-    async def predicate(interaction: discord.Interaction) -> bool:
-        if interaction.guild is None or not isinstance(interaction.user, discord.Member):
-            return False
-        return interaction.user.guild_permissions.administrator
-
-    return app_commands.check(predicate)
+log = logging.getLogger(__name__)
 
 
-def is_dev():
-    """Réservé aux serveurs dev/support."""
-
-    async def predicate(interaction: discord.Interaction) -> bool:
-        if interaction.guild is None:
-            return False
-        return interaction.guild.id in {settings.guild_dev_id, settings.guild_support_id}
-
-    return app_commands.check(predicate)
-
-
-def is_in_alpha():
-    """Limite la commande au serveur Alpha."""
-
-    async def predicate(interaction: discord.Interaction) -> bool:
-        return interaction.guild is not None and interaction.guild.id == settings.guild_alpha_id
-
-    return app_commands.check(predicate)
+def get_ids(role: str) -> list[int]:
+    """
+    Retourne la liste des IDs (int) pour un rôle donné (ex: 'DEV', 'OP_ALPHA').
+    Lecture sync depuis le cache. Renvoie [] si rôle inconnu ou cache vide.
+    """
+    try:
+        perm_role = role_from_str(role)
+    except ValueError:
+        log.warning("get_ids appelé avec un rôle inconnu : %r", role)
+        return []
+    return [int(i) for i in get_ids_sync(perm_role)]
 
 
-def is_in_anniv():
-    """Limite la commande au serveur Anniversaire."""
-
-    async def predicate(interaction: discord.Interaction) -> bool:
-        return interaction.guild is not None and interaction.guild.id == settings.guild_anniv_id
-
-    return app_commands.check(predicate)
-
-
-def has_perm(**perms: bool):
-    """Wrapper plus lisible que app_commands.checks.has_permissions."""
-    return app_commands.checks.has_permissions(**perms)
+def has_id(role: str, user_id: int) -> bool:
+    """True si user_id possède le rôle donné."""
+    return user_id in get_ids(role)

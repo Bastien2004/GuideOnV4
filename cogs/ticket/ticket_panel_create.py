@@ -1,55 +1,76 @@
 """
-Commande /ticket panel_create
-
-PATRON À SUIVRE pour les autres commandes :
-- Décorer avec @app_commands.command + checks de permission
-- Construire un draft (dataclass d'état)
-- Instancier la View modulaire
-- Envoyer la réponse en ephemeral
-
-La logique métier (DB, validation profonde, etc.) est dans utils/managers/ticket_manager.py
-- on ne touche PAS à la DB depuis le cog directement.
+Commande /ticket panel_create — Permet de créer un panel de ticket.
 """
+
 from __future__ import annotations
 
 import logging
 
 import discord
 from discord import app_commands
-from discord.ext import commands
 
-from cogs.ticket._state import TicketPanelDraft
-from utils.permission import has_perm
-from views.ticket.panel_setup_view import PanelSetupView
+from utils.botbancmd import verifier_ban_utilisateur
+from utils.track_commande import tracker_commande
+from utils.control_admin import verifier_commande
+
+from utils.perm_admin import check_admin
+from utils.container_universel import error_container
+from utils.error_handler import handle_app_command_error
+
+from views.ticket.panel_setup_view import build_setup_view
 
 log = logging.getLogger(__name__)
 
 
-class TicketPanelCreate(commands.Cog):
-    def __init__(self, bot: commands.Bot):
-        self.bot = bot
+# ============================================================
+# 🧭 Commande principale : /ticket panel_create
+# ============================================================
 
-    @app_commands.command(
-        name="ticket_panel_create",
-        description="🎫 Créer un nouveau panel de tickets",
-    )
-    @has_perm(manage_channels=True)
-    async def ticket_panel_create(self, interaction: discord.Interaction) -> None:
-        if interaction.guild is None:
-            await interaction.response.send_message(
-                "❌ Commande utilisable uniquement en serveur.", ephemeral=True
-            )
-            return
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 15)
+@app_commands.command(name="panel_create", description="🎫 Créer un nouveau panel de tickets")
+async def ticket_panel_create(interaction: discord.Interaction) -> None:
+    
+    # 🛡️ Vérification ban utilisateur.
+    if not await verifier_ban_utilisateur(interaction):
+        return
+    
+    # 🔐 Vérification administrateur.
+    if not await check_admin(interaction, "**créer** un __panel de tickets__"):
+        return
+    
+    # 🕒 Defer.
+    try:
+        await interaction.response.defer(ephemeral=True)
+    except (discord.NotFound, discord.HTTPException):
+        return
+    
+    # ⚙️ Vérification maintenance.
+    if not await verifier_commande(interaction, "ticket_panel_create"):
+        return
+    
+    # 📊 Tracking.
+    await tracker_commande(interaction, "ticket_panel_create")
 
-        draft = TicketPanelDraft(guild_id=interaction.guild.id)
-        view = PanelSetupView(draft, owner_id=interaction.user.id)
 
-        await interaction.response.send_message(
-            embed=view.build_embed(),
-            view=view,
+    # 🪟 Ouverture view de création
+    try:
+        ctx = {"channel_id": interaction.channel_id}
+        view = build_setup_view(interaction.guild, ctx)
+        await interaction.followup.send(view=view, ephemeral=True)
+
+    except Exception:
+        log.exception("Ouverture de l'interface de création échouée (guild=%s)", interaction.guild_id)
+        await interaction.followup.send(
+            view=error_container("**Impossible** d'ouvrir l'__interface de création__."),
             ephemeral=True,
         )
 
 
-async def setup(bot: commands.Bot) -> None:
-    await bot.add_cog(TicketPanelCreate(bot))
+# ============================================================
+# ❌ Gestion erreurs
+# ============================================================
+
+@ticket_panel_create.error
+async def ticket_panel_create_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
+    await handle_app_command_error(interaction, error)

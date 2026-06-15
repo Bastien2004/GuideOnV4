@@ -27,10 +27,17 @@ dependencies = [
 
     # Imaging
     "pillow>=10.2",
+    "pandas>=3.0.3",
 
     # Files
     "aiofiles>=23.2",
     "pynacl>=1.5",
+
+    # Gestion
+    "matplotlib>=3.10.9",
+
+    # Temps
+    "tzdata>=2024.1; sys_platform == 'win32'"
 ]
 
 [project.optional-dependencies]
@@ -47,3 +54,11 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "B", "UP", "RUF"]
 ignore = ["E501"]
+
+# ====================================================================
+# Setuptools — on désactive la "package discovery" auto.
+# GuideON n'est pas un package publié, c'est une application multi-dossiers.
+# Cette config dit explicitement à setuptools "n'essaie pas de deviner".
+# ====================================================================
+[tool.setuptools]
+py-modules = []
