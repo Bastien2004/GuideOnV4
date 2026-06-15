@@ -17,6 +17,8 @@ GRADES_ORDER: list[str] = [
     "moderateur_test",
     "guide",
     "journaliste",
+    "affilie",
+    "builder",
 ]
 
 GRADE_LABELS: dict[str, str] = {
@@ -27,6 +29,8 @@ GRADE_LABELS: dict[str, str] = {
     "moderateur_test":     "Modérateur (Test)",
     "guide":               "Guide",
     "journaliste":         "Journaliste",
+    "affilie":             "Affilié",
+    "builder":             "Builder",
 }
 
 GRADE_EMOJIS: dict[str, str] = {
@@ -37,6 +41,8 @@ GRADE_EMOJIS: dict[str, str] = {
     "moderateur_test":     "<:Moderateur:1493513069039714335>",
     "guide":               "<:Guide:1493513088610209822>",
     "journaliste":         "<:Journaliste_2:1500406193724854302>",
+    "affilie":             "<:Affilie_2:1516184197159719113>",
+    "builder":             "<:Builder_2:1500406243955703848>",
 }
 
 GRADE_PREFIXES: dict[str, str] = {
@@ -47,6 +53,8 @@ GRADE_PREFIXES: dict[str, str] = {
     "moderateur_test":     "Modo",
     "guide":               "Guide",
     "journaliste":         "Journaliste",
+    "affilie":             "Affilié",
+    "builder":             "Builder",
 }
 
 GRADE_TO_ROLE_ATTR: dict[str, str] = {
@@ -59,8 +67,35 @@ GRADE_TO_ROLE_ATTR: dict[str, str] = {
     "journaliste":         "role_journaliste_id",
 }
 
-# Grades incompatibles avec le statut journaliste (trop élevés dans la hiérarchie)
 JOURNALISTE_INCOMPATIBLE_GRADES: set[str] = {"super_moderateur", "administrateur"}
+
+STAFF_GENERAL_GRADES: set[str] = {
+    "guide", "moderateur_test", "moderateur_confirme", "moderateur_plus",
+}
+
+SECONDARY_STATUSES: dict[str, dict] = {
+    "journaliste": {
+        "label": "Journaliste",
+        "badge": "📰",
+        "role_attr": "role_journaliste_id",
+        "incompatible_grades": JOURNALISTE_INCOMPATIBLE_GRADES,
+        "has_second_pseudo": False,
+    },
+    "affilie": {
+        "label": "Affilié",
+        "badge": "🎥",
+        "role_attr": "role_affilie_id",
+        "incompatible_grades": set(),
+        "has_second_pseudo": False,
+    },
+    "builder": {
+        "label": "Builder",
+        "badge": None,
+        "role_attr": "role_builder_id",
+        "incompatible_grades": set(),
+        "has_second_pseudo": True,
+    },
+}
 
 
 class AlphaStaffMember(Base, TimestampMixin):
@@ -75,11 +110,18 @@ class AlphaStaffMember(Base, TimestampMixin):
     grade: Mapped[str] = mapped_column(String(32), nullable=False)
     skin_head_emoji: Mapped[str] = mapped_column(String(128), nullable=False, default="")
 
-    # Statut journaliste cumulable (indépendant du grade de modération)
-    # True si le membre a aussi le rôle Journaliste (impossible pour SM/Admin)
     is_journaliste: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
+
+    is_affilie: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+
+    is_builder: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    pseudo_jeu_builder: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     __table_args__ = (
         Index("ix_alpha_staff_grade", "grade"),
@@ -87,15 +129,19 @@ class AlphaStaffMember(Base, TimestampMixin):
 
     def to_dict(self) -> dict:
         return {
-            "discord_id":      self.discord_id,
-            "pseudo_jeu":      self.pseudo_jeu,
-            "grade":           self.grade,
-            "skin_head_emoji": self.skin_head_emoji,
-            "is_journaliste":  self.is_journaliste,
+            "discord_id":         self.discord_id,
+            "pseudo_jeu":         self.pseudo_jeu,
+            "grade":              self.grade,
+            "skin_head_emoji":    self.skin_head_emoji,
+            "is_journaliste":     self.is_journaliste,
+            "is_affilie":         self.is_affilie,
+            "is_builder":         self.is_builder,
+            "pseudo_jeu_builder": self.pseudo_jeu_builder,
         }
 
     def __repr__(self) -> str:
         return (
             f"<AlphaStaffMember id={self.id} pseudo={self.pseudo_jeu!r} "
-            f"grade={self.grade!r} journaliste={self.is_journaliste}>"
+            f"grade={self.grade!r} journaliste={self.is_journaliste} "
+            f"affilie={self.is_affilie} builder={self.is_builder}>"
         )
