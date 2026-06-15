@@ -36,7 +36,7 @@ GRADE_EMOJIS: dict[str, str] = {
     "moderateur_confirme": "<:Moderateur:1493513069039714335>",
     "moderateur_test":     "<:Moderateur:1493513069039714335>",
     "guide":               "<:Guide:1493513088610209822>",
-    "journaliste":         "📰",
+    "journaliste":         "<:Journaliste_2:1500406193724854302>",
 }
 
 GRADE_PREFIXES: dict[str, str] = {

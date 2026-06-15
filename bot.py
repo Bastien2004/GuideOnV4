@@ -136,8 +136,6 @@ class GuideONBot(commands.Bot):
         # ── IMPORT DEV ──
         from cogs.dev.maintenance import maintenance
         from cogs.dev.permission import permissions
-        from cogs.dev.config_alpha import config_alpha
-        from cogs.dev.edit_stafflist import edit_stafflist_alpha
         from cogs.dev.delete_message import delete_message
         from cogs.dev.kick import kick
         from cogs.dev.stat_server import stat_server
@@ -196,6 +194,8 @@ class GuideONBot(commands.Bot):
         from cogs.alpha.event_list import event_list
         from cogs.alpha.event_regle import event_regle
         from cogs.alpha.event_start import event_start
+        from cogs.alpha.config_alpha import config_alpha
+        from cogs.alpha.edit_stafflist import edit_stafflist_alpha
 
 
         ### ASSEMBLAGE DES GROUPES DE COMMANDES ###

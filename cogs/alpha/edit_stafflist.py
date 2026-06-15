@@ -1,5 +1,5 @@
 """
-cogs/dev/edit_stafflist.py — Gestion de la liste du staff Alpha.
+cogs/alpha/edit_stafflist.py — Gestion de la liste du staff Alpha.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from views.alpha.edit_list_view import EditListView
 
 
 # ============================================================
-# 🧭 Commande : /dev edit_stafflist_alpha
+# 🧭 Commande : /alpha edit_stafflist_alpha
 # ============================================================
 
 @app_commands.guild_only()

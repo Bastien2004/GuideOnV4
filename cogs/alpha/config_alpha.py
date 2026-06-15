@@ -1,5 +1,5 @@
 """
-cogs/dev/config_alpha.py — Gestion de configuration des systèmes Alpha.
+cogs/alpha/config_alpha.py — Gestion de configuration des systèmes Alpha.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from views.alpha.config_dashboard_view import ConfigDashboardView
 
 
 # ============================================================
-# 🧭 Commande : /dev config_alpha
+# 🧭 Commande : /alpha config_alpha
 # ============================================================
 
 @app_commands.guild_only()
