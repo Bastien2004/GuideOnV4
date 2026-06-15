@@ -306,7 +306,7 @@ async def rank(interaction: Interaction, membre: discord.Member, pseudo_jeu: str
         await _send_with_reaction(
             interaction.client,
             cfg.get("rank_channel_id"),
-            _build_rank_announcement(membre, pseudo, grade.value, is_promotion, old_grade),
+            _build_rank_announcement(membre, grade.value, is_promotion, old_grade),
             cfg.get("rank_emoji"),
         )
 

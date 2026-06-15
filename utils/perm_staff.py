@@ -10,14 +10,14 @@ from discord import Interaction
 
 from utils.container_universel import error_container
 from utils.permission import get_ids
-from utils.createur import is_super_admin
+from utils.createur import is_creator
 
 
 def is_staff(interaction: discord.Interaction) -> bool:
     """True si l'utilisateur est Staff GuideON (ou DEV, ou super-admin)."""
     uid = interaction.user.id
     return (
-        is_super_admin(uid)
+        is_creator(uid)
         or uid in get_ids("DEV")
         or uid in get_ids("STAFF_GUIDEON")
     )

@@ -168,7 +168,7 @@ class _ConfirmDerank(LayoutView):
             )
 
         elif role == "staff":
-            if d["staff"] == "journaliste":
+            if d["grade"] == "journaliste":
                 desc = (
                     f"**{d['pseudo_jeu']}** ne fait pas parti du __staff__ ! Il est juste **Journaliste**."
                     f"Confirmer son derank en tant que **journaliste** ?"
