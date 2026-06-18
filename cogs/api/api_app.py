@@ -1,5 +1,5 @@
 """
-cogs/api/api_app.py — API Boutique - site web.
+cogs/api/api_app.py — API Boutique + Notations - site web.
 
 Endpoints :
     GET  /health                      -> état + âge du cache
@@ -7,6 +7,10 @@ Endpoints :
     GET  /boutique/{role}             -> [discord_id, ...]
     POST /boutique/add                -> {role, discord_id}
     POST /boutique/remove             -> {role, discord_id}
+    GET  /notations                   -> config complète
+    POST /notations/update_all        -> mise à jour complète
+    POST /notations/set_ids           -> mise à jour partielle des IDs
+    POST /notations/set_time          -> mise à jour d'un créneau horaire
 """
 
 from __future__ import annotations
@@ -24,6 +28,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from utils.managers import boutique_manager as bm
+from utils.managers import notations_manager as nm
 from utils.managers.boutique_manager import ShopRole
 from utils.settings import settings
 
@@ -37,7 +42,7 @@ log = logging.getLogger(__name__)
 limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(
-    title="GuideON — API Boutique",
+    title="GuideON — API",
     version="4.0.0",
     docs_url=None,
     redoc_url=None,
@@ -62,7 +67,7 @@ async def _rate_limit_handler(request: Request, exc: RateLimitExceeded):
 _bearer = HTTPBearer(auto_error=True)
 
 
-def require_token(creds: HTTPAuthorizationCredentials = Depends(_bearer),) -> None:
+def require_token(creds: HTTPAuthorizationCredentials = Depends(_bearer)) -> None:
     """Vérification du Token."""
     if creds.scheme.lower() != "bearer" or creds.credentials != settings.api_token:
         raise HTTPException(
@@ -72,7 +77,7 @@ def require_token(creds: HTTPAuthorizationCredentials = Depends(_bearer),) -> No
 
 
 # ──────────────────────────────────────────────────────────────────────────
-# Schémas
+# Schémas — Boutique
 # ──────────────────────────────────────────────────────────────────────────
 
 class ShopPayload(BaseModel):
@@ -81,14 +86,12 @@ class ShopPayload(BaseModel):
 
     @field_validator("role")
     @classmethod
-
     def _valid_role(cls, v: str) -> str:
         bm.role_from_str(v)
         return v
 
     @field_validator("discord_id")
     @classmethod
-
     def _valid_id(cls, v: str) -> str:
         v = v.strip()
         if not v.isdigit():
@@ -97,12 +100,54 @@ class ShopPayload(BaseModel):
 
 
 # ──────────────────────────────────────────────────────────────────────────
-# Endpoints
+# Schémas — Notations
+# ──────────────────────────────────────────────────────────────────────────
+
+_VALID_TIME_KEYS = [
+    "time_ask_availability",
+    "time_ask_beginning",
+    "time_ask_finish",
+    "time_send_notations",
+]
+
+
+class TimeSchedule(BaseModel):
+    weekday: int
+    hour: int
+    minute: int
+
+
+class NotationConfigUpdate(BaseModel):
+    id_guild_notations: int
+    id_channel_staff_notations: int
+    id_channel_notations: int
+    id_channel_logs: int
+    id_role_notation: int
+    time_ask_availability: TimeSchedule
+    time_ask_beginning: TimeSchedule
+    time_ask_finish: TimeSchedule
+    time_send_notations: TimeSchedule
+
+
+class SetIdsPayload(BaseModel):
+    guild_id: int | None = None
+    staff_chan_id: int | None = None
+    notif_chan_id: int | None = None
+    logs_chan_id: int | None = None
+    role_id: int | None = None
+
+
+class SetTimePayload(BaseModel):
+    key: str
+    schedule: TimeSchedule
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Endpoints — Health
 # ──────────────────────────────────────────────────────────────────────────
 
 @app.get("/health")
 @limiter.limit("10/minute")
-
 async def health(request: Request):
     age = bm.cache_age_seconds()
     return {
@@ -112,16 +157,18 @@ async def health(request: Request):
     }
 
 
+# ──────────────────────────────────────────────────────────────────────────
+# Endpoints — Boutique
+# ──────────────────────────────────────────────────────────────────────────
+
 @app.get("/boutique", dependencies=[Depends(require_token)])
 @limiter.limit("2/minute")
-
 async def get_all(request: Request):
     return await bm.list_entries()
 
 
 @app.get("/boutique/{role}", dependencies=[Depends(require_token)])
 @limiter.limit("1/minute")
-
 async def get_role(request: Request, role: str):
     try:
         shop_role = bm.role_from_str(role)
@@ -133,7 +180,6 @@ async def get_role(request: Request, role: str):
 
 @app.post("/boutique/add", dependencies=[Depends(require_token)])
 @limiter.limit("1/minute")
-
 async def add(request: Request, payload: ShopPayload):
     role: ShopRole = bm.role_from_str(payload.role)
     created = await bm.add_entry(role, payload.discord_id)
@@ -146,7 +192,6 @@ async def add(request: Request, payload: ShopPayload):
 
 @app.post("/boutique/remove", dependencies=[Depends(require_token)])
 @limiter.limit("1/minute")
-
 async def remove(request: Request, payload: ShopPayload):
     role: ShopRole = bm.role_from_str(payload.role)
     deleted = await bm.remove_entry(role, payload.discord_id)
@@ -155,6 +200,52 @@ async def remove(request: Request, payload: ShopPayload):
         "role": role.value,
         "discord_id": payload.discord_id,
     }
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Endpoints — Notations
+# ──────────────────────────────────────────────────────────────────────────
+
+@app.get("/notations", dependencies=[Depends(require_token)])
+@limiter.limit("2/minute")
+async def get_notation_config(request: Request):
+    return await nm.get_config()
+
+
+@app.post("/notations/update_all", dependencies=[Depends(require_token)])
+@limiter.limit("1/minute")
+async def update_full_config(request: Request, config: NotationConfigUpdate):
+    return await nm.update_full_config(config.dict())
+
+
+@app.post("/notations/set_ids", dependencies=[Depends(require_token)])
+@limiter.limit("1/minute")
+async def set_ids(request: Request, payload: SetIdsPayload):
+    mapping = {
+        "id_guild_notations":         payload.guild_id,
+        "id_channel_staff_notations": payload.staff_chan_id,
+        "id_channel_notations":       payload.notif_chan_id,
+        "id_channel_logs":            payload.logs_chan_id,
+        "id_role_notation":           payload.role_id,
+    }
+    partial = {k: v for k, v in mapping.items() if v is not None}
+    if not partial:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Au moins un champ doit être fourni.",
+        )
+    return await nm.update_partial(partial)
+
+
+@app.post("/notations/set_time", dependencies=[Depends(require_token)])
+@limiter.limit("1/minute")
+async def set_specific_time(request: Request, payload: SetTimePayload):
+    if payload.key not in _VALID_TIME_KEYS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Clé invalide. Valeurs acceptées : {_VALID_TIME_KEYS}",
+        )
+    return await nm.update_partial({payload.key: payload.schedule.dict()})
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -177,5 +268,5 @@ def run_api_server() -> threading.Thread:
 
     thread = threading.Thread(target=_serve, name="guideon-api", daemon=True)
     thread.start()
-    log.info("[API] API boutique démarrée sur %s:%s", settings.api_host, settings.api_port)
+    log.info("[API] API démarrée sur %s:%s", settings.api_host, settings.api_port)
     return thread
