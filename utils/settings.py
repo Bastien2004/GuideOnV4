@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     # API FastAPI
     api_host: str = "127.0.0.1"
     api_port: int = 8000
-    api_token: str = "change-me-please"
+    api_token: str = "QeUn6HmvEDaKL8f3fs0JEAED0IHEWf4dNv4JO4EM"
 
     # NationsGlory
     ng_api_key: str = ""
