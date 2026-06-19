@@ -222,7 +222,7 @@ class GuideONBot(commands.Bot):
 
         # 💻 ── DEV ──
         self._groupDEV = groupeDEV()
-        for cmd in [maintenance, permissions, delete_message, kick, stat_server, nota_debug]:
+        for cmd in [maintenance, permissions, delete_message, kick, stat_server]:
             self._groupDEV.add_command(cmd)
 
         
@@ -259,7 +259,7 @@ class GuideONBot(commands.Bot):
         # 💋 ── ALPHA ──
         self._groupALPHA = groupeALPHA()
         for cmd in [test_alpha, regle_interne, nous_rejoindre, index,
-                    stafflist, rank, alpha_derank, event_start, event_regle, event_list, config_alpha, edit_stafflist_alpha]:
+                    stafflist, rank, alpha_derank, event_start, event_regle, event_list, config_alpha, edit_stafflist_alpha, nota_debug]:
             self._groupALPHA.add_command(cmd)
 
         for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY, groupGIVE]:

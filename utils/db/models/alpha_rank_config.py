@@ -1,9 +1,7 @@
 """
 utils/db/models/alpha_rank_config.py — Configuration du système rank/derank Alpha.
-
-Une seule ligne par serveur (guild_id = PK).
-Stocke les IDs Discord de salons, pings et rôles par grade.
 """
+
 from __future__ import annotations
 
 from sqlalchemy import BigInteger, String
@@ -13,23 +11,7 @@ from utils.db.base import Base, TimestampMixin
 
 
 class AlphaRankConfig(Base, TimestampMixin):
-    """
-    Configuration du système rank/derank Alpha.
-
-    Salons :
-        rank_channel_id       — annonces rank et derank
-        journaliste_channel_id — message aux journalistes pour l'affiche
-        dev_channel_id         — message aux devs pour l'emoji skin
-
-    Pings (rôles à @mention) :
-        journaliste_ping_id   — @rôle journaliste dans le message affiche
-        dev_ping_id           — @rôle dev dans le message emoji skin
-
-    Rôles Discord attribués par grade :
-        role_journaliste_id, role_guide_id,
-        role_moderateur_test_id, role_moderateur_confirme_id,
-        role_moderateur_plus_id, role_super_moderateur_id, role_administrateur_id
-    """
+    """Configuration du système rank/derank Alpha."""
 
     __tablename__ = "alpha_rank_configs"
 
@@ -52,6 +34,9 @@ class AlphaRankConfig(Base, TimestampMixin):
     role_moderateur_plus_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     role_super_moderateur_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     role_administrateur_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    role_affilie_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    role_builder_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    role_equipe_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
     # ── Contenu Discord (messages permanents) ─────────────────
     content_nous_rejoindre_channel_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
@@ -84,6 +69,9 @@ class AlphaRankConfig(Base, TimestampMixin):
             "role_moderateur_plus_id":     self.role_moderateur_plus_id,
             "role_super_moderateur_id":    self.role_super_moderateur_id,
             "role_administrateur_id":      self.role_administrateur_id,
+            "role_affilie_id":             self.role_affilie_id,
+            "role_builder_id":             self.role_builder_id,
+            "role_equipe_id":              self.role_equipe_id,
             # Contenu
             "content_nous_rejoindre_channel_id": self.content_nous_rejoindre_channel_id,
             "content_nous_rejoindre_ping_id":    self.content_nous_rejoindre_ping_id,

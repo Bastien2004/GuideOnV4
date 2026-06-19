@@ -1,6 +1,7 @@
 """
 utils/db/models/alpha_staff.py — Modèle des membres du staff Alpha.
 """
+
 from __future__ import annotations
 
 from sqlalchemy import BigInteger, Boolean, String, Index
@@ -16,9 +17,6 @@ GRADES_ORDER: list[str] = [
     "moderateur_confirme",
     "moderateur_test",
     "guide",
-    "journaliste",
-    "affilie",
-    "builder",
 ]
 
 GRADE_LABELS: dict[str, str] = {
@@ -28,9 +26,6 @@ GRADE_LABELS: dict[str, str] = {
     "moderateur_confirme": "Modérateur Confirmé",
     "moderateur_test":     "Modérateur (Test)",
     "guide":               "Guide",
-    "journaliste":         "Journaliste",
-    "affilie":             "Affilié",
-    "builder":             "Builder",
 }
 
 GRADE_EMOJIS: dict[str, str] = {
@@ -40,9 +35,6 @@ GRADE_EMOJIS: dict[str, str] = {
     "moderateur_confirme": "<:Moderateur:1493513069039714335>",
     "moderateur_test":     "<:Moderateur:1493513069039714335>",
     "guide":               "<:Guide:1493513088610209822>",
-    "journaliste":         "<:Journaliste_2:1500406193724854302>",
-    "affilie":             "<:Affilie_2:1516184197159719113>",
-    "builder":             "<:Builder_2:1500406243955703848>",
 }
 
 GRADE_PREFIXES: dict[str, str] = {
@@ -52,11 +44,9 @@ GRADE_PREFIXES: dict[str, str] = {
     "moderateur_confirme": "Modo",
     "moderateur_test":     "Modo",
     "guide":               "Guide",
-    "journaliste":         "Journaliste",
-    "affilie":             "Affilié",
-    "builder":             "Builder",
 }
 
+# Rôle Discord par grade du staff.
 GRADE_TO_ROLE_ATTR: dict[str, str] = {
     "administrateur":      "role_administrateur_id",
     "super_moderateur":    "role_super_moderateur_id",
@@ -64,42 +54,38 @@ GRADE_TO_ROLE_ATTR: dict[str, str] = {
     "moderateur_confirme": "role_moderateur_confirme_id",
     "moderateur_test":     "role_moderateur_test_id",
     "guide":               "role_guide_id",
-    "journaliste":         "role_journaliste_id",
 }
 
-JOURNALISTE_INCOMPATIBLE_GRADES: set[str] = {"super_moderateur", "administrateur"}
+STAFF_GENERAL_GRADES: set[str] = set(GRADES_ORDER)
 
-STAFF_GENERAL_GRADES: set[str] = {
-    "guide", "moderateur_test", "moderateur_confirme", "moderateur_plus",
-}
+STATUTS_SECONDAIRES_ORDER: list[str] = ["journaliste", "affilie", "builder"]
+
+STATUT_INCOMPATIBLE_GRADES: set[str] = {"administrateur", "super_moderateur"}
 
 SECONDARY_STATUSES: dict[str, dict] = {
     "journaliste": {
         "label": "Journaliste",
         "badge": "📰",
         "role_attr": "role_journaliste_id",
-        "incompatible_grades": JOURNALISTE_INCOMPATIBLE_GRADES,
         "has_second_pseudo": False,
     },
     "affilie": {
         "label": "Affilié",
         "badge": "🎥",
         "role_attr": "role_affilie_id",
-        "incompatible_grades": set(),
         "has_second_pseudo": False,
     },
     "builder": {
         "label": "Builder",
         "badge": None,
         "role_attr": "role_builder_id",
-        "incompatible_grades": set(),
         "has_second_pseudo": True,
     },
 }
 
 
 class AlphaStaffMember(Base, TimestampMixin):
-    """Un membre du staff Alpha. Clé unique : discord_id."""
+    """Gestion d'un membre du staff."""
 
     __tablename__ = "alpha_staff"
 
@@ -107,7 +93,7 @@ class AlphaStaffMember(Base, TimestampMixin):
 
     discord_id: Mapped[int] = mapped_column(BigInteger, nullable=False, unique=True)
     pseudo_jeu: Mapped[str] = mapped_column(String(64), nullable=False)
-    grade: Mapped[str] = mapped_column(String(32), nullable=False)
+    grade: Mapped[str | None] = mapped_column(String(32), nullable=True)
     skin_head_emoji: Mapped[str] = mapped_column(String(128), nullable=False, default="")
 
     is_journaliste: Mapped[bool] = mapped_column(
