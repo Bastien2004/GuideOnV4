@@ -1,9 +1,8 @@
 """
-utils/managers/alpha_staff_manager.py — CRUD staff Alpha.
-Cache mémoire TTL 1 min — invalidé à chaque écriture.
+utils/managers/alpha_staff_manager.py — Gestion des données du staff Alpha.
 
 API publique :
-    await list_staff()                                           -> list[dict]
+    await list_staff()                                          -> list[dict]
     await get_staff_member(discord_id)                          -> dict | None
     await upsert_staff_member(discord_id, pseudo, grade, ...)   -> bool (True si créé)
     await add_staff_member(discord_id, pseudo, grade, ...)      -> bool (False si déjà présent)
@@ -11,6 +10,7 @@ API publique :
     await update_staff_member(discord_id, **fields)             -> bool (False si absent)
     await staff_exists(discord_id)                              -> bool
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -25,6 +25,8 @@ from utils.db.session import get_session
 log = logging.getLogger(__name__)
 
 CACHE_TTL_SECONDS = 60
+
+_UNSET = object()
 
 _cache: list[dict] | None = None
 _cache_at: float = 0.0
@@ -47,10 +49,16 @@ def _invalidate() -> None:
 
 def _sort(members: list[dict]) -> list[dict]:
     def key(m: dict) -> tuple:
-        try:
-            return (GRADES_ORDER.index(m["grade"]), m["pseudo_jeu"].lower())
-        except ValueError:
+        grade = m["grade"]
+        if grade is None:
             return (len(GRADES_ORDER), m["pseudo_jeu"].lower())
+        
+        try:
+            return (GRADES_ORDER.index(grade), m["pseudo_jeu"].lower())
+        
+        except ValueError:
+            return (len(GRADES_ORDER) + 1, m["pseudo_jeu"].lower())
+        
     return sorted(members, key=key)
 
 
@@ -96,18 +104,9 @@ async def staff_exists(discord_id: int) -> bool:
 # ✍️ Écritures
 # ════════════════════════════════════════════════════════════
 
-async def upsert_staff_member(
-    discord_id: int,
-    pseudo_jeu: str,
-    grade: str,
-    skin_head_emoji: str = "",
-    is_journaliste: bool | None = None,  # None = préserver la valeur existante
-) -> bool:
-    """
-    Ajoute ou met à jour un membre. Retourne True si créé, False si mis à jour.
-    - skin_head_emoji vide → préserve l'existant si mise à jour
-    - is_journaliste None → préserve l'existant si mise à jour (False si création)
-    """
+async def upsert_staff_member(discord_id: int, pseudo_jeu: str, grade: str | None, skin_head_emoji: str = "", is_journaliste: bool | None = None, is_affilie: bool | None = None, is_builder: bool | None = None, pseudo_jeu_builder: str | None = _UNSET) -> bool:
+    """Ajoute ou met à jour un membre."""
+
     async with _lock:
         async with get_session() as session:
             row = await session.scalar(
@@ -120,8 +119,12 @@ async def upsert_staff_member(
                     grade=grade,
                     skin_head_emoji=skin_head_emoji,
                     is_journaliste=is_journaliste if is_journaliste is not None else False,
+                    is_affilie=is_affilie if is_affilie is not None else False,
+                    is_builder=is_builder if is_builder is not None else False,
+                    pseudo_jeu_builder=None if pseudo_jeu_builder is _UNSET else pseudo_jeu_builder,
                 ))
                 created = True
+
             else:
                 row.pseudo_jeu = pseudo_jeu
                 row.grade = grade
@@ -129,37 +132,41 @@ async def upsert_staff_member(
                     row.skin_head_emoji = skin_head_emoji
                 if is_journaliste is not None:
                     row.is_journaliste = is_journaliste
+                if is_affilie is not None:
+                    row.is_affilie = is_affilie
+                if is_builder is not None:
+                    row.is_builder = is_builder
+                if pseudo_jeu_builder is not _UNSET:
+                    row.pseudo_jeu_builder = pseudo_jeu_builder
                 created = False
         _invalidate()
-    log.info(
-        "Staff Alpha %s : %s (%s) — %s",
-        "ajouté" if created else "mis à jour",
-        pseudo_jeu, discord_id, grade,
-    )
+
+    log.info("Staff Alpha %s : %s (%s) — %s", "ajouté" if created else "mis à jour", pseudo_jeu, discord_id, grade)
+
     return created
 
 
-async def add_staff_member(
-    discord_id: int,
-    pseudo_jeu: str,
-    grade: str,
-    skin_head_emoji: str = "",
-    is_journaliste: bool = False,
-) -> bool:
+async def add_staff_member(discord_id: int, pseudo_jeu: str, grade: str | None, skin_head_emoji: str = "", is_journaliste: bool = False, is_affilie: bool = False, is_builder: bool = False, pseudo_jeu_builder: str | None = None) -> bool:
     """Ajoute un membre. Retourne False si discord_id est déjà présent."""
+
     async with _lock:
         async with get_session() as session:
             exists = await session.scalar(
                 select(AlphaStaffMember.id).where(AlphaStaffMember.discord_id == discord_id)
             )
+
             if exists is not None:
                 return False
+            
             session.add(AlphaStaffMember(
                 discord_id=discord_id,
                 pseudo_jeu=pseudo_jeu,
                 grade=grade,
                 skin_head_emoji=skin_head_emoji,
                 is_journaliste=is_journaliste,
+                is_affilie=is_affilie,
+                is_builder=is_builder,
+                pseudo_jeu_builder=pseudo_jeu_builder,
             ))
         _invalidate()
     log.info("Staff Alpha ajouté : %s (%s) — %s", pseudo_jeu, discord_id, grade)
@@ -182,12 +189,13 @@ async def remove_staff_member(discord_id: int) -> bool:
 
 
 async def update_staff_member(discord_id: int, **fields: object) -> bool:
-    """
-    Met à jour les champs d'un membre.
-    Champs acceptés : pseudo_jeu, grade, skin_head_emoji, is_journaliste.
-    Retourne False si le membre est absent.
-    """
-    allowed = {"pseudo_jeu", "grade", "skin_head_emoji", "is_journaliste"}
+    """Met à jour les champs d'un membre. Champs acceptés : pseudo_jeu, grade, skin_head_emoji, is_journaliste, is_affilie, is_builder, pseudo_jeu_builder."""
+
+    allowed = {
+        "pseudo_jeu", "grade", "skin_head_emoji",
+        "is_journaliste", "is_affilie", "is_builder", "pseudo_jeu_builder",
+    }
+
     clean = {k: v for k, v in fields.items() if k in allowed}
     if not clean:
         return False
@@ -202,5 +210,6 @@ async def update_staff_member(discord_id: int, **fields: object) -> bool:
             for k, v in clean.items():
                 setattr(row, k, v)
         _invalidate()
+        
     log.info("Staff Alpha modifié : discord_id=%s champs=%s", discord_id, list(clean))
     return True
