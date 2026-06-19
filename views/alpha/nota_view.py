@@ -6,11 +6,8 @@ build_public_nota_view : message public avec la répartition des pays
 """
 from __future__ import annotations
 
-import discord
 from discord import ButtonStyle
-from discord.ui import (
-    ActionRow, Button, Container, LayoutView, Separator, TextDisplay,
-)
+from discord.ui import ActionRow, Button, Container, LayoutView, Separator, TextDisplay
 
 
 def build_presence_view(
