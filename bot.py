@@ -140,6 +140,7 @@ class GuideONBot(commands.Bot):
         from cogs.dev.kick import kick
         from cogs.dev.stat_server import stat_server
         from cogs.dev.nota_debug import nota_debug
+        from cogs.dev.stat_cmd import stat_cmd
 
         # ── IMPORT NG ──
         from cogs.ng.autel import autel
@@ -222,7 +223,7 @@ class GuideONBot(commands.Bot):
 
         # 💻 ── DEV ──
         self._groupDEV = groupeDEV()
-        for cmd in [maintenance, permissions, delete_message, kick, stat_server]:
+        for cmd in [maintenance, permissions, delete_message, kick, stat_server, stat_cmd]:
             self._groupDEV.add_command(cmd)
 
         

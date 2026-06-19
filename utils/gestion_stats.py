@@ -1,33 +1,35 @@
 """
 utils/gestion_stats.py — Gestion des statistiques de commandes.
 
-🟡 STUB : À compléter par le collègue responsable de la base de données.
+Implémentation : incrémente le compteur quotidien (command_stats_daily)
+via utils.managers.command_stats_manager. Ne lève jamais d'exception côté
+appelant — tracker_commande englobe déjà l'appel dans un try/except, mais
+on protège aussi ici par défense en profondeur (si la DB est indisponible,
+on log et on continue sans bloquer la commande).
 """
+from __future__ import annotations
 
-def incrementer_commande(nom_commande: str, user_id: int, guild_id: int | None):
+import logging
+
+from utils.managers.command_stats_manager import increment_command_stat
+
+log = logging.getLogger(__name__)
+
+
+async def incrementer_commande(nom_commande: str, user_id: int, guild_id: int | None) -> None:
     """
-    Fonction appelée à chaque utilisation d'une commande.
+    Incrémente le compteur quotidien d'utilisation de `nom_commande`.
 
-    PARAMÈTRES :
-    - nom_commande : str → nom interne de la commande (ex: "ng_dynmaps")
-    - user_id      : int → ID Discord de l'utilisateur
-    - guild_id     : int | None → ID du serveur (toujours présent grâce à tracker_commande)
+    user_id et guild_id sont acceptés pour compatibilité avec la signature
+    historique et un usage futur éventuel (granularité par utilisateur/
+    serveur), mais ne sont PAS utilisés actuellement : le périmètre retenu
+    pour /dev stat_cmd est global (toutes commandes confondues, tous
+    serveurs/utilisateurs confondus).
 
-    À FAIRE :
-    - Insérer ou mettre à jour une ligne dans la table des stats
-    - Incrémenter un compteur d'utilisation
-    - Enregistrer la date/heure
-    - Optionnel : stocker par utilisateur, par serveur, etc.
-
-    ⚠️ IMPORTANT :
-    - Cette fonction NE DOIT PAS lever d'erreur.
-    - Si la DB est indisponible, log + return.
+    Ne doit jamais lever d'exception : si la DB est indisponible, on log
+    et on retourne silencieusement.
     """
-
-    # Exemple de squelette (à remplacer par la vraie DB) :
     try:
-        # TODO: écrire ici la logique SQLAlchemy / asyncpg / autre
-        pass
-
+        await increment_command_stat(nom_commande)
     except Exception as e:
-        print(f"[GESTION_STATS] Erreur DB : {e}")
+        log.warning("[GESTION_STATS] Échec incrémentation '%s' : %s", nom_commande, e)

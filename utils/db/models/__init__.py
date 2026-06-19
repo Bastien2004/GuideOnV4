@@ -19,6 +19,7 @@ from utils.db.models.alpha_onu_config import AlphaONUConfig, AlphaONUPingMember
 from utils.db.models.alpha_nota_config import AlphaNotaConfig, AlphaNotaWeekState, AlphaNotaAvailability, AlphaNotaHistory
 from utils.db.models.alpha_role_react import AlphaRoleReactConfig, AlphaRoleReactEntry
 from utils.db.models.alpha_event_config import AlphaEventConfig
+from utils.db.models.command_stats import CommandStatDaily
 
 __all__ = [
     "Base",
@@ -50,4 +51,5 @@ __all__ = [
     "AlphaRoleReactConfig",
     "AlphaRoleReactEntry",
     "AlphaEventConfig",
+    "CommandStatDaily",
 ]

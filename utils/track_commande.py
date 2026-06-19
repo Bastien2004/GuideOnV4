@@ -1,8 +1,9 @@
 """
 utils/track_commande.py — Tracking d'utilisation des commandes.
 
-🟡 STUB : délègue à utils.gestion_stats (lui-même stub).
-À FAIRE par le collègue (DB) : remplir utils/gestion_stats.py.
+Délègue à utils.gestion_stats.incrementer_commande, qui incrémente le
+compteur quotidien (table command_stats_daily, voir
+utils.managers.command_stats_manager).
 """
 
 from __future__ import annotations
@@ -31,8 +32,7 @@ async def tracker_commande(
         user_id = interaction.user.id
         guild_id = interaction.guild_id  # Toujours fiable, même si interaction.guild est None
 
-        # Appel du stub DB
-        incrementer_commande(
+        await incrementer_commande(
             nom_commande=nom_commande,
             user_id=user_id,
             guild_id=guild_id,
