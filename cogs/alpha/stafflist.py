@@ -20,6 +20,7 @@ from utils.perm_alpha import check_op_alpha
 from utils.managers.alpha_staff_manager import list_staff
 from utils.managers.alpha_rank_config_manager import load_rank_config
 from utils.managers.alpha_message_manager import get_alpha_message, upsert_alpha_message, clear_alpha_message
+from utils.alpha_staff_display import build_member_line
 from utils.db.models.alpha_staff import GRADES_ORDER, GRADE_LABELS, GRADE_EMOJIS
 
 log = logging.getLogger(__name__)
@@ -32,6 +33,16 @@ MESSAGE_KEY = "stafflist"
 # ============================================================
 
 def build_stafflist_view(members: list[dict]) -> LayoutView:
+    """
+    Affiche UNIQUEMENT les 6 grades de la hiérarchie staff (administrateur
+    → guide) en sections, plus une section Builders dédiée (tous les
+    is_builder=True, avec leur pseudo builder — pas de badge, déjà listés
+    avec leur pseudo dédié).
+
+    Un membre purement Journaliste/Affilié (grade=None, aucun is_builder)
+    n'apparaît dans AUCUNE section — invisible dans la stafflist, comme
+    voulu (seuls les 6 grades + Builders y figurent).
+    """
     view = LayoutView(timeout=None)
 
     # ── Header ────────────────────────────────────────────────
@@ -39,7 +50,7 @@ def build_stafflist_view(members: list[dict]) -> LayoutView:
     header.add_item(TextDisplay("# <:AlphaStaff:1493512964337307698> Effectif Staff Alpha"))
     view.add_item(header)
 
-    # ── Un Container par grade présent ────────────────────────
+    # ── Un Container par grade présent (administrateur → guide) ──
     for grade in GRADES_ORDER:
         grade_members = [m for m in members if m["grade"] == grade]
         if not grade_members:
@@ -52,15 +63,25 @@ def build_stafflist_view(members: list[dict]) -> LayoutView:
         c.add_item(TextDisplay(f"## {emoji} {label}"))
         c.add_item(Separator())
 
-        block = ""
-        for m in grade_members:
-            journ_badge = " 📰" if m.get("is_journaliste") and grade != "journaliste" else ""
-            block += (
-                f"{m['skin_head_emoji']} "
-                f"**{m['pseudo_jeu']}** — <@{m['discord_id']}> — `{m['discord_id']}`{journ_badge}\n"
-            )
+        block = "\n".join(build_member_line(m) for m in grade_members)
 
-        c.add_item(TextDisplay(block.rstrip()))
+        c.add_item(TextDisplay(block))
+        c.add_item(Separator())
+        view.add_item(c)
+
+    # ── Section Builders dédiée (tous les is_builder=True) ────
+    builders = [m for m in members if m.get("is_builder")]
+    if builders:
+        c = Container()
+        c.add_item(TextDisplay("## 🧱 Builders"))
+        c.add_item(Separator())
+
+        block = "\n".join(
+            f"**{m.get('pseudo_jeu_builder') or m['pseudo_jeu']}** — <@{m['discord_id']}> — `{m['discord_id']}`"
+            for m in builders
+        )
+
+        c.add_item(TextDisplay(block))
         c.add_item(Separator())
         view.add_item(c)
 

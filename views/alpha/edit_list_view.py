@@ -29,6 +29,7 @@ from utils.managers.alpha_staff_manager import (
     upsert_staff_member,
 )
 from utils.db.models.alpha_staff import GRADES_ORDER, GRADE_LABELS, GRADE_EMOJIS
+from utils.alpha_staff_display import build_member_badges
 from views._components.user_select import UserSelect
 from views._components.text_modal import TextModal
 
@@ -69,8 +70,9 @@ class EditListView(LayoutView):
     def _build(self) -> None:
         total = len(self.members)
 
-        # Stats par grade
-        grade_counts: dict[str, int] = {}
+        # Stats par grade — grade=None regroupé séparément ("Sans grade",
+        # membres existant uniquement via un statut secondaire).
+        grade_counts: dict[str | None, int] = {}
         for m in self.members:
             grade_counts[m["grade"]] = grade_counts.get(m["grade"], 0) + 1
 
@@ -78,6 +80,12 @@ class EditListView(LayoutView):
             f"• {GRADE_LABELS.get(g, g)} : **{grade_counts[g]}**"
             for g in GRADES_ORDER if g in grade_counts
         ]
+        if grade_counts.get(None):
+            summary_lines.append(f"• *Sans grade (statut seul)* : **{grade_counts[None]}**")
+
+        builder_count = sum(1 for m in self.members if m.get("is_builder"))
+        if builder_count:
+            summary_lines.append(f"• 🧱 Builders (cumul) : **{builder_count}**")
 
         c = Container()
         c.add_item(TextDisplay("# 📋 Dashboard — Liste Staff Alpha"))
@@ -145,8 +153,22 @@ class EditListView(LayoutView):
         )
 
     async def _after_grade_add(
-        self, interaction: Interaction, discord_id: int, member_name: str, grade: str
+        self, interaction: Interaction, discord_id: int, member_name: str, grade: str | None
     ) -> None:
+        if grade is None:
+            return await interaction.response.edit_message(
+                view=_GradeSelectView(
+                    guild_id=self.guild_id,
+                    owner_id=self.owner_id,
+                    discord_id=discord_id,
+                    member_name=member_name,
+                    on_grade=self._after_grade_add,
+                    error_message="« Aucun grade » n'a pas de sens pour un **ajout** — "
+                                  "choisissez un grade, ou utilisez `/alpha rank type:statut` "
+                                  "pour un statut Journaliste/Affilié/Builder seul.",
+                )
+            )
+
         label = GRADE_LABELS.get(grade, grade)
 
         async def on_submit(inter: Interaction, values: tuple[str, str]) -> None:
@@ -253,6 +275,7 @@ class _GradeSelectView(LayoutView):
         self, guild_id: int, owner_id: int,
         discord_id: int, member_name: str,
         on_grade,
+        error_message: str | None = None,
     ) -> None:
         super().__init__(timeout=120)
         self.guild_id = guild_id
@@ -260,6 +283,7 @@ class _GradeSelectView(LayoutView):
         self.discord_id = discord_id
         self.member_name = member_name
         self._on_grade = on_grade
+        self.error_message = error_message
         self._build()
 
     async def interaction_check(self, interaction: Interaction) -> bool:
@@ -268,26 +292,37 @@ class _GradeSelectView(LayoutView):
     def _build(self) -> None:
         c = Container()
         c.add_item(TextDisplay(f"## Sélectionner un grade\npour **{self.member_name}**"))
+        if self.error_message:
+            c.add_item(TextDisplay(f"⚠️ {self.error_message}"))
         c.add_item(Separator())
 
-        # Rangée 1 : grades inférieurs (4)
-        row1_grades = GRADES_ORDER[4:]  # moderateur_test, guide, journaliste
-        row2_grades = GRADES_ORDER[:4]  # admin, super_modo, modo+, modo_confirme
+        # 6 grades de la hiérarchie, répartis sur 2 rangées de 3.
+        row1_grades = GRADES_ORDER[:3]   # administrateur, super_moderateur, moderateur_plus
+        row2_grades = GRADES_ORDER[3:]   # moderateur_confirme, moderateur_test, guide
 
         row1_buttons = []
         for g in row1_grades:
-            b = Button(label=GRADE_LABELS[g], style=ButtonStyle.secondary, custom_id=f"grade_{g}")
+            b = Button(label=GRADE_LABELS[g], style=ButtonStyle.primary, custom_id=f"grade_{g}")
             b.callback = self._make_callback(g)
             row1_buttons.append(b)
 
         row2_buttons = []
         for g in row2_grades:
-            b = Button(label=GRADE_LABELS[g], style=ButtonStyle.primary, custom_id=f"grade_{g}")
+            b = Button(label=GRADE_LABELS[g], style=ButtonStyle.secondary, custom_id=f"grade_{g}")
             b.callback = self._make_callback(g)
             row2_buttons.append(b)
 
+        # Bouton dédié pour retirer le grade (membre "sans grade" — statuts
+        # secondaires uniquement). N'a de sens qu'en modification, pas à la
+        # création (un nouvel ajout doit avoir un grade pour exister via ce
+        # dashboard) — affiché systématiquement, sans effet de bord si déjà
+        # sans grade (le callback gère ce cas via update_staff_member).
+        none_button = Button(label="🚫 Aucun grade", style=ButtonStyle.danger, custom_id="grade_none")
+        none_button.callback = self._make_callback(None)
+
         c.add_item(ActionRow(*row1_buttons))
         c.add_item(ActionRow(*row2_buttons))
+        c.add_item(ActionRow(none_button))
         c.add_item(Separator())
 
         btn_back = Button(label="↩️ Retour", style=ButtonStyle.secondary, custom_id="grade_back")
@@ -296,7 +331,7 @@ class _GradeSelectView(LayoutView):
         c.add_item(TextDisplay("-# GuideOn Studio"))
         self.add_item(c)
 
-    def _make_callback(self, grade: str):
+    def _make_callback(self, grade: str | None):
         async def cb(interaction: Interaction) -> None:
             await self._on_grade(interaction, self.discord_id, self.member_name, grade)
         return cb
@@ -322,14 +357,18 @@ class _ModifyOptionsView(LayoutView):
 
     def _build(self) -> None:
         d = self.data
-        label = GRADE_LABELS.get(d["grade"], d["grade"])
+        label = GRADE_LABELS.get(d["grade"], d["grade"]) if d["grade"] else "*Aucun grade*"
+        badges = build_member_badges(d)
+        builder_line = f"\n• Pseudo Builder : **{d['pseudo_jeu_builder']}**" if d.get("pseudo_jeu_builder") else ""
+
         c = Container()
-        c.add_item(TextDisplay(f"## ✏️ Modifier **{d['pseudo_jeu']}**"))
+        c.add_item(TextDisplay(f"## ✏️ Modifier **{d['pseudo_jeu']}**{badges}"))
         c.add_item(Separator())
         c.add_item(TextDisplay(
             f"• Grade : **{label}**\n"
             f"• Skin : {d['skin_head_emoji'] or '*(vide)*'}\n"
             f"• Discord : <@{d['discord_id']}>"
+            f"{builder_line}"
         ))
         c.add_item(Separator())
 
@@ -380,7 +419,7 @@ class _ModifyOptionsView(LayoutView):
         )
 
     async def _save_grade(
-        self, interaction: Interaction, discord_id: int, member_name: str, grade: str
+        self, interaction: Interaction, discord_id: int, member_name: str, grade: str | None
     ) -> None:
         await update_staff_member(discord_id, grade=grade)
         from cogs.alpha.stafflist import refresh_staff_message
@@ -432,12 +471,13 @@ class _ConfirmRemoveView(LayoutView):
 
     def _build(self) -> None:
         d = self.data
-        label = GRADE_LABELS.get(d["grade"], d["grade"])
+        label = GRADE_LABELS.get(d["grade"], d["grade"]) if d["grade"] else "*Aucun grade*"
+        badges = build_member_badges(d)
         c = Container()
         c.add_item(TextDisplay("## ⚠️ Confirmer la suppression"))
         c.add_item(Separator())
         c.add_item(TextDisplay(
-            f"Retirer **{d['pseudo_jeu']}** (<@{d['discord_id']}>) de la liste staff ?\n"
+            f"Retirer **{d['pseudo_jeu']}**{badges} (<@{d['discord_id']}>) de la liste staff ?\n"
             f"Grade : **{label}**\n\n"
             f"*Aucun message ni rôle Discord ne sera modifié.*"
         ))
