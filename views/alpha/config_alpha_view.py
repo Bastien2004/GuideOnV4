@@ -70,14 +70,22 @@ class ConfigRankView(LayoutView):
         c.add_item(Separator())
 
         c.add_item(TextDisplay(
-            f"**🎭 Rôles Discord**\n"
-            f"• Journaliste : {_role(cfg.get('role_journaliste_id'))}\n"
+            f"**🎭 Rôles par grade**\n"
             f"• Guide : {_role(cfg.get('role_guide_id'))}\n"
             f"• Modo (test) : {_role(cfg.get('role_moderateur_test_id'))}\n"
             f"• Modo confirmé : {_role(cfg.get('role_moderateur_confirme_id'))}\n"
             f"• Modo+ : {_role(cfg.get('role_moderateur_plus_id'))}\n"
             f"• Super-Modo : {_role(cfg.get('role_super_moderateur_id'))}\n"
-            f"• Admin : {_role(cfg.get('role_administrateur_id'))}\n\n"
+            f"• Admin : {_role(cfg.get('role_administrateur_id'))}\n"
+            f"• 🔰 Staff Alpha (rôle équipe) : {_role(cfg.get('role_equipe_id'))}\n\n"
+        ))
+        c.add_item(Separator())
+
+        c.add_item(TextDisplay(
+            f"**🎭 Statuts secondaires**\n"
+            f"• 📰 Journaliste : {_role(cfg.get('role_journaliste_id'))}\n"
+            f"• 🎥 Affilié : {_role(cfg.get('role_affilie_id'))}\n"
+            f"• 🧱 Builder : {_role(cfg.get('role_builder_id'))}\n\n"
         ))
         c.add_item(Separator())
 
@@ -274,24 +282,31 @@ class _PingsView(LayoutView):
 
 
 # ════════════════════════════════════════════════════════════
-# 🎭 Sous-vue Rôles par grade (paginée : 4 grades p.1 / 3 grades p.2)
+# 🎭 Sous-vue Rôles par grade (paginée : 3 pages de 3-4 rôles)
 # ════════════════════════════════════════════════════════════
 
 _ROLES_PAGES: list[list[tuple[str, str]]] = [
     # page 1 : grades inférieurs
     [
-        ("role_journaliste_id",         "Journaliste"),
         ("role_guide_id",               "Guide"),
         ("role_moderateur_test_id",     "Modérateur (Test)"),
         ("role_moderateur_confirme_id", "Modérateur Confirmé"),
+        ("role_moderateur_plus_id",     "Modérateur+"),
     ],
-    # page 2 : grades supérieurs
+    # page 2 : grades supérieurs + rôle équipe transverse
     [
-        ("role_moderateur_plus_id",   "Modérateur+"),
         ("role_super_moderateur_id",  "Super Modérateur"),
         ("role_administrateur_id",    "Administrateur"),
+        ("role_equipe_id",            "🔰 Staff Alpha (rôle équipe — tous grades)"),
+    ],
+    # page 3 : statuts secondaires (cumulables, hors hiérarchie)
+    [
+        ("role_journaliste_id", "📰 Journaliste"),
+        ("role_affilie_id",     "🎥 Affilié"),
+        ("role_builder_id",     "🧱 Builder"),
     ],
 ]
+_TOTAL_PAGES = len(_ROLES_PAGES)
 
 
 class _RolesView(LayoutView):
@@ -300,7 +315,7 @@ class _RolesView(LayoutView):
         self.guild_id = guild_id
         self.cfg = cfg
         self.owner_id = owner_id
-        self.page = page  # 1 ou 2
+        self.page = page  # 1 à _TOTAL_PAGES
         self._build()
 
     async def interaction_check(self, interaction: Interaction) -> bool:
@@ -312,7 +327,7 @@ class _RolesView(LayoutView):
         grades = _ROLES_PAGES[page_idx]
 
         c = Container()
-        c.add_item(TextDisplay(f"## 🎭 Rôles par grade — page {self.page}/2"))
+        c.add_item(TextDisplay(f"## 🎭 Rôles par grade — page {self.page}/{_TOTAL_PAGES}"))
         c.add_item(Separator())
 
         for field, label in grades:
@@ -327,11 +342,11 @@ class _RolesView(LayoutView):
         # Navigation
         nav_buttons: list[Button] = []
         if self.page > 1:
-            btn_prev = Button(label="◀ Grades supérieurs", style=ButtonStyle.secondary, custom_id="roles_prev")
+            btn_prev = Button(label="◀ Page précédente", style=ButtonStyle.secondary, custom_id="roles_prev")
             btn_prev.callback = self._on_prev
             nav_buttons.append(btn_prev)
-        if self.page < 2:
-            btn_next = Button(label="Grades supérieurs ▶", style=ButtonStyle.secondary, custom_id="roles_next")
+        if self.page < _TOTAL_PAGES:
+            btn_next = Button(label="Page suivante ▶", style=ButtonStyle.secondary, custom_id="roles_next")
             btn_next.callback = self._on_next
             nav_buttons.append(btn_next)
         btn_back = Button(label="↩️ Retour", style=ButtonStyle.secondary, custom_id="roles_back")

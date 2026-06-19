@@ -30,7 +30,7 @@ _FIELDS = {
     "role_journaliste_id", "role_guide_id",
     "role_moderateur_test_id", "role_moderateur_confirme_id",
     "role_moderateur_plus_id", "role_super_moderateur_id", "role_administrateur_id",
-    # Contenu Discord
+    "role_affilie_id", "role_builder_id", "role_equipe_id",
     "content_nous_rejoindre_channel_id", "content_nous_rejoindre_ping_id",
     "content_nous_rejoindre_emoji",
     "content_index_channel_id", "content_index_emoji",
