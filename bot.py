@@ -197,7 +197,7 @@ class GuideONBot(commands.Bot):
         from cogs.alpha.event_start import event_start
         from cogs.alpha.config_alpha import config_alpha
         from cogs.alpha.edit_stafflist import edit_stafflist_alpha
-
+        from cogs.alpha.nota_force import nota_force
 
         ### ASSEMBLAGE DES GROUPES DE COMMANDES ###
 
@@ -259,7 +259,7 @@ class GuideONBot(commands.Bot):
         # 💋 ── ALPHA ──
         self._groupALPHA = groupeALPHA()
         for cmd in [test_alpha, regle_interne, nous_rejoindre, index,
-                    stafflist, rank, alpha_derank, event_start, event_regle, event_list, config_alpha, edit_stafflist_alpha, nota_debug]:
+                    stafflist, rank, alpha_derank, event_start, event_regle, event_list, config_alpha, edit_stafflist_alpha, nota_debug, nota_force]:
             self._groupALPHA.add_command(cmd)
 
         for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY, groupGIVE]:
