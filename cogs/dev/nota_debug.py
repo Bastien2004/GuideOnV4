@@ -10,7 +10,6 @@ from discord import app_commands, Interaction
 from utils.control_admin import verifier_commande
 from utils.track_commande import tracker_commande
 
-from utils.container_universel import error_container
 from utils.error_handler import handle_app_command_error
 from utils.perm_dev import check_dev
 
@@ -27,7 +26,7 @@ from utils.managers.alpha_nota_manager import (
 @app_commands.checks.cooldown(1, 10)
 @app_commands.command(
     name="nota_debug",
-    description="🔍 [DEV] Debug du système de notations"
+    description="🔍 [OP] Debug du système de notations"
 )
 async def nota_debug(interaction: Interaction) -> None:
 
