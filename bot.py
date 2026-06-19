@@ -273,56 +273,109 @@ class GuideONBot(commands.Bot):
 
     async def _sync_commands(self):
 
-        ID_SERVEUR_DISCORD_DEV = 1505970079500734695
-        ID_SERVEUR_DISCORD_ALPHA = 1505970079500734695
-        ID_SERVEUR_DISCORD_SUPPORT = 1505970079500734695
+        # -----------------------------
+        # DESYNC COMPLET
+        # -----------------------------
+        GUILDS_TO_CLEAR = [
+            1496765275670839306,
+            1505970079500734695,
+            1411296579528294402,
+            1184114738813227059,
+            1400451664946794618,
+        ]
 
+        for gid in GUILDS_TO_CLEAR:
+            guild = discord.Object(id=gid)
 
-        # ── Sync globale ──
+            try:
+                self.tree.clear_commands(guild=guild)
+                await self.tree.sync(guild=guild)
+
+                log.info(f"🗑️ Commandes supprimées sur {gid}")
+
+            except Exception as e:
+                log.error(f"❌ Erreur clear {gid}: {e}")
+
+        # -----------------------------
+        # SYNC GLOBALE
+        # -----------------------------
         try:
             synced = await self.tree.sync()
             log.info(f"🌍 {len(synced)} commandes globales synchronisées.")
         except Exception as e:
             log.error(f"❌ Erreur sync globale : {e}")
 
-        # ── Sync DEV par guild ──
-        for gid in [ID_SERVEUR_DISCORD_DEV]:
-            guild_obj = discord.Object(id=gid)
+        # -----------------------------
+        # ALPHA
+        # -----------------------------
+        ALPHA_GUILDS = [
+            751903718135431188,
+            1411296579528294402,
+        ]
+
+        for gid in ALPHA_GUILDS:
+            guild = discord.Object(id=gid)
+
             try:
                 try:
-                    self.tree.add_command(self._groupDEV, guild=guild_obj)
+                    self.tree.add_command(self._groupALPHA, guild=guild)
                 except discord.app_commands.CommandAlreadyRegistered:
                     pass
-                synced = await self.tree.sync(guild=guild_obj)
-                log.info(f"🧪 Commandes DEV synchronisées sur {gid} ({len(synced)} cmd).")
-            except Exception as e:
-                log.error(f"❌ Erreur DEV ({gid}) : {e}")
 
-        # ── Sync ALPHA par guild ──
-        for gid in [ID_SERVEUR_DISCORD_ALPHA]:
-            guild_obj = discord.Object(id=gid)
+                synced = await self.tree.sync(guild=guild)
+
+                log.info(
+                    f"💋 Commandes ALPHA synchronisées sur {gid} ({len(synced)} cmd)"
+                )
+
+            except Exception as e:
+                log.error(f"❌ Erreur ALPHA {gid}: {e}")
+
+        # -----------------------------
+        # DEV
+        # -----------------------------
+        DEV_GUILDS = [
+            1400451664946794618,
+            1411296579528294402,
+        ]
+
+        for gid in DEV_GUILDS:
+            guild = discord.Object(id=gid)
+
             try:
                 try:
-                    self.tree.add_command(self._groupALPHA, guild=guild_obj)
+                    self.tree.add_command(self._groupDEV, guild=guild)
                 except discord.app_commands.CommandAlreadyRegistered:
                     pass
-                synced = await self.tree.sync(guild=guild_obj)
-                log.info(f"🧪 Commandes ALPHA synchronisées sur {gid} ({len(synced)} cmd).")
+
+                synced = await self.tree.sync(guild=guild)
+
+                log.info(
+                    f"💻 Commandes DEV synchronisées sur {gid} ({len(synced)} cmd)"
+                )
+
             except Exception as e:
-                log.error(f"❌ Erreur ALPHA ({gid}) : {e}")
+                log.error(f"❌ Erreur DEV {gid}: {e}")
 
-        # ── Sync serveur support ──
-        try:
-            support_guild = discord.Object(id=ID_SERVEUR_DISCORD_SUPPORT)
-            synced_support = await self.tree.sync(guild=support_guild)
+        # -----------------------------
+        # SUPPORT
+        # -----------------------------
+        SUPPORT_GUILDS = [
+            1184114738813227059,
+        ]
 
-            log.info(
-                f"🛠️ Commandes Discord Support synchronisées "
-                f"({len(synced_support)} cmd)."
-            )
+        for gid in SUPPORT_GUILDS:
+            guild = discord.Object(id=gid)
 
-        except Exception as e:
-            log.error(f"❌ Erreur sync support : {e}")
+            try:
+                synced = await self.tree.sync(guild=guild)
+
+                log.info(
+                    f"🛠️ Commandes SUPPORT synchronisées sur {gid} ({len(synced)} cmd)"
+                )
+
+            except Exception as e:
+                log.error(f"❌ Erreur SUPPORT {gid}: {e}")
 
 
 
