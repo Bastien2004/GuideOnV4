@@ -141,7 +141,7 @@ async def upsert_staff_member(discord_id: int, pseudo_jeu: str, grade: str | Non
                 created = False
         _invalidate()
 
-    log.info("Staff Alpha %s : %s (%s) — %s", "ajouté" if created else "mis à jour", pseudo_jeu, discord_id, grade)
+    log.info("[STAFFLIST ALPHA] Staff Alpha %s : %s (%s) — %s", "ajouté" if created else "mis à jour", pseudo_jeu, discord_id, grade)
 
     return created
 
@@ -169,7 +169,7 @@ async def add_staff_member(discord_id: int, pseudo_jeu: str, grade: str | None, 
                 pseudo_jeu_builder=pseudo_jeu_builder,
             ))
         _invalidate()
-    log.info("Staff Alpha ajouté : %s (%s) — %s", pseudo_jeu, discord_id, grade)
+    log.info("[STAFFLIST ALPHA] Staff Alpha ajouté : %s (%s) — %s", pseudo_jeu, discord_id, grade)
     return True
 
 
@@ -184,7 +184,7 @@ async def remove_staff_member(discord_id: int) -> bool:
         if deleted:
             _invalidate()
     if deleted:
-        log.info("Staff Alpha retiré : discord_id=%s", discord_id)
+        log.info("[STAFFLIST ALPHA] Staff Alpha retiré : discord_id=%s", discord_id)
     return deleted
 
 
@@ -210,6 +210,6 @@ async def update_staff_member(discord_id: int, **fields: object) -> bool:
             for k, v in clean.items():
                 setattr(row, k, v)
         _invalidate()
-        
-    log.info("Staff Alpha modifié : discord_id=%s champs=%s", discord_id, list(clean))
+
+    log.info("[STAFFLIST ALPHA] Staff Alpha modifié : discord_id=%s champs=%s", discord_id, list(clean))
     return True

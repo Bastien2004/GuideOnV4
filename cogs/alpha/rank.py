@@ -1,16 +1,5 @@
 """
-cogs/alpha/rank.py — Gestion des rank staff Alpha (grades + statuts secondaires).
-
-/alpha rank distingue deux opérations via le paramètre `type` :
-  - type=grade  : change le grade de la hiérarchie staff (mutuellement
-                  exclusif). Si le grade cible est Admin/SM, les statuts
-                  secondaires actifs (journaliste/affilié/builder) sont
-                  retirés automatiquement (incompatibles), sans confirmation
-                  supplémentaire — juste signalé dans la réponse.
-  - type=statut : active un statut secondaire (journaliste/affilié/builder),
-                  cumulable avec n'importe quel grade SAUF Admin/SM (refusé
-                  net). Builder demande en plus le pseudo_jeu_builder
-                  (2e compte Minecraft).
+cogs/alpha/rank.py — Gestion des rank staff Alpha.
 """
 
 from __future__ import annotations
@@ -34,16 +23,13 @@ from utils.alpha_rank_logic import apply_staff_roles, compute_nick_prefix, strip
 from utils.managers.alpha_staff_manager import get_staff_member, upsert_staff_member, update_staff_member
 from utils.managers.alpha_rank_config_manager import load_rank_config
 
-from utils.db.models.alpha_staff import (
-    GRADES_ORDER, GRADE_LABELS, GRADE_PREFIXES,
-    SECONDARY_STATUSES, STATUTS_SECONDAIRES_ORDER, STATUT_INCOMPATIBLE_GRADES,
-)
+from utils.db.models.alpha_staff import (GRADES_ORDER, GRADE_LABELS, SECONDARY_STATUSES, STATUTS_SECONDAIRES_ORDER, STATUT_INCOMPATIBLE_GRADES)
 
 log = logging.getLogger(__name__)
 
 TYPE_CHOICES = [
-    app_commands.Choice(name="Grade (hiérarchie staff)", value="grade"),
-    app_commands.Choice(name="Statut (journaliste / affilié / builder)", value="statut"),
+    app_commands.Choice(name="Grade (Staff)", value="grade"),
+    app_commands.Choice(name="Statut (Journaliste / Affilié / Builder)", value="statut"),
 ]
 
 GRADE_CHOICES = [
@@ -56,9 +42,6 @@ STATUT_CHOICES = [
     for s in STATUTS_SECONDAIRES_ORDER
 ]
 
-# L'app_command unique `valeur` doit accepter les deux jeux de choix selon
-# `type` — Discord ne permet pas de choix dynamiques sans autocomplete, donc
-# on expose l'union des deux et on valide manuellement la cohérence en code.
 VALEUR_CHOICES = GRADE_CHOICES + STATUT_CHOICES
 
 
@@ -109,10 +92,9 @@ async def _send_to_channel(bot: discord.Client, channel_id: int | None, view: La
 # 📁  Fonctions utilitaires — construction des annonces
 # ============================================================
 
-def _build_grade_announcement(
-    membre: discord.Member, grade: str, is_promotion: bool, old_grade: str | None,
-) -> LayoutView:
-    """Annonce publique pour un changement de grade (hiérarchie staff)."""
+def _build_grade_announcement(membre: discord.Member, grade: str, is_promotion: bool, old_grade: str | None) -> LayoutView:
+    """Annonce publique pour un changement de grade (staff)."""
+
     label = GRADE_LABELS.get(grade, grade)
     old_label = GRADE_LABELS.get(old_grade, old_grade) if old_grade else None
 
@@ -123,6 +105,7 @@ def _build_grade_announcement(
         c.add_item(TextDisplay(
             f"<:Alpha:1500414179650048070> Félicitations à <@{membre.id}> qui passe de **{old_label}** à **{label}** !"
         ))
+        
     else:
         c.add_item(TextDisplay(
             f"<:Alpha:1500414179650048070> Bienvenue à <@{membre.id}> qui rejoint l'équipe en tant que **{label}** !"
