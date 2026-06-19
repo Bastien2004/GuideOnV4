@@ -261,10 +261,6 @@ class GuideONBot(commands.Bot):
                     stafflist, rank, alpha_derank, event_start, event_regle, event_list, config_alpha, edit_stafflist_alpha]:
             self._groupALPHA.add_command(cmd)
 
-
-        # ⚠️  groupDEV et groupALPHA sont exclus ici :
-        # ils sont enregistrés uniquement par guild dans _sync_commands.
-        # Les y ajouter ici aussi provoquerait un double affichage dans Discord.
         for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY, groupGIVE]:
             self.tree.add_command(group)
 
@@ -272,29 +268,6 @@ class GuideONBot(commands.Bot):
 
 
     async def _sync_commands(self):
-
-        # -----------------------------
-        # DESYNC COMPLET
-        # -----------------------------
-        GUILDS_TO_CLEAR = [
-            1496765275670839306,
-            1505970079500734695,
-            1411296579528294402,
-            1184114738813227059,
-            1400451664946794618,
-        ]
-
-        for gid in GUILDS_TO_CLEAR:
-            guild = discord.Object(id=gid)
-
-            try:
-                self.tree.clear_commands(guild=guild)
-                await self.tree.sync(guild=guild)
-
-                log.info(f"🗑️ Commandes supprimées sur {gid}")
-
-            except Exception as e:
-                log.error(f"❌ Erreur clear {gid}: {e}")
 
         # -----------------------------
         # SYNC GLOBALE
