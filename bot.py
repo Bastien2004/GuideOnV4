@@ -245,7 +245,6 @@ class GuideONBot(commands.Bot):
         for cmd in [giveaway_blacklist, giveaway_create, giveaway_list, giveaway_manage]:
             groupGIVE.add_command(cmd)
 
-
         '''
         # 🛡️ ── MOD ──
         groupMOD = groupeMOD()
