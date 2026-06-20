@@ -20,6 +20,7 @@ from utils.db.models.alpha_nota_config import AlphaNotaConfig, AlphaNotaWeekStat
 from utils.db.models.alpha_role_react import AlphaRoleReactConfig, AlphaRoleReactEntry
 from utils.db.models.alpha_event_config import AlphaEventConfig
 from utils.db.models.command_stats import CommandStatDaily
+from utils.db.models.bot_ban import BotBan
 
 __all__ = [
     "Base",
@@ -52,4 +53,5 @@ __all__ = [
     "AlphaRoleReactEntry",
     "AlphaEventConfig",
     "CommandStatDaily",
+    "BotBan",
 ]

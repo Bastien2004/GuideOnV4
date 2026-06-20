@@ -43,11 +43,15 @@ class BaseLayoutView(LayoutView):
             return True
         if interaction.user.id != self.owner_id:
             msg_kwargs = {"view": error_container("❌ Ce menu ne t'appartient pas."), "ephemeral": True}
-            if interaction.response.is_done():
-                await interaction.followup.send(**msg_kwargs)
-            else:
-                await interaction.response.send_message(**msg_kwargs)
+            try:
+                if interaction.response.is_done():
+                    await interaction.followup.send(**msg_kwargs)
+                else:
+                    await interaction.response.send_message(**msg_kwargs)
+            except discord.HTTPException:
+                pass
             return False
+        return True
 
     async def on_timeout(self) -> None:
         """Désactive récursivement tous les composants à l'expiration."""
