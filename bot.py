@@ -139,8 +139,8 @@ class GuideONBot(commands.Bot):
         from cogs.dev.delete_message import delete_message
         from cogs.dev.kick import kick
         from cogs.dev.stat_server import stat_server
-        from cogs.dev.nota_debug import nota_debug
         from cogs.dev.stat_cmd import stat_cmd
+        from cogs.dev.join_serv import join_serv
 
         # ── IMPORT NG ──
         from cogs.ng.autel import autel
@@ -199,6 +199,7 @@ class GuideONBot(commands.Bot):
         from cogs.alpha.config_alpha import config_alpha
         from cogs.alpha.edit_stafflist import edit_stafflist_alpha
         from cogs.alpha.nota_force import nota_force
+        from cogs.alpha.nota_debug import nota_debug
 
         ### ASSEMBLAGE DES GROUPES DE COMMANDES ###
 
@@ -223,7 +224,7 @@ class GuideONBot(commands.Bot):
 
         # 💻 ── DEV ──
         self._groupDEV = groupeDEV()
-        for cmd in [maintenance, permissions, delete_message, kick, stat_server, stat_cmd]:
+        for cmd in [maintenance, permissions, delete_message, kick, stat_server, stat_cmd, join_serv]:
             self._groupDEV.add_command(cmd)
 
         
