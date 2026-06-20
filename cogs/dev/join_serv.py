@@ -25,17 +25,15 @@ log = logging.getLogger(__name__)
 # ============================================================
 
 def _find_invitable_channel(guild: discord.Guild) -> discord.TextChannel | None:
-    """
-    Cherche un salon textuel où le bot peut créer une invitation
-    (permission create_instant_invite). Priorité au salon système
-    (souvent le salon d'accueil), sinon le premier salon textuel valide
-    par ordre de position.
-    """
+    """Cherche un salon libre d'invitations."""
+
     me = guild.me
+
     if me is None:
         return None
 
     candidates: list[discord.TextChannel] = []
+
     if guild.system_channel is not None:
         candidates.append(guild.system_channel)
     candidates += [c for c in guild.text_channels if c not in candidates]
@@ -44,15 +42,19 @@ def _find_invitable_channel(guild: discord.Guild) -> discord.TextChannel | None:
         perms = channel.permissions_for(me)
         if perms.create_instant_invite:
             return channel
+        
     return None
 
 
 def _build_invite_view(guild: discord.Guild, invite: discord.Invite, channel: discord.TextChannel) -> LayoutView:
-    """Construit la réponse Components V2 avec le lien d'invitation."""
+    """Construit la view d'invitation."""
+
     view = LayoutView(timeout=None)
     c = Container()
+
     c.add_item(TextDisplay("# <:valider:1495444292867723284> Invitation créée"))
     c.add_item(Separator())
+
     c.add_item(TextDisplay(
         f"⇝ **Serveur :** {guild.name}\n"
         f"⇝ **ID :** `{guild.id}`\n"
@@ -61,9 +63,11 @@ def _build_invite_view(guild: discord.Guild, invite: discord.Invite, channel: di
         f"⇝ **Usages :** Illimités\n\n"
         f"**Lien :** {invite.url}"
     ))
+    
     c.add_item(Separator())
     c.add_item(TextDisplay("-# GuideOn Studio"))
     view.add_item(c)
+
     return view
 
 
@@ -99,16 +103,12 @@ async def join_serv(interaction: Interaction, id_serveur: str) -> None:
         guild_id = int(id_serveur)
     except ValueError:
         return await interaction.followup.send(
-            view=error_container("`id_serveur` doit être un **identifiant numérique**."),
-            ephemeral=True,
-        )
+            view=error_container("`id_serveur` doit être un **identifiant numérique**."), ephemeral=True)
 
     guild = interaction.client.get_guild(guild_id)
     if guild is None:
         return await interaction.followup.send(
-            view=error_container("GuideOn n'est présent sur **aucun serveur** avec cet ID."),
-            ephemeral=True,
-        )
+            view=error_container("GuideOn n'est présent sur **aucun serveur** avec cet ID."), ephemeral=True)
 
     # 🔎 Recherche d'un salon où créer l'invitation.
     channel = _find_invitable_channel(guild)
@@ -124,17 +124,19 @@ async def join_serv(interaction: Interaction, id_serveur: str) -> None:
     # 🔗 Création de l'invitation.
     try:
         invite = await channel.create_invite(
-            max_age=86400,   # 24h
-            max_uses=0,       # illimité
+            max_age=86400,
+            max_uses=0,
             temporary=False,
             unique=True,
             reason=f"Demandé par {interaction.user} ({interaction.user.id}) via /dev join_serv",
         )
+
     except discord.Forbidden:
         return await interaction.followup.send(
             view=error_container(f"GuideOn n'a pas la permission de créer une invitation sur **{guild.name}**."),
             ephemeral=True,
         )
+    
     except discord.HTTPException:
         log.exception("[DEV_JOIN_SERV] Erreur create_invite guild=%d", guild_id)
         return await interaction.followup.send(
@@ -147,6 +149,7 @@ async def join_serv(interaction: Interaction, id_serveur: str) -> None:
         guild.name, guild.id, channel.id, interaction.user.id,
     )
 
+    # ✉️ Envoi de l'invitation.
     await interaction.followup.send(view=_build_invite_view(guild, invite, channel), ephemeral=True)
 
 

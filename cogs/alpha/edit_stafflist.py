@@ -25,7 +25,7 @@ from views.alpha.edit_list_view import EditListView
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 5)
 @app_commands.command(name="edit_stafflist_alpha", description="📋 [DEV] Gestion de la liste staff Alpha")
-async def edit_stafflist_alpha(interaction: Interaction) -> None:
+async def alpha_edit_stafflist(interaction: Interaction) -> None:
 
     # 🔐 Vérification des permissions.
     if not is_creator(interaction.user.id):
@@ -38,11 +38,11 @@ async def edit_stafflist_alpha(interaction: Interaction) -> None:
         return
 
     # ⚙️ Activation commande.
-    if not await verifier_commande(interaction, "dev_edit_stafflist_alpha"):
+    if not await verifier_commande(interaction, "alpha_edit_stafflist"):
         return
 
     # 📊 Tracking.
-    await tracker_commande(interaction, "dev_edit_stafflist_alpha")
+    await tracker_commande(interaction, "alpha_edit_stafflist")
 
     # 📋 Chargement de la liste actuelle du staff.
     members = await list_staff()
@@ -60,6 +60,6 @@ async def edit_stafflist_alpha(interaction: Interaction) -> None:
 # ❌ Gestion des erreurs
 # ============================================================
 
-@edit_stafflist_alpha.error
-async def edit_stafflist_alpha_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
+@alpha_edit_stafflist.error
+async def alpha_edit_stafflist_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
     await handle_app_command_error(interaction, error)

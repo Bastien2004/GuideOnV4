@@ -43,7 +43,7 @@ async def config_alpha(interaction: Interaction) -> None:
     # 📊 Tracking.
     await tracker_commande(interaction, "dev_config_alpha")
 
-    # 🚀 Dashboard
+    # 🚀 Envoi du dashboard.
     view = ConfigDashboardView(guild_id=interaction.guild_id, owner_id=interaction.user.id)
     await interaction.followup.send(view=view, ephemeral=True)
 

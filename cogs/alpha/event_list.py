@@ -1,11 +1,7 @@
 """
-cogs/alpha/event_list.py — /alpha event_list
-
-Affiche un menu déroulant avec les 17 events.
-Cliquer sur un event affiche ses détails (edit_message → vue détail).
-Bouton ↩️ Retour pour revenir à la liste.
-Accessible Modo+ et supérieurs.
+cogs/alpha/event_list.py — Affiche les events M+ du Alpha
 """
+
 from __future__ import annotations
 
 import logging
@@ -25,12 +21,12 @@ from utils.events_alpha import load_events, get_event, STATUS_EMOJIS, STATUS_LAB
 log = logging.getLogger(__name__)
 
 
-# ════════════════════════════════════════════════════════════
-# 🧱 Vue liste
-# ════════════════════════════════════════════════════════════
+# ============================================================
+# 🧩 Création de la view principale
+# ============================================================
 
 class EventListView(LayoutView):
-    """Vue principale : select menu des 17 events."""
+    """Vue principale : select menu des events."""
 
     def __init__(self, owner_id: int) -> None:
         super().__init__(timeout=180)
@@ -39,7 +35,7 @@ class EventListView(LayoutView):
 
     async def interaction_check(self, i: Interaction) -> bool:
         if i.user.id != self.owner_id:
-            await i.response.send_message("Seul l'auteur peut utiliser ce menu.", ephemeral=True)
+            await i.response.send_message("Seul l'**auteur** peut utiliser ce __menu__.", ephemeral=True)
             return False
         return True
 
@@ -49,7 +45,7 @@ class EventListView(LayoutView):
         c.add_item(TextDisplay("## 🗂️ Liste des Events Alpha"))
         c.add_item(Separator())
         c.add_item(TextDisplay(
-            f"**{len(events)} events** disponibles. Sélectionnez un event pour voir ses détails."
+            f"**{len(events)} events** disponibles."
         ))
 
         select = discord.ui.Select(
@@ -69,10 +65,8 @@ class EventListView(LayoutView):
         select.callback = self._on_select
         c.add_item(ActionRow(select))
         c.add_item(Separator())
-        c.add_item(TextDisplay(
-            "✅ Opérationnel · 🔧 Maintenance · 🔴 Fermé\n"
-            "-# GuideOn Studio"
-        ))
+
+        c.add_item(TextDisplay("-# GuideOn Studio"))
         self.add_item(c)
 
     async def _on_select(self, i: Interaction) -> None:
@@ -83,9 +77,9 @@ class EventListView(LayoutView):
         await i.response.edit_message(view=EventDetailView(event, self.owner_id))
 
 
-# ════════════════════════════════════════════════════════════
-# 🔍 Vue détail
-# ════════════════════════════════════════════════════════════
+# ============================================================
+# 🧩 Création de la view détail
+# ============================================================
 
 class EventDetailView(LayoutView):
     """Vue détail d'un event avec bouton retour."""
@@ -114,7 +108,7 @@ class EventDetailView(LayoutView):
         ))
         c.add_item(Separator())
 
-        btn_back = Button(label="↩️ Retour à la liste", style=discord.ButtonStyle.secondary, custom_id="ev_back")
+        btn_back = Button(label="<:retour:1515658955190308995> Retour à la liste", style=discord.ButtonStyle.secondary, custom_id="ev_back")
         btn_back.callback = self._on_back
         c.add_item(ActionRow(btn_back))
         c.add_item(TextDisplay("-# GuideOn Studio"))
@@ -124,28 +118,40 @@ class EventDetailView(LayoutView):
         await i.response.edit_message(view=EventListView(self.owner_id))
 
 
-# ════════════════════════════════════════════════════════════
-# 🧭 Commande
-# ════════════════════════════════════════════════════════════
+# ============================================================
+# 🧭 Commande : /alpha event_list
+# ============================================================
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="event_list", description="🗂️ Affiche la liste des events Alpha")
+@app_commands.command(name="event_list", description="🗂️ [M+] Affiche la liste des events Alpha")
 async def event_list(interaction: Interaction) -> None:
 
+    # 🛡️ Vérification ban utilisateur.
     if not await verifier_ban_utilisateur(interaction): return
-    if not await check_modo_plus(interaction, "consulter la liste des events"): return
 
+    # 🔐 Vérification des permissions.
+    if not await check_modo_plus(interaction, "**consulter** la liste des __events__"): return
+
+    # 🕒 Defer.
     try:
         await interaction.response.defer(ephemeral=True)
     except (discord.NotFound, discord.HTTPException):
         return
 
+    # ⚙️ Vérification maintenance.
     if not await verifier_commande(interaction, "alpha_event_list"): return
+
+    # 📊 Tracking.
     await tracker_commande(interaction, "alpha_event_list")
 
+    # ✉️ Envoi du menu
     await interaction.followup.send(view=EventListView(interaction.user.id), ephemeral=True)
 
+
+# ============================================================
+# ❌ Gestion des erreurs
+# ============================================================
 
 @event_list.error
 async def event_list_error(i: discord.Interaction, e: app_commands.AppCommandError):

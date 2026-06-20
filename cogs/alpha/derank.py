@@ -1,19 +1,5 @@
 """
-cogs/alpha/derank.py — Gestion du derank staff Alpha (grades + statuts secondaires).
-
-/alpha derank distingue 5 cibles via le paramètre `role` :
-  - complet    : retire TOUT (grade + journaliste + affilié + builder),
-                 supprime la ligne DB, réinitialise le pseudo Discord brut.
-  - staff      : retire uniquement le grade (+ rôle équipe). Les statuts
-                 secondaires restent intacts.
-  - journaliste / affilie / builder : retire uniquement ce statut (+ son
-                 rôle Discord, + pseudo_jeu_builder remis à None pour builder).
-                 Le grade et les autres statuts restent.
-
-Dans tous les cas (sauf complet), le pseudo Discord est recalculé via
-compute_nick_prefix() sur l'état RESTANT après le retrait — ex: un
-Modérateur+ Journaliste deranké côté staff devient automatiquement
-"Journaliste | Pseudo".
+cogs/alpha/derank.py — Gestion du derank staff Alpha.
 """
 
 from __future__ import annotations
@@ -42,11 +28,11 @@ from utils.db.models.alpha_staff import GRADE_LABELS, SECONDARY_STATUSES, STATUT
 log = logging.getLogger(__name__)
 
 ROLE_CHOICES = [
-    app_commands.Choice(name="Complet (grade + tous les statuts)", value="complet"),
-    app_commands.Choice(name="Staff uniquement (grade)", value="staff"),
-    app_commands.Choice(name="Journaliste uniquement", value="journaliste"),
-    app_commands.Choice(name="Affilié uniquement", value="affilie"),
-    app_commands.Choice(name="Builder uniquement", value="builder"),
+    app_commands.Choice(name="Complet (staff + autres)"       , value="complet"),
+    app_commands.Choice(name="Staff uniquement"               , value="staff"),
+    app_commands.Choice(name="Journaliste uniquement"         , value="journaliste"),
+    app_commands.Choice(name="Affilié uniquement"             , value="affilie"),
+    app_commands.Choice(name="Builder uniquement"             , value="builder"),
 ]
 
 
@@ -61,6 +47,7 @@ def _secondary_dict(d: dict) -> dict[str, bool]:
 
 def _build_derank_announcement(membre: discord.Member, role: str, old_grade: str | None) -> LayoutView:
     """Annonce publique de derank."""
+
     view = LayoutView(timeout=None)
     c = Container()
 
@@ -84,8 +71,10 @@ def _build_derank_announcement(membre: discord.Member, role: str, old_grade: str
 
 
 def _build_journaliste_derank_message(pseudo_jeu: str, role: str, old_grade: str | None, journaliste_ping_id: int | None) -> LayoutView:
-    """Message pour les journalistes (affiche de remerciement) — uniquement pour role=complet/staff/journaliste."""
+    """Message pour les journalistes (affiche de remerciement)."""
+
     ping = f"<@&{journaliste_ping_id}> " if journaliste_ping_id else ""
+
     view = LayoutView(timeout=None)
     c = Container()
     c.add_item(TextDisplay("# 📸 Affiche de derank"))
@@ -97,12 +86,14 @@ def _build_journaliste_derank_message(pseudo_jeu: str, role: str, old_grade: str
             f"Hey {ping} ! **{pseudo_jeu}** quitte le **Staff** en tant que **{label}**.\n"
             f"Merci de créer et poster l'affiche de remerciement. 🎨"
         ))
+
     elif role == "journaliste":
         c.add_item(TextDisplay(
             f"Hey {ping} ! **{pseudo_jeu}** quitte l'équipe des **Journalistes**.\n"
             f"Merci de créer et poster l'affiche de remerciement. 🎨"
         ))
-    else:  # complet
+
+    else:
         label = GRADE_LABELS.get(old_grade, old_grade) if old_grade else "l'équipe"
         c.add_item(TextDisplay(
             f"Hey {ping} ! **{pseudo_jeu}** ne fait plus partie de l'équipe (**{label}**).\n"
@@ -123,11 +114,13 @@ async def _fetch_channel(bot: discord.Client, channel_id: int):
 
 async def _send_with_reaction(bot, channel_id, view, emoji):
     """Envoie l'annonce de derank et ajoute la réaction."""
+
     if not channel_id:
         return
     channel = bot.get_channel(channel_id) or await _fetch_channel(bot, channel_id)
     if not channel:
         return
+    
     try:
         sent = await channel.send(view=view)
         if emoji:
@@ -135,26 +128,31 @@ async def _send_with_reaction(bot, channel_id, view, emoji):
                 await sent.add_reaction(emoji)
             except discord.HTTPException:
                 pass
+
     except discord.HTTPException:
         log.warning("[DERANK ALPHA] Impossible d'envoyer dans le salon %d", channel_id)
 
 
 async def _send_to_channel(bot, channel_id, view):
     """Envoie le message de derank aux journalistes."""
+
     if not channel_id:
         return
+    
     channel = bot.get_channel(channel_id) or await _fetch_channel(bot, channel_id)
+
     if not channel:
         return
     try:
         await channel.send(view=view)
+
     except discord.HTTPException:
         log.warning("[DERANK ALPHA] Impossible d'envoyer dans le salon %d", channel_id)
 
 
-# ════════════════════════════════════════════════════════════
-# 🛠️ Vue de confirmation
-# ════════════════════════════════════════════════════════════
+# ============================================================
+# 🛠️ Création de la view de confirmation
+# ============================================================
 
 class _ConfirmDerank(LayoutView):
 
@@ -353,7 +351,7 @@ async def alpha_derank(interaction: Interaction, membre: discord.Member, role: a
     if not await verifier_ban_utilisateur(interaction):
         return
 
-    # 🔐 Vérification Opérateur.
+    # 🔐 Vérification des permissions.
     if not await check_op_alpha(interaction, "**derank** un membre du staff"):
         return
 
