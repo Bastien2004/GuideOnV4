@@ -3,7 +3,6 @@ views/ticket/lifecycle.py — Logique de cycle de vie d'un ticket.
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 
@@ -215,7 +214,7 @@ class DeleteFromClosedButton(Button):
             )
         if not await is_staff(interaction, ticket, interaction.guild_id):
             return await interaction.followup.send(
-                view=error_container("Staff uniquement."), ephemeral=True
+                view=error_container("Cette action est __restreinte__ au **staff**."), ephemeral=True
             )
         await interaction.followup.send(
             view=DeleteConfirmView(self.channel_id), ephemeral=True
