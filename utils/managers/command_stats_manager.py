@@ -15,6 +15,12 @@ API publique :
         triés chronologiquement.
     await get_grand_total() -> int
         Somme de tous les usages, toutes commandes confondues.
+    await get_command_total(command_name) -> int
+        Total all-time pour UNE commande précise (0 si jamais utilisée).
+    await get_command_today_count(command_name) -> int
+        Compteur du jour (UTC) pour UNE commande précise.
+    await get_command_last_used(command_name) -> date | None
+        Date du dernier jour d'utilisation de cette commande, None si jamais utilisée.
 
 Pas de cache mémoire ici : ces données sont lues à la demande (commande
 dev peu fréquente) et doivent refléter l'état exact de la DB sans délai TTL.
@@ -121,3 +127,41 @@ async def get_grand_total() -> int:
     async with get_session() as session:
         result = await session.execute(stmt)
         return int(result.scalar_one())
+
+
+async def get_command_total(command_name: str) -> int:
+    """Total all-time pour UNE commande précise (0 si jamais utilisée)."""
+    stmt = select(func.coalesce(func.sum(CommandStatDaily.count), 0)).where(
+        CommandStatDaily.command_name == command_name
+    )
+    async with get_session() as session:
+        result = await session.execute(stmt)
+        return int(result.scalar_one())
+
+
+async def get_command_today_count(command_name: str) -> int:
+    """Compteur du jour (UTC) pour UNE commande précise (0 si pas utilisée aujourd'hui)."""
+    stmt = select(CommandStatDaily.count).where(
+        CommandStatDaily.command_name == command_name,
+        CommandStatDaily.stat_date == _today_utc(),
+    )
+    async with get_session() as session:
+        result = await session.execute(stmt)
+        row = result.scalar_one_or_none()
+        return int(row) if row is not None else 0
+
+
+async def get_command_last_used(command_name: str) -> date | None:
+    """
+    Date du dernier jour où `command_name` a été utilisée (count > 0).
+    None si la commande n'a jamais été utilisée.
+    """
+    stmt = (
+        select(CommandStatDaily.stat_date)
+        .where(CommandStatDaily.command_name == command_name, CommandStatDaily.count > 0)
+        .order_by(CommandStatDaily.stat_date.desc())
+        .limit(1)
+    )
+    async with get_session() as session:
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
