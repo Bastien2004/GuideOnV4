@@ -1,5 +1,5 @@
 """
-cogs/api/api_app.py — API Boutique + Notations - site web.
+cogs/api/api_app.py — API Boutique + Notations + ONU - site web.
 
 Endpoints :
     GET  /health                      -> état + âge du cache
@@ -11,6 +11,10 @@ Endpoints :
     POST /notations/update_all        -> mise à jour complète
     POST /notations/set_ids           -> mise à jour partielle des IDs
     POST /notations/set_time          -> mise à jour d'un créneau horaire
+    GET  /onu/{guild_id}              -> config ONU
+    POST /onu/update_all              -> mise à jour complète ONU
+    POST /onu/{guild_id}/ping/add     -> ajouter un ping
+    POST /onu/{guild_id}/ping/remove  -> retirer un ping
 """
 
 from __future__ import annotations
@@ -29,6 +33,7 @@ from slowapi.util import get_remote_address
 
 from utils.managers import boutique_manager as bm
 from utils.managers import notations_manager as nm
+from utils.managers import onu_manager as om
 from utils.managers.boutique_manager import ShopRole
 from utils.settings import settings
 
@@ -143,6 +148,33 @@ class SetTimePayload(BaseModel):
 
 
 # ──────────────────────────────────────────────────────────────────────────
+# Schémas — ONU
+# ──────────────────────────────────────────────────────────────────────────
+
+class TimeModel(BaseModel):
+    heure: int
+    minute: int
+
+
+class ONUConfigUpdate(BaseModel):
+    guild_id: int
+    jour_onu: int
+    pre_annonce: TimeModel
+    annonce: TimeModel
+    timezone: str
+    ping_mp: bool
+    ping_list: dict[str, str]
+    role_id: int
+    channel_id: int
+    image_name: str
+
+
+class ONUPingPayload(BaseModel):
+    discord_id: str
+    name: str
+
+
+# ──────────────────────────────────────────────────────────────────────────
 # Endpoints — Health
 # ──────────────────────────────────────────────────────────────────────────
 
@@ -246,6 +278,37 @@ async def set_specific_time(request: Request, payload: SetTimePayload):
             detail=f"Clé invalide. Valeurs acceptées : {_VALID_TIME_KEYS}",
         )
     return await nm.update_partial({payload.key: payload.schedule.dict()})
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Endpoints — ONU
+# ──────────────────────────────────────────────────────────────────────────
+
+@app.get("/onu/{guild_id}", dependencies=[Depends(require_token)])
+@limiter.limit("10/minute")
+async def get_onu_config(request: Request, guild_id: int):
+    config = await om.get_config(guild_id)
+    if config is None:
+        raise HTTPException(status_code=404, detail="Config ONU non trouvée")
+    return config
+
+
+@app.post("/onu/update_all", dependencies=[Depends(require_token)])
+@limiter.limit("10/minute")
+async def update_onu_config(request: Request, config: ONUConfigUpdate):
+    return await om.update_full_config(config.dict())
+
+
+@app.post("/onu/{guild_id}/ping/add", dependencies=[Depends(require_token)])
+@limiter.limit("10/minute")
+async def add_onu_ping(request: Request, guild_id: int, ping: ONUPingPayload):
+    return await om.add_ping(guild_id, ping.discord_id, ping.name)
+
+
+@app.post("/onu/{guild_id}/ping/remove", dependencies=[Depends(require_token)])
+@limiter.limit("10/minute")
+async def remove_onu_ping(request: Request, guild_id: int, discord_id: str):
+    return await om.remove_ping(guild_id, discord_id)
 
 
 # ──────────────────────────────────────────────────────────────────────────
