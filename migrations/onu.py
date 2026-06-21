@@ -3,15 +3,17 @@ Migration ONU V3 → V4
 Crée les tables onu_config et onu_ping, puis insère les données du JSON.
 
 Usage:
-    docker cp /chemin/to/onu_migration.py guideon-v4-bot:/app/
-    docker exec guideon-v4-bot python /app/onu_migration.py
+    docker exec guideon-v4-bot python /app/migrations/onu.py
 """
 import asyncio
 import json
 import os
+import sys
 import logging
 
-from sqlalchemy import text
+# Fix pour les imports depuis migrations/
+sys.path.insert(0, '/app')
+
 from utils.db.engine import engine, get_session
 from utils.db.models.onu import ONUConfig, ONUPing
 from utils.db.base import Base
@@ -31,7 +33,7 @@ async def run_migration():
 
     # 2. Charger les données du JSON V3
     json_file = os.path.join(
-        os.path.dirname(__file__),
+        "/app",
         "data", "alpha", "onu", "config_onu_alpha.json"
     )
 
