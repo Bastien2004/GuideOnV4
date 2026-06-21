@@ -162,13 +162,13 @@ async def health(request: Request):
 # ──────────────────────────────────────────────────────────────────────────
 
 @app.get("/boutique", dependencies=[Depends(require_token)])
-@limiter.limit("2/minute")
+@limiter.limit("10/minute")
 async def get_all(request: Request):
     return await bm.list_entries()
 
 
 @app.get("/boutique/{role}", dependencies=[Depends(require_token)])
-@limiter.limit("1/minute")
+@limiter.limit("10/minute")
 async def get_role(request: Request, role: str):
     try:
         shop_role = bm.role_from_str(role)
@@ -179,7 +179,7 @@ async def get_role(request: Request, role: str):
 
 
 @app.post("/boutique/add", dependencies=[Depends(require_token)])
-@limiter.limit("1/minute")
+@limiter.limit("10/minute")
 async def add(request: Request, payload: ShopPayload):
     role: ShopRole = bm.role_from_str(payload.role)
     created = await bm.add_entry(role, payload.discord_id)
@@ -191,7 +191,7 @@ async def add(request: Request, payload: ShopPayload):
 
 
 @app.post("/boutique/remove", dependencies=[Depends(require_token)])
-@limiter.limit("1/minute")
+@limiter.limit("10/minute")
 async def remove(request: Request, payload: ShopPayload):
     role: ShopRole = bm.role_from_str(payload.role)
     deleted = await bm.remove_entry(role, payload.discord_id)
@@ -207,19 +207,19 @@ async def remove(request: Request, payload: ShopPayload):
 # ──────────────────────────────────────────────────────────────────────────
 
 @app.get("/notations", dependencies=[Depends(require_token)])
-@limiter.limit("2/minute")
+@limiter.limit("10/minute")
 async def get_notation_config(request: Request):
     return await nm.get_config()
 
 
 @app.post("/notations/update_all", dependencies=[Depends(require_token)])
-@limiter.limit("1/minute")
+@limiter.limit("10/minute")
 async def update_full_config(request: Request, config: NotationConfigUpdate):
     return await nm.update_full_config(config.dict())
 
 
 @app.post("/notations/set_ids", dependencies=[Depends(require_token)])
-@limiter.limit("1/minute")
+@limiter.limit("10/minute")
 async def set_ids(request: Request, payload: SetIdsPayload):
     mapping = {
         "id_guild_notations":         payload.guild_id,
@@ -238,7 +238,7 @@ async def set_ids(request: Request, payload: SetIdsPayload):
 
 
 @app.post("/notations/set_time", dependencies=[Depends(require_token)])
-@limiter.limit("1/minute")
+@limiter.limit("10/minute")
 async def set_specific_time(request: Request, payload: SetTimePayload):
     if payload.key not in _VALID_TIME_KEYS:
         raise HTTPException(
