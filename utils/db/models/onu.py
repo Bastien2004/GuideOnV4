@@ -1,108 +1,55 @@
 """
-utils/db/models/onu.py — Modèles config ONU + liste de pings.
-
-Deux tables :
-- `onu_config`       : singleton par guild (guild_id PK), stocke toute la config
-- `onu_ping_entries` : une ligne par (guild_id, discord_id) à pinguer
-
-Les créneaux horaires (pre_annonce, annonce) sont stockés en JSON
-{"heure": int, "minute": int}.
-
-Exemple :
-    OnuConfig(
-        guild_id=123456789,
-        jour_onu=2,
-        pre_annonce={"heure": 9, "minute": 0},
-        annonce={"heure": 10, "minute": 0},
-        timezone="Europe/Paris",
-        ping_mp=True,
-        role_id=111,
-        channel_id=222,
-        image_name="onu.png",
-    )
-    OnuPingEntry(guild_id=123456789, discord_id="930821995787091988", name="Alice")
+utils/db/models/onu.py — Modèles ONU Alpha pour V4
 """
 from __future__ import annotations
 
-from sqlalchemy import BigInteger, Boolean, Index, Integer, JSON, String, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, JSON
+from sqlalchemy.orm import relationship
 
-from utils.db.base import Base, TimestampMixin
+from utils.db.base import Base
 
 
-class OnuConfig(Base, TimestampMixin):
-    """
-    Configuration singleton du système ONU.
-    La PK est le guild_id — une seule config par serveur.
-    """
-
+class ONUConfig(Base):
+    """Configuration ONU Alpha"""
     __tablename__ = "onu_config"
 
-    guild_id: Mapped[int] = mapped_column(
-        BigInteger, primary_key=True, autoincrement=False
-    )
+    id_guild = Column(Integer, primary_key=True)  # guild_id
+    jour_onu = Column(Integer, default=4)  # 0=lundi, 4=vendredi
+    pre_annonce = Column(JSON, default={"heure": 16, "minute": 42})  # TimeModel
+    annonce = Column(JSON, default={"heure": 16, "minute": 44})  # TimeModel
+    timezone = Column(String(50), default="Europe/Paris")
+    ping_mp = Column(Boolean, default=True)
+    role_id = Column(Integer, nullable=False)
+    channel_id = Column(Integer, nullable=False)
+    image_name = Column(String(255), default="onu_alpha_1.png")
 
-    jour_onu: Mapped[int] = mapped_column(Integer, nullable=False)
-    timezone: Mapped[str] = mapped_column(String(64), nullable=False)
-    ping_mp: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    role_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    channel_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    image_name: Mapped[str] = mapped_column(String(256), nullable=False)
-
-    # Créneaux horaires : {"heure": int, "minute": int}
-    pre_annonce: Mapped[dict] = mapped_column(JSON, nullable=False)
-    annonce: Mapped[dict] = mapped_column(JSON, nullable=False)
+    # Relation 1-N avec les pings
+    pings = relationship("ONUPing", back_populates="config", cascade="all, delete-orphan")
 
     def to_dict(self) -> dict:
+        """Export en dict pour JSON response"""
         return {
-            "guild_id": self.guild_id,
             "jour_onu": self.jour_onu,
             "pre_annonce": self.pre_annonce,
             "annonce": self.annonce,
             "timezone": self.timezone,
             "ping_mp": self.ping_mp,
+            "ping_list": {p.discord_id: p.name for p in self.pings},
             "role_id": self.role_id,
             "channel_id": self.channel_id,
+            "guild_id": self.id_guild,
             "image_name": self.image_name,
         }
 
-    def __repr__(self) -> str:
-        return f"<OnuConfig guild={self.guild_id!r}>"
 
+class ONUPing(Base):
+    """Liste des utilisateurs à ping pour ONU"""
+    __tablename__ = "onu_ping"
 
-# Clés autorisées pour set_value (whitelist explicite)
-ONU_SETTABLE_KEYS = frozenset({
-    "jour_onu", "timezone", "ping_mp",
-    "role_id", "channel_id", "image_name",
-    "pre_annonce", "annonce",
-})
+    id = Column(Integer, primary_key=True)
+    guild_id = Column(Integer, ForeignKey("onu_config.id_guild"), nullable=False)
+    discord_id = Column(String(20), nullable=False, unique=True)
+    name = Column(String(255), nullable=False)
 
-
-class OnuPingEntry(Base, TimestampMixin):
-    """
-    Une entrée = (guild_id, discord_id, name).
-
-    Exemple :
-        OnuPingEntry(guild_id=123456789, discord_id="930821995787091988", name="Alice")
-    """
-
-    __tablename__ = "onu_ping_entries"
-
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-
-    guild_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
-
-    # snowflake Discord de l'utilisateur à pinguer
-    discord_id: Mapped[str] = mapped_column(String(32), nullable=False)
-    name: Mapped[str] = mapped_column(String(128), nullable=False)
-
-    __table_args__ = (
-        UniqueConstraint("guild_id", "discord_id", name="uq_onu_ping_guild_discord"),
-        Index("ix_onu_ping_guild_discord", "guild_id", "discord_id"),
-    )
-
-    def __repr__(self) -> str:
-        return (
-            f"<OnuPingEntry guild={self.guild_id!r} "
-            f"discord_id={self.discord_id!r} name={self.name!r}>"
-        )
+    # Relation back vers ONUConfig
+    config = relationship("ONUConfig", back_populates="pings")
