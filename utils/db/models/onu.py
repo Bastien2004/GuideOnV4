@@ -3,7 +3,7 @@ utils/db/models/onu.py — Modèles ONU Alpha pour V4
 """
 from __future__ import annotations
 
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, JSON
+from sqlalchemy import Column, Integer, BigInteger, String, Boolean, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 
 from utils.db.base import Base
@@ -13,14 +13,14 @@ class ONUConfig(Base):
     """Configuration ONU Alpha"""
     __tablename__ = "onu_config"
 
-    id_guild = Column(Integer, primary_key=True)  # guild_id
+    id_guild = Column(BigInteger, primary_key=True)  # Discord guild ID (très grand)
     jour_onu = Column(Integer, default=4)  # 0=lundi, 4=vendredi
     pre_annonce = Column(JSON, default={"heure": 16, "minute": 42})  # TimeModel
     annonce = Column(JSON, default={"heure": 16, "minute": 44})  # TimeModel
     timezone = Column(String(50), default="Europe/Paris")
     ping_mp = Column(Boolean, default=True)
-    role_id = Column(Integer, nullable=False)
-    channel_id = Column(Integer, nullable=False)
+    role_id = Column(BigInteger, nullable=False)  # Discord role ID
+    channel_id = Column(BigInteger, nullable=False)  # Discord channel ID
     image_name = Column(String(255), default="onu_alpha_1.png")
 
     # Relation 1-N avec les pings
@@ -47,7 +47,7 @@ class ONUPing(Base):
     __tablename__ = "onu_ping"
 
     id = Column(Integer, primary_key=True)
-    guild_id = Column(Integer, ForeignKey("onu_config.id_guild"), nullable=False)
+    guild_id = Column(BigInteger, ForeignKey("onu_config.id_guild"), nullable=False)
     discord_id = Column(String(20), nullable=False, unique=True)
     name = Column(String(255), nullable=False)
 
