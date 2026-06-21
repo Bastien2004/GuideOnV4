@@ -59,7 +59,7 @@ async def run_migration():
 
     # 3. Insérer dans la DB
     async with get_session() as session:
-        guild_id = json_data["guild_id"]
+        guild_id = str(json_data["guild_id"])
         ping_list = json_data.pop("ping_list", {})
 
         # Crée ou met à jour la config
@@ -72,8 +72,8 @@ async def run_migration():
                 annonce=json_data["annonce"],
                 timezone=json_data["timezone"],
                 ping_mp=json_data["ping_mp"],
-                role_id=json_data["role_id"],
-                channel_id=json_data["channel_id"],
+                role_id=str(json_data["role_id"]),
+                channel_id=str(json_data["channel_id"]),
                 image_name=json_data["image_name"],
             )
             session.add(config)
