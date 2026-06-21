@@ -15,7 +15,9 @@ Logique métier :
     3. arrive_active=False ou arrive_channel_id absent → skip
     4. salon introuvable / permissions insuffisantes → log + skip (silencieux
        côté Discord, mais tracé côté logs pour debug)
-    5. rend le template (utils.bienvenue_render) et envoie en Components V2
+    5. rend le template (utils.bienvenue_render) et envoie en EMBED
+       (exception à la convention zéro-embed du projet — voir
+       utils.bienvenue_render pour le détail de cette décision).
 - on_member_remove : même logique, côté départ.
 
 Le rendu utilise utils.bienvenue_render.render_template, le MÊME module que
@@ -28,21 +30,11 @@ import logging
 
 import discord
 from discord.ext import commands
-from discord.ui import Container, LayoutView, TextDisplay
 
-from utils.bienvenue_render import render_template
+from utils.bienvenue_render import build_bienvenue_embed, render_template
 from utils.managers.bienvenue_manager import load_bienvenue_config
 
 log = logging.getLogger(__name__)
-
-
-def _build_announcement_view(rendered: str) -> LayoutView:
-    """Message Components V2 minimal (cohérent avec le test /config bienvenue)."""
-    view = LayoutView(timeout=None)
-    c = Container()
-    c.add_item(TextDisplay(rendered or "_(message vide)_"))
-    view.add_item(c)
-    return view
 
 
 class BienvenueListener(commands.Cog):
@@ -87,10 +79,14 @@ class BienvenueListener(commands.Cog):
                 return
 
         rendered = render_template(template, member=member, guild=guild)
-        view = _build_announcement_view(rendered)
+        embed_kind = "arrivee" if kind == "arrivée" else "depart"
+        embed, file = build_bienvenue_embed(rendered, kind=embed_kind)
 
         try:
-            await channel.send(view=view)
+            if file is not None:
+                await channel.send(embed=embed, file=file)
+            else:
+                await channel.send(embed=embed)
         except discord.Forbidden:
             log.warning(
                 "[Bienvenue] Forbidden en envoyant %s dans #%s (guild=%s)",

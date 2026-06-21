@@ -13,7 +13,7 @@ from discord.ui import ActionRow, Button, Container, LayoutView, Section, Separa
 from utils.boutique.gold_manager import is_gold, send_gold_error
 from utils.container_universel import error_container, success_container
 from utils.managers.bienvenue_manager import load_bienvenue_config, reset_bienvenue_config, save_bienvenue_config
-from utils.bienvenue_render import render_template
+from utils.bienvenue_render import build_bienvenue_embed, render_template
 
 from views._components.channel_select import ChannelSelect
 from views._components.text_modal import TextModal
@@ -315,14 +315,15 @@ def _cb_test(guild_id, bot, author_id, page):
             )
             return
 
-        rendered = render_template(message, interaction.guild)
-        test_view = LayoutView(timeout=None)
-        c = Container()
-        c.add_item(TextDisplay(rendered or "_(message vide)_"))
-        c.add_item(TextDisplay("-# 🧪 Message de test · GuideOn"))
-        test_view.add_item(c)
+        rendered = render_template(message, member=interaction.guild.me, guild=interaction.guild)
+        embed_kind = "arrivee" if is_arrive else "depart"
+        embed, file = build_bienvenue_embed(rendered, kind=embed_kind)
+        embed.set_footer(text="GuideON Studio · 🧪 Message de test")
         try:
-            await channel.send(view=test_view)
+            if file is not None:
+                await channel.send(embed=embed, file=file)
+            else:
+                await channel.send(embed=embed)
             await interaction.response.send_message(
                 view=success_container(f"Test envoyé dans {channel.mention} !"), ephemeral=True
             )
