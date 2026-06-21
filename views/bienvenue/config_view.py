@@ -13,6 +13,7 @@ from discord.ui import ActionRow, Button, Container, LayoutView, Section, Separa
 from utils.boutique.gold_manager import is_gold, send_gold_error
 from utils.container_universel import error_container, success_container
 from utils.managers.bienvenue_manager import load_bienvenue_config, reset_bienvenue_config, save_bienvenue_config
+from utils.bienvenue_render import render_template
 
 from views._components.channel_select import ChannelSelect
 from views._components.text_modal import TextModal
@@ -34,20 +35,6 @@ VARIABLES_HELP = (
 def _preview(text: str, max_len: int = 70) -> str:
     text = text or ""
     return (text[: max_len - 1] + "…") if len(text) > max_len else text
-
-
-def _render_example(template: str, guild: discord.Guild) -> str:
-    """Envoie les exemples de rendu des messages bienvenue/départ."""
-
-    me = guild.me
-    return (
-        (template or "")
-        .replace("{user}", me.display_name)
-        .replace("{mention}", me.mention)
-        .replace("{server}", guild.name)
-        .replace("{member_count}", str(guild.member_count or 0))
-    )
-
 
 def _state_btn(active: bool) -> Button:
     return Button(
@@ -169,7 +156,7 @@ def _add_block(
     btn_msg.callback = _cb_edit_message(guild_id, bot, author_id, message_key)
 
     container.add_item(Section(
-        TextDisplay(f"-# Aperçu : {_preview(_render_example(message, guild), 90)}"),
+        TextDisplay(f"-# Aperçu : {_preview(render_template(message, guild), 90)}"),
         accessory=btn_msg,
     ))
     container.add_item(ActionRow(btn_channel))
@@ -328,7 +315,7 @@ def _cb_test(guild_id, bot, author_id, page):
             )
             return
 
-        rendered = _render_example(message, interaction.guild)
+        rendered = render_template(message, interaction.guild)
         test_view = LayoutView(timeout=None)
         c = Container()
         c.add_item(TextDisplay(rendered or "_(message vide)_"))
