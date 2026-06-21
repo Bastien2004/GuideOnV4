@@ -10,7 +10,8 @@ import time
 from sqlalchemy import select
 
 from utils.db.models.notations import NotationConfig
-from utils.db.session import get_session
+from utils.db.engine import get_session
+
 
 log = logging.getLogger(__name__)
 
