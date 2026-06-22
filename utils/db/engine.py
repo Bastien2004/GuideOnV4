@@ -6,7 +6,7 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
-from sqlalchemy import NullPool
+from sqlalchemy.pool import NullPool
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from utils.settings import settings
@@ -17,10 +17,6 @@ engine: AsyncEngine = create_async_engine(
     settings.database_url,
     echo=settings.database_echo,
     poolclass=NullPool,
-    pool_size=10,
-    max_overflow=20,
-    pool_pre_ping=True,
-    pool_recycle=1800,
 )
 
 _session_factory = async_sessionmaker(engine, expire_on_commit=False)
