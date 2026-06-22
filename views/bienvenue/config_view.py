@@ -156,7 +156,7 @@ def _add_block(
     btn_msg.callback = _cb_edit_message(guild_id, bot, author_id, message_key)
 
     container.add_item(Section(
-        TextDisplay(f"-# Aperçu : {_preview(render_template(message, guild), 90)}"),
+        TextDisplay(f"-# Aperçu : {_preview(render_template(message, member=guild.me, guild=guild), 90)}"),
         accessory=btn_msg,
     ))
     container.add_item(ActionRow(btn_channel))
