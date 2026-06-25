@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 from fastapi import FastAPI, Request, status, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from fastapi.security import Depends
+from fastapi import Depends
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
