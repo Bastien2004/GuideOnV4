@@ -14,7 +14,7 @@ from datetime import date as date_type
 from sqlalchemy import BigInteger, Date, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from utils.db.base import Base, TimestampMixin
+from cogs.api.base import Base, TimestampMixin
 
 
 class CommandStatDaily(Base, TimestampMixin):

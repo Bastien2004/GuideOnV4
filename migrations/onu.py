@@ -16,7 +16,7 @@ sys.path.insert(0, '/app')
 
 from utils.db.engine import engine, get_session
 from utils.db.models.onu import ONUConfig, ONUPing
-from utils.db.base import Base
+from cogs.api.base import Base
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)

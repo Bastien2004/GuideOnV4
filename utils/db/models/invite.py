@@ -27,7 +27,7 @@ from __future__ import annotations
 from sqlalchemy import BigInteger, Boolean, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from utils.db.base import Base, TimestampMixin
+from cogs.api.base import Base, TimestampMixin
 
 # Valeurs par défaut de la config (reprises de la V3).
 DEFAULT_REWARD_THRESHOLD = 10

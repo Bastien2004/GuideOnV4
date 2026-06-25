@@ -22,7 +22,7 @@ from __future__ import annotations
 from sqlalchemy import BigInteger, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
-from utils.db.base import Base, TimestampMixin
+from cogs.api.base import Base, TimestampMixin
 
 
 class NotationConfig(Base, TimestampMixin):

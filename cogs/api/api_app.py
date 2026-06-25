@@ -18,7 +18,7 @@ from utils.managers.boutique_manager import ShopRole
 from utils.settings import settings
 
 # ✅ Importer l'app partagée
-from utils.db.base import app, limiter, require_token
+from cogs.api.base import app, limiter, require_token
 
 log = logging.getLogger(__name__)
 

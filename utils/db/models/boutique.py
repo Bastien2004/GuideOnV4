@@ -17,7 +17,7 @@ import enum
 from sqlalchemy import Enum, Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from utils.db.base import Base, TimestampMixin
+from cogs.api.base import Base, TimestampMixin
 
 
 class ShopRole(str, enum.Enum):

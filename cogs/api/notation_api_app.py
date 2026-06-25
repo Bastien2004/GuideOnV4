@@ -11,7 +11,7 @@ from starlette import status
 from utils.managers import notations_manager as nm
 
 # ✅ Importer l'app partagée
-from utils.db.base import app, limiter, require_token
+from cogs.api.base import app, limiter, require_token
 
 import logging
 log = logging.getLogger(__name__)

@@ -8,7 +8,7 @@ from datetime import datetime
 from sqlalchemy import BigInteger, Boolean, DateTime, Index, Integer, JSON, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from utils.db.base import Base, TimestampMixin
+from cogs.api.base import Base, TimestampMixin
 
 
 GIVEAWAY_ID_LENGTH = 8

@@ -7,7 +7,7 @@ from __future__ import annotations
 from sqlalchemy import BigInteger, Boolean, String, Index
 from sqlalchemy.orm import Mapped, mapped_column
 
-from utils.db.base import Base, TimestampMixin
+from cogs.api.base import Base, TimestampMixin
 
 
 GRADES_ORDER: list[str] = [

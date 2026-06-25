@@ -7,7 +7,7 @@ from __future__ import annotations
 from sqlalchemy import BigInteger, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from utils.db.base import Base, TimestampMixin
+from cogs.api.base import Base, TimestampMixin
 
 
 class AlphaRankConfig(Base, TimestampMixin):

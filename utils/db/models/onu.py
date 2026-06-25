@@ -6,7 +6,7 @@ from __future__ import annotations
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 
-from utils.db.base import Base
+from cogs.api.base import Base
 
 
 class ONUConfig(Base):

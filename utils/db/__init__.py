@@ -4,7 +4,7 @@ Import central de tous les modèles.
 Alembic autogenerate scanne ce fichier pour détecter les changements de schéma.
 TOUT nouveau modèle DOIT être importé ici, sinon Alembic ne créera pas sa table.
 """
-from utils.db.base import Base
+from cogs.api.base import Base
 
 from utils.db.models.control_admin import CommandControl
 from utils.db.models.boutique import ShopEntry, ShopRole
