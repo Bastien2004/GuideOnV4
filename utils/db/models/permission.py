@@ -8,7 +8,7 @@ import enum
 from sqlalchemy import Enum, Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from cogs.api.base import Base, TimestampMixin
+from utils.db.base import Base, TimestampMixin
 
 
 class PermissionRole(str, enum.Enum):

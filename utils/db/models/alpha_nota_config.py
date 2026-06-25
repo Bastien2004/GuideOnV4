@@ -11,7 +11,7 @@ from __future__ import annotations
 from sqlalchemy import BigInteger, Boolean, Integer, String, Text, UniqueConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column
 
-from cogs.api.base import Base, TimestampMixin
+from utils.db.base import Base, TimestampMixin
 
 NOTA_OPERATOR_GRADES = {"administrateur", "super_moderateur"}
 

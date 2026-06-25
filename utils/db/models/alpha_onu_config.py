@@ -9,7 +9,7 @@ from __future__ import annotations
 from sqlalchemy import BigInteger, Boolean, Integer, String, UniqueConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column
 
-from cogs.api.base import Base, TimestampMixin
+from utils.db.base import Base, TimestampMixin
 
 JOURS_LABELS = [
     "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"

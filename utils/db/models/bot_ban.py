@@ -12,7 +12,7 @@ from datetime import datetime
 from sqlalchemy import BigInteger, DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from cogs.api.base import Base, TimestampMixin
+from utils.db.base import Base, TimestampMixin
 
 
 class BotBan(Base, TimestampMixin):

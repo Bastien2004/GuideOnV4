@@ -6,7 +6,7 @@ from __future__ import annotations
 from sqlalchemy import BigInteger, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from cogs.api.base import Base, TimestampMixin
+from utils.db.base import Base, TimestampMixin
 
 
 class ReactionRoleMessage(Base, TimestampMixin):

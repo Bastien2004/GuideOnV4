@@ -13,7 +13,7 @@ import logging
 
 from utils.db.engine import engine, get_session
 from utils.db.models.onu import ONUConfig, ONUPing
-from cogs.api.base import Base
+from utils.db.base import Base
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)

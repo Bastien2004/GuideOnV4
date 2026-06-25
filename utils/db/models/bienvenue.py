@@ -9,7 +9,7 @@ from __future__ import annotations
 from sqlalchemy import BigInteger, Boolean, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from cogs.api.base import Base, TimestampMixin
+from utils.db.base import Base, TimestampMixin
 
 # Messages par défaut (repris à l'identique de la V3 pour ne rien casser).
 DEFAULT_ARRIVE_MESSAGE = (
