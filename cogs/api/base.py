@@ -13,6 +13,8 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from utils.settings import settings
+from fastapi.responses import JSONResponse
+
 
 log = logging.getLogger(__name__)
 
@@ -35,9 +37,9 @@ app.state.limiter = limiter
 
 @app.exception_handler(RateLimitExceeded)
 async def _rate_limit_handler(request: Request, exc: RateLimitExceeded):
-    return HTTPException(
+    return JSONResponse(
         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-        detail="Trop de **requêtes**, réessayez plus tard.",
+        content={"detail": "Trop de **requêtes**, réessayez plus tard."},
     )
 
 
