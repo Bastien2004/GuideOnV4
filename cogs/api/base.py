@@ -25,7 +25,7 @@ log = logging.getLogger(__name__)
 limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(
-    title="GuideON — API Unifiée",
+    title="GuideON",
     version="4.0.0",
     docs_url=None,
     redoc_url=None,
