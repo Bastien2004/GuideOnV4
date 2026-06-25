@@ -1,78 +1,21 @@
 """
-cogs/api/api_notations.py — API Notations - site web.
-
-Endpoints :
-    GET  /health                         -> état + âge du cache
-    GET  /notations                      -> config complète
-    POST /notations/update_all           -> mise à jour complète de la config
-    POST /notations/set_ids              -> mise à jour partielle des IDs
-    POST /notations/set_time             -> mise à jour d'un créneau horaire
+cogs/api/api_notations.py — API Notations
 """
 
 from __future__ import annotations
 
-import asyncio
-import logging
-import threading
-import uvicorn
-
-from fastapi import Depends, FastAPI, HTTPException, Request, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import Depends, HTTPException, Request
 from pydantic import BaseModel
-from slowapi import Limiter
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
+from starlette import status
 
 from utils.managers import notations_manager as nm
-from utils.settings import settings
 
+# ✅ Importer l'app partagée
+from utils.db.base import app, limiter, require_token
+
+import logging
 log = logging.getLogger(__name__)
 
-
-# ──────────────────────────────────────────────────────────────────────────
-# App + rate limiter
-# ──────────────────────────────────────────────────────────────────────────
-
-limiter = Limiter(key_func=get_remote_address)
-
-app = FastAPI(
-    title="GuideON — API Notations",
-    version="4.0.0",
-    docs_url=None,
-    redoc_url=None,
-    openapi_url=None,
-)
-
-app.state.limiter = limiter
-
-
-@app.exception_handler(RateLimitExceeded)
-async def _rate_limit_handler(request: Request, exc: RateLimitExceeded):
-    return HTTPException(
-        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-        detail="Trop de **requêtes**, réessayez plus tard.",
-    )
-
-
-# ──────────────────────────────────────────────────────────────────────────
-# Auth Bearer
-# ──────────────────────────────────────────────────────────────────────────
-
-_bearer = HTTPBearer(auto_error=True)
-
-
-def require_token(creds: HTTPAuthorizationCredentials = Depends(_bearer),) -> None:
-    """Vérification du Token."""
-    if creds.scheme.lower() != "bearer" or creds.credentials != settings.api_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token **invalide**.",
-        )
-
-
-# ──────────────────────────────────────────────────────────────────────────
-# Schémas
-# ──────────────────────────────────────────────────────────────────────────
 
 _VALID_TIME_KEYS = [
     "time_ask_availability",
@@ -113,20 +56,7 @@ class SetTimePayload(BaseModel):
     schedule: TimeSchedule
 
 
-# ──────────────────────────────────────────────────────────────────────────
-# Endpoints
-# ──────────────────────────────────────────────────────────────────────────
-
-@app.get("/health")
-@limiter.limit("10/minute")
-async def health(request: Request):
-    age = nm.cache_age_seconds()
-    return {
-        "status": "ok",
-        "cache_ready": nm.cache_is_ready(),
-        "cache_age_seconds": None if age == float("inf") else round(age, 1),
-    }
-
+# Endpoints (gardez ceux-ci)
 
 @app.get("/notations", dependencies=[Depends(require_token)])
 @limiter.limit("2/minute")
@@ -171,27 +101,3 @@ async def set_specific_time(request: Request, payload: SetTimePayload):
         )
     updated = await nm.update_partial({payload.key: payload.schedule.dict()})
     return updated
-
-
-# ──────────────────────────────────────────────────────────────────────────
-# Runner
-# ──────────────────────────────────────────────────────────────────────────
-
-def run_api_server() -> threading.Thread:
-    """Démarre le serveur API Notations."""
-
-    def _serve() -> None:
-        config = uvicorn.Config(
-            app,
-            host=settings.api_host,
-            port=settings.api_port,
-            log_level=settings.log_level.lower(),
-            loop="asyncio",
-        )
-        server = uvicorn.Server(config)
-        asyncio.run(server.serve())
-
-    thread = threading.Thread(target=_serve, name="guideon-api-notations", daemon=True)
-    thread.start()
-    log.info("[API] API notations démarrée sur %s:%s", settings.api_host, settings.api_port)
-    return thread
