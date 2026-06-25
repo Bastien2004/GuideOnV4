@@ -59,20 +59,17 @@ class SetTimePayload(BaseModel):
 # Endpoints (gardez ceux-ci)
 
 @app.get("/notations", dependencies=[Depends(require_token)])
-@limiter.limit("2/minute")
 async def get_notation_config(request: Request):
     return await nm.get_config()
 
 
 @app.post("/notations/update_all", dependencies=[Depends(require_token)])
-@limiter.limit("1/minute")
 async def update_full_config(request: Request, config: NotationConfigUpdate):
     updated = await nm.update_full_config(config.dict())
     return updated
 
 
 @app.post("/notations/set_ids", dependencies=[Depends(require_token)])
-@limiter.limit("1/minute")
 async def set_ids(request: Request, payload: SetIdsPayload):
     mapping = {
         "id_guild_notations": payload.guild_id,
@@ -92,7 +89,6 @@ async def set_ids(request: Request, payload: SetIdsPayload):
 
 
 @app.post("/notations/set_time", dependencies=[Depends(require_token)])
-@limiter.limit("1/minute")
 async def set_specific_time(request: Request, payload: SetTimePayload):
     if payload.key not in _VALID_TIME_KEYS:
         raise HTTPException(

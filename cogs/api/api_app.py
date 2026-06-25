@@ -78,7 +78,6 @@ class ONUPingPayload(BaseModel):
 # ──────────────────────────────────────────────────────────────────────────
 
 @app.get("/health")
-@limiter.limit("10/minute")
 async def health(request: Request):
     age = bm.cache_age_seconds()
     return {
@@ -93,13 +92,11 @@ async def health(request: Request):
 # ──────────────────────────────────────────────────────────────────────────
 
 @app.get("/boutique", dependencies=[Depends(require_token)])
-@limiter.limit("10/minute")
 async def get_all(request: Request):
     return await bm.list_entries()
 
 
 @app.get("/boutique/{role}", dependencies=[Depends(require_token)])
-@limiter.limit("10/minute")
 async def get_role(request: Request, role: str):
     try:
         shop_role = bm.role_from_str(role)
@@ -110,7 +107,6 @@ async def get_role(request: Request, role: str):
 
 
 @app.post("/boutique/add", dependencies=[Depends(require_token)])
-@limiter.limit("10/minute")
 async def add(request: Request, payload: ShopPayload):
     role: ShopRole = bm.role_from_str(payload.role)
     created = await bm.add_entry(role, payload.discord_id)
@@ -122,7 +118,6 @@ async def add(request: Request, payload: ShopPayload):
 
 
 @app.post("/boutique/remove", dependencies=[Depends(require_token)])
-@limiter.limit("10/minute")
 async def remove(request: Request, payload: ShopPayload):
     role: ShopRole = bm.role_from_str(payload.role)
     deleted = await bm.remove_entry(role, payload.discord_id)
@@ -138,7 +133,6 @@ async def remove(request: Request, payload: ShopPayload):
 # ──────────────────────────────────────────────────────────────────────────
 
 @app.get("/onu/{guild_id}", dependencies=[Depends(require_token)])
-@limiter.limit("10/minute")
 async def get_onu_config(request: Request, guild_id: int):
     config = await om.get_config(guild_id)
     if config is None:
@@ -147,19 +141,16 @@ async def get_onu_config(request: Request, guild_id: int):
 
 
 @app.post("/onu/update_all", dependencies=[Depends(require_token)])
-@limiter.limit("10/minute")
 async def update_onu_config(request: Request, config: ONUConfigUpdate):
     return await om.update_full_config(config.dict())
 
 
 @app.post("/onu/{guild_id}/ping/add", dependencies=[Depends(require_token)])
-@limiter.limit("10/minute")
 async def add_onu_ping(request: Request, guild_id: int, ping: ONUPingPayload):
     return await om.add_ping(guild_id, ping.discord_id, ping.name)
 
 
 @app.post("/onu/{guild_id}/ping/remove", dependencies=[Depends(require_token)])
-@limiter.limit("10/minute")
 async def remove_onu_ping(request: Request, guild_id: int, discord_id: str):
     return await om.remove_ping(guild_id, discord_id)
 
