@@ -3,7 +3,7 @@ utils/db/models/staff.py — Modèle Staff pour la V4
 """
 from __future__ import annotations
 
-from sqlalchemy import JSON, Integer
+from sqlalchemy import JSON, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from utils.db.base import Base
@@ -17,10 +17,10 @@ class StaffConfig(Base):
     # PK = toujours 1 (une seule config par bot)
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
 
-    # Configuration
-    guild_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    channel_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    message_id: Mapped[int] = mapped_column(Integer, default=0)
+    # Configuration (String pour les IDs Discord qui sont trop longs)
+    guild_id: Mapped[str] = mapped_column(String(20), nullable=False)
+    channel_id: Mapped[str] = mapped_column(String(20), nullable=False)
+    message_id: Mapped[str] = mapped_column(String(20), default="0")
     update_interval_minutes: Mapped[int] = mapped_column(Integer, default=60)
 
     # Listes JSON
