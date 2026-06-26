@@ -22,7 +22,9 @@ def build_presence_view(
     """
     operators : liste de dicts {discord_id, label, skin_head_emoji}
     available_ids : liste des discord_id qui ont confirmé leur présence
+    role_id : ignoré (conservé pour compatibilité d'appel), le ping OP est hardcodé.
     """
+    _OP_ROLE_ID = 1022226276112662648  # Rôle OP Alpha — hardcodé, identique sur tous les serveurs
     view = LayoutView(timeout=None)
     available_set = set(available_ids)
 
@@ -32,8 +34,7 @@ def build_presence_view(
     # ── Header ──────────────────────────────────────────────
     c_header = Container()
     c_header.add_item(TextDisplay("## <:Alpha:1500414179650048070> Système de Notations"))
-    ping_line = f"<@&{role_id}> " if role_id else ""
-    c_header.add_item(TextDisplay(f"-# {ping_line}Confirmez votre disponibilité au plus vite !"))
+    c_header.add_item(TextDisplay(f"-# <@&{_OP_ROLE_ID}> Confirmez votre disponibilité au plus vite !"))
     c_header.add_item(Separator())
     view.add_item(c_header)
 
