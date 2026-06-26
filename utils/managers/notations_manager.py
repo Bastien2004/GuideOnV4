@@ -109,11 +109,6 @@ async def get_config() -> dict | None:
 # ══════════════════════════════════════════════════════════════════════════
 
 async def update_full_config(data: dict) -> dict:
-    """
-    Écrase la config complète (upsert sur la PK guild_id).
-    Renvoie la config telle qu'elle est en DB après écriture.
-    Rafraîchit le cache après écriture.
-    """
     guild_id = data["id_guild_notations"]
 
     async with get_session() as session:
@@ -124,8 +119,9 @@ async def update_full_config(data: dict) -> dict:
         else:
             for key, value in data.items():
                 setattr(row, key, value)
-        # commit géré par get_session()
+
         await session.flush()
+        await session.commit()
         result = row.to_dict()
 
     await refresh_cache()
@@ -134,11 +130,6 @@ async def update_full_config(data: dict) -> dict:
 
 
 async def update_partial(partial: dict) -> dict:
-    """
-    Met à jour uniquement les champs fournis dans `partial`.
-    La config doit déjà exister en DB (sinon lève ValueError).
-    Rafraîchit le cache après écriture.
-    """
     async with get_session() as session:
         row = await session.scalar(select(NotationConfig))
         if row is None:
@@ -147,7 +138,9 @@ async def update_partial(partial: dict) -> dict:
             )
         for key, value in partial.items():
             setattr(row, key, value)
+
         await session.flush()
+        await session.commit()
         result = row.to_dict()
 
     await refresh_cache()
