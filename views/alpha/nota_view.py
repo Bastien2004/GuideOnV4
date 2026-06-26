@@ -6,14 +6,18 @@ build_public_nota_view : message public avec la répartition des pays
 """
 from __future__ import annotations
 
+import discord
 from discord import ButtonStyle
-from discord.ui import ActionRow, Button, Container, LayoutView, Separator, TextDisplay
+from discord.ui import (
+    ActionRow, Button, Container, LayoutView, Separator, TextDisplay,
+)
 
 
 def build_presence_view(
     operators: list[dict],
     available_ids: list[int],
     deadline_passed: bool = False,
+    role_id: int | None = None,
 ) -> LayoutView:
     """
     operators : liste de dicts {discord_id, label, skin_head_emoji}
@@ -28,7 +32,8 @@ def build_presence_view(
     # ── Header ──────────────────────────────────────────────
     c_header = Container()
     c_header.add_item(TextDisplay("## <:Alpha:1500414179650048070> Système de Notations"))
-    c_header.add_item(TextDisplay("-# Confirmez votre disponibilité au plus vite !"))
+    ping_line = f"<@&{role_id}> " if role_id else ""
+    c_header.add_item(TextDisplay(f"-# {ping_line}Confirmez votre disponibilité au plus vite !"))
     c_header.add_item(Separator())
     view.add_item(c_header)
 
@@ -73,16 +78,19 @@ def build_public_nota_view(
     assignments: list[tuple[int, int, int]],
     operators_by_id: dict[int, dict],
     url_country_lookup: str | None = None,
+    role_id: int | None = None,
 ) -> LayoutView:
     """
     assignments      : [(start, end, discord_id), ...]
     operators_by_id  : {discord_id: {label, skin_head_emoji, ...}}
+    role_id          : rôle joueur à pinguer dans le header (optionnel)
     """
     view = LayoutView(timeout=None)
 
     # ── Header ──────────────────────────────────────────────
     c_header = Container()
-    c_header.add_item(TextDisplay(f"# 🗺️ Semaine de Notation — {week_date}"))
+    ping = f"<@&{role_id}>\n" if role_id else ""
+    c_header.add_item(TextDisplay(f"{ping}# 🗺️ Semaine de Notation — {week_date}"))
     c_header.add_item(Separator())
     view.add_item(c_header)
 

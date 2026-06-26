@@ -2,7 +2,7 @@
 cogs/events/notations_alpha.py — Listener du système de notations Alpha.
 
 Boucle toutes les 40 s. Pour chaque guild configuré et activé :
-  1. send_presence_* → envoie le message de présence staff + DM rappels
+  1. send_presence_* → envoie le message de présence staff (avec @role dans le message)
   2. deadline_*      → (vérifié côté interaction, pas dans la boucle)
   3. send_public_*   → génère les assignments, envoie le message public, reset la semaine
 
@@ -23,7 +23,6 @@ from utils.managers.alpha_nota_manager import (
     generate_notation_ranges,
     get_all_nota_operators,
     get_available_operators,
-    get_operator_history,
     is_past_deadline,
     is_time_now,
     list_all_nota_configs,
@@ -90,14 +89,7 @@ class NotationsAlphaListener(commands.Cog):
             await self._send_presence(cfg, state)
             state = await load_nota_state(gid)  # recharger après écriture
 
-        # 2. Rappels DM (même déclencheur que présence, flag reminder_sent)
-        if (
-            is_time_now(cfg["send_presence_weekday"], cfg["send_presence_hour"], cfg["send_presence_minute"])
-            and not state["reminder_sent"]
-        ):
-            await self._send_reminders(cfg)
-
-        # 2b. Griser le bouton à la deadline (une seule fois, en mémoire)
+        # 2. Griser le bouton à la deadline (une seule fois, en mémoire)
         if (
             is_past_deadline(cfg["deadline_weekday"], cfg["deadline_hour"], cfg["deadline_minute"])
             and state.get("availability_message_id") is not None
@@ -147,7 +139,7 @@ class NotationsAlphaListener(commands.Cog):
 
         operators = await get_all_nota_operators(cfg["guild_id"])
         available  = await get_available_operators(cfg["guild_id"])
-        view = build_presence_view(operators, available, deadline_passed=False)
+        view = build_presence_view(operators, available, deadline_passed=False, role_id=cfg.get("role_id"))
 
         try:
             msg = await channel.send(view=view)
@@ -162,38 +154,6 @@ class NotationsAlphaListener(commands.Cog):
         )
         self._deadline_greyed[cfg["guild_id"]] = False  # nouvelle semaine → reset
         log.info("[NOTATIONS] Message de présence envoyé | guild=%d", cfg["guild_id"])
-
-    async def _send_reminders(self, cfg: dict) -> None:
-        available_ids = set(await get_available_operators(cfg["guild_id"]))
-        operators = await get_all_nota_operators(cfg["guild_id"])
-        count = 0
-
-        guild = self.bot.get_guild(cfg["guild_id"])
-        if guild is None:
-            return
-
-        for op in operators:
-            if op["discord_id"] in available_ids:
-                continue
-            member = guild.get_member(op["discord_id"])
-            if member is None:
-                try:
-                    member = await guild.fetch_member(op["discord_id"])
-                except (discord.NotFound, discord.HTTPException):
-                    continue
-            try:
-                await member.send(
-                    f"⚠️ **Rappel — Notations Alpha**\n"
-                    f"Salut {op['pseudo_jeu']}, tu n'as pas encore confirmé ta **disponibilité** "
-                    f"pour les notations de cette semaine.\nMerci de le faire dès que possible ! ✍️"
-                )
-                count += 1
-            except (discord.Forbidden, discord.HTTPException):
-                pass
-
-        await set_state_fields(cfg["guild_id"], reminder_sent=True)
-        await self._send_log(cfg, f"Rappels envoyés à {count} opérateur(s).")
-        log.info("[NOTATIONS] Rappels envoyés (%d) | guild=%d", count, cfg["guild_id"])
 
     async def _send_public_and_reset(self, cfg: dict, state: dict) -> None:
         channel = await self._get_channel(cfg["guild_id"], cfg["channel_public_id"])
@@ -216,6 +176,7 @@ class NotationsAlphaListener(commands.Cog):
         view = build_public_nota_view(
             date_str, assignments, ops_by_id,
             cfg.get("url_country_lookup"),
+            cfg.get("role_id"),
         )
 
         try:
@@ -250,7 +211,7 @@ class NotationsAlphaListener(commands.Cog):
 
         operators = await get_all_nota_operators(cfg["guild_id"])
         available  = await get_available_operators(cfg["guild_id"])
-        view = build_presence_view(operators, available, deadline_passed=deadline_passed)
+        view = build_presence_view(operators, available, deadline_passed=deadline_passed, role_id=cfg.get("role_id"))
         try:
             await msg.edit(view=view)
         except discord.HTTPException:
