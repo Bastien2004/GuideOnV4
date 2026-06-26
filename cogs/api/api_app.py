@@ -17,7 +17,6 @@ from utils.managers import onu_manager as om
 from utils.managers.boutique_manager import ShopRole
 from utils.settings import settings
 
-# ✅ Importer l'app partagée
 from cogs.api.base import app, limiter, require_token
 
 log = logging.getLogger(__name__)
