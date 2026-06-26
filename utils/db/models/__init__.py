@@ -21,6 +21,7 @@ from utils.db.models.alpha_role_react import AlphaRoleReactConfig, AlphaRoleReac
 from utils.db.models.alpha_event_config import AlphaEventConfig
 from utils.db.models.command_stats import CommandStatDaily
 from utils.db.models.bot_ban import BotBan
+from utils.db.models.staff import StaffConfig
 
 __all__ = [
     "Base",
