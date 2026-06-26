@@ -6,7 +6,7 @@ from __future__ import annotations
 from sqlalchemy import JSON, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from utils.db.base import Base
+from utils.db.base import Base  # ✅ AJOUTER
 
 
 class StaffConfig(Base):
