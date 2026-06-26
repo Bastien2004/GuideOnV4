@@ -14,7 +14,6 @@ class StaffConfig(Base):
 
     __tablename__ = "staff_config"
 
-    # PK = toujours 1 (une seule config par bot)
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
 
     # Configuration (String pour les IDs Discord qui sont trop longs)
