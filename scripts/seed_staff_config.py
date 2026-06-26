@@ -1,60 +1,42 @@
 """
-scripts/seed_staff_config.py — Seed/maj de la table staff_config.
-
-Idempotent : utilise ON CONFLICT DO UPDATE, donc relançable sans erreur.
-Met à jour la config existante ou la crée si elle n'existe pas.
+utils/db/models/staff.py — Modèle Staff pour la V4
 """
+from __future__ import annotations
 
-import asyncio
+from sqlalchemy import JSON, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column
 
-from sqlalchemy.dialects.postgresql import insert as pg_insert
-
-from utils.db.engine import get_session
-from utils.db.models.staff import StaffConfig
-
-STAFF_CONFIG = {
-    "id": 1,
-    "update_interval_minutes": 60,
-    "guild_id": 1496765275670839306,
-    "channel_id": 1496770821966925895,
-    "message_id": 0,
-    "grades_order": [
-        "administrateur",
-        "super_moderateur",
-        "moderateur_plus",
-        "moderateur_confirmé",
-        "moderateur_test",
-        "guide"
-    ],
-    "staff": []
-}
+from utils.db.base import Base
 
 
-async def seed() -> None:
-    """Initialise ou met à jour la config Staff."""
-    async with get_session() as session:
-        stmt = pg_insert(StaffConfig).values([STAFF_CONFIG])
+class StaffConfig(Base):
+    """Configuration et liste du staff."""
 
-        stmt = stmt.on_conflict_do_update(
-            index_elements=["id"],
-            set_={
-                "update_interval_minutes": STAFF_CONFIG["update_interval_minutes"],
-                "guild_id": STAFF_CONFIG["guild_id"],
-                "channel_id": STAFF_CONFIG["channel_id"],
-                "message_id": STAFF_CONFIG["message_id"],
-                "grades_order": STAFF_CONFIG["grades_order"],
-                # "staff" n'est pas mis à jour pour préserver les données existantes
-            }
-        )
+    __tablename__ = "staff_config"
 
-        result = await session.execute(stmt)
-        await session.commit()
+    # PK = toujours 1 (une seule config par bot)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
 
-    if result.rowcount == 1:
-        print("✅ Seed terminé — Configuration Staff initialisée/mise à jour.")
-    else:
-        print("⚠️ Seed exécuté mais aucune ligne affectée.")
+    # Configuration (String pour les IDs Discord qui sont trop longs)
+    guild_id: Mapped[str] = mapped_column(String(20), nullable=False)
+    channel_id: Mapped[str] = mapped_column(String(20), nullable=False)
+    message_id: Mapped[str] = mapped_column(String(20), default="0")
+    update_interval_minutes: Mapped[int] = mapped_column(Integer, default=60)
 
+    # Listes JSON
+    grades_order: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    staff: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
 
-if __name__ == "__main__":
-    asyncio.run(seed())
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "guild_id": self.guild_id,
+            "channel_id": self.channel_id,
+            "message_id": self.message_id,
+            "update_interval_minutes": self.update_interval_minutes,
+            "grades_order": self.grades_order or [],
+            "staff": self.staff or [],
+        }
+
+    def __repr__(self) -> str:
+        return f"<StaffConfig guild={self.guild_id} staff_count={len(self.staff or [])}>"
