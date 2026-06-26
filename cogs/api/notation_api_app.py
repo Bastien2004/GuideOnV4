@@ -71,19 +71,25 @@ async def update_full_config(request: Request, config: NotationConfigUpdate):
 
 @app.post("/notations/set_ids", dependencies=[Depends(require_token)])
 async def set_ids(request: Request, payload: SetIdsPayload):
-    mapping = {
-        "id_guild_notations": payload.guild_id,
-        "id_channel_staff_notations": payload.staff_chan_id,
-        "id_channel_notations": payload.notif_chan_id,
-        "id_channel_logs": payload.logs_chan_id,
-        "id_role_notation": payload.role_id,
-    }
-    partial = {k: v for k, v in mapping.items() if v is not None}
+    # ✅ Utiliser directement les noms du payload
+    partial = {}
+    if payload.guild_id is not None:
+        partial['id_guild_notations'] = payload.guild_id
+    if payload.staff_chan_id is not None:
+        partial['id_channel_staff_notations'] = payload.staff_chan_id
+    if payload.notif_chan_id is not None:
+        partial['id_channel_notations'] = payload.notif_chan_id
+    if payload.logs_chan_id is not None:
+        partial['id_channel_logs'] = payload.logs_chan_id
+    if payload.role_id is not None:
+        partial['id_role_notation'] = payload.role_id
+
     if not partial:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Au moins un champ doit être fourni.",
         )
+
     updated = await nm.update_partial(partial)
     return updated
 
