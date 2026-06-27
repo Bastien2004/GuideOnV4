@@ -90,14 +90,29 @@ async def get_staff_config(request: Request):
 @app.post("/staff/update_config", dependencies=[Depends(require_token)])
 async def update_full_staff_config(request: Request, config: StaffConfigUpdate):
     """Met à jour l'intégralité de la configuration."""
-    updated = await sm.update_full_config(config.dict())
+    # Récupérer les données et forcer la conversion en int
+    config_data = config.model_dump()
+
+    # ✅ Forcer la conversion explicite des IDs en int
+    config_data['channel_id'] = int(config_data['channel_id']) if config_data['channel_id'] else 0
+    config_data['guild_id'] = int(config_data['guild_id']) if config_data['guild_id'] else 0
+    config_data['message_id'] = int(config_data['message_id']) if config_data['message_id'] else 0
+
+    updated = await sm.update_full_config(config_data)
     return updated
 
 
 @app.post("/staff/update_partial", dependencies=[Depends(require_token)])
 async def update_staff_partial(request: Request, payload: SetConfigPayload):
     """Met à jour uniquement les champs fournis."""
-    partial = {k: v for k, v in payload.dict().items() if v is not None}
+    partial = {k: v for k, v in payload.model_dump().items() if v is not None}
+
+    # ✅ Convertir les IDs si présents
+    if 'channel_id' in partial and partial['channel_id']:
+        partial['channel_id'] = int(partial['channel_id'])
+    if 'guild_id' in partial and partial['guild_id']:
+        partial['guild_id'] = int(partial['guild_id'])
+
     if not partial:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -120,7 +135,7 @@ async def add_staff_member(request: Request, member: StaffMember):
     # Supprimer l'ancienne entrée si elle existe
     staff_list = config.get("staff", [])
     staff_list = [m for m in staff_list if m.get("discord_id") != member.discord_id]
-    staff_list.append(member.dict())
+    staff_list.append(member.model_dump())
 
     updated = await sm.update_partial({"staff": staff_list})
     return {"message": f"Membre {member.pseudo_jeu} ajouté/mis à jour.", "member": member}
@@ -158,7 +173,7 @@ async def add_member_blame(request: Request, discord_id: int, blame: Blame):
 
     if "blames" not in member:
         member["blames"] = []
-    member["blames"].append(blame.dict())
+    member["blames"].append(blame.model_dump())
 
     await sm.update_partial({"staff": staff_list})
     return {"message": "Blâme ajouté.", "blames": member["blames"]}
