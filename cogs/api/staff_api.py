@@ -42,6 +42,12 @@ class UpdateMemberPayload(BaseModel):
     pseudo_jeu_builder: str | None = None
 
 
+class Blame(BaseModel):
+    motif: str
+    explication: str
+    auteur: str
+
+
 # ══════════════════════════════════════════════════════════════════════════
 # 🔄 ENDPOINTS
 # ══════════════════════════════════════════════════════════════════════════
@@ -120,3 +126,35 @@ async def remove_staff_member(request: Request, discord_id: int):
     if not deleted:
         raise HTTPException(status_code=404, detail="Membre non trouvé.")
     return {"message": "Membre supprimé avec succès.", "discord_id": discord_id}
+
+
+@app.post("/staff/member/{discord_id}/blame/add", dependencies=[Depends(require_token)])
+async def add_blame(request: Request, discord_id: int, blame: Blame):
+    """Ajoute un blâme à un membre."""
+    member = await asm.get_staff_member(discord_id)
+    if member is None:
+        raise HTTPException(status_code=404, detail="Membre non trouvé.")
+
+    blames = member.get("blames") or []
+    blames.append(blame.model_dump())
+
+    updated = await asm.update_staff_member(discord_id, blames=blames)
+    if not updated:
+        raise HTTPException(status_code=500, detail="Mise à jour échouée.")
+    return {"message": "Blâme ajouté.", "blames": blames}
+
+
+@app.delete("/staff/member/{discord_id}/blame/remove/{index}", dependencies=[Depends(require_token)])
+async def remove_blame(request: Request, discord_id: int, index: int):
+    """Supprime un blâme d'un membre."""
+    member = await asm.get_staff_member(discord_id)
+    if member is None:
+        raise HTTPException(status_code=404, detail="Membre non trouvé.")
+
+    blames = member.get("blames") or []
+    if index < 0 or index >= len(blames):
+        raise HTTPException(status_code=404, detail="Blâme non trouvé.")
+
+    removed = blames.pop(index)
+    await asm.update_staff_member(discord_id, blames=blames)
+    return {"message": "Blâme supprimé.", "removed": removed}

@@ -4,7 +4,7 @@ utils/db/models/alpha_staff.py — Modèle des membres du staff Alpha.
 
 from __future__ import annotations
 
-from sqlalchemy import BigInteger, Boolean, String, Index
+from sqlalchemy import BigInteger, Boolean, String, Index, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
 from utils.db.base import Base, TimestampMixin
@@ -46,7 +46,6 @@ GRADE_PREFIXES: dict[str, str] = {
     "guide":               "Guide",
 }
 
-# Rôle Discord par grade du staff.
 GRADE_TO_ROLE_ATTR: dict[str, str] = {
     "administrateur":      "role_administrateur_id",
     "super_moderateur":    "role_super_moderateur_id",
@@ -99,15 +98,15 @@ class AlphaStaffMember(Base, TimestampMixin):
     is_journaliste: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
-
     is_affilie: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
-
     is_builder: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
     pseudo_jeu_builder: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    blames: Mapped[list] = mapped_column(JSON, nullable=True, default=list)
 
     __table_args__ = (
         Index("ix_alpha_staff_grade", "grade"),
@@ -123,6 +122,7 @@ class AlphaStaffMember(Base, TimestampMixin):
             "is_affilie":         self.is_affilie,
             "is_builder":         self.is_builder,
             "pseudo_jeu_builder": self.pseudo_jeu_builder,
+            "blames":             self.blames or [],
         }
 
     def __repr__(self) -> str:

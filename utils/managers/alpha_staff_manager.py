@@ -52,13 +52,11 @@ def _sort(members: list[dict]) -> list[dict]:
         grade = m["grade"]
         if grade is None:
             return (len(GRADES_ORDER), m["pseudo_jeu"].lower())
-        
         try:
             return (GRADES_ORDER.index(grade), m["pseudo_jeu"].lower())
-        
         except ValueError:
             return (len(GRADES_ORDER) + 1, m["pseudo_jeu"].lower())
-        
+
     return sorted(members, key=key)
 
 
@@ -104,9 +102,17 @@ async def staff_exists(discord_id: int) -> bool:
 # ✍️ Écritures
 # ════════════════════════════════════════════════════════════
 
-async def upsert_staff_member(discord_id: int, pseudo_jeu: str, grade: str | None, skin_head_emoji: str = "", is_journaliste: bool | None = None, is_affilie: bool | None = None, is_builder: bool | None = None, pseudo_jeu_builder: str | None = _UNSET) -> bool:
+async def upsert_staff_member(
+    discord_id: int,
+    pseudo_jeu: str,
+    grade: str | None,
+    skin_head_emoji: str = "",
+    is_journaliste: bool | None = None,
+    is_affilie: bool | None = None,
+    is_builder: bool | None = None,
+    pseudo_jeu_builder: str | None = _UNSET,
+) -> bool:
     """Ajoute ou met à jour un membre."""
-
     async with _lock:
         async with get_session() as session:
             row = await session.scalar(
@@ -124,7 +130,6 @@ async def upsert_staff_member(discord_id: int, pseudo_jeu: str, grade: str | Non
                     pseudo_jeu_builder=None if pseudo_jeu_builder is _UNSET else pseudo_jeu_builder,
                 ))
                 created = True
-
             else:
                 row.pseudo_jeu = pseudo_jeu
                 row.grade = grade
@@ -141,23 +146,31 @@ async def upsert_staff_member(discord_id: int, pseudo_jeu: str, grade: str | Non
                 created = False
         _invalidate()
 
-    log.info("[STAFFLIST ALPHA] Staff Alpha %s : %s (%s) — %s", "ajouté" if created else "mis à jour", pseudo_jeu, discord_id, grade)
-
+    log.info(
+        "[STAFFLIST ALPHA] Staff Alpha %s : %s (%s) — %s",
+        "ajouté" if created else "mis à jour", pseudo_jeu, discord_id, grade,
+    )
     return created
 
 
-async def add_staff_member(discord_id: int, pseudo_jeu: str, grade: str | None, skin_head_emoji: str = "", is_journaliste: bool = False, is_affilie: bool = False, is_builder: bool = False, pseudo_jeu_builder: str | None = None) -> bool:
+async def add_staff_member(
+    discord_id: int,
+    pseudo_jeu: str,
+    grade: str | None,
+    skin_head_emoji: str = "",
+    is_journaliste: bool = False,
+    is_affilie: bool = False,
+    is_builder: bool = False,
+    pseudo_jeu_builder: str | None = None,
+) -> bool:
     """Ajoute un membre. Retourne False si discord_id est déjà présent."""
-
     async with _lock:
         async with get_session() as session:
             exists = await session.scalar(
                 select(AlphaStaffMember.id).where(AlphaStaffMember.discord_id == discord_id)
             )
-
             if exists is not None:
                 return False
-            
             session.add(AlphaStaffMember(
                 discord_id=discord_id,
                 pseudo_jeu=pseudo_jeu,
@@ -189,11 +202,11 @@ async def remove_staff_member(discord_id: int) -> bool:
 
 
 async def update_staff_member(discord_id: int, **fields: object) -> bool:
-    """Met à jour les champs d'un membre. Champs acceptés : pseudo_jeu, grade, skin_head_emoji, is_journaliste, is_affilie, is_builder, pseudo_jeu_builder."""
-
+    """Met à jour les champs d'un membre."""
     allowed = {
         "pseudo_jeu", "grade", "skin_head_emoji",
         "is_journaliste", "is_affilie", "is_builder", "pseudo_jeu_builder",
+        "blames",  # ← ajouté
     }
 
     clean = {k: v for k, v in fields.items() if k in allowed}
