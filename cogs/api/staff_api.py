@@ -3,15 +3,15 @@ cogs/api/api_staff.py — API Staff pour V4
 """
 from __future__ import annotations
 
-from fastapi import Depends, HTTPException, Request
-from pydantic import BaseModel, field_validator
-from starlette import status
+import logging
 from typing import List
 
-from utils.managers import staff_manager as sm
-from cogs.api.base import app, require_token
+from fastapi import Depends, HTTPException, Request
+from pydantic import BaseModel
+from starlette import status
 
-import logging
+from utils.managers import alpha_staff_manager as asm
+from cogs.api.base import app, require_token
 
 log = logging.getLogger(__name__)
 
@@ -20,55 +20,26 @@ log = logging.getLogger(__name__)
 # 📋 MODÈLES PYDANTIC
 # ══════════════════════════════════════════════════════════════════════════
 
-class Blame(BaseModel):
-    motif: str
-    explication: str
-    auteur: str
-
-
 class StaffMember(BaseModel):
     discord_id: int
     pseudo_jeu: str
     grade: str
     skin_head_emoji: str = ""
-    blames: List[Blame] = []
+    is_journaliste: bool = False
+    is_affilie: bool = False
+    is_builder: bool = False
+    pseudo_jeu_builder: str | None = None
 
 
-class StaffConfigUpdate(BaseModel):
-    update_interval_minutes: int
-    guild_id: int | str
-    channel_id: int | str
-    message_id: int | str
-    grades_order: List[str]
-    staff: List[StaffMember]
-
-    @field_validator('guild_id', 'channel_id', 'message_id', mode='before')
-    @classmethod
-    def convert_ids_to_int(cls, v):
-        """Convertir les IDs string en int"""
-        if isinstance(v, str):
-            try:
-                return int(v)
-            except (ValueError, TypeError):
-                return v
-        return v
-
-
-class SetConfigPayload(BaseModel):
-    channel_id: int | str | None = None
-    guild_id: int | str | None = None
-    update_interval_minutes: int | None = None
-
-    @field_validator('channel_id', 'guild_id', mode='before')
-    @classmethod
-    def convert_ids_to_int(cls, v):
-        """Convertir les IDs string en int"""
-        if isinstance(v, str):
-            try:
-                return int(v)
-            except (ValueError, TypeError):
-                return v
-        return v
+class UpdateMemberPayload(BaseModel):
+    discord_id: int
+    pseudo_jeu: str | None = None
+    grade: str | None = None
+    skin_head_emoji: str | None = None
+    is_journaliste: bool | None = None
+    is_affilie: bool | None = None
+    is_builder: bool | None = None
+    pseudo_jeu_builder: str | None = None
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -76,125 +47,76 @@ class SetConfigPayload(BaseModel):
 # ══════════════════════════════════════════════════════════════════════════
 
 @app.get("/staff", dependencies=[Depends(require_token)])
-async def get_staff_config(request: Request):
-    """Récupère toute la configuration et la liste du staff."""
-    config = await sm.get_config()
-    if config is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Aucune configuration staff en base."
-        )
-    return config
+async def get_staff(request: Request):
+    """Récupère toute la liste du staff."""
+    members = await asm.list_staff()
+    return {"staff": members}
 
 
-@app.post("/staff/update_config", dependencies=[Depends(require_token)])
-async def update_full_staff_config(request: Request, config: StaffConfigUpdate):
-    """Met à jour l'intégralité de la configuration."""
-    # Récupérer les données et forcer la conversion en int
-    config_data = config.model_dump()
-
-    # ✅ Forcer la conversion explicite des IDs en int
-    config_data['channel_id'] = int(config_data['channel_id']) if config_data['channel_id'] else 0
-    config_data['guild_id'] = int(config_data['guild_id']) if config_data['guild_id'] else 0
-    config_data['message_id'] = int(config_data['message_id']) if config_data['message_id'] else 0
-
-    updated = await sm.update_full_config(config_data)
-    return updated
-
-
-@app.post("/staff/update_partial", dependencies=[Depends(require_token)])
-async def update_staff_partial(request: Request, payload: SetConfigPayload):
-    """Met à jour uniquement les champs fournis."""
-    partial = {k: v for k, v in payload.model_dump().items() if v is not None}
-
-    # ✅ Convertir les IDs si présents
-    if 'channel_id' in partial and partial['channel_id']:
-        partial['channel_id'] = int(partial['channel_id'])
-    if 'guild_id' in partial and partial['guild_id']:
-        partial['guild_id'] = int(partial['guild_id'])
-
-    if not partial:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Au moins un champ doit être fourni."
-        )
-    updated = await sm.update_partial(partial)
-    return updated
+@app.get("/staff/{discord_id}", dependencies=[Depends(require_token)])
+async def get_staff_member(request: Request, discord_id: int):
+    """Récupère un membre spécifique."""
+    member = await asm.get_staff_member(discord_id)
+    if member is None:
+        raise HTTPException(status_code=404, detail="Membre non trouvé.")
+    return member
 
 
 @app.post("/staff/member/add", dependencies=[Depends(require_token)])
 async def add_staff_member(request: Request, member: StaffMember):
-    """Ajoute ou met à jour un membre du staff."""
-    config = await sm.get_config()
-    if config is None:
+    """Ajoute un membre (échoue si déjà présent)."""
+    created = await asm.add_staff_member(
+        discord_id=member.discord_id,
+        pseudo_jeu=member.pseudo_jeu,
+        grade=member.grade,
+        skin_head_emoji=member.skin_head_emoji,
+        is_journaliste=member.is_journaliste,
+        is_affilie=member.is_affilie,
+        is_builder=member.is_builder,
+        pseudo_jeu_builder=member.pseudo_jeu_builder,
+    )
+    if not created:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Aucune configuration staff — initialisez d'abord."
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Ce membre est déjà dans le staff. Utilisez /staff/member/update pour le modifier."
         )
+    return {"message": f"Membre {member.pseudo_jeu} ajouté.", "member": member}
 
-    # Supprimer l'ancienne entrée si elle existe
-    staff_list = config.get("staff", [])
-    staff_list = [m for m in staff_list if m.get("discord_id") != member.discord_id]
-    staff_list.append(member.model_dump())
 
-    updated = await sm.update_partial({"staff": staff_list})
-    return {"message": f"Membre {member.pseudo_jeu} ajouté/mis à jour.", "member": member}
+@app.post("/staff/member/upsert", dependencies=[Depends(require_token)])
+async def upsert_staff_member(request: Request, member: StaffMember):
+    """Ajoute ou met à jour un membre."""
+    created = await asm.upsert_staff_member(
+        discord_id=member.discord_id,
+        pseudo_jeu=member.pseudo_jeu,
+        grade=member.grade,
+        skin_head_emoji=member.skin_head_emoji,
+        is_journaliste=member.is_journaliste,
+        is_affilie=member.is_affilie,
+        is_builder=member.is_builder,
+        pseudo_jeu_builder=member.pseudo_jeu_builder,
+    )
+    action = "ajouté" if created else "mis à jour"
+    return {"message": f"Membre {member.pseudo_jeu} {action}.", "created": created, "member": member}
+
+
+@app.post("/staff/member/update", dependencies=[Depends(require_token)])
+async def update_staff_member(request: Request, payload: UpdateMemberPayload):
+    """Met à jour les champs fournis d'un membre."""
+    fields = {k: v for k, v in payload.model_dump().items() if k != "discord_id" and v is not None}
+    if not fields:
+        raise HTTPException(status_code=400, detail="Au moins un champ doit être fourni.")
+
+    updated = await asm.update_staff_member(payload.discord_id, **fields)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Membre non trouvé.")
+    return {"message": "Membre mis à jour.", "discord_id": payload.discord_id, "fields": fields}
 
 
 @app.delete("/staff/member/remove/{discord_id}", dependencies=[Depends(require_token)])
 async def remove_staff_member(request: Request, discord_id: int):
     """Supprime un membre du staff."""
-    config = await sm.get_config()
-    if config is None:
-        raise HTTPException(status_code=404, detail="Configuration staff introuvable.")
-
-    staff_list = config.get("staff", [])
-    original_count = len(staff_list)
-    staff_list = [m for m in staff_list if m.get("discord_id") != discord_id]
-
-    if len(staff_list) == original_count:
+    deleted = await asm.remove_staff_member(discord_id)
+    if not deleted:
         raise HTTPException(status_code=404, detail="Membre non trouvé.")
-
-    await sm.update_partial({"staff": staff_list})
-    return {"message": "Membre supprimé avec succès."}
-
-
-@app.post("/staff/member/{discord_id}/blame/add", dependencies=[Depends(require_token)])
-async def add_member_blame(request: Request, discord_id: int, blame: Blame):
-    """Ajoute un blâme à un membre."""
-    config = await sm.get_config()
-    if config is None:
-        raise HTTPException(status_code=404, detail="Configuration staff introuvable.")
-
-    staff_list = config.get("staff", [])
-    member = next((m for m in staff_list if m.get("discord_id") == discord_id), None)
-    if not member:
-        raise HTTPException(status_code=404, detail="Membre non trouvé.")
-
-    if "blames" not in member:
-        member["blames"] = []
-    member["blames"].append(blame.model_dump())
-
-    await sm.update_partial({"staff": staff_list})
-    return {"message": "Blâme ajouté.", "blames": member["blames"]}
-
-
-@app.delete("/staff/member/{discord_id}/blame/remove/{index}", dependencies=[Depends(require_token)])
-async def remove_member_blame(request: Request, discord_id: int, index: int):
-    """Supprime un blâme d'un membre."""
-    config = await sm.get_config()
-    if config is None:
-        raise HTTPException(status_code=404, detail="Configuration staff introuvable.")
-
-    staff_list = config.get("staff", [])
-    member = next((m for m in staff_list if m.get("discord_id") == discord_id), None)
-    if not member:
-        raise HTTPException(status_code=404, detail="Membre non trouvé.")
-
-    blames = member.get("blames", [])
-    if index < 0 or index >= len(blames):
-        raise HTTPException(status_code=404, detail="Blâme non trouvé.")
-
-    removed = blames.pop(index)
-    await sm.update_partial({"staff": staff_list})
-    return {"message": "Blâme supprimé.", "removed": removed}
+    return {"message": "Membre supprimé avec succès.", "discord_id": discord_id}
