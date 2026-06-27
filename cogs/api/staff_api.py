@@ -4,7 +4,7 @@ cogs/api/api_staff.py — API Staff pour V4
 from __future__ import annotations
 
 from fastapi import Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from starlette import status
 from typing import List
 
@@ -36,17 +36,39 @@ class StaffMember(BaseModel):
 
 class StaffConfigUpdate(BaseModel):
     update_interval_minutes: int
-    guild_id: int
-    channel_id: int
-    message_id: int
+    guild_id: int | str
+    channel_id: int | str
+    message_id: int | str
     grades_order: List[str]
     staff: List[StaffMember]
 
+    @field_validator('guild_id', 'channel_id', 'message_id', mode='before')
+    @classmethod
+    def convert_ids_to_int(cls, v):
+        """Convertir les IDs string en int"""
+        if isinstance(v, str):
+            try:
+                return int(v)
+            except (ValueError, TypeError):
+                return v
+        return v
+
 
 class SetConfigPayload(BaseModel):
-    channel_id: int | None = None
-    guild_id: int | None = None
+    channel_id: int | str | None = None
+    guild_id: int | str | None = None
     update_interval_minutes: int | None = None
+
+    @field_validator('channel_id', 'guild_id', mode='before')
+    @classmethod
+    def convert_ids_to_int(cls, v):
+        """Convertir les IDs string en int"""
+        if isinstance(v, str):
+            try:
+                return int(v)
+            except (ValueError, TypeError):
+                return v
+        return v
 
 
 # ══════════════════════════════════════════════════════════════════════════
