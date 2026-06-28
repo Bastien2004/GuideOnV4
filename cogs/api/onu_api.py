@@ -1,6 +1,6 @@
 """
-Migration ONU V3 → V4
-Crée les tables onu_config et onu_ping, puis insère les données du JSON.
+Migration ONU V3 → V4 (CORRIGÉE)
+Crée les tables alpha_onu_configs et alpha_onu_ping_members, puis insère les données du JSON.
 
 Usage:
     docker cp /chemin/to/onu_migration.py guideon-v4-bot:/app/
@@ -12,7 +12,7 @@ import os
 import logging
 
 from utils.db.engine import engine, get_session
-from utils.db.models.onu import ONUConfig, ONUPing
+from utils.db.models.alpha_onu_config import AlphaONUConfig, AlphaONUPingMember
 from utils.db.base import Base
 
 logging.basicConfig(level=logging.INFO)
@@ -39,8 +39,10 @@ async def run_migration():
         log.info("Création d'une config par défaut...")
         json_data = {
             "jour_onu": 4,
-            "pre_annonce": {"heure": 16, "minute": 42},
-            "annonce": {"heure": 16, "minute": 44},
+            "pre_heure": 16,
+            "pre_minute": 42,
+            "ann_heure": 16,
+            "ann_minute": 44,
             "timezone": "Europe/Paris",
             "ping_mp": True,
             "ping_list": {},
@@ -56,34 +58,39 @@ async def run_migration():
 
     # 3. Insérer dans la DB
     async with get_session() as session:
-        guild_id = json_data["guild_id"]
+        guild_id = int(json_data["guild_id"])
         ping_list = json_data.pop("ping_list", {})
 
         # Crée ou met à jour la config
-        existing = await session.get(ONUConfig, guild_id)
+        existing = await session.get(AlphaONUConfig, guild_id)
         if existing is None:
-            config = ONUConfig(
-                id_guild=guild_id,
-                jour_onu=json_data["jour_onu"],
-                pre_annonce=json_data["pre_annonce"],
-                annonce=json_data["annonce"],
-                timezone=json_data["timezone"],
-                ping_mp=json_data["ping_mp"],
-                role_id=json_data["role_id"],
-                channel_id=json_data["channel_id"],
-                image_name=json_data["image_name"],
-            )
+            # Construire les champs pour la config
+            config_data = {
+                "guild_id": guild_id,
+                "jour_onu": json_data.get("jour_onu"),
+                "pre_heure": json_data.get("pre_heure") or (json_data.get("pre_annonce", {}).get("heure")),
+                "pre_minute": json_data.get("pre_minute") or (json_data.get("pre_annonce", {}).get("minute")),
+                "ann_heure": json_data.get("ann_heure") or (json_data.get("annonce", {}).get("heure")),
+                "ann_minute": json_data.get("ann_minute") or (json_data.get("annonce", {}).get("minute")),
+                "timezone": json_data.get("timezone", "Europe/Paris"),
+                "ping_mp": json_data.get("ping_mp", False),
+                "role_id": int(json_data.get("role_id")) if json_data.get("role_id") else None,
+                "channel_id": int(json_data.get("channel_id")) if json_data.get("channel_id") else None,
+                "image_name": json_data.get("image_name"),
+                "join_url": json_data.get("join_url"),
+                "enabled": json_data.get("enabled", True),
+            }
+            config = AlphaONUConfig(**config_data)
             session.add(config)
             log.info("Nouvelle config ONU créée (guild=%s)", guild_id)
         else:
             log.info("Config ONU existante mise à jour (guild=%s)", guild_id)
 
         # Ajoute les pings
-        for discord_id, name in ping_list.items():
-            ping = ONUPing(
+        for discord_id_str, name in ping_list.items():
+            ping = AlphaONUPingMember(
                 guild_id=guild_id,
-                discord_id=discord_id,
-                name=name
+                discord_id=int(discord_id_str)
             )
             session.add(ping)
 

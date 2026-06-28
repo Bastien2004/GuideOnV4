@@ -1,14 +1,13 @@
 """
-utils/managers/onu_manager.py — Gestion ONU Config V4
+utils/managers/onu_manager.py — Gestion ONU Config V4 (CORRIGÉ)
 """
 from __future__ import annotations
 
 import logging
 from sqlalchemy import delete, select
-from sqlalchemy.orm import selectinload
 
 from utils.db.engine import get_session
-from utils.db.models.onu import ONUConfig, ONUPing
+from utils.db.models.alpha_onu_config import AlphaONUConfig, AlphaONUPingMember
 
 log = logging.getLogger(__name__)
 
@@ -16,46 +15,62 @@ log = logging.getLogger(__name__)
 async def get_config(guild_id: int) -> dict | None:
     """Récupère la config ONU complète (avec ping_list)"""
     async with get_session() as session:
-        result = await session.execute(
-            select(ONUConfig)
-            .options(selectinload(ONUConfig.pings))
-            .where(ONUConfig.id_guild == str(guild_id))
+        # Récupérer la config
+        config = await session.get(AlphaONUConfig, guild_id)
+        if config is None:
+            return None
+
+        # Récupérer les pings
+        pings_result = await session.execute(
+            select(AlphaONUPingMember).where(AlphaONUPingMember.guild_id == guild_id)
         )
-        row = result.scalars().first()
-    return row.to_dict() if row is not None else None
+        pings = pings_result.scalars().all()
+
+        # Convertir en dict
+        result = config.to_dict()
+        result['ping_list'] = {str(p.discord_id): p.discord_id for p in pings}
+
+    return result
 
 
 async def update_full_config(data: dict) -> dict:
-    guild_id = str(data["guild_id"])
+    """Met à jour la config complète"""
+    guild_id = int(data["guild_id"])
     ping_list = data.pop("ping_list", {})
 
-    data_copy = data.copy()
-    data_copy["role_id"] = str(data_copy["role_id"])
-    data_copy["channel_id"] = str(data_copy["channel_id"])
-
     async with get_session() as session:
-        result = await session.execute(
-            select(ONUConfig)
-            .options(selectinload(ONUConfig.pings))
-            .where(ONUConfig.id_guild == guild_id)
+        # Récupérer ou créer la config
+        config = await session.get(AlphaONUConfig, guild_id)
+
+        if config is None:
+            # Créer une nouvelle config
+            config = AlphaONUConfig(guild_id=guild_id)
+
+        # Mettre à jour les champs
+        for key, value in data.items():
+            if key != "guild_id" and hasattr(config, key):
+                # Les IDs Discord doivent rester en int
+                setattr(config, key, value)
+
+        session.add(config)
+
+        # Supprimer les anciens pings et en ajouter de nouveaux
+        await session.execute(
+            delete(AlphaONUPingMember).where(AlphaONUPingMember.guild_id == guild_id)
         )
-        row = result.scalars().first()
 
-        if row is None:
-            row = ONUConfig(id_guild=guild_id, **{k: v for k, v in data_copy.items() if k != "guild_id"})
-            session.add(row)
-        else:
-            for key, value in data_copy.items():
-                if key != "guild_id":
-                    setattr(row, key, value)
-
-        row.pings = []
         for discord_id, name in ping_list.items():
-            ping = ONUPing(guild_id=guild_id, discord_id=discord_id, name=name)
-            row.pings.append(ping)
+            ping = AlphaONUPingMember(
+                guild_id=guild_id,
+                discord_id=int(discord_id)
+            )
+            session.add(ping)
 
         await session.commit()
-        result = row.to_dict()
+        result = config.to_dict()
+
+        # Ajouter les pings au dict
+        result['ping_list'] = ping_list
 
     log.info("Config ONU mise à jour complète (guild=%s)", guild_id)
     return result
@@ -63,94 +78,75 @@ async def update_full_config(data: dict) -> dict:
 
 async def update_partial(guild_id: int, partial: dict) -> dict:
     """Mise à jour partielle (sans toucher ping_list)"""
-    guild_id_str = str(guild_id)
-    async with get_session() as session:
-        result = await session.execute(
-            select(ONUConfig)
-            .options(selectinload(ONUConfig.pings))
-            .where(ONUConfig.id_guild == guild_id_str)
-        )
-        row = result.scalars().first()
+    guild_id = int(guild_id)
 
-        if row is None:
+    async with get_session() as session:
+        config = await session.get(AlphaONUConfig, guild_id)
+
+        if config is None:
             raise ValueError(f"ONU config not found for guild {guild_id}")
 
         for key, value in partial.items():
-            if key not in ("guild_id", "ping_list"):
-                if key in ("role_id", "channel_id"):
-                    value = str(value)
-                setattr(row, key, value)
+            if key not in ("guild_id", "ping_list") and hasattr(config, key):
+                setattr(config, key, value)
 
         await session.commit()
-        result = row.to_dict()
+        result = config.to_dict()
 
     log.info("Config ONU mise à jour partielle (guild=%s)", guild_id)
     return result
 
 
-async def add_ping(guild_id: int, discord_id: str, name: str) -> dict:
+async def add_ping(guild_id: int, discord_id: int, name: str) -> dict:
     """Ajoute un utilisateur à la ping_list"""
-    guild_id_str = str(guild_id)
-    async with get_session() as session:
-        result = await session.execute(
-            select(ONUConfig)
-            .options(selectinload(ONUConfig.pings))
-            .where(ONUConfig.id_guild == guild_id_str)
-        )
-        row = result.scalars().first()
+    guild_id = int(guild_id)
+    discord_id = int(discord_id)
 
-        if row is None:
+    async with get_session() as session:
+        config = await session.get(AlphaONUConfig, guild_id)
+
+        if config is None:
             raise ValueError(f"ONU config not found for guild {guild_id}")
 
+        # Vérifier si le ping existe déjà
         existing = await session.scalar(
-            select(ONUPing).where(
-                ONUPing.guild_id == guild_id_str,
-                ONUPing.discord_id == discord_id
+            select(AlphaONUPingMember).where(
+                AlphaONUPingMember.guild_id == guild_id,
+                AlphaONUPingMember.discord_id == discord_id
             )
         )
+
         if existing is None:
-            ping = ONUPing(guild_id=guild_id_str, discord_id=discord_id, name=name)
+            ping = AlphaONUPingMember(guild_id=guild_id, discord_id=discord_id)
             session.add(ping)
+            await session.commit()
 
-        await session.commit()
-
-        # Re-fetch après commit pour avoir les pings à jour
-        result = await session.execute(
-            select(ONUConfig)
-            .options(selectinload(ONUConfig.pings))
-            .where(ONUConfig.id_guild == guild_id_str)
-        )
-        row = result.scalars().first()
-        result = row.to_dict()
+        result = config.to_dict()
 
     log.info("Ping ajouté: %s (%s)", name, discord_id)
     return result
 
 
-async def remove_ping(guild_id: int, discord_id: str) -> dict:
+async def remove_ping(guild_id: int, discord_id: int) -> dict:
     """Supprime un utilisateur de la ping_list"""
-    guild_id_str = str(guild_id)
+    guild_id = int(guild_id)
+    discord_id = int(discord_id)
+
     async with get_session() as session:
         await session.execute(
-            delete(ONUPing).where(
-                ONUPing.guild_id == guild_id_str,
-                ONUPing.discord_id == discord_id
+            delete(AlphaONUPingMember).where(
+                AlphaONUPingMember.guild_id == guild_id,
+                AlphaONUPingMember.discord_id == discord_id
             )
         )
         await session.commit()
 
-        # Fetch après commit pour avoir les pings à jour
-        result = await session.execute(
-            select(ONUConfig)
-            .options(selectinload(ONUConfig.pings))
-            .where(ONUConfig.id_guild == guild_id_str)
-        )
-        row = result.scalars().first()
+        config = await session.get(AlphaONUConfig, guild_id)
 
-        if row is None:
+        if config is None:
             raise ValueError(f"ONU config not found for guild {guild_id}")
 
-        result = row.to_dict()
+        result = config.to_dict()
 
     log.info("Ping supprimé: %s", discord_id)
     return result

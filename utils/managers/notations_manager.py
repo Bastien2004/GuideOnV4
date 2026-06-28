@@ -1,5 +1,5 @@
 """
-utils/managers/notations_manager.py
+utils/managers/notations_manager.py (CORRIGÉ)
 """
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import time
 
 from sqlalchemy import select
 
-from utils.db.models.notations import NotationConfig
+from utils.db.models.alpha_nota_config import AlphaNotaConfig
 from utils.db.engine import get_session
 
 
@@ -20,7 +20,6 @@ CACHE_TTL_SECONDS = 60
 
 # ──────────────────────────────────────────────────────────────────────────
 # État du cache (module-level, partagé dans le process)
-#   _cache -> dict brut de la config (None si pas encore chargé)
 # ──────────────────────────────────────────────────────────────────────────
 _cache: dict | None = None
 _cache_loaded_at: float = 0.0          # time.monotonic() du dernier refresh OK
@@ -42,7 +41,7 @@ async def refresh_cache() -> None:
     async with _refresh_lock:
         try:
             async with get_session() as session:
-                row = await session.scalar(select(NotationConfig))
+                row = await session.scalar(select(AlphaNotaConfig))
         except Exception:
             log.exception("Refresh cache notations échoué — on garde l'ancien cache")
             return
@@ -100,7 +99,7 @@ async def get_config() -> dict | None:
     Renvoie None si aucune config n'est enregistrée.
     """
     async with get_session() as session:
-        row = await session.scalar(select(NotationConfig))
+        row = await session.scalar(select(AlphaNotaConfig))
     return row.to_dict() if row is not None else None
 
 
@@ -109,17 +108,21 @@ async def get_config() -> dict | None:
 # ══════════════════════════════════════════════════════════════════════════
 
 async def update_full_config(data: dict) -> dict:
-    guild_id = data["id_guild_notations"]
+    """Met à jour la config complète des notations"""
+    guild_id = int(data.get("guild_id") or data.get("id_guild_notations"))
 
     async with get_session() as session:
-        row = await session.get(NotationConfig, guild_id)
+        row = await session.get(AlphaNotaConfig, guild_id)
         if row is None:
-            row = NotationConfig(**data)
-            session.add(row)
+            # Créer une nouvelle config
+            row = AlphaNotaConfig(guild_id=guild_id)
         else:
+            # Mettre à jour les champs existants
             for key, value in data.items():
-                setattr(row, key, value)
+                if key not in ("guild_id", "id_guild_notations") and hasattr(row, key):
+                    setattr(row, key, value)
 
+        session.add(row)
         await session.flush()
         await session.commit()
         result = row.to_dict()
@@ -130,14 +133,16 @@ async def update_full_config(data: dict) -> dict:
 
 
 async def update_partial(partial: dict) -> dict:
+    """Met à jour partiellement la config des notations"""
     async with get_session() as session:
-        row = await session.scalar(select(NotationConfig))
+        row = await session.scalar(select(AlphaNotaConfig))
         if row is None:
             raise ValueError(
                 "Aucune config notations en DB — utilisez update_full_config() d'abord."
             )
         for key, value in partial.items():
-            setattr(row, key, value)
+            if hasattr(row, key):
+                setattr(row, key, value)
 
         await session.flush()
         await session.commit()
