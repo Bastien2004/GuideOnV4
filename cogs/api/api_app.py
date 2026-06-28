@@ -1,5 +1,5 @@
 """
-cogs/api/api_app.py — API Boutique + ONU
+cogs/api/api_app.py — API Boutique + ONU (CORRIGÉE)
 """
 
 from __future__ import annotations
@@ -46,30 +46,46 @@ class ShopPayload(BaseModel):
 
 
 # ──────────────────────────────────────────────────────────────────────────
-# Schémas — ONU
+# Schémas — ONU (CORRIGÉ pour nouveau modèle AlphaONUConfig)
 # ──────────────────────────────────────────────────────────────────────────
 
-class TimeModel(BaseModel):
-    heure: int
-    minute: int
-
-
 class ONUConfigUpdate(BaseModel):
+    """Modèle pour mise à jour config ONU (accepte anciens ET nouveaux champs)"""
     guild_id: int
-    jour_onu: int
-    pre_annonce: TimeModel
-    annonce: TimeModel
-    timezone: str
-    ping_mp: bool
-    ping_list: dict[str, str]
-    role_id: int
-    channel_id: int
-    image_name: str
+    jour_onu: int | None = None
+    pre_heure: int | None = None
+    pre_minute: int | None = None
+    ann_heure: int | None = None
+    ann_minute: int | None = None
+    timezone: str = "Europe/Paris"
+    ping_mp: bool = False
+    ping_list: dict | list | None = None  # Accepte dict OU list
+    role_id: int | None = None
+    channel_id: int | None = None
+    image_name: str | None = None
+    join_url: str | None = None
+    enabled: bool = True
+
+    @field_validator("ping_list", mode="before")
+    @classmethod
+    def convert_ping_list(cls, v):
+        """Convertir list en dict vide si nécessaire"""
+        if isinstance(v, list):
+            return {}
+        return v or {}
 
 
 class ONUPingPayload(BaseModel):
-    discord_id: str
-    name: str
+    discord_id: int  # Peut être int ou str, sera converti
+    name: str | None = None
+
+    @field_validator("discord_id", mode="before")
+    @classmethod
+    def convert_discord_id(cls, v):
+        """Convertir string en int si nécessaire"""
+        if isinstance(v, str):
+            return int(v)
+        return v
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -141,16 +157,16 @@ async def get_onu_config(request: Request, guild_id: int):
 
 @app.post("/onu/update_all", dependencies=[Depends(require_token)])
 async def update_onu_config(request: Request, config: ONUConfigUpdate):
-    return await om.update_full_config(config.dict())
+    return await om.update_full_config(config.model_dump(exclude_none=True))
 
 
 @app.post("/onu/{guild_id}/ping/add", dependencies=[Depends(require_token)])
 async def add_onu_ping(request: Request, guild_id: int, ping: ONUPingPayload):
-    return await om.add_ping(guild_id, ping.discord_id, ping.name)
+    return await om.add_ping(guild_id, ping.discord_id, ping.name or "Unknown")
 
 
 @app.post("/onu/{guild_id}/ping/remove", dependencies=[Depends(require_token)])
-async def remove_onu_ping(request: Request, guild_id: int, discord_id: str):
+async def remove_onu_ping(request: Request, guild_id: int, discord_id: int):
     return await om.remove_ping(guild_id, discord_id)
 
 
