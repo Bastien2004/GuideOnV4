@@ -1,5 +1,6 @@
 """
-cogs/api/api_notations.py — API Notations
+cogs/api/notation_api_app.py — API Notations (CORRIGÉE)
+Mappe les clés du client vers les vrais noms de colonnes dans la BD
 """
 
 from __future__ import annotations
@@ -24,6 +25,39 @@ _VALID_TIME_KEYS = [
     "time_send_notations",
 ]
 
+# ✅ MAPPING: Clés client → Vrais noms de colonnes BD
+TIME_KEY_MAPPING = {
+    "time_ask_availability": {  # Présence & Rappels
+        "weekday": "send_presence_weekday",
+        "hour": "send_presence_hour",
+        "minute": "send_presence_minute",
+    },
+    "time_ask_beginning": {  # Deadline
+        "weekday": "deadline_weekday",
+        "hour": "deadline_hour",
+        "minute": "deadline_minute",
+    },
+    "time_ask_finish": {  # Envoi public
+        "weekday": "send_public_weekday",
+        "hour": "send_public_hour",
+        "minute": "send_public_minute",
+    },
+    "time_send_notations": {  # Envoi notations (même que finish)
+        "weekday": "send_public_weekday",
+        "hour": "send_public_hour",
+        "minute": "send_public_minute",
+    },
+}
+
+# ✅ MAPPING: SetIds payload → Vrais noms de colonnes BD
+IDS_MAPPING = {
+    "guild_id": "guild_id",
+    "staff_chan_id": "channel_staff_id",
+    "notif_chan_id": "channel_public_id",
+    "logs_chan_id": "channel_logs_id",
+    "role_id": "role_id",
+}
+
 
 class TimeSchedule(BaseModel):
     weekday: int
@@ -37,10 +71,10 @@ class NotationConfigUpdate(BaseModel):
     id_channel_notations: int
     id_channel_logs: int
     id_role_notation: int
-    time_ask_availability: TimeSchedule
-    time_ask_beginning: TimeSchedule
-    time_ask_finish: TimeSchedule
-    time_send_notations: TimeSchedule
+    time_ask_availability: TimeSchedule | None = None
+    time_ask_beginning: TimeSchedule | None = None
+    time_ask_finish: TimeSchedule | None = None
+    time_send_notations: TimeSchedule | None = None
 
 
 class SetIdsPayload(BaseModel):
@@ -56,33 +90,68 @@ class SetTimePayload(BaseModel):
     schedule: TimeSchedule
 
 
-# Endpoints (gardez ceux-ci)
+# ──────────────────────────────────────────────────────────────────────────
+# Endpoints
+# ──────────────────────────────────────────────────────────────────────────
 
 @app.get("/notations", dependencies=[Depends(require_token)])
 async def get_notation_config(request: Request):
+    """Récupère la config notations et retourne directement les champs BD"""
     return await nm.get_config()
 
 
 @app.post("/notations/update_all", dependencies=[Depends(require_token)])
 async def update_full_config(request: Request, config: NotationConfigUpdate):
-    updated = await nm.update_full_config(config.dict())
+    """Met à jour la config complète (tous les champs)"""
+
+    # ✅ Mapper les champs du client vers les vrais noms BD
+    payload = {
+        "guild_id": config.id_guild_notations,
+        "channel_staff_id": config.id_channel_staff_notations,
+        "channel_public_id": config.id_channel_notations,
+        "channel_logs_id": config.id_channel_logs,
+        "role_id": config.id_role_notation,
+    }
+
+    # Ajouter les timings s'ils sont fournis
+    if config.time_ask_availability:
+        payload["send_presence_weekday"] = config.time_ask_availability.weekday
+        payload["send_presence_hour"] = config.time_ask_availability.hour
+        payload["send_presence_minute"] = config.time_ask_availability.minute
+
+    if config.time_ask_beginning:
+        payload["deadline_weekday"] = config.time_ask_beginning.weekday
+        payload["deadline_hour"] = config.time_ask_beginning.hour
+        payload["deadline_minute"] = config.time_ask_beginning.minute
+
+    if config.time_ask_finish:
+        payload["send_public_weekday"] = config.time_ask_finish.weekday
+        payload["send_public_hour"] = config.time_ask_finish.hour
+        payload["send_public_minute"] = config.time_ask_finish.minute
+
+    log.info("[Notations] update_full_config payload: %s", payload)
+
+    updated = await nm.update_full_config(payload)
     return updated
 
 
 @app.post("/notations/set_ids", dependencies=[Depends(require_token)])
 async def set_ids(request: Request, payload: SetIdsPayload):
-    # ✅ Utiliser directement les noms du payload
+    """Met à jour les IDs (channels et role)"""
+
+    # ✅ Mapper les noms du payload vers les vrais colonnes BD
     partial = {}
+
     if payload.guild_id is not None:
-        partial['id_guild_notations'] = payload.guild_id
+        partial["guild_id"] = payload.guild_id
     if payload.staff_chan_id is not None:
-        partial['id_channel_staff_notations'] = payload.staff_chan_id
+        partial["channel_staff_id"] = payload.staff_chan_id
     if payload.notif_chan_id is not None:
-        partial['id_channel_notations'] = payload.notif_chan_id
+        partial["channel_public_id"] = payload.notif_chan_id
     if payload.logs_chan_id is not None:
-        partial['id_channel_logs'] = payload.logs_chan_id
+        partial["channel_logs_id"] = payload.logs_chan_id
     if payload.role_id is not None:
-        partial['id_role_notation'] = payload.role_id
+        partial["role_id"] = payload.role_id
 
     if not partial:
         raise HTTPException(
@@ -90,16 +159,38 @@ async def set_ids(request: Request, payload: SetIdsPayload):
             detail="Au moins un champ doit être fourni.",
         )
 
+    log.info("[Notations] set_ids partial: %s", partial)
+
     updated = await nm.update_partial(partial)
     return updated
 
 
 @app.post("/notations/set_time", dependencies=[Depends(require_token)])
 async def set_specific_time(request: Request, payload: SetTimePayload):
+    """Met à jour un timing spécifique"""
+
     if payload.key not in _VALID_TIME_KEYS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Clé de temps **invalide**. Valeurs acceptées : {_VALID_TIME_KEYS}",
         )
-    updated = await nm.update_partial({payload.key: payload.schedule.dict()})
+
+    # ✅ MAPPING: Convertir les clés du client en vrais noms de colonnes BD
+    mapping = TIME_KEY_MAPPING.get(payload.key)
+    if not mapping:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Mapping introuvable pour {payload.key}",
+        )
+
+    # Construire le payload avec les vrais noms de colonnes
+    partial = {
+        mapping["weekday"]: payload.schedule.weekday,
+        mapping["hour"]: payload.schedule.hour,
+        mapping["minute"]: payload.schedule.minute,
+    }
+
+    log.info("[Notations] set_time key=%s → partial=%s", payload.key, partial)
+
+    updated = await nm.update_partial(partial)
     return updated
