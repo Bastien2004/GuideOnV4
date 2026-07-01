@@ -245,7 +245,7 @@ class WikiHomeView(LayoutView):
         c.add_item(Separator())
         c.add_item(TextDisplay(
             "Bienvenue dans le **wiki** de GuideON !\n"
-            "Retrouve ici toutes nos commandes triées catégorie."
+            "Retrouve ici toutes nos commandes triées par catégorie."
         ))
         c.add_item(Separator())
         c.add_item(TextDisplay(
