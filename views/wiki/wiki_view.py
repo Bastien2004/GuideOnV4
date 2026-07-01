@@ -244,12 +244,11 @@ class WikiHomeView(LayoutView):
         c.add_item(TextDisplay("# 📖 Wiki GuideON"))
         c.add_item(Separator())
         c.add_item(TextDisplay(
-            "Bienvenue dans le **centre d'aide** de GuideON !\n"
-            "Retrouve ici toutes les commandes organisées par catégorie."
+            "Bienvenue dans le **wiki** de GuideON !\n"
+            "Retrouve ici toutes nos commandes triées catégorie."
         ))
         c.add_item(Separator())
         c.add_item(TextDisplay(
-            f"**Serveurs :** `{len(bot.guilds)}`\n"
             f"**Utilisateurs :** `{sum(g.member_count or 0 for g in bot.guilds)}`\n"
             f"**Commandes :** `{total_cmds}`\n"
             f"**Uptime :** `{_uptime(bot)}`"
@@ -392,7 +391,7 @@ class WikiSupportView(LayoutView):
         c.add_item(TextDisplay(
             "Notre équipe est disponible pour t'aider !\n\n"
             "**📬 Discord :** https://discord.gg/ZKX3YQdDFT\n"
-            "**🌐 Site web :** https://guideonbot.fr/\n"
+            "**🌐 Site web :** https://guideonbot.guideon.dev/\n"
             "**📧 Email :** gestion.guideon@gmail.com"
         ))
         c.add_item(Separator())
@@ -400,7 +399,7 @@ class WikiSupportView(LayoutView):
             Button(label="Rejoindre le Discord", emoji="💬",
                    style=ButtonStyle.link, url="https://discord.gg/ZKX3YQdDFT"),
             Button(label="Site web", emoji="🌐",
-                   style=ButtonStyle.link, url="https://guideonbot.fr/"),
+                   style=ButtonStyle.link, url="https://guideonbot.guideon.dev/"),
         ))
         c.add_item(Separator())
         c.add_item(ActionRow(*_nav_buttons(self.owner_id, active="support")))
