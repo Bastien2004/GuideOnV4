@@ -4,11 +4,15 @@ cogs/events/role_react_alpha.py — Listener Rôle Réaction Alpha.
 Gère les clics sur les boutons de notification via on_interaction.
 custom_id pattern : "role_react_{role_id}"
 
+Cooldown anti-spam : COOLDOWN_SECONDS entre deux clics d'un même
+utilisateur sur un même bouton (évite le spam add_roles/remove_roles).
+
 Fonctionne après restart sans add_view() grâce au pattern on_interaction.
 """
 from __future__ import annotations
 
 import logging
+import time
 
 import discord
 from discord.ext import commands
@@ -18,12 +22,14 @@ from utils.managers.alpha_role_react_manager import get_rr_entries
 log = logging.getLogger(__name__)
 
 CUSTOM_ID_PREFIX = "role_react_"
+COOLDOWN_SECONDS = 5
 
 
 class RoleReactAlphaListener(commands.Cog):
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
+        self._last_click: dict[tuple[int, int], float] = {}
 
     @commands.Cog.listener("on_interaction")
     async def on_role_react_click(self, interaction: discord.Interaction) -> None:
@@ -47,6 +53,17 @@ class RoleReactAlphaListener(commands.Cog):
         member = interaction.user
         if not isinstance(member, discord.Member):
             return
+
+        key = (member.id, role_id)
+        now = time.monotonic()
+        last = self._last_click.get(key)
+        if last is not None and (now - last) < COOLDOWN_SECONDS:
+            remaining = COOLDOWN_SECONDS - (now - last)
+            return await interaction.response.send_message(
+                f"⏳ Doucement ! Réessaie dans {remaining:.1f}s.",
+                ephemeral=True,
+            )
+        self._last_click[key] = now
 
         # Vérifier que ce rôle est bien dans la liste configurée
         entries = await get_rr_entries(guild.id)

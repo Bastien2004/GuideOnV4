@@ -11,6 +11,7 @@ import discord
 from discord import ButtonStyle
 from discord.ui import ActionRow, Button, Container, LayoutView, Separator, TextDisplay
 
+ROLE_SEPARATOR = "➤"
 
 def _parse_emoji(s: str | None) -> discord.PartialEmoji | str | None:
     """Convertit une chaîne emoji en objet Discord si c'est un emoji custom."""
@@ -53,9 +54,9 @@ def build_role_react_view(entries: list[dict]) -> LayoutView:
     c_list = Container()
     lines = []
     for e in entries:
-        prefix = f"{e['emoji']} " if e.get("emoji") else "🔹 "
+        emoji = f"{e['emoji']} " if e.get("emoji") else ""
         desc = f"\n-# {e['description']}" if e.get("description") else ""
-        lines.append(f"{prefix}**{e['label']}**{desc}")
+        lines.append(f"{ROLE_SEPARATOR} {emoji}**{e['label']}**{desc}")
 
     c_list.add_item(TextDisplay("\n".join(lines)))
     c_list.add_item(Separator())
