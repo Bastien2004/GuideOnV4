@@ -69,8 +69,10 @@ async def save_rr_config(guild_id: int, **fields: object) -> dict:
         async with get_session() as session:
             row = await session.get(AlphaRoleReactConfig, guild_id)
             if row is None:
-                row = AlphaRoleReactConfig(guild_id=guild_id,
-                                           channel_id=None, message_id=None, **clean)
+                defaults = {"channel_id": None, "message_id": None}
+                defaults.update(clean)
+                row = AlphaRoleReactConfig(guild_id=guild_id, **defaults)
+                
                 session.add(row)
             else:
                 for k, v in clean.items():
