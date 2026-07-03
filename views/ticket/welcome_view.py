@@ -107,7 +107,8 @@ class AddUserModal(discord.ui.Modal):
             )
         try:
             await interaction.channel.set_permissions(
-                member, view_channel=True, send_messages=True, read_message_history=True
+                member, view_channel=True, send_messages=True,
+                read_message_history=True, attach_files=True,
             )
         except discord.HTTPException:
             return await interaction.followup.send(

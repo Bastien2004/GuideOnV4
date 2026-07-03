@@ -182,18 +182,20 @@ class CreateTicketModal(discord.ui.Modal):
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(view_channel=False),
             user: discord.PermissionOverwrite(
-                view_channel=True, send_messages=True, read_message_history=True
+                view_channel=True, send_messages=True, read_message_history=True,
+                attach_files=True,
             ),
             guild.me: discord.PermissionOverwrite(
                 view_channel=True, send_messages=True,
                 manage_channels=True, read_message_history=True,
+                attach_files=True,
             ),
         }
         for rid in panel.get("staff_roles", []):
             role = guild.get_role(int(rid))
             if role:
                 overwrites[role] = discord.PermissionOverwrite(
-                    view_channel=True, send_messages=True
+                    view_channel=True, send_messages=True, attach_files=True,
                 )
 
         category = guild.get_channel(panel.get("ticket_category_id"))

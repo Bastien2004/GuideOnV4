@@ -174,7 +174,8 @@ class ReopenButton(Button):
         if creator:
             try:
                 await interaction.channel.set_permissions(
-                    creator, view_channel=True, send_messages=True, read_message_history=True
+                    creator, view_channel=True, send_messages=True,
+                    read_message_history=True, attach_files=True,
                 )
             except discord.HTTPException:
                 pass
