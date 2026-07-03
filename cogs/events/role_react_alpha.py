@@ -1,7 +1,14 @@
 """
 cogs/events/role_react_alpha.py — Listener Rôle Réaction Alpha.
-"""
 
+Gère les clics sur les boutons de notification via on_interaction.
+custom_id pattern : "role_react_{role_id}"
+
+Cooldown anti-spam : COOLDOWN_SECONDS entre deux clics d'un même
+utilisateur sur un même bouton (évite le spam add_roles/remove_roles).
+
+Fonctionne après restart sans add_view() grâce au pattern on_interaction.
+"""
 from __future__ import annotations
 
 import logging
@@ -22,6 +29,10 @@ class RoleReactAlphaListener(commands.Cog):
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
+        # Cooldown anti-spam : (user_id, role_id) -> monotonic du dernier clic.
+        # Volontairement en mémoire (pas de valeur en cas de restart, c'est
+        # voulu) et sans purge périodique : la cardinalité est bornée par
+        # (membres actifs) × (MAX_ROLES=10), donc négligeable en mémoire.
         self._last_click: dict[tuple[int, int], float] = {}
 
     @commands.Cog.listener("on_interaction")
@@ -47,6 +58,8 @@ class RoleReactAlphaListener(commands.Cog):
         if not isinstance(member, discord.Member):
             return
 
+        # Cooldown anti-spam (avant tout appel cache/DB, pour un rejet le
+        # moins coûteux possible en cas de spam-clic)
         key = (member.id, role_id)
         now = time.monotonic()
         last = self._last_click.get(key)

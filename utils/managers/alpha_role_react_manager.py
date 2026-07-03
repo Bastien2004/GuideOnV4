@@ -112,11 +112,6 @@ async def add_rr_entry(
     """Ajoute une entrée. Retourne False si déjà 10 rôles ou rôle déjà présent."""
     async with _lock:
         async with get_session() as session:
-            # Vérif max
-            count = await session.scalar(
-                select(AlphaRoleReactEntry.id)
-                .where(AlphaRoleReactEntry.guild_id == guild_id)
-            )
             entries_now = (await session.execute(
                 select(AlphaRoleReactEntry)
                 .where(AlphaRoleReactEntry.guild_id == guild_id)

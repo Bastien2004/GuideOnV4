@@ -1,28 +1,14 @@
 """
-Import central de tous les modèles.
+utils/db/__init__.py — marqueur de package, intentionnellement minimal.
 
-Alembic autogenerate scanne ce fichier pour détecter les changements de schéma.
-TOUT nouveau modèle DOIT être importé ici, sinon Alembic ne créera pas sa table.
+Le registre central des modèles — celui que lit réellement Alembic pour
+l'autogenerate (voir migrations/env.py : `from utils.db.models import Base`)
+— est utils/db/models/__init__.py. Tout nouveau modèle doit être importé
+LÀ-BAS, pas ici.
+
+Historique : ce fichier contenait auparavant sa propre liste partielle
+d'imports (Bienvenue, Boutique, Permission...), jamais importée nulle
+part dans le code (vérifié), qui avait divergé du vrai registre — ces
+3 modèles étaient donc invisibles pour Alembic. Supprimé le 2026-07-03.
 """
-from utils.db.base import Base
-
-from utils.db.models.control_admin import CommandControl
-from utils.db.models.boutique import ShopEntry, ShopRole
-from utils.db.models.bienvenue import BienvenueConfig
-from utils.db.models.permission import PermissionEntry, PermissionRole
-
-# TODO (au fur et à mesure que les systèmes sont portés en V4) :
-# from utils.db.models.ticket import Ticket, TicketPanel, TicketBan
-# from utils.db.models.giveaway import Giveaway, GiveawayEntry
-# from utils.db.models.exp import ExpEntry, ExpConfig
-# etc.
-
-__all__ = [
-    "Base",
-    "CommandControl",
-    "ShopEntry",
-    "ShopRole",
-    "BienvenueConfig",
-    "PermissionEntry",
-    "PermissionRole",
-]
+from utils.db.models import Base  # noqa: F401 — reste dispo via `from utils.db import Base` par compat

@@ -1,5 +1,10 @@
 """
-utils/managers/notations_manager.py (CORRIGÉ)
+utils/managers/notations_manager.py — Manager API pour AlphaNotaConfig.
+
+Miroir en cache sync de la config notations, pour des lectures rapides
+côté API (cogs/api/notation_api_app.py) sans aller-retour DB à chaque
+requête. Séparé du manager Discord (alpha_nota_manager.py) qui a son
+propre cache TTL indépendant sur le même modèle.
 """
 from __future__ import annotations
 
@@ -10,7 +15,7 @@ import time
 from sqlalchemy import select
 
 from utils.db.models.alpha_nota_config import AlphaNotaConfig
-from utils.db.engine import get_session
+from utils.db.session import get_session
 
 
 log = logging.getLogger(__name__)
@@ -124,7 +129,6 @@ async def update_full_config(data: dict) -> dict:
 
         session.add(row)
         await session.flush()
-        await session.commit()
         result = row.to_dict()
 
     await refresh_cache()
@@ -145,7 +149,6 @@ async def update_partial(partial: dict) -> dict:
                 setattr(row, key, value)
 
         await session.flush()
-        await session.commit()
         result = row.to_dict()
 
     await refresh_cache()

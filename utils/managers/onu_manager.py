@@ -1,12 +1,16 @@
 """
-utils/managers/onu_manager.py — Gestion ONU Config V4 (CORRIGÉ)
+utils/managers/onu_manager.py — Manager API pour AlphaONUConfig / AlphaONUPingMember.
+
+Utilisé par les routes /onu/* de cogs/api/api_app.py. Séparé du manager
+Discord (alpha_onu_manager.py) qui a son propre cache TTL indépendant
+sur le même modèle.
 """
 from __future__ import annotations
 
 import logging
 from sqlalchemy import delete, select
 
-from utils.db.engine import get_session
+from utils.db.session import get_session
 from utils.db.models.alpha_onu_config import AlphaONUConfig, AlphaONUPingMember
 
 log = logging.getLogger(__name__)
@@ -66,7 +70,6 @@ async def update_full_config(data: dict) -> dict:
             )
             session.add(ping)
 
-        await session.commit()
         result = config.to_dict()
 
         # Ajouter les pings au dict
@@ -90,7 +93,6 @@ async def update_partial(guild_id: int, partial: dict) -> dict:
             if key not in ("guild_id", "ping_list") and hasattr(config, key):
                 setattr(config, key, value)
 
-        await session.commit()
         result = config.to_dict()
 
     log.info("Config ONU mise à jour partielle (guild=%s)", guild_id)
@@ -119,7 +121,6 @@ async def add_ping(guild_id: int, discord_id: int, name: str) -> dict:
         if existing is None:
             ping = AlphaONUPingMember(guild_id=guild_id, discord_id=discord_id)
             session.add(ping)
-            await session.commit()
 
         result = config.to_dict()
 
@@ -139,7 +140,6 @@ async def remove_ping(guild_id: int, discord_id: int) -> dict:
                 AlphaONUPingMember.discord_id == discord_id
             )
         )
-        await session.commit()
 
         config = await session.get(AlphaONUConfig, guild_id)
 

@@ -1,17 +1,14 @@
 """
-Migration ONU V3 → V4 (CORRIGÉE)
-Crée les tables alpha_onu_configs et alpha_onu_ping_members, puis insère les données du JSON.
-
-Usage:
-    docker cp /chemin/to/onu_migration.py guideon-v4-bot:/app/
-    docker exec guideon-v4-bot python /app/onu_migration.py
+cogs/api/onu_api.py - Crée les tables alpha_onu_configs et alpha_onu_ping_members.
 """
+
 import asyncio
 import json
 import os
 import logging
 
-from utils.db.engine import engine, get_session
+from utils.db.engine import engine
+from utils.db.session import get_session
 from utils.db.models.alpha_onu_config import AlphaONUConfig, AlphaONUPingMember
 from utils.db.base import Base
 

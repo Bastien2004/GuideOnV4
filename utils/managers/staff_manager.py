@@ -1,5 +1,10 @@
 """
-utils/managers/staff_manager.py
+utils/managers/staff_manager.py — Manager API pour StaffConfig.
+
+⚠️ Non câblé actuellement : aucune route API ni commande Discord n'importe
+ce module (vérifié par recherche exhaustive le 2026-07-03). La table
+staff_config existe en DB (migration déjà appliquée) mais rien ne la lit
+ni ne l'écrit en pratique. Candidat à suppression ou à finir de câbler.
 """
 from __future__ import annotations
 
@@ -10,7 +15,7 @@ import time
 from sqlalchemy import select
 
 from utils.db.models.staff import StaffConfig
-from utils.db.engine import get_session
+from utils.db.session import get_session
 
 log = logging.getLogger(__name__)
 
@@ -101,7 +106,6 @@ async def update_full_config(data: dict) -> dict:
                     setattr(row, key, value)
 
         await session.flush()
-        await session.commit()
         result = row.to_dict()
 
     await refresh_cache()
@@ -123,7 +127,6 @@ async def update_partial(partial: dict) -> dict:
                 setattr(row, key, value)
 
         await session.flush()
-        await session.commit()
         result = row.to_dict()
 
     await refresh_cache()

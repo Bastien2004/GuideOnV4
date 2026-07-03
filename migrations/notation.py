@@ -2,7 +2,7 @@
 import asyncio
 import json
 from sqlalchemy import text
-from utils.db.engine import get_session
+from utils.db.session import get_session
 
 # Données actuelles
 CONFIG_DATA = {

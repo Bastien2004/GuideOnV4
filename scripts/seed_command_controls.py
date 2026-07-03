@@ -10,7 +10,7 @@ import asyncio
 
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from utils.db.engine import get_session
+from utils.db.session import get_session
 from utils.db.models.control_admin import CommandControl
 
 COMMANDS = {
@@ -135,7 +135,6 @@ async def seed() -> None:
         )
         stmt = stmt.on_conflict_do_nothing(index_elements=["command_name"])
         result = await session.execute(stmt)
-        await session.commit()
     print(f"✅ Seed terminé — {result.rowcount} nouvelle(s) commande(s) insérée(s) "
           f"({len(COMMANDS)} référencées au total).")
 

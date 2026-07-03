@@ -1,13 +1,16 @@
 """
 utils/db/engine.py — Moteur SQLAlchemy ASYNC.
+
+Ne fournit QUE le moteur bas niveau (engine, init_db, close_db). Pour une
+session, importer get_session() depuis utils.db.session — c'est la seule
+implémentation qui commit/rollback correctement (voir son docstring).
 """
 from __future__ import annotations
 
 import logging
-from contextlib import asynccontextmanager
 
 from sqlalchemy.pool import NullPool
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from utils.settings import settings
 
@@ -18,15 +21,6 @@ engine: AsyncEngine = create_async_engine(
     echo=settings.database_echo,
     poolclass=NullPool,
 )
-
-_session_factory = async_sessionmaker(engine, expire_on_commit=False)
-
-
-@asynccontextmanager
-async def get_session() -> AsyncSession:
-    """Context manager : async with get_session() as session:"""
-    async with _session_factory() as session:
-        yield session
 
 
 async def init_db() -> None:

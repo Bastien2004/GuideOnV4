@@ -14,7 +14,8 @@ import logging
 # Fix pour les imports depuis migrations/
 sys.path.insert(0, '/app')
 
-from utils.db.engine import engine, get_session
+from utils.db.engine import engine
+from utils.db.session import get_session
 from utils.db.models.onu import ONUConfig, ONUPing
 from utils.db.base import Base
 

@@ -5,6 +5,9 @@ Import central de tous les modèles.
 from utils.db.base import Base
 
 from utils.db.models.control_admin import CommandControl
+from utils.db.models.bienvenue import BienvenueConfig
+from utils.db.models.boutique import ShopEntry, ShopRole
+from utils.db.models.permission import PermissionEntry, PermissionRole
 from utils.db.models.ticket import Ticket, TicketPanel, TicketPanelStaffRole
 from utils.db.models.autorole import AutoRoleConfig
 from utils.db.models.reaction_role import ReactionRoleCouple, ReactionRoleMessage
@@ -26,6 +29,11 @@ from utils.db.models.staff import StaffConfig
 __all__ = [
     "Base",
     "CommandControl",
+    "BienvenueConfig",
+    "ShopEntry",
+    "ShopRole",
+    "PermissionEntry",
+    "PermissionRole",
     "Ticket",
     "TicketPanel",
     "TicketPanelStaffRole",
@@ -55,4 +63,5 @@ __all__ = [
     "AlphaEventConfig",
     "CommandStatDaily",
     "BotBan",
+    "StaffConfig",
 ]
