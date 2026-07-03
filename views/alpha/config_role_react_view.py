@@ -23,7 +23,7 @@ from utils.managers.alpha_role_react_manager import (
 from views._components.channel_select import ChannelSelect
 from views._components.role_select import RoleSelect
 from views._components.text_modal import TextModal
-from views.alpha.role_react_view import build_role_react_view
+from views.alpha.role_react_view import build_role_react_view, is_valid_emoji, parse_emoji
 
 log = logging.getLogger(__name__)
 
@@ -244,7 +244,7 @@ class _RolesView(LayoutView):
                     discord.SelectOption(
                         label=e["label"],
                         value=str(e["id"]),
-                        emoji=e.get("emoji") or None,
+                        emoji=parse_emoji(e.get("emoji")),
                         description=f"Position {e['position']+1}",
                     )
                     for e in self.entries
@@ -327,7 +327,14 @@ class _EditRoleView(LayoutView):
 
     def _make_text_modal(self, title: str, label_txt: str, field: str, current: str | None):
         async def on_submit(i: Interaction, value: str) -> None:
-            await update_rr_entry(self.guild_id, self.entry["id"], **{field: value.strip() or None})
+            value = value.strip()
+            if field == "emoji" and value and not is_valid_emoji(value):
+                return await i.response.send_message(
+                    f"❌ `{value}` n'est pas un emoji valide — "
+                    "vérifie que le nom et l'emoji n'ont pas été inversés.",
+                    ephemeral=True,
+                )
+            await update_rr_entry(self.guild_id, self.entry["id"], **{field: value or None})
             entries = await get_rr_entries(self.guild_id)
             entry = next((e for e in entries if e["id"] == self.entry["id"]), None)
             if entry:
@@ -433,6 +440,14 @@ class _AddStep1View(LayoutView):
                 label = self_.label_input.value.strip()
                 emoji = self_.emoji_input.value.strip() or None
                 desc  = self_.desc_input.value.strip() or None
+
+                if emoji and not is_valid_emoji(emoji):
+                    return await inter.response.send_message(
+                        f"❌ `{emoji}` n'est pas un emoji valide (champ **Emoji**) — "
+                        "vérifie que le nom et l'emoji n'ont pas été inversés.",
+                        ephemeral=True,
+                    )
+
                 ok = await add_rr_entry(self_._gid, self_._rid, label, emoji, desc)
                 entries = await get_rr_entries(self_._gid)
                 if not ok:

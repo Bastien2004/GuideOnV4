@@ -7,6 +7,8 @@ build_role_react_view(entries) → LayoutView avec :
 """
 from __future__ import annotations
 
+import re
+
 import discord
 from discord import ButtonStyle
 from discord.ui import ActionRow, Button, Container, LayoutView, Separator, TextDisplay
@@ -16,17 +18,45 @@ from discord.ui import ActionRow, Button, Container, LayoutView, Separator, Text
 # l'une a une description (2 lignes) et l'autre non (1 ligne).
 ROLE_SEPARATOR = "➤"
 
+# Format emoji custom Discord : <:nom:id> ou <a:nom:id> (animé).
+# NB: discord.PartialEmoji.from_str() ne lève JAMAIS d'exception — si le
+# format ne matche pas, il retombe silencieusement sur une interprétation
+# "emoji unicode" avec la chaîne entière comme name. Un try/except autour
+# ne validait donc rien ; on matche nous-mêmes le format attendu.
+_CUSTOM_EMOJI_RE = re.compile(r"^<a?:[A-Za-z0-9_]{2,32}:\d{15,21}>$")
 
-def _parse_emoji(s: str | None) -> discord.PartialEmoji | str | None:
-    """Convertit une chaîne emoji en objet Discord si c'est un emoji custom."""
+
+def is_valid_emoji(s: str | None) -> bool:
+    """
+    Valide qu'une chaîne est un emoji exploitable par Discord : soit le
+    format custom <:nom:id> / <a:nom:id>, soit un emoji unicode plausible.
+    Rejette le texte brut — l'erreur la plus fréquente étant le nom et
+    l'emoji inversés dans le modal d'ajout/édition (cf. label='📰' avec
+    du texte dans le champ emoji -> 400 Invalid emoji côté Discord).
+    """
+    if not s:
+        return True  # champ optionnel, vide = valide
+    s = s.strip()
+    if s.startswith("<"):
+        return bool(_CUSTOM_EMOJI_RE.match(s))
+    # Un vrai emoji unicode n'est jamais composé de lettres/chiffres ASCII
+    # et reste toujours court (même les séquences ZWJ complexes du type
+    # famille/drapeau tiennent en quelques codepoints).
+    return not s.isascii() and len(s) <= 15
+
+
+def parse_emoji(s: str | None) -> discord.PartialEmoji | str | None:
+    """Convertit une chaîne emoji en objet Discord si c'est un emoji custom.
+    Renvoie None si la valeur n'est pas exploitable (defense in depth :
+    une entrée mal saisie ne doit jamais faire planter tout le rendu à
+    cause d'une seule valeur invalide déjà persistée)."""
     if not s:
         return None
     s = s.strip()
-    if s.startswith("<") and ":" in s and s.endswith(">"):
-        try:
-            return discord.PartialEmoji.from_str(s)
-        except Exception:
-            pass
+    if not is_valid_emoji(s):
+        return None
+    if s.startswith("<"):
+        return discord.PartialEmoji.from_str(s)
     return s
 
 
@@ -77,7 +107,7 @@ def build_role_react_view(entries: list[dict]) -> LayoutView:
                 label=e["label"],
                 style=ButtonStyle.secondary,
                 custom_id=f"role_react_{e['role_id']}",
-                emoji=_parse_emoji(e.get("emoji")),
+                emoji=parse_emoji(e.get("emoji")),
             ))
         c_btns.add_item(ActionRow(*buttons))
 
