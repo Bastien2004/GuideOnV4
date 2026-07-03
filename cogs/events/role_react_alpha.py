@@ -1,14 +1,7 @@
 """
 cogs/events/role_react_alpha.py — Listener Rôle Réaction Alpha.
-
-Gère les clics sur les boutons de notification via on_interaction.
-custom_id pattern : "role_react_{role_id}"
-
-Cooldown anti-spam : COOLDOWN_SECONDS entre deux clics d'un même
-utilisateur sur un même bouton (évite le spam add_roles/remove_roles).
-
-Fonctionne après restart sans add_view() grâce au pattern on_interaction.
 """
+
 from __future__ import annotations
 
 import logging

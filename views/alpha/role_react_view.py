@@ -1,13 +1,11 @@
 """
-views/alpha/role_react_view.py — Message public du système Rôle Réaction Alpha.
-
-build_role_react_view(entries) → LayoutView avec :
-  - Description de chaque rôle
-  - Boutons toggle (custom_id "role_react_{role_id}") gérés par le Cog on_interaction
+views/alpha/role_react_view.py — Création du message public du système Rôle Réaction Alpha.
 """
+
 from __future__ import annotations
 
 import discord
+
 from discord import ButtonStyle
 from discord.ui import ActionRow, Button, Container, LayoutView, Separator, TextDisplay
 
@@ -27,31 +25,28 @@ def _parse_emoji(s: str | None) -> discord.PartialEmoji | str | None:
 
 
 def build_role_react_view(entries: list[dict]) -> LayoutView:
-    """
-    entries : liste triée de dicts {role_id, label, emoji, description, position}
-    """
+    """Création de l'interface du Rôle Réaction Alpha (vue persistante)."""
     view = LayoutView(timeout=None)
 
     # ── Header ──────────────────────────────────────────────
     c_header = Container()
-    c_header.add_item(TextDisplay("# 🔔 Rôles de Notification"))
+    c_header.add_item(TextDisplay("# 🔔 Vos abonnements"))
     c_header.add_item(Separator())
-    c_header.add_item(TextDisplay(
-        "Personnalisez vos notifications en cliquant sur les boutons ci-dessous.\n"
-        "Un **clic** active le rôle, un **second clic** le retire."
-    ))
+
+    c_header.add_item(TextDisplay("Personnalisez vos abonnements avec les boutons ci-dessous."))
     c_header.add_item(Separator())
+
     view.add_item(c_header)
 
     if not entries:
         c_empty = Container()
-        c_empty.add_item(TextDisplay("*Aucun rôle de notification configuré pour le moment.*"))
+        c_empty.add_item(TextDisplay("*Aucun rôle configuré pour le moment.*"))
         c_empty.add_item(TextDisplay("-# GuideOn Studio"))
         view.add_item(c_empty)
         return view
 
     # ── Liste descriptive ────────────────────────────────────
-    c_list = Container()
+    c_list = Container()    
     lines = []
     for e in entries:
         emoji = f"{e['emoji']} " if e.get("emoji") else ""
@@ -59,7 +54,6 @@ def build_role_react_view(entries: list[dict]) -> LayoutView:
         lines.append(f"{ROLE_SEPARATOR} {emoji}**{e['label']}**{desc}")
 
     c_list.add_item(TextDisplay("\n".join(lines)))
-    c_list.add_item(Separator())
     view.add_item(c_list)
 
     # ── Boutons (rangées de 5) ───────────────────────────────
