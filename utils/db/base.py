@@ -2,24 +2,29 @@
 utils/db/base.py — Base SQLAlchemy pour tous les modèles
 """
 
-from datetime import datetime
-from sqlalchemy import DateTime
-from sqlalchemy.orm import declarative_base, Mapped, mapped_column
+from datetime import datetime, timezone
 
-Base = declarative_base()
+from sqlalchemy import DateTime
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+class Base(DeclarativeBase):
+
+    def _utcnow() -> datetime:
+        return datetime.now(timezone.utc)
 
 
 class TimestampMixin:
-    """Mixin pour ajouter created_at et updated_at à tous les modèles."""
+    """Ajout de created_at et updated_at à tous les modèles."""
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=datetime.utcnow,
+        default=_utcnow,
         nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=_utcnow,
+        onupdate=_utcnow,
         nullable=False
     )
