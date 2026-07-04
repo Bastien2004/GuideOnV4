@@ -19,7 +19,6 @@ import logging
 import time
 
 from sqlalchemy import delete, select
-from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from utils.db.models.alpha_onu_config import AlphaONUConfig, AlphaONUPingMember
 from utils.db.session import get_session
@@ -86,7 +85,6 @@ async def save_onu_config(guild_id: int, **fields: object) -> dict:
                 for k, v in clean.items():
                     setattr(row, k, v)
             await session.flush()
-            await session.commit()  # ✅ Correction : On valide la transaction d'écriture
             result = row.to_dict()
         _cache[guild_id] = (result, time.monotonic())
     return dict(result)
@@ -129,7 +127,6 @@ async def add_onu_ping_member(guild_id: int, discord_id: int) -> bool:
         if exists is not None:
             return False
         session.add(AlphaONUPingMember(guild_id=guild_id, discord_id=discord_id))
-        await session.commit()  # ✅ Correction : On valide l'ajout du membre en base
     log.info("ONU ping-list ajouté : guild=%d user=%d", guild_id, discord_id)
     return True
 
@@ -144,8 +141,6 @@ async def remove_onu_ping_member(guild_id: int, discord_id: int) -> bool:
             )
         )
         deleted = result.rowcount > 0
-        if deleted:
-            await session.commit()  # ✅ Correction : On valide la suppression
     if deleted:
         log.info("ONU ping-list retiré : guild=%d user=%d", guild_id, discord_id)
     return deleted
