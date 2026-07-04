@@ -13,7 +13,7 @@ from __future__ import annotations
 import discord
 from discord import Interaction
 
-from utils.container_universel import error_container
+from utils.container_universel import error_container, send_ephemeral
 from utils.permission import get_ids
 from utils.createur import is_creator
 
@@ -40,19 +40,11 @@ def is_modo(interaction: discord.Interaction) -> bool:
     return is_modo_plus(interaction) or uid in get_ids("MODO_ALPHA")
 
 
-async def _send_error(interaction: Interaction, msg: str) -> None:
-    """Envoie une erreur éphémère à l'utilisateur."""
-    if interaction.response.is_done():
-        await interaction.followup.send(view=error_container(msg), ephemeral=True)
-    else:
-        await interaction.response.send_message(view=error_container(msg), ephemeral=True)
-
-
 async def check_op_alpha(interaction: Interaction, action: str = "effectuer cette action") -> bool:
     """Vérification OP Alpha + Gestion d'erreur manque de permissions."""
     if is_op_alpha(interaction):
         return True
-    await _send_error(interaction, f"Vous devez être **Opérateur** pour {action}.")
+    await send_ephemeral(interaction, error_container(f"Vous devez être **Opérateur** pour {action}."))
     return False
 
 
@@ -60,7 +52,7 @@ async def check_modo_plus(interaction: Interaction, action: str = "effectuer cet
     """Vérification MODO+ Alpha + Gestion d'erreur manque de permissions."""
     if is_modo_plus(interaction):
         return True
-    await _send_error(interaction, f"Vous devez être **Modérateur +** pour {action}.")
+    await send_ephemeral(interaction, error_container(f"Vous devez être **Modérateur +** pour {action}."))
     return False
 
 
@@ -68,5 +60,5 @@ async def check_modo(interaction: Interaction, action: str = "effectuer cette ac
     """Vérification MODO Alpha + Gestion d'erreur manque de permissions."""
     if is_modo(interaction):
         return True
-    await _send_error(interaction, f"Vous devez être **Modérateur** pour {action}.")
+    await send_ephemeral(interaction, error_container(f"Vous devez être **Modérateur** pour {action}."))
     return False

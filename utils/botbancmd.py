@@ -3,6 +3,7 @@ utils/botbancmd.py — Vérification du ban global du bot.
 """
 from __future__ import annotations
 
+import logging
 import os
 
 import discord
@@ -10,6 +11,8 @@ from discord import MediaGalleryItem
 from discord.ui import Container, LayoutView, MediaGallery, Separator, TextDisplay
 
 from utils.gestion_ban import est_banni, obtenir_info_ban
+
+log = logging.getLogger(__name__)
 
 IMAGE_PATH = os.path.join("source", "GuideOn_ban.webp")
 IMAGE_FILENAME = "erreur_GuideON.webp"
@@ -73,6 +76,6 @@ async def verifier_ban_utilisateur(interaction: discord.Interaction) -> bool:
         else:
             await interaction.response.send_message(view=view, ephemeral=True)
     except discord.HTTPException:
-        pass
+        log.warning("Impossible de notifier l'utilisateur banni user=%s", user_id, exc_info=True)
 
     return False

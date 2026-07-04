@@ -7,7 +7,6 @@ import logging
 
 import discord
 from discord import app_commands
-from discord.ext import commands
 
 from utils.container_universel import error_container
 
@@ -50,7 +49,7 @@ async def handle_app_command_error(interaction: discord.Interaction, error: app_
         if interaction.guild is None:
             return await send(view=error_container(DM_ERROR_MESSAGE), ephemeral=True)
 
-    if isinstance(original, AttributeError) and "NoneType" in str(original):
+    if isinstance(original, AttributeError) and interaction.guild is None:
         return await send(view=error_container(DM_ERROR_MESSAGE), ephemeral=True)
 
     # ❓ Erreur inconnue

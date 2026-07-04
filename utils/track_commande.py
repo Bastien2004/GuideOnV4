@@ -8,9 +8,13 @@ utils.managers.command_stats_manager).
 
 from __future__ import annotations
 
+import logging
+
 import discord
 
 from utils.gestion_stats import incrementer_commande
+
+log = logging.getLogger(__name__)
 
 
 async def tracker_commande(
@@ -38,9 +42,9 @@ async def tracker_commande(
             guild_id=guild_id,
         )
 
-    except Exception as e:
+    except Exception:
         # Le tracker NE DOIT JAMAIS bloquer une commande
         # On log simplement l'erreur pour debug
-        print(f"[TRACKER] Erreur lors du tracking de '{nom_commande}' : {e}")
+        log.warning("Échec du tracking de la commande '%s'", nom_commande, exc_info=True)
 
     return True

@@ -4,7 +4,7 @@ utils/perm_admin.py — Vérification des permissions administrateur.
 from __future__ import annotations
 
 import discord
-from utils.container_universel import error_container
+from utils.container_universel import error_container, send_ephemeral
 
 
 # ============================================================
@@ -34,18 +34,12 @@ async def check_admin(interaction: discord.Interaction, action: str = "effectuer
     """
     if interaction.guild is None:
         msg = "Cette commande ne peut être __utilisée__ que dans un **serveur Discord**."
-        if interaction.response.is_done():
-            await interaction.followup.send(view=error_container(msg), ephemeral=True)
-        else:
-            await interaction.response.send_message(view=error_container(msg), ephemeral=True)
+        await send_ephemeral(interaction, error_container(msg))
         return False
 
     if is_admin(interaction):
         return True
 
     msg = f"Vous devez être **Administrateur** pour {action}."
-    if interaction.response.is_done():
-        await interaction.followup.send(view=error_container(msg), ephemeral=True)
-    else:
-        await interaction.response.send_message(view=error_container(msg), ephemeral=True)
+    await send_ephemeral(interaction, error_container(msg))
     return False

@@ -3,7 +3,26 @@ Container universel a utiliser dans les views/commandes.
 """
 from __future__ import annotations
 
+import discord
 from discord.ui import Container, LayoutView, Separator, TextDisplay
+
+
+# ============================================================
+# 📤 Envoi éphémère universel
+# ============================================================
+
+async def send_ephemeral(interaction: discord.Interaction, view: LayoutView) -> None:
+    """
+    Envoie `view` en éphémère, via followup si l'interaction a déjà
+    répondu (ex: defer() déjà appelé), sinon via response.send_message.
+
+    Centralise un pattern auparavant dupliqué dans perm_admin.py,
+    perm_dev.py, perm_staff.py, perm_alpha.py et error_handler.py.
+    """
+    if interaction.response.is_done():
+        await interaction.followup.send(view=view, ephemeral=True)
+    else:
+        await interaction.response.send_message(view=view, ephemeral=True)
 
 
 # ============================================================
