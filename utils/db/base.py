@@ -8,10 +8,12 @@ from sqlalchemy import DateTime
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
-class Base(DeclarativeBase):
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
-    def _utcnow() -> datetime:
-        return datetime.now(timezone.utc)
+
+class Base(DeclarativeBase):
+    pass
 
 
 class TimestampMixin:
