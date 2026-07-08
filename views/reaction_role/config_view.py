@@ -49,7 +49,7 @@ def _preview(text: str, max_len: int = 60) -> str:
 # ===================== MODALS =========================
 # ======================================================
 
-class MessageTextModal(Modal, title="<:modifier:1495444144712192003> Modifier le texte du message"):
+class MessageTextModal(Modal, title="✏️ Modifier le texte du message"):
     def __init__(self, current_text: str):
         super().__init__()
         self.value: Optional[str] = None
