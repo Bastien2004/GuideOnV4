@@ -398,7 +398,7 @@ def _cb_channel(guild, ctx, author_id):
         select = ChannelSelect(
             placeholder="Sélectionner un salon",
             on_select=on_select,
-            channel_types=[discord.ChannelType.text],
+            channel_types=[discord.ChannelType.text, discord.ChannelType.news],
         )
         btn_cancel = Button(label="Annuler", style=ButtonStyle.secondary, emoji="↩️")
         btn_cancel.callback = on_cancel

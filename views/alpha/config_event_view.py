@@ -109,7 +109,7 @@ class _ChannelView(LayoutView):
         c.add_item(ActionRow(ChannelSelect(
             placeholder="Choisir le salon",
             on_select=self._save,
-            channel_types=[discord.ChannelType.text],
+            channel_types=[discord.ChannelType.text, discord.ChannelType.news],
         )))
         c.add_item(Separator())
         btn = Button(label="↩️ Retour", style=ButtonStyle.secondary, custom_id="ev_bck_ch")

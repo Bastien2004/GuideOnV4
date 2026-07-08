@@ -275,9 +275,9 @@ def _cb_pick_channel(guild_id, bot, author_id, channel_key):
                     log.warning("[Bienvenue] Mise à jour de la view après sélection salon impossible")
 
         select = ChannelSelect(
-            placeholder="Sélectionner un salon texte",
+            placeholder="Sélectionner un salon",
             on_select=on_select,
-            channel_types=[discord.ChannelType.text],
+            channel_types=[discord.ChannelType.text, discord.ChannelType.news],
         )
         temp = LayoutView(timeout=120)
         c = Container()

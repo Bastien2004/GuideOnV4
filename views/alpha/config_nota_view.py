@@ -149,7 +149,7 @@ class _SalonsView(LayoutView):
             c.add_item(ActionRow(ChannelSelect(
                 placeholder=f"Choisir : {label}",
                 on_select=self._make_save(field),
-                channel_types=[discord.ChannelType.text],
+                channel_types=[discord.ChannelType.text, discord.ChannelType.news],
             )))
 
         c.add_item(Separator())

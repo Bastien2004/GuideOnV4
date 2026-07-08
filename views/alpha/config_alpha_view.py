@@ -184,21 +184,21 @@ class _SalonsView(LayoutView):
         c.add_item(ActionRow(ChannelSelect(
             placeholder="Choisir le salon rank/derank",
             on_select=lambda i, ch: self._save(i, "rank_channel_id", ch),
-            channel_types=[discord.ChannelType.text],
+            channel_types=[discord.ChannelType.text, discord.ChannelType.news],
         )))
 
         c.add_item(TextDisplay(f"**Salon journalistes :** {_ch(cfg.get('journaliste_channel_id'))}"))
         c.add_item(ActionRow(ChannelSelect(
             placeholder="Choisir le salon journalistes",
             on_select=lambda i, ch: self._save(i, "journaliste_channel_id", ch),
-            channel_types=[discord.ChannelType.text],
+            channel_types=[discord.ChannelType.text, discord.ChannelType.news],
         )))
 
         c.add_item(TextDisplay(f"**Salon développeurs :** {_ch(cfg.get('dev_channel_id'))}"))
         c.add_item(ActionRow(ChannelSelect(
             placeholder="Choisir le salon développeurs",
             on_select=lambda i, ch: self._save(i, "dev_channel_id", ch),
-            channel_types=[discord.ChannelType.text],
+            channel_types=[discord.ChannelType.text, discord.ChannelType.news],
         )))
 
         c.add_item(Separator())

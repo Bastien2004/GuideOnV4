@@ -185,7 +185,7 @@ class RoleSelectView(_BaseSelectView):
 
 
 class ChannelSelectView(_BaseSelectView):
-    """Sélection d'un salon texte avec vérif des permissions du bot."""
+    """Sélection d'un salon (texte ou annonce) avec vérif des permissions du bot."""
 
     def __init__(self, guild: discord.Guild):
         super().__init__(timeout=120)
@@ -193,8 +193,8 @@ class ChannelSelectView(_BaseSelectView):
         self.channel: Optional[discord.TextChannel] = None
 
         self.select = discord.ui.ChannelSelect(
-            placeholder="Sélectionnez un salon texte…",
-            channel_types=[discord.ChannelType.text],
+            placeholder="Sélectionnez un salon…",
+            channel_types=[discord.ChannelType.text, discord.ChannelType.news],
         )
         self.select.callback = self._cb
         self.add_item(self.select)

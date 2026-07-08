@@ -74,7 +74,7 @@ class ConfigContentView(LayoutView):
         c.add_item(ActionRow(ChannelSelect(
             placeholder="Salon → Liste du staff",
             on_select=lambda i, ch: self._save(i, "content_stafflist_channel_id", ch),
-            channel_types=[discord.ChannelType.text],
+            channel_types=[discord.ChannelType.text, discord.ChannelType.news],
         )))
         c.add_item(Separator())
 
@@ -88,7 +88,7 @@ class ConfigContentView(LayoutView):
         c.add_item(ActionRow(ChannelSelect(
             placeholder="Salon → Nous rejoindre",
             on_select=lambda i, ch: self._save(i, "content_nous_rejoindre_channel_id", ch),
-            channel_types=[discord.ChannelType.text],
+            channel_types=[discord.ChannelType.text, discord.ChannelType.news],
         )))
         c.add_item(ActionRow(RoleSelect(
             placeholder="Ping rôle → Nous rejoindre",
@@ -115,7 +115,7 @@ class ConfigContentView(LayoutView):
         c.add_item(ActionRow(ChannelSelect(
             placeholder="Salon → Index",
             on_select=lambda i, ch: self._save(i, "content_index_channel_id", ch),
-            channel_types=[discord.ChannelType.text],
+            channel_types=[discord.ChannelType.text, discord.ChannelType.news],
         )))
         btn_idx_emoji = Button(
             label="🖼️ Emoji — Index",
@@ -138,7 +138,7 @@ class ConfigContentView(LayoutView):
         c.add_item(ActionRow(ChannelSelect(
             placeholder="Salon → Règle interne",
             on_select=lambda i, ch: self._save(i, "content_regle_interne_channel_id", ch),
-            channel_types=[discord.ChannelType.text],
+            channel_types=[discord.ChannelType.text, discord.ChannelType.news],
         )))
         btn_ri_emoji = Button(
             label="🖼️ Emoji — Règle interne",

@@ -139,7 +139,7 @@ class _SalonRoleView(LayoutView):
         c.add_item(ActionRow(ChannelSelect(
             placeholder="Salon ONU",
             on_select=lambda i, ch: self._save(i, "channel_id", ch),
-            channel_types=[discord.ChannelType.text],
+            channel_types=[discord.ChannelType.text, discord.ChannelType.news],
         )))
         c.add_item(TextDisplay(f"**Rôle @mention :** {_role(self.cfg.get('role_id'))}"))
         c.add_item(ActionRow(RoleSelect(
