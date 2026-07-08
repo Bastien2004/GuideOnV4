@@ -1,12 +1,15 @@
 """
-RoleSelect réutilisable.
-
-Pour choisir 1 à N rôles avec callback.
+views/_components/role_select.py — Composant RoleSelect pour les interfaces Discord.
 """
+
 from typing import Awaitable, Callable
 
 import discord
 
+
+# ============================================================
+# 🧩 Class principale
+# ============================================================
 
 class RoleSelect(discord.ui.RoleSelect):
     def __init__(

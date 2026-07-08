@@ -1,6 +1,7 @@
 """
-WizardView générique.
+views/_components/wizard_view.py — Base commune de toutes les views à étape du bot.
 """
+
 from __future__ import annotations
 
 from typing import Protocol
@@ -11,9 +12,11 @@ from discord.ui import Container
 from views._components.base_view import BaseLayoutView
 
 
-class Draft(Protocol):
-    """Interface que doivent respecter les drafts (état du wizard)."""
+# ============================================================
+# 🧩 Class utilitaires
+# ============================================================
 
+class Draft(Protocol):
     def is_valid(self) -> bool:
         ...
 
@@ -25,7 +28,7 @@ class WizardView(BaseLayoutView):
         self._build()
 
     def build_container(self) -> Container:
-        """À OVERRIDE par les sous-classes : renvoie le Container de l'étape."""
+        """Renvoie le container de l'étape."""
         raise NotImplementedError
 
     def _build(self) -> None:
@@ -34,9 +37,6 @@ class WizardView(BaseLayoutView):
         self.add_item(self.build_container())
 
     async def refresh(self, interaction: Interaction) -> None:
-        """À appeler depuis chaque composant après modification du draft."""
+        """Mise à jour des composants de la views."""
         self._build()
-        if interaction.response.is_done():
-            await interaction.edit_original_response(view=self)
-        else:
-            await interaction.response.edit_message(view=self)
+        await self.push_update(interaction)

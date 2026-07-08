@@ -1,21 +1,24 @@
 """
-ChannelSelect réutilisable.
-
-Permet de demander à l'utilisateur de choisir un salon, en appelant
-un callback typé avec l'ID choisi.
-
-Usage :
-    select = ChannelSelect(
-        placeholder="Salon de log",
-        on_select=lambda i, ch_id: setattr(draft, "log_channel", ch_id) or view.refresh(i),
-        channel_types=[discord.ChannelType.text],
-    )
-    view.add_item(select)
+views/_components/channel_select.py — Composant ChannelSelect pour les interfaces Discord.
 """
+
 from typing import Awaitable, Callable
 
 import discord
 
+# ============================================================
+# 📦 Constantes
+# ============================================================
+
+DEFAULT_CHANNEL_TYPES: list[discord.ChannelType] = [
+    discord.ChannelType.text,
+    discord.ChannelType.news,
+]
+
+
+# ============================================================
+# 🧩 Class principale
+# ============================================================
 
 class ChannelSelect(discord.ui.ChannelSelect):
     def __init__(
@@ -29,7 +32,7 @@ class ChannelSelect(discord.ui.ChannelSelect):
     ):
         super().__init__(
             placeholder=placeholder,
-            channel_types=channel_types or [discord.ChannelType.text],
+            channel_types=channel_types or DEFAULT_CHANNEL_TYPES,
             min_values=1,
             max_values=1,
             custom_id=custom_id or f"channel_select_{id(self)}",
