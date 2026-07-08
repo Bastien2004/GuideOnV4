@@ -545,7 +545,11 @@ async def _build_create(container, guild, guild_id, bot, data, is_gold_server,
         data["channel"] = ch_view.channel.id
         new_view = await create_reaction_role_view(guild_id, bot, "create", data, author_id)
         if new_view:
-            await inter.edit_original_response(view=new_view)
+            # content=None explicite : la réponse initiale avait un texte
+            # (ligne au-dessus), et la page "create" est en Components V2 —
+            # Discord refuse un message qui garde un content en même temps
+            # que le flag IS_COMPONENTS_V2, donc il faut l'effacer au switch.
+            await inter.edit_original_response(content=None, view=new_view)
 
     channel_btn.callback = choose_channel_cb
     container.add_item(Section(
