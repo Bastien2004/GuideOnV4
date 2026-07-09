@@ -5,6 +5,8 @@ cogs/api/base.py — App FastAPI unifiée partagée par tous les modules
 from __future__ import annotations
 
 import logging
+
+import discord
 from fastapi import FastAPI, Request, status, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi import Depends
@@ -57,3 +59,16 @@ def require_token(creds: HTTPAuthorizationCredentials = Depends(_bearer)) -> Non
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token **invalide**.",
         )
+
+
+# ──────────────────────────────────────────────────────────────────────────
+#  Référence au bot Discord
+# ──────────────────────────────────────────────────────────────────────────
+
+bot: discord.Client | None = None
+
+
+def set_bot(client: discord.Client) -> None:
+    """Enregistre l'instance du bot pour que les endpoints API puissent y accéder."""
+    global bot
+    bot = client

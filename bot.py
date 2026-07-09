@@ -16,6 +16,7 @@ from discord.ext import commands
 from utils.settings import settings
 from utils.logging_config import setup_logging
 from cogs.api.api_app import run_api_server
+from cogs.api.base import set_bot
 from utils.managers.boutique_manager import refresh_cache, cache_refresher_loop
 from utils.managers.permission_manager import refresh_cache as refresh_perms, cache_refresher_loop as perms_refresher_loop
 
@@ -25,6 +26,7 @@ from utils.groupes import groupeDEV, groupeCONFIG, groupeNG, groupeTICKET, group
 import cogs.api.notation_api_app
 import cogs.api.notation_api_app
 import cogs.api.staff_api
+import cogs.api.stats_bot_api
 
 log = logging.getLogger(__name__)
 
