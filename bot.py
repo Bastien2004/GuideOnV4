@@ -16,7 +16,7 @@ from discord.ext import commands
 from utils.settings import settings
 from utils.logging_config import setup_logging
 from cogs.api.api_app import run_api_server
-from cogs.api.base import set_bot
+from cogs.api.base import app
 from utils.managers.boutique_manager import refresh_cache, cache_refresher_loop
 from utils.managers.permission_manager import refresh_cache as refresh_perms, cache_refresher_loop as perms_refresher_loop
 
@@ -105,6 +105,7 @@ class GuideONBot(commands.Bot):
         await self._sync_commands()
 
         # ── API FastAPI ──
+        app.state.bot = self
         run_api_server()
 
         log.info("setup_hook terminé")

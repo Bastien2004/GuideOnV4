@@ -8,7 +8,6 @@ import logging
 from fastapi import Depends, Request
 from pydantic import BaseModel
 
-from cogs.api import base
 from cogs.api.base import app, require_token
 
 log = logging.getLogger(__name__)
@@ -30,9 +29,8 @@ class StatsResponse(BaseModel):
 @app.get("/stats", dependencies=[Depends(require_token)], response_model=StatsResponse)
 async def get_stats(request: Request):
     """Récupère les statistiques globales du bot (nombre de serveurs et de membres)."""
-    guilds = base.bot.guilds
+    bot = request.app.state.bot
+    guilds = bot.guilds
 
     total_guilds = len(guilds)
     total_members = sum(g.member_count or 0 for g in guilds)
-
-    return StatsResponse(total_guilds=total_guilds, total_members=total_members)
