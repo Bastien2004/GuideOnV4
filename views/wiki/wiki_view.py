@@ -15,9 +15,10 @@ from __future__ import annotations
 
 import discord
 from discord import ButtonStyle, SelectOption
-from discord.ui import ActionRow, Button, Container, LayoutView, Select, Separator, TextDisplay
+from discord.ui import ActionRow, Button, Container, Select, Separator, TextDisplay
 
 from utils.datetime_utils import format_duration, now_utc
+from views._components.base_view import BaseLayoutView
 
 # ═══════════════════════════════════════════════════════════════
 # 📋  Données des catégories
@@ -206,14 +207,14 @@ def _nav_buttons(owner_id: int, active: str, bot: discord.Client | None = None) 
                 await interaction.response.edit_message(view=WikiHomeView(b, oid))
             btn.callback = _cb_home
         elif key == "support":
-            _oid = owner_id
-            async def _cb_support(interaction: discord.Interaction, oid=_oid):
-                await interaction.response.edit_message(view=WikiSupportView(oid))
+            _oid, _b = owner_id, bot
+            async def _cb_support(interaction: discord.Interaction, oid=_oid, b=_b):
+                await interaction.response.edit_message(view=WikiSupportView(oid, b))
             btn.callback = _cb_support
         elif key == "links":
-            _oid = owner_id
-            async def _cb_links(interaction: discord.Interaction, oid=_oid):
-                await interaction.response.edit_message(view=WikiLinksView(oid))
+            _oid, _b = owner_id, bot
+            async def _cb_links(interaction: discord.Interaction, oid=_oid, b=_b):
+                await interaction.response.edit_message(view=WikiLinksView(oid, b))
             btn.callback = _cb_links
         buttons.append(btn)
     return buttons
@@ -223,18 +224,11 @@ def _nav_buttons(owner_id: int, active: str, bot: discord.Client | None = None) 
 # 🏠  Accueil
 # ═══════════════════════════════════════════════════════════════
 
-class WikiHomeView(LayoutView):
+class WikiHomeView(BaseLayoutView):
     def __init__(self, bot: discord.Client, owner_id: int) -> None:
-        super().__init__(timeout=300)
+        super().__init__(owner_id=owner_id, timeout=300)
         self.bot = bot
-        self.owner_id = owner_id
         self._build()
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id != self.owner_id:
-            await interaction.response.send_message("❌ Ce menu ne t'appartient pas.", ephemeral=True)
-            return False
-        return True
 
     def _build(self) -> None:
         bot = self.bot
@@ -276,20 +270,13 @@ class WikiHomeView(LayoutView):
 # 📂  Catégorie (paginée)
 # ═══════════════════════════════════════════════════════════════
 
-class WikiCategoryView(LayoutView):
+class WikiCategoryView(BaseLayoutView):
     def __init__(self, cat_id: str, page: int, owner_id: int, bot: discord.Client) -> None:
-        super().__init__(timeout=300)
+        super().__init__(owner_id=owner_id, timeout=300)
         self.cat_id = cat_id
         self.page = page
-        self.owner_id = owner_id
         self.bot = bot
         self._build()
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id != self.owner_id:
-            await interaction.response.send_message("❌ Ce menu ne t'appartient pas.", ephemeral=True)
-            return False
-        return True
 
     def _build(self) -> None:
         cat = CATEGORIES[self.cat_id]
@@ -372,17 +359,11 @@ class WikiCategoryView(LayoutView):
 # 💬  Support
 # ═══════════════════════════════════════════════════════════════
 
-class WikiSupportView(LayoutView):
-    def __init__(self, owner_id: int) -> None:
-        super().__init__(timeout=300)
-        self.owner_id = owner_id
+class WikiSupportView(BaseLayoutView):
+    def __init__(self, owner_id: int, bot: discord.Client) -> None:
+        super().__init__(owner_id=owner_id, timeout=300)
+        self.bot = bot
         self._build()
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id != self.owner_id:
-            await interaction.response.send_message("❌ Ce menu ne t'appartient pas.", ephemeral=True)
-            return False
-        return True
 
     def _build(self) -> None:
         c = Container()
@@ -402,7 +383,7 @@ class WikiSupportView(LayoutView):
                    style=ButtonStyle.link, url="https://guideonbot.guideon.dev/"),
         ))
         c.add_item(Separator())
-        c.add_item(ActionRow(*_nav_buttons(self.owner_id, active="support")))
+        c.add_item(ActionRow(*_nav_buttons(self.owner_id, active="support", bot=self.bot)))
         c.add_item(Separator())
         c.add_item(TextDisplay("-# GuideON Studio — nous sommes là pour t'aider !"))
         self.add_item(c)
@@ -412,17 +393,11 @@ class WikiSupportView(LayoutView):
 # 🔗  Liens
 # ═══════════════════════════════════════════════════════════════
 
-class WikiLinksView(LayoutView):
-    def __init__(self, owner_id: int) -> None:
-        super().__init__(timeout=300)
-        self.owner_id = owner_id
+class WikiLinksView(BaseLayoutView):
+    def __init__(self, owner_id: int, bot: discord.Client) -> None:
+        super().__init__(owner_id=owner_id, timeout=300)
+        self.bot = bot
         self._build()
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id != self.owner_id:
-            await interaction.response.send_message("❌ Ce menu ne t'appartient pas.", ephemeral=True)
-            return False
-        return True
 
     def _build(self) -> None:
         c = Container()
@@ -444,7 +419,7 @@ class WikiLinksView(LayoutView):
                    style=ButtonStyle.link, url="https://top.gg/bot/1184180079069249666"),
         ))
         c.add_item(Separator())
-        c.add_item(ActionRow(*_nav_buttons(self.owner_id, active="links")))
+        c.add_item(ActionRow(*_nav_buttons(self.owner_id, active="links", bot=self.bot)))
         c.add_item(Separator())
         c.add_item(TextDisplay("-# GuideON Studio — suivez-nous pour rester informé !"))
         self.add_item(c)

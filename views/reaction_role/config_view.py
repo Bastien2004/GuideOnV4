@@ -12,7 +12,8 @@ from discord import ButtonStyle, Interaction
 from discord.ui import ActionRow, Button, Container, LayoutView, Modal, Section, Separator, TextDisplay, TextInput, View
 
 from utils.boutique.gold_manager import is_gold
-from utils.container_universel import error_container, success_container
+from utils.container_universel import error_container, send_ephemeral, success_container
+from views._components.base_view import BaseLayoutView
 from utils.managers.reaction_role_manager import (
     creer_message_reaction,
     nettoyer_messages_supprimes,
@@ -129,6 +130,17 @@ class _BaseSelectView(View):
         for item in self.children:
             if hasattr(item, "disabled"):
                 item.disabled = True
+
+    async def on_error(self, interaction: discord.Interaction, error: Exception, item: Any) -> None:
+        log.error(
+            "Erreur dans %s.%s : %s",
+            self.__class__.__name__, item.__class__.__name__, error,
+            exc_info=True,
+        )
+        try:
+            await send_ephemeral(interaction, error_container("❌ Une erreur est survenue. Réessayez."))
+        except discord.HTTPException:
+            pass
 
 
 class RoleSelectView(_BaseSelectView):
@@ -263,7 +275,7 @@ def build_sent_message_view(text: str, guild: discord.Guild, couples: list[dict[
 # ================== VUE PRINCIPALE ====================
 # ======================================================
 
-async def create_reaction_role_view(guild_id: int, bot, page: str = "main", data: Optional[dict[str, Any]] = None, author_id: Optional[int] = None) -> Optional[LayoutView]:
+async def create_reaction_role_view(guild_id: int, bot, page: str = "main", data: Optional[dict[str, Any]] = None, author_id: Optional[int] = None) -> Optional[BaseLayoutView]:
     """Vue principale dynamique. Renvoie None en cas d'erreur bloquante."""
 
     try:
@@ -295,7 +307,7 @@ async def create_reaction_role_view(guild_id: int, bot, page: str = "main", data
     is_gold_server = is_gold(guild_id)
     limite_couples = obtenir_limite_couples(guild_id)
 
-    view = LayoutView(timeout=600)
+    view = BaseLayoutView(owner_id=author_id, timeout=600)
     container = Container()
 
     if page == "main":

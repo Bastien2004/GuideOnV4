@@ -88,8 +88,8 @@ async def create_report(
     description: str,
     importance: str,
     attachment_url: Optional[str] = None,
-) -> BugReport:
-    """Insère un rapport finalisé. Renvoie le modèle (avec .reference)."""
+) -> dict:
+    """Insère un rapport finalisé. Renvoie le report en dict (avec ["reference"])."""
     async with get_session() as session:
         report = BugReport(
             user_id=user_id,

@@ -23,7 +23,7 @@ PARIS_TZ = ZoneInfo("Europe/Paris")
 # ============================================================
 
 def parse_date_input(jour: str, mois: str, annee: str, heure: str, minute: str) -> Optional[int]:
-    """Coonvertit les champs du modal en timestamp Discord."""
+    """Convertit les champs du modal en timestamp Discord."""
     try:
         dt = datetime(
             year=int(annee),

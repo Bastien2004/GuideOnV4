@@ -39,6 +39,12 @@ class Report(commands.Cog):
         if not await verifier_ban_utilisateur(interaction):
             return
 
+        # 🕒 Defer.
+        try:
+            await interaction.response.defer(ephemeral=True)
+        except (discord.NotFound, discord.HTTPException):
+            return
+
         # ⚙️ Vérification maintenance.
         if not await verifier_commande(interaction, "report"):
             return
@@ -49,15 +55,14 @@ class Report(commands.Cog):
         # 🪟 Ouverture de l'interface.
         clear_draft(interaction.user.id)
         try:
-            await interaction.response.send_message(view=home_view(), ephemeral=True)
+            await interaction.followup.send(view=home_view(), ephemeral=True)
 
         except discord.HTTPException:
             log.exception("[Report] Ouverture /report échouée (user=%s)", interaction.user.id)
-            if not interaction.response.is_done():
-                await interaction.response.send_message(
-                    view=error_container("**Impossible** d'ouvrir le formulaire de report."),
-                    ephemeral=True,
-                )
+            await interaction.followup.send(
+                view=error_container("**Impossible** d'ouvrir le formulaire de report."),
+                ephemeral=True,
+            )
 
     # ============================================================
     # ❌ Gestion des erreurs
