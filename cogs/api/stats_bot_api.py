@@ -28,7 +28,6 @@ class StatsResponse(BaseModel):
 
 @app.get("/stats", dependencies=[Depends(require_token)], response_model=StatsResponse)
 async def get_stats(request: Request):
-    """Récupère les statistiques globales du bot (nombre de serveurs et de membres)."""
     bot = request.app.state.bot
     guilds = bot.guilds
 
