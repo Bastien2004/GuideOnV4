@@ -23,7 +23,7 @@ from views.alpha.config_dashboard_view import ConfigDashboardView
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 5)
-@app_commands.command(name="config_alpha", description="⚙️ [DEV] Dashboard configuration systèmes Alpha")
+@app_commands.command(name="config_alpha", description="⚙️ [ALPHA] Dashboard configuration systèmes Alpha")
 async def config_alpha(interaction: Interaction) -> None:
 
     # 🔐 Vérification des permissions.
@@ -37,11 +37,11 @@ async def config_alpha(interaction: Interaction) -> None:
         return
 
     # ⚙️ Vérification maintenance.
-    if not await verifier_commande(interaction, "dev_config_alpha"):
+    if not await verifier_commande(interaction, "alpha_config_alpha"):
         return
     
     # 📊 Tracking.
-    await tracker_commande(interaction, "dev_config_alpha")
+    await tracker_commande(interaction, "alpha_config_alpha")
 
     # 🚀 Envoi du dashboard.
     view = ConfigDashboardView(guild_id=interaction.guild_id, owner_id=interaction.user.id)

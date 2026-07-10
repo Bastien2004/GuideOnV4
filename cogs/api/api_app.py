@@ -1,5 +1,5 @@
 """
-cogs/api/api_app.py — API Boutique + ONU (CORRIGÉE)
+cogs/api/api_app.py — API Boutique + ONU
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from utils.managers import onu_manager as om
 from utils.managers.boutique_manager import ShopRole
 from utils.settings import settings
 
-from cogs.api.base import app, limiter, require_token
+from cogs.api.base import app, require_token
 
 log = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ class ShopPayload(BaseModel):
 
 
 # ──────────────────────────────────────────────────────────────────────────
-# Schémas — ONU (CORRIGÉ pour nouveau modèle AlphaONUConfig)
+# Schémas — ONU
 # ──────────────────────────────────────────────────────────────────────────
 
 class ONUConfigUpdate(BaseModel):
@@ -59,7 +59,7 @@ class ONUConfigUpdate(BaseModel):
     ann_minute: int | None = None
     timezone: str = "Europe/Paris"
     ping_mp: bool = False
-    ping_list: dict | list | None = None  # Accepte dict OU list
+    ping_list: dict | list | None = None
     role_id: int | None = None
     channel_id: int | None = None
     image_name: str | None = None
@@ -76,7 +76,7 @@ class ONUConfigUpdate(BaseModel):
 
 
 class ONUPingPayload(BaseModel):
-    discord_id: int  # Peut être int ou str, sera converti
+    discord_id: int
     name: str | None = None
 
     @field_validator("discord_id", mode="before")

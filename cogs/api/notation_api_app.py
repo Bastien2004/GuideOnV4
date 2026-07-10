@@ -1,6 +1,5 @@
 """
-cogs/api/notation_api_app.py — API Notations (CORRIGÉE)
-Mappe les clés du client vers les vrais noms de colonnes dans la BD
+cogs/api/notation_api_app.py — API Notations
 """
 
 from __future__ import annotations
@@ -11,8 +10,7 @@ from starlette import status
 
 from utils.managers import notations_manager as nm
 
-# ✅ Importer l'app partagée
-from cogs.api.base import app, limiter, require_token
+from cogs.api.base import app, require_token
 
 import logging
 log = logging.getLogger(__name__)
@@ -25,9 +23,9 @@ _VALID_TIME_KEYS = [
     "time_send_notations",
 ]
 
-# ✅ MAPPING: Clés client → Vrais noms de colonnes BD
+
 TIME_KEY_MAPPING = {
-    "time_ask_availability": {  # Présence & Rappels
+    "time_ask_availability": {
         "weekday": "send_presence_weekday",
         "hour": "send_presence_hour",
         "minute": "send_presence_minute",
@@ -42,14 +40,13 @@ TIME_KEY_MAPPING = {
         "hour": "send_public_hour",
         "minute": "send_public_minute",
     },
-    "time_send_notations": {  # Envoi notations (même que finish)
+    "time_send_notations": {
         "weekday": "send_public_weekday",
         "hour": "send_public_hour",
         "minute": "send_public_minute",
     },
 }
 
-# ✅ MAPPING: SetIds payload → Vrais noms de colonnes BD
 IDS_MAPPING = {
     "guild_id": "guild_id",
     "staff_chan_id": "channel_staff_id",
@@ -104,7 +101,6 @@ async def get_notation_config(request: Request):
 async def update_full_config(request: Request, config: NotationConfigUpdate):
     """Met à jour la config complète (tous les champs)"""
 
-    # ✅ Mapper les champs du client vers les vrais noms BD
     payload = {
         "guild_id": config.id_guild_notations,
         "channel_staff_id": config.id_channel_staff_notations,
@@ -113,7 +109,6 @@ async def update_full_config(request: Request, config: NotationConfigUpdate):
         "role_id": config.id_role_notation,
     }
 
-    # Ajouter les timings s'ils sont fournis
     if config.time_ask_availability:
         payload["send_presence_weekday"] = config.time_ask_availability.weekday
         payload["send_presence_hour"] = config.time_ask_availability.hour
@@ -139,7 +134,6 @@ async def update_full_config(request: Request, config: NotationConfigUpdate):
 async def set_ids(request: Request, payload: SetIdsPayload):
     """Met à jour les IDs (channels et role)"""
 
-    # ✅ Mapper les noms du payload vers les vrais colonnes BD
     partial = {}
 
     if payload.guild_id is not None:
@@ -175,7 +169,6 @@ async def set_specific_time(request: Request, payload: SetTimePayload):
             detail=f"Clé de temps **invalide**. Valeurs acceptées : {_VALID_TIME_KEYS}",
         )
 
-    # ✅ MAPPING: Convertir les clés du client en vrais noms de colonnes BD
     mapping = TIME_KEY_MAPPING.get(payload.key)
     if not mapping:
         raise HTTPException(
@@ -183,7 +176,6 @@ async def set_specific_time(request: Request, payload: SetTimePayload):
             detail=f"Mapping introuvable pour {payload.key}",
         )
 
-    # Construire le payload avec les vrais noms de colonnes
     partial = {
         mapping["weekday"]: payload.schedule.weekday,
         mapping["hour"]: payload.schedule.hour,

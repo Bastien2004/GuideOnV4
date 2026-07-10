@@ -24,6 +24,7 @@ COMMANDS = {
     "alpha_rank": True,
     "alpha_regle_interne": True,
     "alpha_stafflist": True,
+    "alpha_config_alpha": True,
     "alpha_test": True,
 
     # ── BIRTHDAY ──
@@ -39,7 +40,6 @@ COMMANDS = {
     "config_role_reaction": False,
 
     # ── DEV ──
-    "dev_config_alpha": True,
     "dev_delete_message": True,
     "dev_edit_stafflist_alpha" : True,
     "dev_kick" : True,

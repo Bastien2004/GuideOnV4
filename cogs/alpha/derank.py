@@ -25,6 +25,11 @@ from utils.managers.alpha_rank_config_manager import load_rank_config
 
 from utils.db.models.alpha_staff import GRADE_LABELS, SECONDARY_STATUSES, STATUTS_SECONDAIRES_ORDER
 
+
+# ============================================================
+# 📦 Constantes
+# ============================================================
+
 log = logging.getLogger(__name__)
 
 ROLE_CHOICES = [

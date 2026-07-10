@@ -4,7 +4,6 @@ cogs/api/api_staff.py — API Staff pour V4
 from __future__ import annotations
 
 import logging
-from typing import List
 
 from fastapi import Depends, HTTPException, Request
 from pydantic import BaseModel

@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import logging
 
-import discord
 from fastapi import FastAPI, Request, status, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi import Depends
