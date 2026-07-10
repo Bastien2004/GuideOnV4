@@ -1,12 +1,7 @@
 """
-utils/boutique/gold_manager.py — Helpers métier Gold+ (compat V3).
-
-API publique inchangée vs V3 :
-    is_gold(guild_id) -> bool        (SYNC, instantané, lit le cache)
-    await send_gold_error(interaction)
-
-Source de vérité = DB via le cache du boutique_manager.
+utils/boutique/gold_manager.py — Gestion système Gold+.
 """
+
 from __future__ import annotations
 
 import discord
@@ -16,13 +11,18 @@ from utils.managers.boutique_manager import is_gold_id
 from utils.settings import settings
 
 
+# ============================================================
+# 🔩  Fonctions utilitaires
+# ============================================================
+
 def is_gold(guild_id: int) -> bool:
-    """True si le serveur possède l'abonnement Gold+. Lecture sync via cache."""
+    """True si le serveur possède l'abonnement Gold+."""
     return is_gold_id(guild_id)
 
 
 async def send_gold_error(interaction: discord.Interaction) -> None:
-    """Message d'erreur éphémère « fonctionnalité Gold+ »."""
+    """Message d'erreur Gold+ »."""
+
     view = LayoutView(timeout=None)
     container = Container()
 
@@ -48,7 +48,7 @@ async def send_gold_error(interaction: discord.Interaction) -> None:
     boutique_btn = Button(
         label="Accéder à la boutique",
         style=discord.ButtonStyle.link,
-        url=settings.website_url,
+        url=settings.shop_url,
         emoji="🛒",
     )
     container.add_item(Section(
@@ -61,7 +61,7 @@ async def send_gold_error(interaction: discord.Interaction) -> None:
         "-# 💡 Astuce : améliorez votre serveur avec des fonctionnalités premium"
     ))
     container.add_item(Separator())
-    container.add_item(TextDisplay("-# 🔧 GuideOn Studio"))
+    container.add_item(TextDisplay("-# GuideOn Studio"))
 
     view.add_item(container)
 

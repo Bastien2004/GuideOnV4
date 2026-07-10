@@ -49,7 +49,7 @@ def _parse_date_input(s: str) -> Optional[tuple[int, int, Optional[int]]]:
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 15)
-@app_commands.command(name="add", description="🎂 Enregistre ta date d'anniversaire (format JJ/MM ou JJ/MM/AAAA)")
+@app_commands.command(name="add", description="🎂 Enregistre ta date d'anniversaire")
 @app_commands.describe(date="Ta date d'anniversaire (JJ/MM ou JJ/MM/AAAA)")
 async def birthday_add(interaction: discord.Interaction, date: str) -> None:
 

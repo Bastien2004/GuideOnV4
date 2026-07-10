@@ -1,13 +1,11 @@
 """
-Configuration typée chargée depuis .env.
-
-Tout secret / valeur de config DOIT passer par ici.
-PLUS JAMAIS de token ou de clé en dur dans le code (problème SEC-001/SEC-002).
+utils/settings.py — Gestion des paramètres de configuration.
 
 Usage :
     from utils.settings import settings
     settings.discord_token
 """
+
 from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -45,11 +43,10 @@ class Settings(BaseSettings):
 
     # URLs externes
     website_url: str = "https://guideonbot.guideon.dev/"
+    shop_url: str = "https://guideonbot.guideon.dev/"
 
     # Logging
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     log_format: Literal["json", "console"] = "console"
 
-
-# Singleton — instance unique partagée dans tout le projet
 settings = Settings()

@@ -1,13 +1,7 @@
 """
-utils/boutique/vip_manager.py — Helpers métier VIP (compat V3).
-
-L'API publique ne change PAS par rapport à la V3 :
-    is_vip(user_id) -> bool          (SYNC, instantané, lit le cache)
-    await send_vip_error(interaction)
-
-La seule différence : la source de vérité n'est plus le JSON mais la DB,
-via le cache du boutique_manager. Tout le code appelant reste identique.
+utils/boutique/vip_manager.py — Gestion système VIP.
 """
+
 from __future__ import annotations
 
 import discord
@@ -17,13 +11,18 @@ from utils.managers.boutique_manager import is_vip_id
 from utils.settings import settings
 
 
+# ============================================================
+# 🔩  Fonctions utilitaires
+# ============================================================
+
 def is_vip(user_id: int) -> bool:
-    """True si l'utilisateur est VIP. Lecture sync via le cache boutique."""
+    """True si l'utilisateur est VIP."""
     return is_vip_id(user_id)
 
 
 async def send_vip_error(interaction: discord.Interaction) -> None:
-    """Message d'erreur éphémère « accès réservé VIP »."""
+    """Message d'erreur « accès réservé VIP »."""
+
     view = LayoutView(timeout=None)
     container = Container()
 
@@ -31,8 +30,7 @@ async def send_vip_error(interaction: discord.Interaction) -> None:
     container.add_item(Separator())
 
     container.add_item(TextDisplay(
-        "➤ Cette commande est __réservée__ aux utilisateurs **VIP**.\n"
-        "*Votre compte n'est actuellement **pas abonné***.\n\n"
+        "➤ *Votre compte n'est actuellement **pas abonné***.\n\n"
         "__**L'abonnement VIP débloque**__ :\n"
         "• Des commandes exclusives\n"
         "• Des bonus en boutique\n"
@@ -45,7 +43,7 @@ async def send_vip_error(interaction: discord.Interaction) -> None:
     boutique_btn = Button(
         label="Voir la boutique",
         style=discord.ButtonStyle.link,
-        url=settings.website_url,
+        url=settings.shop_url,
         emoji="🛒",
     )
     container.add_item(Section(
