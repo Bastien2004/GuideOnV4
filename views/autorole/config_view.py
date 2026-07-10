@@ -162,7 +162,11 @@ def _cb_toggle(guild_id, bot, author_id):
 
 
 def _cb_gold_lock(author_id):
+    check = _guard(author_id)
+
     async def cb(interaction: Interaction):
+        if not await check(interaction):
+            return
         await send_gold_error(interaction)
     return cb
 

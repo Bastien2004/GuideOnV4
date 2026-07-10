@@ -16,7 +16,7 @@ from utils.control_admin import verifier_commande
 from utils.container_universel import error_container
 from utils.error_handler import handle_app_command_error
 
-from views.bienvenue.config_view import BienvenueConfigView
+from views.bienvenue.config_view import create_bienvenue_view
 
 log = logging.getLogger(__name__)
 
@@ -55,11 +55,15 @@ async def bienvenue(interaction: discord.Interaction) -> None:
 
     # 🧩 Création et envoi de l'interface.
     try:
-        view = await BienvenueConfigView.create(
+        view = await create_bienvenue_view(
             guild_id=interaction.guild.id,
             author_id=interaction.user.id,
             bot=interaction.client,
         )
+        if view is None:
+            return await interaction.followup.send(
+                view=error_container("Serveur introuvable."), ephemeral=True
+            )
         await interaction.followup.send(view=view, ephemeral=True)
     except Exception:
         log.exception("Ouverture config bienvenue echouee (guild=%s)", interaction.guild.id)

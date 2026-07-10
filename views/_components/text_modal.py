@@ -1,7 +1,5 @@
 """
-TextModal réutilisable.
-
-Une popup de saisie texte avec longueur min/max et callback typé.
+views/_components/text_modal.py — Affiche un modal de saisi.
 
 Usage :
     modal = TextModal(
@@ -30,9 +28,11 @@ class TextModal(discord.ui.Modal):
         default: str = "",
         min_length: int = 0,
         max_length: int = 1000,
+        required: bool = True,
         style: discord.TextStyle = discord.TextStyle.short,
         on_submit: Callable[[discord.Interaction, str], Awaitable[None]],
     ):
+        
         super().__init__(title=title)
         self._on_submit = on_submit
         self.input = discord.ui.TextInput(
@@ -42,7 +42,7 @@ class TextModal(discord.ui.Modal):
             style=style,
             min_length=min_length,
             max_length=max_length,
-            required=True,
+            required=required,
         )
         self.add_item(self.input)
 

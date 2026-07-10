@@ -15,9 +15,11 @@ Logique métier :
     3. arrive_active=False ou arrive_channel_id absent → skip
     4. salon introuvable / permissions insuffisantes → log + skip (silencieux
        côté Discord, mais tracé côté logs pour debug)
-    5. rend le template (utils.bienvenue_render) et envoie en EMBED
-       (exception à la convention zéro-embed du projet — voir
-       utils.bienvenue_render pour le détail de cette décision).
+    5. rend le template (utils.bienvenue_render) et l'envoie au format choisi
+       par l'admin (embed ou Components V2 — voir utils.bienvenue_render
+       pour le détail de l'exception zéro-embed, limitée au mode embed).
+       En mode embed, une image personnalisée (Gold+) peut remplacer la
+       bannière par défaut — dégradation automatique si le Gold+ expire.
 - on_member_remove : même logique, côté départ.
 
 Le rendu utilise utils.bienvenue_render.render_template, le MÊME module que
@@ -31,7 +33,12 @@ import logging
 import discord
 from discord.ext import commands
 
-from utils.bienvenue_render import build_bienvenue_embed, render_template
+from utils.bienvenue_render import (
+    build_bienvenue_embed,
+    build_bienvenue_view,
+    render_template,
+    resolve_image_url,
+)
 from utils.managers.bienvenue_manager import load_bienvenue_config
 
 log = logging.getLogger(__name__)
@@ -44,7 +51,9 @@ class BienvenueListener(commands.Cog):
         self.bot = bot
 
     async def _send_announcement(
-        self, member: discord.Member, *, channel_id: int | None, template: str, kind: str,
+        self, member: discord.Member, *,
+        channel_id: int | None, template: str, kind: str,
+        format_: str, image_url: str | None,
     ) -> None:
         guild = member.guild
 
@@ -80,13 +89,19 @@ class BienvenueListener(commands.Cog):
 
         rendered = render_template(template, member=member, guild=guild)
         embed_kind = "arrivee" if kind == "arrivée" else "depart"
-        embed, file = build_bienvenue_embed(rendered, kind=embed_kind)
 
         try:
-            if file is not None:
-                await channel.send(embed=embed, file=file)
+            if format_ == "text":
+                await channel.send(view=build_bienvenue_view(rendered, kind=embed_kind))
             else:
-                await channel.send(embed=embed)
+                resolved_image = resolve_image_url(guild.id, image_url)
+                embed, file = build_bienvenue_embed(
+                    rendered, kind=embed_kind, custom_image_url=resolved_image,
+                )
+                if file is not None:
+                    await channel.send(embed=embed, file=file)
+                else:
+                    await channel.send(embed=embed)
         except discord.Forbidden:
             log.warning(
                 "[Bienvenue] Forbidden en envoyant %s dans #%s (guild=%s)",
@@ -115,6 +130,8 @@ class BienvenueListener(commands.Cog):
             channel_id=cfg.get("arrive_channel_id"),
             template=cfg.get("arrive_message", ""),
             kind="arrivée",
+            format_=cfg.get("arrive_format", "embed"),
+            image_url=cfg.get("arrive_image_url"),
         )
 
     @commands.Cog.listener()
@@ -131,6 +148,8 @@ class BienvenueListener(commands.Cog):
             channel_id=cfg.get("depart_channel_id"),
             template=cfg.get("depart_message", ""),
             kind="départ",
+            format_=cfg.get("depart_format", "embed"),
+            image_url=cfg.get("depart_image_url"),
         )
 
 
