@@ -42,9 +42,18 @@ from views._components.text_modal import TextModal
 
 log = logging.getLogger(__name__)
 
-VARIABLES_HELP = (
-    "`{user}` Nom  ·  `{mention}` Mention  ·  `{server}` Serveur  ·  `{member_count}` Nb membres"
-)
+VARIABLES_HELP_SHORT = "`{user}` `{mention}` `{server}` `{member_count}` … (❓ Variables pour la liste complète)"
+
+VARIABLES_FULL = [
+    ("{user}", "Nom d'affichage du membre"),
+    ("{display_name}", "Nom d'affichage du membre (identique à {user})"),
+    ("{mention}", "Mention du membre (@membre)"),
+    ("{id}", "ID Discord du membre"),
+    ("{member_created_at}", "Date de création du compte Discord (JJ/MM/AAAA)"),
+    ("{server}", "Nom du serveur"),
+    ("{member_count}", "Nombre de membres du serveur"),
+    ("{guild_created_at}", "Date de création du serveur (JJ/MM/AAAA)"),
+]
 
 KIND_LABELS = {
     "arrive": ("🛬", "Arrivée", "arrivee"),
@@ -167,7 +176,10 @@ class BienvenueView(BaseLayoutView):
             ))
             c.add_item(Separator())
 
-        c.add_item(TextDisplay(f"### 📌 Variables\n{VARIABLES_HELP}"))
+        c.add_item(TextDisplay(f"### 📌 Variables\n{VARIABLES_HELP_SHORT}"))
+        vars_btn_main = Button(label="Variables", style=ButtonStyle.secondary, emoji="❓")
+        vars_btn_main.callback = self._cb_show_variables
+        c.add_item(ActionRow(vars_btn_main))
         c.add_item(Separator())
 
         reset_btn = Button(label="Réinitialiser tout", style=ButtonStyle.danger, emoji="🔄")
@@ -230,19 +242,23 @@ class BienvenueView(BaseLayoutView):
         # Image personnalisée — pertinente seulement en embed, mais on
         # affiche toujours le statut si une image est déjà enregistrée
         # (transparence en cas de perte du Gold+, cf. resolve_image_url).
+        # Limite d'une image à la fois : si une image est déjà définie, on
+        # ne propose que "Retirer" — il faut la retirer avant de pouvoir en
+        # ajouter une nouvelle (pas de remplacement direct en un clic).
         if is_embed:
             if self.gold:
-                img_state = "-# ✅ Image personnalisée active" if image_url else "-# `Bannière par défaut`"
-                btn_img = Button(
-                    label="Modifier l'image" if image_url else "Ajouter une image",
-                    style=ButtonStyle.secondary, emoji="🖼️",
-                )
-                btn_img.callback = self._make_cb_edit_image(kind)
-                c.add_item(Section(TextDisplay(f"**Image**\n{img_state}"), accessory=btn_img))
                 if image_url:
+                    c.add_item(TextDisplay("**Image**\n-# ✅ Image personnalisée active"))
                     btn_rm_img = Button(label="Retirer l'image", style=ButtonStyle.danger, emoji="<:supprimer:1495444051623809075>")
                     btn_rm_img.callback = self._make_cb_remove_image(kind)
                     c.add_item(ActionRow(btn_rm_img))
+                else:
+                    btn_img = Button(label="Ajouter une image", style=ButtonStyle.secondary, emoji="🖼️")
+                    btn_img.callback = self._make_cb_edit_image(kind)
+                    c.add_item(Section(
+                        TextDisplay("**Image**\n-# `Bannière par défaut`"),
+                        accessory=btn_img,
+                    ))
             else:
                 note = (
                     "-# 🔒 Image personnalisée sauvegardée, inactive tant que Gold+ n'est pas actif"
@@ -253,14 +269,16 @@ class BienvenueView(BaseLayoutView):
                 c.add_item(Section(TextDisplay(f"**Image personnalisée** ✨\n{note}"), accessory=lock_btn))
             c.add_item(Separator())
 
-        c.add_item(TextDisplay(f"-# 📌 {VARIABLES_HELP}"))
+        c.add_item(TextDisplay(f"-# 📌 {VARIABLES_HELP_SHORT}"))
         c.add_item(Separator())
 
-        # Aperçu — seul moyen de vérification restant, Gold+.
+        # Aperçu (Gold+) + Variables (liste complète, gratuit)
         preview_suffix = "" if self.gold else " (Gold+)"
         preview_btn = Button(label=f"Aperçu{preview_suffix}", style=ButtonStyle.secondary, emoji="👁️")
         preview_btn.callback = self._make_cb_preview(kind)
-        c.add_item(ActionRow(preview_btn))
+        vars_btn = Button(label="Variables", style=ButtonStyle.secondary, emoji="❓")
+        vars_btn.callback = self._cb_show_variables
+        c.add_item(ActionRow(preview_btn, vars_btn))
         c.add_item(Separator())
 
         back_btn = Button(label="Retour", style=ButtonStyle.secondary, emoji="◀️")
@@ -296,6 +314,19 @@ class BienvenueView(BaseLayoutView):
 
     async def _cb_gold_lock(self, interaction: Interaction) -> None:
         await send_gold_error(interaction)
+
+    async def _cb_show_variables(self, interaction: Interaction) -> None:
+        """Liste complète des variables — éphémère, gratuit, disponible partout."""
+        lines = [f"`{var}` — {desc}" for var, desc in VARIABLES_FULL]
+        view = BaseLayoutView(owner_id=self.owner_id, timeout=120)
+        c = Container()
+        c.add_item(TextDisplay("# 📌 Variables disponibles"))
+        c.add_item(Separator())
+        c.add_item(TextDisplay("\n".join(lines)))
+        c.add_item(Separator())
+        c.add_item(TextDisplay("-# Utilisables dans les messages d'arrivée et de départ."))
+        view.add_item(c)
+        await interaction.response.send_message(view=view, ephemeral=True)
 
     def _make_cb_toggle_kind(self, kind: str):
         async def cb(interaction: Interaction):

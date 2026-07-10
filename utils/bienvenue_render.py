@@ -1,11 +1,21 @@
 """
-utils/bienvenue_render.py — Gestion du rendu des templates de message bienvenue/départ.
+utils/bienvenue_render.py — Rendu des templates de message bienvenue/départ.
+
+Partagé entre views/bienvenue/config_view.py (aperçu avec guild.me comme
+membre fictif) et cogs/events/bienvenue_listener.py (rendu réel avec le
+membre qui vient d'arriver/partir) — un seul point de vérité pour les
+variables supportées ET pour le choix embed/texte + image, pour que
+l'aperçu en config corresponde exactement au message réellement envoyé.
 
 Variables supportées :
-    {user}          — nom d'affichage du membre
-    {mention}        — mention du membre
-    {server}         — nom du serveur
-    {member_count}   — nombre de membres du serveur
+    {user}              — nom d'affichage du membre
+    {display_name}      — nom d'affichage du membre (alias de {user})
+    {mention}           — mention du membre
+    {id}                — ID Discord du membre
+    {member_created_at} — date de création du compte Discord (JJ/MM/AAAA)
+    {server}            — nom du serveur
+    {member_count}      — nombre de membres du serveur
+    {guild_created_at}  — date de création du serveur (JJ/MM/AAAA)
 
 ⚠️ EXCEPTION CONVENTION ZÉRO-EMBED : build_bienvenue_embed() ci-dessous
 utilise délibérément discord.Embed (et non Components V2), sur demande
@@ -57,9 +67,13 @@ def render_template(template: str, *, member: discord.Member, guild: discord.Gui
     return (
         (template or "")
         .replace("{user}", member.display_name)
+        .replace("{display_name}", member.display_name)
         .replace("{mention}", member.mention)
+        .replace("{id}", str(member.id))
+        .replace("{member_created_at}", member.created_at.strftime("%d/%m/%Y"))
         .replace("{server}", guild.name)
         .replace("{member_count}", str(guild.member_count or 0))
+        .replace("{guild_created_at}", guild.created_at.strftime("%d/%m/%Y"))
     )
 
 
