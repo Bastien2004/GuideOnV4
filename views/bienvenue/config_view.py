@@ -198,18 +198,19 @@ class BienvenueView(BaseLayoutView):
         c.add_item(Section(TextDisplay("➤ **État du message**"), accessory=btn_active))
         c.add_item(Separator())
 
+
         btn_channel = Button(label="Modifier", style=ButtonStyle.secondary, emoji="<:modifier:1495444144712192003>")
         btn_channel.callback = self._make_cb_pick_channel(kind)
         c.add_item(Section(TextDisplay("➤ **Salon**"), accessory=btn_channel))
         c.add_item(Separator())
 
-        # Message
+
         btn_msg = Button(label="Modifier", style=ButtonStyle.secondary, emoji="<:modifier:1495444144712192003>")
         btn_msg.callback = self._make_cb_edit_message(kind)
-        c.add_item(Section(TextDisplay("📨 Message"), accessory=btn_msg))
+        c.add_item(Section(TextDisplay("➤ **Message**"), accessory=btn_msg))
         c.add_item(Separator())
 
-        # Format
+
         btn_embed = Button(
             label="Embed", style=ButtonStyle.primary if is_embed else ButtonStyle.secondary,
             emoji="🖼️", disabled=is_embed,
@@ -220,39 +221,38 @@ class BienvenueView(BaseLayoutView):
         )
         btn_embed.callback = self._make_cb_set_format(kind, BienvenueFormat.EMBED.value)
         btn_text.callback = self._make_cb_set_format(kind, BienvenueFormat.TEXT.value)
-        c.add_item(TextDisplay("🎨 Format"))
+        c.add_item(TextDisplay("➤ **Format**"))
         c.add_item(ActionRow(btn_embed, btn_text))
         c.add_item(Separator())
 
-        # Image — un seul bouton, son état change selon gold+/présence d'image.
-        # Toujours pertinente à afficher (même en mode texte) : le format
-        # peut être rebasculé sur embed ensuite sans perdre l'image enregistrée.
+
         if not self.gold:
-            lock_btn = Button(label="Gold+ requis", style=ButtonStyle.secondary, emoji="🔒")
+            lock_btn = Button(label="Gold+", style=ButtonStyle.secondary, emoji="✨")
             lock_btn.callback = self._cb_gold_lock
-            c.add_item(Section(TextDisplay("🖼️ Image"), accessory=lock_btn))
+            c.add_item(Section(TextDisplay("➤ **Image**"), accessory=lock_btn))
         elif image_url:
             btn_rm_img = Button(label="Retirer", style=ButtonStyle.danger, emoji="<:supprimer:1495444051623809075>")
             btn_rm_img.callback = self._make_cb_remove_image(kind)
-            c.add_item(Section(TextDisplay("🖼️ Image"), accessory=btn_rm_img))
+            c.add_item(Section(TextDisplay("➤ **Image**"), accessory=btn_rm_img))
         else:
             btn_img = Button(label="Ajouter", style=ButtonStyle.secondary, emoji="<:plus:1495444111505752154>")
             btn_img.callback = self._make_cb_edit_image(kind)
-            c.add_item(Section(TextDisplay("🖼️ Image"), accessory=btn_img))
+            c.add_item(Section(TextDisplay("➤ **Image**"), accessory=btn_img))
         c.add_item(Separator())
 
         # Variables
-        vars_btn = Button(label="Variables", style=ButtonStyle.secondary, emoji="❓")
+        vars_btn = Button(label="Liste variables", style=ButtonStyle.secondary, emoji="<:info:1495443961144152094>")
         vars_btn.callback = self._cb_show_variables
-        c.add_item(Section(TextDisplay("📌 Variables disponibles..."), accessory=vars_btn))
+        c.add_item(Section(TextDisplay("➤ **Variables**"), accessory=vars_btn))
         c.add_item(Separator())
 
         # Retour + Aperçu (libre pour tout le monde)
-        back_btn = Button(label="Retour", style=ButtonStyle.secondary, emoji="◀️")
+        back_btn = Button(label="Retour", style=ButtonStyle.secondary, emoji="<:precedent:1515658763913138236>")
         back_btn.callback = self._cb_back
         preview_btn = Button(label="Aperçu", style=ButtonStyle.secondary, emoji="👁️")
         preview_btn.callback = self._make_cb_preview(kind)
         c.add_item(ActionRow(back_btn, preview_btn))
+        
         c.add_item(Separator())
         c.add_item(TextDisplay("-# GuideOn Studio"))
 
