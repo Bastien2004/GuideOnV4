@@ -10,7 +10,7 @@ from starlette import status
 
 from utils.managers import notations_manager as nm
 
-from cogs.api.base import app, require_token
+from cogs.api.base import app, limiter, require_token
 
 import logging
 log = logging.getLogger(__name__)

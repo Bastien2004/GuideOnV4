@@ -17,7 +17,7 @@ from utils.managers import onu_manager as om
 from utils.managers.boutique_manager import ShopRole
 from utils.settings import settings
 
-from cogs.api.base import app, require_token
+from cogs.api.base import app, limiter, require_token
 
 log = logging.getLogger(__name__)
 

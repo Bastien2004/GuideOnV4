@@ -5,6 +5,7 @@ cogs/api/base.py — App FastAPI unifiée partagée par tous les modules
 from __future__ import annotations
 
 import logging
+import discord
 
 from fastapi import FastAPI, Request, status, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
