@@ -58,12 +58,6 @@ KIND_LABELS = {
 # 🔩 Fonctions utilitaires
 # ============================================================
 
-def _preview_text(text: str, max_len: int = 90) -> str:
-    """Renvoie un apperçu du texte, tronqué si nécéssaire."""
-    text = text or ""
-    return (text[: max_len - 1] + "…") if len(text) > max_len else text
-
-
 def _state_btn(active: bool, label_on: str = "Activé", label_off: str = "Désactivé") -> Button:
     """Renvoie un bouton d'état ON/OFF selon le statut."""
     return Button(
@@ -132,7 +126,7 @@ class BienvenueView(BaseLayoutView):
         system_active = cfg.get("system_active", False)
 
 
-        c.add_item(TextDisplay(f"# 👋 Configuration Bienvenue"))
+        c.add_item(TextDisplay("# 👋 Configuration Bienvenue"))
         c.add_item(Separator())
 
         btn_sys = _state_btn(system_active)
@@ -185,31 +179,39 @@ class BienvenueView(BaseLayoutView):
 
 
     def _build_detail(self, c: Container, kind: str) -> None:
-        """Construit la page de gestion arrivée ou départ."""
+        """Construit la page de gestion arrivée ou départ — menu compact,
+        aucune info affichée inline (état/salon/message/image) : tout passe
+        par le bouton Aperçu, gratuit pour tout le monde."""
 
         cfg = self.cfg
         emoji, label, embed_kind = KIND_LABELS[kind]
         active = cfg.get(f"{kind}_active", False)
-        channel_id = cfg.get(f"{kind}_channel_id")
-        message = cfg.get(f"{kind}_message", "")
-        fmt = cfg.get(f"{kind}_format", BienvenueFormat.EMBED.value)
         image_url = cfg.get(f"{kind}_image_url")
+        fmt = cfg.get(f"{kind}_format", BienvenueFormat.EMBED.value)
         is_embed = fmt == BienvenueFormat.EMBED.value
 
-        c.add_item(TextDisplay(f"# 👋 Gestion arrivée"))
+        c.add_item(TextDisplay(f"# {emoji} Gestion {label.lower()}"))
         c.add_item(Separator())
 
-        btn_active = _state_btn(active)
+        # État
+        btn_active = _state_btn(active, label_on="Actif", label_off="Inactif")
         btn_active.callback = self._make_cb_toggle_kind(kind)
-        c.add_item(Section(TextDisplay("**⇝ Etat du message d'arrivée**"), accessory=btn_active))
+        c.add_item(Section(TextDisplay("🟢 État du message"), accessory=btn_active))
         c.add_item(Separator())
 
-        ch_txt = f"<#{channel_id}>" if channel_id else "`Non configuré`"
+        # Salon
         btn_channel = Button(label="Modifier", style=ButtonStyle.secondary, emoji="<:modifier:1495444144712192003>")
         btn_channel.callback = self._make_cb_pick_channel(kind)
-        c.add_item(Section(TextDisplay(f"⇝ **Salon**\n-# {ch_txt}"), accessory=btn_channel))
+        c.add_item(Section(TextDisplay("📢 Salon"), accessory=btn_channel))
         c.add_item(Separator())
 
+        # Message
+        btn_msg = Button(label="Modifier", style=ButtonStyle.secondary, emoji="<:modifier:1495444144712192003>")
+        btn_msg.callback = self._make_cb_edit_message(kind)
+        c.add_item(Section(TextDisplay("📨 Message"), accessory=btn_msg))
+        c.add_item(Separator())
+
+        # Format
         btn_embed = Button(
             label="Embed", style=ButtonStyle.primary if is_embed else ButtonStyle.secondary,
             emoji="🖼️", disabled=is_embed,
@@ -220,58 +222,39 @@ class BienvenueView(BaseLayoutView):
         )
         btn_embed.callback = self._make_cb_set_format(kind, BienvenueFormat.EMBED.value)
         btn_text.callback = self._make_cb_set_format(kind, BienvenueFormat.TEXT.value)
-        c.add_item(TextDisplay("⇝ **Format du message**"))
+        c.add_item(TextDisplay("🎨 Format"))
         c.add_item(ActionRow(btn_embed, btn_text))
         c.add_item(Separator())
 
-        btn_msg = Button(label="Modifier", style=ButtonStyle.secondary, emoji="<:modifier:1495444144712192003>")
-        btn_msg.callback = self._make_cb_edit_message(kind)
-        rendered_preview = render_template(message, member=self.guild.me, guild=self.guild)
-        c.add_item(Section(
-            TextDisplay(f"⇝ **Message**\n-# {_preview_text(rendered_preview)}"),
-            accessory=btn_msg,
-        ))
+        # Image — un seul bouton, son état change selon gold+/présence d'image.
+        # Toujours pertinente à afficher (même en mode texte) : le format
+        # peut être rebasculé sur embed ensuite sans perdre l'image enregistrée.
+        if not self.gold:
+            lock_btn = Button(label="Gold+ requis", style=ButtonStyle.secondary, emoji="🔒")
+            lock_btn.callback = self._cb_gold_lock
+            c.add_item(Section(TextDisplay("🖼️ Image"), accessory=lock_btn))
+        elif image_url:
+            btn_rm_img = Button(label="Retirer", style=ButtonStyle.danger, emoji="<:supprimer:1495444051623809075>")
+            btn_rm_img.callback = self._make_cb_remove_image(kind)
+            c.add_item(Section(TextDisplay("🖼️ Image"), accessory=btn_rm_img))
+        else:
+            btn_img = Button(label="Ajouter", style=ButtonStyle.secondary, emoji="<:plus:1495444111505752154>")
+            btn_img.callback = self._make_cb_edit_image(kind)
+            c.add_item(Section(TextDisplay("🖼️ Image"), accessory=btn_img))
         c.add_item(Separator())
 
-        if is_embed:
-            if self.gold:
-                if image_url:
-                    c.add_item(TextDisplay("**Image**\n-# ✅ Image personnalisée active"))
-                    btn_rm_img = Button(label="Retirer l'image", style=ButtonStyle.danger, emoji="<:supprimer:1495444051623809075>")
-                    btn_rm_img.callback = self._make_cb_remove_image(kind)
-                    c.add_item(ActionRow(btn_rm_img))
-                else:
-                    btn_img = Button(label="Ajouter une image", style=ButtonStyle.secondary, emoji="<:plus:1495444111505752154>")
-                    btn_img.callback = self._make_cb_edit_image(kind)
-                    c.add_item(Section(
-                        TextDisplay("**Image**\n-# `Bannière par défaut`"),
-                        accessory=btn_img,
-                    ))
-            else:
-                note = (
-                    "-# 🔒 Image personnalisée sauvegardée, inactive tant que Gold+ n'est pas actif"
-                    if image_url else "-# 🔒 Réservé aux serveurs Gold+"
-                )
-                lock_btn = Button(label="Gold+ requis", style=ButtonStyle.secondary, emoji="🔒")
-                lock_btn.callback = self._cb_gold_lock
-                c.add_item(Section(TextDisplay(f"**Image personnalisée** ✨\n{note}"), accessory=lock_btn))
-            c.add_item(Separator())
-
-        c.add_item(TextDisplay(f"-# 📌 {VARIABLES_HELP_SHORT}"))
-        c.add_item(Separator())
-
-        # Aperçu (Gold+) + Variables (liste complète, gratuit)
-        preview_suffix = "" if self.gold else " (Gold+)"
-        preview_btn = Button(label=f"Aperçu{preview_suffix}", style=ButtonStyle.secondary, emoji="👁️")
-        preview_btn.callback = self._make_cb_preview(kind)
+        # Variables
         vars_btn = Button(label="Variables", style=ButtonStyle.secondary, emoji="❓")
         vars_btn.callback = self._cb_show_variables
-        c.add_item(ActionRow(preview_btn, vars_btn))
+        c.add_item(Section(TextDisplay("📌 Variables disponibles..."), accessory=vars_btn))
         c.add_item(Separator())
 
+        # Retour + Aperçu (libre pour tout le monde)
         back_btn = Button(label="Retour", style=ButtonStyle.secondary, emoji="◀️")
         back_btn.callback = self._cb_back
-        c.add_item(ActionRow(back_btn))
+        preview_btn = Button(label="Aperçu", style=ButtonStyle.secondary, emoji="👁️")
+        preview_btn.callback = self._make_cb_preview(kind)
+        c.add_item(ActionRow(back_btn, preview_btn))
         c.add_item(Separator())
         c.add_item(TextDisplay("-# GuideOn Studio"))
 
@@ -418,15 +401,12 @@ class BienvenueView(BaseLayoutView):
         return cb
 
     def _make_cb_preview(self, kind: str):
-        """Aperçu éphémère, Gold+ — jamais envoyé dans le salon réel.
-        Rendu avec les mêmes fonctions que l'envoi réel : fidèle à 100%."""
+        """Aperçu éphémère, gratuit pour tout le monde — jamais envoyé dans
+        le salon réel. Rendu avec les mêmes fonctions que l'envoi réel :
+        fidèle à 100%."""
         _, _, embed_kind = KIND_LABELS[kind]
 
         async def cb(interaction: Interaction):
-            if not is_gold(self.guild.id):
-                await send_gold_error(interaction)
-                return
-
             cfg = self.cfg
             message = cfg.get(f"{kind}_message", "")
             fmt = cfg.get(f"{kind}_format", BienvenueFormat.EMBED.value)
