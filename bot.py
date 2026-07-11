@@ -18,6 +18,7 @@ from utils.logging_config import setup_logging
 from cogs.api.api_app import run_api_server
 from utils.managers.boutique_manager import refresh_cache, cache_refresher_loop
 from utils.managers.permission_manager import refresh_cache as refresh_perms, cache_refresher_loop as perms_refresher_loop
+from cogs.api.base import app as fastapi_app
 
 from utils.groupes import groupeDEV, groupeCONFIG, groupeNG, groupeTICKET, groupeINV, groupeBIRTHDAY, groupeGIVE, groupeALPHA
 
@@ -102,6 +103,7 @@ class GuideONBot(commands.Bot):
         await self._sync_commands()
 
         # ── API FastAPI ──
+        fastapi_app.state.bot = self
         run_api_server()
 
         log.info("setup_hook terminé")
