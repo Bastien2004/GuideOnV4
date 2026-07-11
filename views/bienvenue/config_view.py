@@ -1,21 +1,7 @@
 """
-views/bienvenue/config_view.py — Interface /config bienvenue (refonte V4.1).
-
-Navigation multi-pages (dashboard "main" + détail "arrive"/"depart"), plutôt
-que l'ancien panneau unique — plus lisible, et laisse de la place pour le
-format (embed/texte) et l'image personnalisée sans dépasser confortablement
-le budget de composants.
-
-Aligné sur views._components.base_view.BaseLayoutView : owner_id géré par
-la base (plus de _guard() local dupliqué), on_error visible côté
-utilisateur au lieu de disparaître dans les logs, on_timeout qui désactive
-réellement les composants côté Discord.
-
-Aperçu : 👁️ Gold+, éphémère, ne touche jamais au salon réel. Rendu avec
-les MÊMES fonctions que l'envoi réel (utils.bienvenue_render), donc fidèle
-à 100%. Le bouton "Tester" (envoi réel dans le salon) a été retiré — seul
-l'aperçu éphémère subsiste comme moyen de vérification avant envoi réel.
+views/bienvenue/config_view.py — Interface /config bienvenue.
 """
+
 from __future__ import annotations
 
 import logging
@@ -32,6 +18,7 @@ from utils.bienvenue_render import (
     render_template,
     resolve_image_url,
 )
+
 from utils.boutique.gold_manager import is_gold, send_gold_error
 from utils.container_universel import error_container, send_ephemeral, success_container
 from utils.db.models.bienvenue import BienvenueFormat
@@ -39,14 +26,20 @@ from utils.managers.bienvenue_manager import load_bienvenue_config, reset_bienve
 from views._components.base_view import BaseLayoutView
 from views._components.channel_select import ChannelSelect
 from views._components.text_modal import TextModal
+from utils.settings import settings
+
+
+# ============================================================
+# 📦 Constantes
+# ============================================================
 
 log = logging.getLogger(__name__)
 
-VARIABLES_HELP_SHORT = "`{user}` `{mention}` `{server}` `{member_count}` … (❓ Variables pour la liste complète)"
+VARIABLES_HELP_SHORT = "Vous disposez de plusieurs variables pour personnaliser vos message de bienvenue et de départ."
 
 VARIABLES_FULL = [
-    ("{user}", "Nom d'affichage du membre"),
-    ("{display_name}", "Nom d'affichage du membre (identique à {user})"),
+    ("{user}", "Nom Discord du membre"),
+    ("{display_name}", "Nom d'affichage du membre"),
     ("{mention}", "Mention du membre (@membre)"),
     ("{id}", "ID Discord du membre"),
     ("{member_created_at}", "Date de création du compte Discord (JJ/MM/AAAA)"),
@@ -61,27 +54,28 @@ KIND_LABELS = {
 }
 
 
+# ============================================================
+# 🔩 Fonctions utilitaires
+# ============================================================
+
 def _preview_text(text: str, max_len: int = 90) -> str:
+    """Renvoie un apperçu du texte, tronqué si nécéssaire."""
     text = text or ""
     return (text[: max_len - 1] + "…") if len(text) > max_len else text
 
 
 def _state_btn(active: bool, label_on: str = "Activé", label_off: str = "Désactivé") -> Button:
+    """Renvoie un bouton d'état ON/OFF selon le statut."""
     return Button(
         label=label_on if active else label_off,
         style=ButtonStyle.success if active else ButtonStyle.danger,
-        emoji="🟢" if active else "🔴",
+        emoji="<:valider:1495444292867723284>" if active else "<:annuler:1495444256754761979>",
     )
 
 
-# ======================================================
-# =================== POINT D'ENTRÉE ====================
-# ======================================================
+async def create_bienvenue_view(guild_id: int, bot, author_id: Optional[int] = None, page: str = "main") -> Optional[BaseLayoutView]:
+    """Construit l'interface de configuration bienvenue."""
 
-async def create_bienvenue_view(
-    guild_id: int, bot, author_id: Optional[int] = None, page: str = "main",
-) -> Optional[BaseLayoutView]:
-    """Construit la vue de config bienvenue. None si le serveur est introuvable."""
     guild = bot.get_guild(guild_id)
     if guild is None:
         log.error("[Bienvenue] Guild %s introuvable dans le cache", guild_id)
@@ -92,9 +86,9 @@ async def create_bienvenue_view(
     return BienvenueView(guild=guild, bot=bot, author_id=author_id, cfg=cfg, gold=gold, page=page)
 
 
-# ======================================================
-# ======================= VUE ===========================
-# ======================================================
+# ============================================================
+# 🧩 Class principale
+# ============================================================
 
 class BienvenueView(BaseLayoutView):
     def __init__(self, *, guild: discord.Guild, bot, author_id: Optional[int], cfg: dict, gold: bool, page: str = "main"):
@@ -106,12 +100,12 @@ class BienvenueView(BaseLayoutView):
         self.page = page
         self._build()
 
-    # ------------------------------------------------------------------
-    # Rafraîchissement après une action (reload DB + reconstruction)
-    # ------------------------------------------------------------------
 
     async def _rerender(self, interaction: Interaction, *, page: Optional[str] = None) -> None:
+        """Recharge la config depuis la DB et met à jour l'interface."""
+
         new_cfg = await load_bienvenue_config(self.guild.id)
+
         new_view = BienvenueView(
             guild=self.guild, bot=self.bot, author_id=self.owner_id,
             cfg=new_cfg, gold=is_gold(self.guild.id),
@@ -119,11 +113,10 @@ class BienvenueView(BaseLayoutView):
         )
         await self.push_update(interaction, view=new_view)
 
-    # ------------------------------------------------------------------
-    # Construction
-    # ------------------------------------------------------------------
 
     def _build(self) -> None:
+        """Construit la page demandée."""
+
         c = Container()
         if self.page in ("arrive", "depart"):
             self._build_detail(c, self.page)
@@ -131,33 +124,26 @@ class BienvenueView(BaseLayoutView):
             self._build_main(c)
         self.add_item(c)
 
+
     def _build_main(self, c: Container) -> None:
+        """Construit la page principale de l'interface."""
+
         cfg = self.cfg
         system_active = cfg.get("system_active", False)
-        arrive_active = cfg.get("arrive_active", False)
-        depart_active = cfg.get("depart_active", False)
 
-        issues = []
-        if system_active:
-            if arrive_active and not cfg.get("arrive_channel_id"):
-                issues.append("arrivée activée sans salon")
-            if depart_active and not cfg.get("depart_channel_id"):
-                issues.append("départ activé sans salon")
-            if not arrive_active and not depart_active:
-                issues.append("aucune annonce active")
-        if not system_active:
-            etat = "-# ⚪ Système **désactivé**"
-        elif issues:
-            etat = "-# ⚠️ Actif mais incomplet : " + ", ".join(issues)
-        else:
-            etat = "-# ✅ Système **opérationnel**"
 
-        c.add_item(TextDisplay(f"# 👋 Configuration · Bienvenue\n{etat}"))
+        c.add_item(TextDisplay(f"# 👋 Configuration Bienvenue"))
         c.add_item(Separator())
 
         btn_sys = _state_btn(system_active)
         btn_sys.callback = self._cb_toggle_system
-        c.add_item(Section(TextDisplay("**État du système**"), accessory=btn_sys))
+        c.add_item(Section(
+            TextDisplay(
+            "**🔘 Statut du système**\n"
+            "-# Active ou désactive le système de bienvenue."
+        ),
+        accessory=btn_sys
+        ))
         c.add_item(Separator())
 
         for key, (emoji, label, _) in KIND_LABELS.items():
@@ -165,10 +151,10 @@ class BienvenueView(BaseLayoutView):
             channel_id = cfg.get(f"{key}_channel_id")
             fmt = cfg.get(f"{key}_format", BienvenueFormat.EMBED.value)
             fmt_label = "Embed" if fmt == BienvenueFormat.EMBED.value else "Texte"
-            ch_txt = f"<#{channel_id}>" if channel_id else "aucun salon"
+            ch_txt = f"<#{channel_id}>" if channel_id else "__Aucun salon__"
             state_txt = "🟢 ON" if active else "🔴 OFF"
 
-            open_btn = Button(label="Configurer", style=ButtonStyle.secondary, emoji="⚙️")
+            open_btn = Button(label="Configurer", style=ButtonStyle.secondary, emoji="<:parametre:1495444004328706059>")
             open_btn.callback = self._make_cb_open(key)
             c.add_item(Section(
                 TextDisplay(f"**{emoji} {label}** — {state_txt}\n-# {ch_txt} · format {fmt_label}"),
@@ -176,17 +162,30 @@ class BienvenueView(BaseLayoutView):
             ))
             c.add_item(Separator())
 
-        c.add_item(TextDisplay(f"### 📌 Variables\n{VARIABLES_HELP_SHORT}"))
-        vars_btn_main = Button(label="Variables", style=ButtonStyle.secondary, emoji="❓")
+        c.add_item(TextDisplay(f"### 📌 Variables :\n{VARIABLES_HELP_SHORT}"))
+        vars_btn_main = Button(label="Liste des variables", style=ButtonStyle.secondary, emoji="<:info:1495443961144152094>")
         vars_btn_main.callback = self._cb_show_variables
         c.add_item(ActionRow(vars_btn_main))
         c.add_item(Separator())
 
-        reset_btn = Button(label="Réinitialiser tout", style=ButtonStyle.danger, emoji="🔄")
+        reset_btn = Button(
+            label="Réinitialiser tout",
+            style=ButtonStyle.danger,
+            emoji="🔄",
+        )
         reset_btn.callback = self._cb_reset
-        c.add_item(ActionRow(reset_btn))
+
+        doc_btn = Button(
+            label="Documentation",
+            style=ButtonStyle.link,
+            url=settings.doc_url,
+            emoji="📚",
+        )
+
+        c.add_item(ActionRow(reset_btn, doc_btn))
         c.add_item(Separator())
         c.add_item(TextDisplay("-# GuideOn Studio"))
+
 
     def _build_detail(self, c: Container, kind: str) -> None:
         cfg = self.cfg
