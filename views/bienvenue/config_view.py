@@ -38,14 +38,14 @@ log = logging.getLogger(__name__)
 VARIABLES_HELP_SHORT = "Vous disposez de **plusieurs variables** pour __personnaliser__\nvos **message** de __bienvenue__ et de __départ__."
 
 VARIABLES_FULL = [
-    ("{user}", "Nom Discord du membre"),
-    ("{display_name}", "Nom d'affichage du membre"),
-    ("{mention}", "Mention du membre (@membre)"),
-    ("{id}", "ID Discord du membre"),
-    ("{member_created_at}", "Date de création du compte Discord (JJ/MM/AAAA)"),
-    ("{server}", "Nom du serveur"),
-    ("{member_count}", "Nombre de membres du serveur"),
-    ("{guild_created_at}", "Date de création du serveur (JJ/MM/AAAA)"),
+    ("{user}", "Nom Discord du membre."),
+    ("{display_name}", "Nom d'affichage du membre."),
+    ("{mention}", "Mention du membre (@membre)."),
+    ("{id}", "ID Discord du membre."),
+    ("{member_created_at}", "Date de création du compte Discord (JJ/MM/AAAA)."),
+    ("{server}", "Nom du serveur."),
+    ("{member_count}", "Nombre de membres du serveur."),
+    ("{guild_created_at}", "Date de création du serveur (JJ/MM/AAAA)."),
 ]
 
 KIND_LABELS = {
@@ -179,30 +179,28 @@ class BienvenueView(BaseLayoutView):
 
 
     def _build_detail(self, c: Container, kind: str) -> None:
-        """Construit la page de gestion arrivée ou départ — menu compact,
-        aucune info affichée inline (état/salon/message/image) : tout passe
-        par le bouton Aperçu, gratuit pour tout le monde."""
+        """Construit la page de gestion arrivée ou départ"""
 
         cfg = self.cfg
-        emoji, label, embed_kind = KIND_LABELS[kind]
         active = cfg.get(f"{kind}_active", False)
         image_url = cfg.get(f"{kind}_image_url")
         fmt = cfg.get(f"{kind}_format", BienvenueFormat.EMBED.value)
         is_embed = fmt == BienvenueFormat.EMBED.value
 
-        c.add_item(TextDisplay(f"# {emoji} Gestion {label.lower()}"))
+        title1 = "# 👋 Configuration arrivée"
+        title2 = "# 🍃 Configuration départ"
+
+        c.add_item(TextDisplay(title1 if kind == "arrive" else title2))
         c.add_item(Separator())
 
-        # État
         btn_active = _state_btn(active, label_on="Actif", label_off="Inactif")
         btn_active.callback = self._make_cb_toggle_kind(kind)
-        c.add_item(Section(TextDisplay("🟢 État du message"), accessory=btn_active))
+        c.add_item(Section(TextDisplay("➤ **État du message**"), accessory=btn_active))
         c.add_item(Separator())
 
-        # Salon
         btn_channel = Button(label="Modifier", style=ButtonStyle.secondary, emoji="<:modifier:1495444144712192003>")
         btn_channel.callback = self._make_cb_pick_channel(kind)
-        c.add_item(Section(TextDisplay("📢 Salon"), accessory=btn_channel))
+        c.add_item(Section(TextDisplay("➤ **Salon**"), accessory=btn_channel))
         c.add_item(Separator())
 
         # Message
