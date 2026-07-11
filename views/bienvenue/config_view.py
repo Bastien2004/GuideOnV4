@@ -227,7 +227,7 @@ class BienvenueView(BaseLayoutView):
 
 
         if not self.gold:
-            lock_btn = Button(label="Gold+", style=ButtonStyle.secondary, emoji="✨")
+            lock_btn = Button(label="Gold+", style=ButtonStyle.premium, emoji="✨")
             lock_btn.callback = self._cb_gold_lock
             c.add_item(Section(TextDisplay("➤ **Image**"), accessory=lock_btn))
         elif image_url:
@@ -240,7 +240,7 @@ class BienvenueView(BaseLayoutView):
             c.add_item(Section(TextDisplay("➤ **Image**"), accessory=btn_img))
         c.add_item(Separator())
 
-        # Variables
+
         vars_btn = Button(label="Liste variables", style=ButtonStyle.secondary, emoji="<:info:1495443961144152094>")
         vars_btn.callback = self._cb_show_variables
         c.add_item(Section(TextDisplay("➤ **Variables**"), accessory=vars_btn))
@@ -252,7 +252,7 @@ class BienvenueView(BaseLayoutView):
         preview_btn = Button(label="Aperçu", style=ButtonStyle.secondary, emoji="👁️")
         preview_btn.callback = self._make_cb_preview(kind)
         c.add_item(ActionRow(back_btn, preview_btn))
-        
+
         c.add_item(Separator())
         c.add_item(TextDisplay("-# GuideOn Studio"))
 
@@ -285,15 +285,17 @@ class BienvenueView(BaseLayoutView):
         await send_gold_error(interaction)
 
     async def _cb_show_variables(self, interaction: Interaction) -> None:
-        """Liste complète des variables — éphémère, gratuit, disponible partout."""
+        """Liste complète des variables."""
+
         lines = [f"`{var}` — {desc}" for var, desc in VARIABLES_FULL]
         view = BaseLayoutView(owner_id=self.owner_id, timeout=120)
+
         c = Container()
         c.add_item(TextDisplay("# 📌 Variables disponibles"))
         c.add_item(Separator())
         c.add_item(TextDisplay("\n".join(lines)))
         c.add_item(Separator())
-        c.add_item(TextDisplay("-# Utilisables dans les messages d'arrivée et de départ."))
+        c.add_item(TextDisplay("-# GuideOn Studio."))
         view.add_item(c)
         await interaction.response.send_message(view=view, ephemeral=True)
 
