@@ -163,19 +163,23 @@ class BienvenueView(BaseLayoutView):
             c.add_item(Separator())
 
         c.add_item(TextDisplay(f"### 📌 __Variables__ :\n{VARIABLES_HELP_SHORT}"))
-        vars_btn_main = Button(label="Liste des variables", style=ButtonStyle.secondary, emoji="<:info:1495443961144152094>")
-        vars_btn_main.callback = self._cb_show_variables
-        c.add_item(ActionRow(vars_btn_main))
         c.add_item(Separator())
 
-        c.add_item(ActionRow(
-            Button(
-                label="Documentation",
-                style=ButtonStyle.link,
-                url=settings.doc_url,
-                emoji="📚",
-            )
-        ))
+        vars_btn_main = Button(
+            label="Liste des variables",
+            style=ButtonStyle.secondary,
+            emoji="<:info:1495443961144152094>",
+        )
+        vars_btn_main.callback = self._cb_show_variables
+
+        doc_btn = Button(
+            label="Documentation",
+            style=ButtonStyle.link,
+            url=settings.doc_url,
+            emoji="📚",
+        )
+
+        c.add_item(ActionRow(vars_btn_main, doc_btn))
         c.add_item(Separator())
         c.add_item(TextDisplay("-# GuideOn Studio"))
 
