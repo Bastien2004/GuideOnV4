@@ -16,7 +16,6 @@ from discord.ext import commands
 from utils.settings import settings
 from utils.logging_config import setup_logging
 from cogs.api.api_app import run_api_server
-from cogs.api.base import app
 from utils.managers.boutique_manager import refresh_cache, cache_refresher_loop
 from utils.managers.permission_manager import refresh_cache as refresh_perms, cache_refresher_loop as perms_refresher_loop
 
@@ -24,9 +23,7 @@ from utils.groupes import groupeDEV, groupeCONFIG, groupeNG, groupeTICKET, group
 
 """A laisser ! """
 import cogs.api.notation_api_app
-import cogs.api.notation_api_app
 import cogs.api.staff_api
-import cogs.api.stats_bot_api
 
 log = logging.getLogger(__name__)
 
@@ -105,7 +102,6 @@ class GuideONBot(commands.Bot):
         await self._sync_commands()
 
         # ── API FastAPI ──
-        app.state.bot = self
         run_api_server()
 
         log.info("setup_hook terminé")
@@ -151,6 +147,7 @@ class GuideONBot(commands.Bot):
         from cogs.dev.guild_info import guild_info
         from cogs.dev.debug_cmd import debug_cmd
         from cogs.dev.botban import botban
+        from cogs.dev.gold import gold
 
         # ── IMPORT NG ──
         from cogs.ng.autel import autel
@@ -235,7 +232,7 @@ class GuideONBot(commands.Bot):
         # 💻 ── DEV ──
         self._groupDEV = groupeDEV()
         for cmd in [maintenance, permissions, delete_message, kick, stat_server, stat_cmd,
-                    join_serv, health, guild_info, debug_cmd, botban]:
+                    join_serv, health, guild_info, debug_cmd, botban, gold]:
             self._groupDEV.add_command(cmd)
 
         
