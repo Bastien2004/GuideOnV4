@@ -227,7 +227,7 @@ class BienvenueView(BaseLayoutView):
 
 
         if not self.gold:
-            lock_btn = Button(label="Gold+", style=ButtonStyle.premium, emoji="✨")
+            lock_btn = Button(label="Gold+", style=ButtonStyle.blurple, emoji="✨")
             lock_btn.callback = self._cb_gold_lock
             c.add_item(Section(TextDisplay("➤ **Image**"), accessory=lock_btn))
         elif image_url:
