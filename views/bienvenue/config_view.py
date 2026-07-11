@@ -196,12 +196,12 @@ class BienvenueView(BaseLayoutView):
         image_url = cfg.get(f"{kind}_image_url")
         is_embed = fmt == BienvenueFormat.EMBED.value
 
-        c.add_item(TextDisplay(f"# 👋 Gestion message d'arrivée"))
+        c.add_item(TextDisplay(f"# 👋 Gestion arrivée"))
         c.add_item(Separator())
 
         btn_active = _state_btn(active)
         btn_active.callback = self._make_cb_toggle_kind(kind)
-        c.add_item(Section(TextDisplay("**Etat du message d'arrivée**"), accessory=btn_active))
+        c.add_item(Section(TextDisplay("**⇝ Etat du message d'arrivée**"), accessory=btn_active))
         c.add_item(Separator())
 
         ch_txt = f"<#{channel_id}>" if channel_id else "`Non configuré`"
