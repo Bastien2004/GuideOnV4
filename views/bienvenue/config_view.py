@@ -35,7 +35,7 @@ from utils.settings import settings
 
 log = logging.getLogger(__name__)
 
-VARIABLES_HELP_SHORT = "Vous disposez de plusieurs variables pour personnaliser vos message de bienvenue et de départ."
+VARIABLES_HELP_SHORT = "Vous disposez de **plusieurs variables** pour __personnaliser__\nvos **message** de __bienvenue__ et de __départ__."
 
 VARIABLES_FULL = [
     ("{user}", "Nom Discord du membre"),
@@ -162,32 +162,27 @@ class BienvenueView(BaseLayoutView):
             ))
             c.add_item(Separator())
 
-        c.add_item(TextDisplay(f"### 📌 Variables :\n{VARIABLES_HELP_SHORT}"))
+        c.add_item(TextDisplay(f"### 📌 __Variables__ :\n{VARIABLES_HELP_SHORT}"))
         vars_btn_main = Button(label="Liste des variables", style=ButtonStyle.secondary, emoji="<:info:1495443961144152094>")
         vars_btn_main.callback = self._cb_show_variables
         c.add_item(ActionRow(vars_btn_main))
         c.add_item(Separator())
 
-        reset_btn = Button(
-            label="Réinitialiser tout",
-            style=ButtonStyle.danger,
-            emoji="🔄",
-        )
-        reset_btn.callback = self._cb_reset
-
-        doc_btn = Button(
-            label="Documentation",
-            style=ButtonStyle.link,
-            url=settings.doc_url,
-            emoji="📚",
-        )
-
-        c.add_item(ActionRow(reset_btn, doc_btn))
+        c.add_item(ActionRow(
+            Button(
+                label="Documentation",
+                style=ButtonStyle.link,
+                url=settings.doc_url,
+                emoji="📚",
+            )
+        ))
         c.add_item(Separator())
         c.add_item(TextDisplay("-# GuideOn Studio"))
 
 
     def _build_detail(self, c: Container, kind: str) -> None:
+        """Construit la page de gestion arrivée ou départ."""
+
         cfg = self.cfg
         emoji, label, embed_kind = KIND_LABELS[kind]
         active = cfg.get(f"{kind}_active", False)
@@ -197,23 +192,20 @@ class BienvenueView(BaseLayoutView):
         image_url = cfg.get(f"{kind}_image_url")
         is_embed = fmt == BienvenueFormat.EMBED.value
 
-        c.add_item(TextDisplay(f"# {emoji} Bienvenue — {label}"))
+        c.add_item(TextDisplay(f"# 👋 Gestion message d'arrivée"))
         c.add_item(Separator())
 
-        # État
         btn_active = _state_btn(active)
         btn_active.callback = self._make_cb_toggle_kind(kind)
-        c.add_item(Section(TextDisplay("**Statut de cette annonce**"), accessory=btn_active))
+        c.add_item(Section(TextDisplay("**Etat du message d'arrivée**"), accessory=btn_active))
         c.add_item(Separator())
 
-        # Salon
         ch_txt = f"<#{channel_id}>" if channel_id else "`Non configuré`"
-        btn_channel = Button(label="Changer", style=ButtonStyle.secondary, emoji="<:salons:1508535670333902999>")
+        btn_channel = Button(label="Modifier", style=ButtonStyle.secondary, emoji="<:modifier:1495444144712192003>")
         btn_channel.callback = self._make_cb_pick_channel(kind)
-        c.add_item(Section(TextDisplay(f"**Salon**\n-# {ch_txt}"), accessory=btn_channel))
+        c.add_item(Section(TextDisplay(f"⇝ **Salon**\n-# {ch_txt}"), accessory=btn_channel))
         c.add_item(Separator())
 
-        # Format
         btn_embed = Button(
             label="Embed", style=ButtonStyle.primary if is_embed else ButtonStyle.secondary,
             emoji="🖼️", disabled=is_embed,
@@ -224,26 +216,19 @@ class BienvenueView(BaseLayoutView):
         )
         btn_embed.callback = self._make_cb_set_format(kind, BienvenueFormat.EMBED.value)
         btn_text.callback = self._make_cb_set_format(kind, BienvenueFormat.TEXT.value)
-        c.add_item(TextDisplay("**Format du message**"))
+        c.add_item(TextDisplay("⇝ **Format du message**"))
         c.add_item(ActionRow(btn_embed, btn_text))
         c.add_item(Separator())
 
-        # Message
         btn_msg = Button(label="Modifier", style=ButtonStyle.secondary, emoji="<:modifier:1495444144712192003>")
         btn_msg.callback = self._make_cb_edit_message(kind)
         rendered_preview = render_template(message, member=self.guild.me, guild=self.guild)
         c.add_item(Section(
-            TextDisplay(f"**Message**\n-# {_preview_text(rendered_preview)}"),
+            TextDisplay(f"⇝ **Message**\n-# {_preview_text(rendered_preview)}"),
             accessory=btn_msg,
         ))
         c.add_item(Separator())
 
-        # Image personnalisée — pertinente seulement en embed, mais on
-        # affiche toujours le statut si une image est déjà enregistrée
-        # (transparence en cas de perte du Gold+, cf. resolve_image_url).
-        # Limite d'une image à la fois : si une image est déjà définie, on
-        # ne propose que "Retirer" — il faut la retirer avant de pouvoir en
-        # ajouter une nouvelle (pas de remplacement direct en un clic).
         if is_embed:
             if self.gold:
                 if image_url:
@@ -252,7 +237,7 @@ class BienvenueView(BaseLayoutView):
                     btn_rm_img.callback = self._make_cb_remove_image(kind)
                     c.add_item(ActionRow(btn_rm_img))
                 else:
-                    btn_img = Button(label="Ajouter une image", style=ButtonStyle.secondary, emoji="🖼️")
+                    btn_img = Button(label="Ajouter une image", style=ButtonStyle.secondary, emoji="<:plus:1495444111505752154>")
                     btn_img.callback = self._make_cb_edit_image(kind)
                     c.add_item(Section(
                         TextDisplay("**Image**\n-# `Bannière par défaut`"),
