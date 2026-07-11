@@ -419,8 +419,22 @@ async def update_ticket(channel_id: int, **fields) -> dict | None:
 async def delete_ticket(channel_id: int) -> bool:
     """
     Supprime un ticket. Incrémente deleted_tickets_count et décrémente
-    open_tickets_count du panel SI le ticket était encore ouvert — le tout dans
-    la même transaction. True si le ticket existait.
+    open_tickets_count du panel, dans la même transaction. True si le ticket
+    existait.
+
+    La décrémentation a lieu ICI, à la suppression définitive, quel que soit
+    l'état `closed` du ticket. Par design (voir views/ticket/lifecycle.py::
+    _close_ticket), fermer un ticket ne touche PAS open_tickets_count : un
+    ticket fermé mais pas encore supprimé continue d'occuper un "slot" tant
+    que son salon Discord existe encore. C'est uniquement la suppression
+    définitive du salon (donc de cette ligne en DB) qui doit libérer le slot.
+
+    ⚠️ Avant correction, un garde `if was_open` limitait ce décrément au cas
+    où le ticket était encore ouvert (closed=False) au moment du delete — or
+    en pratique AUCUN chemin du code ne permet de supprimer un ticket encore
+    ouvert (/ticket delete et le bouton de suppression exigent tous les deux
+    que le ticket soit déjà fermé). Ce garde empêchait donc systématiquement
+    la décrémentation réelle, et open_tickets_count ne faisait que croître.
     """
     async with get_session() as session:
         ticket = await session.get(Ticket, channel_id)
@@ -429,19 +443,17 @@ async def delete_ticket(channel_id: int) -> bool:
 
         guild_id = ticket.guild_id
         panel_fk = ticket.panel_fk
-        was_open = not ticket.closed
 
         await session.delete(ticket)
 
-        # deleted +1 ; open -1 seulement si le ticket comptait encore comme ouvert
+        # deleted +1 ; open -1 (borné à 0) — toujours, à la suppression définitive.
         values = {
             "deleted_tickets_count": TicketPanel.deleted_tickets_count + 1,
-        }
-        if was_open:
-            values["open_tickets_count"] = case(
+            "open_tickets_count": case(
                 (TicketPanel.open_tickets_count - 1 < 0, 0),
                 else_=TicketPanel.open_tickets_count - 1,
-            )
+            ),
+        }
         await session.execute(
             update(TicketPanel).where(TicketPanel.id == panel_fk).values(**values)
         )

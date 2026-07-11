@@ -103,7 +103,7 @@ class BaseLayoutView(LayoutView):
             exc_info=True,
         )
 
-        msg = f"Echec de l'interraction. Veuillez réessayer plus tard."
+        msg = "Echec de l'interraction. Veuillez réessayer plus tard."
         try:
             await send_ephemeral(interaction, error_container(msg))
         except discord.HTTPException:
