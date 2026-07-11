@@ -1,15 +1,20 @@
 """
-utils/managers/alpha_nota_manager.py — Config, état et historique du système de notations.
+utils/managers/alpha_nota_manager.py — Gestion du système de notations Alpha.
 
-Cache TTL 60s pour la config. État et disponibilités non cachés (modifications fréquentes).
+API :
+    await load_nota_config(guild_id) -> dict
+    await save_nota_config(guild_id, **fields) -> dict
+    await load_nota_state(guild_id) -> dict
+    await set_state_fields(guild_id, **fields) -> None
+    await reset_nota_week(guild_id, assignments) -> None
+    async def get_available_operators(guild_id) -> list[int]
+    async def toggle_availability(guild_id, discord_id) -> tuple[bool, str]
+    async def get_operator_history(guild_id) -> dict[int, tuple[int | None, int | None]]
+    async def generate_notation_ranges(guild_id, countries_count) -> list[tuple[int, int, int]]
+    async def get_all_nota_operators(guild_id) -> list[dict]
 
-API publique :
-  Config    : load_nota_config / save_nota_config / list_all_nota_configs
-  État      : load_nota_state / set_state_fields / reset_nota_week
-  Dispos    : get_available_operators / toggle_availability
-  Historique: get_operator_history
-  Algo      : generate_notation_ranges
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -25,16 +30,26 @@ from utils.db.models.alpha_nota_config import (
     AlphaNotaAvailability, AlphaNotaHistory,
     NOTA_OPERATOR_GRADES,
 )
+
 from utils.db.models.alpha_staff import AlphaStaffMember, GRADE_LABELS, GRADE_PREFIXES
 from utils.db.session import get_session
 
 log = logging.getLogger(__name__)
 
+
+# ============================================================
+# 📦 Gestion du cache
+# ============================================================
+
 PARIS_TZ = ZoneInfo("Europe/Paris")
 CACHE_TTL = 60
-
 _cfg_cache: dict[int, tuple[dict, float]] = {}
 _lock = asyncio.Lock()
+
+
+# ============================================================
+# 📋 Constantes
+# ============================================================
 
 _CFG_FIELDS = {
     "channel_staff_id", "channel_public_id", "channel_logs_id", "role_id",
@@ -62,15 +77,18 @@ _STATE_DEFAULTS: dict = {
     "assigned_ranges": "[]",
 }
 
-# ════════════════════════════════════════════════════════════
-# ⏰ Utilitaires timing
-# ════════════════════════════════════════════════════════════
+
+# ============================================================
+# 🕛 Fonctions utilitaires (temps)
+# ============================================================
 
 def now_paris() -> datetime:
+    """Retourne l'heure actuelle à Paris."""
     return datetime.now(PARIS_TZ)
 
 
 def is_time_now(weekday: int | None, hour: int | None, minute: int | None) -> bool:
+    """Vérifie si l'heure actuelle correspond à la configuration (±1 minute)."""
     if weekday is None or hour is None or minute is None:
         return False
     now = now_paris()
@@ -82,6 +100,7 @@ def is_time_now(weekday: int | None, hour: int | None, minute: int | None) -> bo
 
 
 def is_past_deadline(weekday: int | None, hour: int | None, minute: int | None) -> bool:
+    """Vérifie si l'heure actuelle est après la deadline."""
     if weekday is None or hour is None or minute is None:
         return False
     now = now_paris()
@@ -95,16 +114,18 @@ def is_past_deadline(weekday: int | None, hour: int | None, minute: int | None) 
     return False
 
 
-# ════════════════════════════════════════════════════════════
-# 📋 Config
-# ════════════════════════════════════════════════════════════
+# ============================================================
+# ⚒️ Fonctions utilitaires (config)
+# ============================================================
 
 def _cfg_valid(guild_id: int) -> bool:
+    """Vérifie que le cache est valide."""
     c = _cfg_cache.get(guild_id)
     return c is not None and (time.monotonic() - c[1]) < CACHE_TTL
 
 
 async def load_nota_config(guild_id: int) -> dict:
+    """Charge la configuration du serveur."""
     if _cfg_valid(guild_id):
         return dict(_cfg_cache[guild_id][0])
     async with get_session() as session:
@@ -115,6 +136,7 @@ async def load_nota_config(guild_id: int) -> dict:
 
 
 async def save_nota_config(guild_id: int, **fields: object) -> dict:
+    """Sauvegarde la configuration du serveur."""
     clean = {k: v for k, v in fields.items() if k in _CFG_FIELDS}
     if not clean:
         return await load_nota_config(guild_id)
@@ -134,17 +156,18 @@ async def save_nota_config(guild_id: int, **fields: object) -> dict:
 
 
 async def list_all_nota_configs() -> list[dict]:
-    """Retourne toutes les configs pour le loop. Non caché."""
+    """Retourne toutes les configurations de notations."""
     async with get_session() as session:
         rows = (await session.execute(select(AlphaNotaConfig))).scalars().all()
     return [r.to_dict() for r in rows]
 
 
-# ════════════════════════════════════════════════════════════
-# 📊 État de la semaine
-# ════════════════════════════════════════════════════════════
+# ============================================================
+# 📊 Fonctions utilitaires (état actuel - debug)
+# ============================================================
 
 async def load_nota_state(guild_id: int) -> dict:
+    """Charge l'état de la semaine en cours."""
     async with get_session() as session:
         row = await session.get(AlphaNotaWeekState, guild_id)
         return row.to_dict() if row else {"guild_id": guild_id, **_STATE_DEFAULTS.copy()}
@@ -167,14 +190,8 @@ async def set_state_fields(guild_id: int, **fields: object) -> None:
 
 
 async def reset_nota_week(guild_id: int, assignments: list[tuple[int, int, int]]) -> None:
-    """
-    Après l'envoi public :
-      1. Met à jour l'historique par opérateur (pour la rotation suivante)
-      2. Remet l'état à zéro
-      3. Vide les disponibilités
-    """
+    """Tâche de réinitialisation pour la prochaine semaine de notations."""
     async with get_session() as session:
-        # 1. Mettre à jour l'historique
         for start, end, discord_id in assignments:
             row = await session.get(AlphaNotaHistory, {"guild_id": guild_id, "discord_id": discord_id})
             if row is None:
@@ -186,7 +203,6 @@ async def reset_nota_week(guild_id: int, assignments: list[tuple[int, int, int]]
                 row.last_range_start = start
                 row.last_range_end = end
 
-        # 2. Reset état
         state = await session.get(AlphaNotaWeekState, guild_id)
         if state is None:
             state = AlphaNotaWeekState(guild_id=guild_id, **_STATE_DEFAULTS.copy())
@@ -196,19 +212,19 @@ async def reset_nota_week(guild_id: int, assignments: list[tuple[int, int, int]]
             state.reminder_sent = False
             state.assigned_ranges = "[]"
 
-        # 3. Vider les disponibilités
         await session.execute(
             delete(AlphaNotaAvailability).where(AlphaNotaAvailability.guild_id == guild_id)
         )
 
-    log.info("[NOTATIONS] Semaine resetée | guild=%d assignments=%d", guild_id, len(assignments))
+    log.info("[NOTATIONS] Reset notations effectué | guild=%d assignments=%d", guild_id, len(assignments))
 
 
-# ════════════════════════════════════════════════════════════
-# 👥 Disponibilités
-# ════════════════════════════════════════════════════════════
+# ============================================================
+# ✅ Fonctions utilitaires (présence)
+# ============================================================
 
 async def get_available_operators(guild_id: int) -> list[int]:
+    """Renvoie la liste des discord_id des opérateurs disponibles."""
     async with get_session() as session:
         rows = (await session.execute(
             select(AlphaNotaAvailability.discord_id)
@@ -218,10 +234,7 @@ async def get_available_operators(guild_id: int) -> list[int]:
 
 
 async def toggle_availability(guild_id: int, discord_id: int) -> tuple[bool, str]:
-    """
-    Toggle la disponibilité d'un opérateur.
-    Retourne (is_now_available: bool, status_str: str).
-    """
+    """Gestion de la présence d'un opérateur."""
     async with get_session() as session:
         existing = await session.scalar(
             select(AlphaNotaAvailability.id).where(
@@ -242,12 +255,12 @@ async def toggle_availability(guild_id: int, discord_id: int) -> tuple[bool, str
             return True, "ajouté ✅"
 
 
-# ════════════════════════════════════════════════════════════
-# 📜 Historique
-# ════════════════════════════════════════════════════════════
+# ============================================================
+# 📑 Fonctions utilitaires (historique)
+# ============================================================
 
 async def get_operator_history(guild_id: int) -> dict[int, tuple[int | None, int | None]]:
-    """Retourne {discord_id: (last_start, last_end)} pour tous les opérateurs du guild."""
+    """Renvoie les pays notés de la semaine précédente pour chaque opérateur."""
     async with get_session() as session:
         rows = (await session.execute(
             select(AlphaNotaHistory).where(AlphaNotaHistory.guild_id == guild_id)
@@ -255,11 +268,12 @@ async def get_operator_history(guild_id: int) -> dict[int, tuple[int | None, int
     return {r.discord_id: (r.last_range_start, r.last_range_end) for r in rows}
 
 
-# ════════════════════════════════════════════════════════════
-# 🔢 Algorithme de répartition (port fidèle du V3, bug last_ranges corrigé)
-# ════════════════════════════════════════════════════════════
+# ============================================================
+# 📑 Fonctions utilitaires (répartition)
+# ============================================================
 
 def _compute_ranges(total: int, n: int) -> list[tuple[int, int]]:
+    """Divise les pays en n partie le plus également possible."""
     base, reste = divmod(total, n)
     ranges, start = [], 1
     for i in range(n):
@@ -270,6 +284,7 @@ def _compute_ranges(total: int, n: int) -> list[tuple[int, int]]:
 
 
 def _has_conflict(start: int, end: int, last_start: int | None, last_end: int | None) -> bool:
+    """Vérifie si les parts de pays à noter par un op sont en conflit avec la semaine précédente."""
     if last_start is None or last_end is None:
         return False
     return not (end < last_start or start > last_end)
@@ -288,11 +303,8 @@ def _rotate(ops: list[dict], history: dict[int, tuple[int | None, int | None]]) 
     return sorted_ops
 
 
-def _avoid_repetition(
-    raw_ranges: list[tuple[int, int]],
-    ops: list[dict],
-    history: dict[int, tuple[int | None, int | None]],
-) -> list[tuple[int, int, int]]:
+def _avoid_repetition(raw_ranges: list[tuple[int, int]], ops: list[dict], history: dict[int, tuple[int | None, int | None]]) -> list[tuple[int, int, int]]:
+    """Évite de réassigner le même bloc de pays à un opérateur que la semaine précédente."""
     assigned = [
         (r[0], r[1], op["discord_id"],
          _has_conflict(r[0], r[1], *history.get(op["discord_id"], (None, None))))
@@ -318,23 +330,12 @@ def _avoid_repetition(
     return [(a[0], a[1], a[2]) for a in assigned]
 
 
-async def generate_notation_ranges(
-    guild_id: int,
-    countries_count: int,
-) -> list[tuple[int, int, int]]:
-    """
-    Génère les assignments de la semaine :
-      1. Filtre les opérateurs disponibles (SM + Admin dans AlphaStaffMember)
-      2. Rotation depuis l'historique
-      3. Anti-répétition
-    Retourne [(start, end, discord_id), ...]
-    """
-    # Charger les opérateurs disponibles
+async def generate_notation_ranges(guild_id: int, countries_count: int) -> list[tuple[int, int, int]]:
+    """Gère l'assignation des pays à noter par opérateur."""
     available_ids = set(await get_available_operators(guild_id))
     if not available_ids:
         return []
 
-    # Opérateurs disponibles parmi les SM/Admin
     async with get_session() as session:
         rows = (await session.execute(
             select(AlphaStaffMember).where(
@@ -358,12 +359,12 @@ async def generate_notation_ranges(
     return _avoid_repetition(raw_ranges, ops_rotated, history)
 
 
-# ════════════════════════════════════════════════════════════
-# 🔧 Helpers pour les vues / le cog
-# ════════════════════════════════════════════════════════════
+# ============================================================
+# 💻 Fonctions utilitaires (affichage)
+# ============================================================
 
 async def get_all_nota_operators(guild_id: int) -> list[dict]:
-    """Retourne tous les SM + Admin du guild pour l'affichage."""
+    """Retourne la liste des OPs pour l'affichage."""
     async with get_session() as session:
         rows = (await session.execute(select(AlphaStaffMember))).scalars().all()
     return [
