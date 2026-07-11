@@ -25,6 +25,7 @@ from utils.groupes import groupeDEV, groupeCONFIG, groupeNG, groupeTICKET, group
 """A laisser ! """
 import cogs.api.notation_api_app
 import cogs.api.staff_api
+import cogs.api.stats_bot_api
 
 log = logging.getLogger(__name__)
 
