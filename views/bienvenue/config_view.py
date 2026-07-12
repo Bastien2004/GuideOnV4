@@ -20,11 +20,11 @@ from utils.bienvenue_render import (
 )
 
 from utils.boutique.gold_manager import is_gold, send_gold_error
-from utils.container_universel import error_container, send_ephemeral, success_container
+from utils.container_universel import error_container, send_ephemeral
 from utils.db.models.bienvenue import BienvenueFormat
 from utils.managers.bienvenue_manager import load_bienvenue_config, reset_bienvenue_config, save_bienvenue_config
 from views._components.base_view import BaseLayoutView
-from views._components.channel_select import ChannelSelect
+from views._components.select_page import SelectPageView
 from views._components.text_modal import TextModal
 from utils.settings import settings
 
@@ -375,35 +375,46 @@ class BienvenueView(BaseLayoutView):
         return cb
 
     def _make_cb_pick_channel(self, kind: str):
+        """Envoie l'interface de sélection."""
+
+        emoji, label, _ = KIND_LABELS[kind]
+
+        async def _validate(inter: Interaction, channel_id: int) -> Optional[str]:
+            channel = inter.guild.get_channel(channel_id) if inter.guild else None
+            if isinstance(channel, discord.TextChannel):
+                perms = channel.permissions_for(inter.guild.me)
+                if not (perms.send_messages and perms.view_channel):
+                    return f"Je ne peux pas écrire dans {channel.mention}."
+            return None
+
+        async def _on_save(channel_id: int) -> None:
+            await save_bienvenue_config(self.guild.id, {f"{kind}_channel_id": channel_id})
+
+        async def _build_return_view():
+            return await create_bienvenue_view(self.guild.id, self.bot, self.owner_id, page=kind)
+
         async def cb(interaction: Interaction):
-            parent = interaction
 
-            async def on_select(sel: Interaction, channel_id: int):
-                channel = sel.guild.get_channel(channel_id)
-                if isinstance(channel, discord.TextChannel):
-                    perms = channel.permissions_for(sel.guild.me)
-                    if not (perms.send_messages and perms.view_channel):
-                        await sel.response.edit_message(
-                            view=error_container(f"Je ne peux pas **écrire** dans {channel.mention}.")
-                        )
-                        return
-                await save_bienvenue_config(self.guild.id, {f"{kind}_channel_id": channel_id})
-                await sel.response.edit_message(view=success_container("Salon **mis à jour** !"))
-                await self._rerender(parent, page=kind)
+            arr = "👋 Salon d'arrivée"
+            dep = "🍃 Salon de départ" 
 
-            select = ChannelSelect(placeholder="Sélectionner un salon", on_select=on_select)
-            temp = BaseLayoutView(owner_id=self.owner_id, timeout=120)
-            tc = Container()
-            tc.add_item(TextDisplay("📥 Choisis le salon :"))
-            tc.add_item(ActionRow(select))
-            temp.add_item(tc)
-            await interaction.response.send_message(view=temp, ephemeral=True)
+            titre = arr if kind == "arrive" else dep
+
+            await interaction.response.edit_message(
+                view=SelectPageView(
+                    kind="channel",
+                    title=titre,
+                    current_value=self.cfg.get(f"{kind}_channel_id"),
+                    owner_id=self.owner_id,
+                    on_save=_on_save,
+                    build_return_view=_build_return_view,
+                    validate=_validate,
+                )
+            )
         return cb
 
     def _make_cb_preview(self, kind: str):
-        """Aperçu éphémère, gratuit pour tout le monde — jamais envoyé dans
-        le salon réel. Rendu avec les mêmes fonctions que l'envoi réel :
-        fidèle à 100%."""
+        """Système d'aperçu des messages bienvenue/départ."""
         _, _, embed_kind = KIND_LABELS[kind]
 
         async def cb(interaction: Interaction):

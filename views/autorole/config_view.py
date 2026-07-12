@@ -9,11 +9,14 @@ from typing import Optional
 
 import discord
 from discord import ButtonStyle, Interaction
-from discord.ui import ActionRow, Button, Container, LayoutView, Modal, Section, Separator, TextDisplay, TextInput
+from discord.ui import ActionRow, Button, Container, LayoutView, Section, Separator, TextDisplay
 
 from utils.boutique.gold_manager import is_gold, send_gold_error
 from utils.container_universel import error_container
 from utils.managers.autorole_manager import load_autorole_config, save_autorole_config
+from views._components.select_page import SelectPageView
+
+from utils.settings import settings
 
 log = logging.getLogger(__name__)
 
@@ -22,8 +25,6 @@ SLOT_CONFIG = [
     (2, "🎯", "Rôle automatique 2", False),
     (3, "⭐", "Rôle automatique 3", True),
 ]
-
-DOC_URL = "https://guideonbot.guideon.dev/documentation"
 
 
 # ======================================================
@@ -42,7 +43,7 @@ async def create_autorole_view(guild_id: int, bot, author_id: Optional[int] = No
 
     view = LayoutView(timeout=600)
     container = Container()
-    container.add_item(TextDisplay("# 🎭 Configuration Auto-Rôle"))
+    container.add_item(TextDisplay("# 🎭 Configuration Auto-rôle"))
     container.add_item(Separator())
 
     # ── Toggle ON/OFF ──
@@ -56,7 +57,7 @@ async def create_autorole_view(guild_id: int, bot, author_id: Optional[int] = No
     container.add_item(Section(
         TextDisplay(
             "**🔘 Statut du système**\n"
-            "-# Active ou désactive l'attribution automatique de rôles à l'arrivée"
+            "-# Active ou désactive le système d'auto-rôle.\n"
         ),
         accessory=toggle_btn,
     ))
@@ -85,25 +86,27 @@ async def create_autorole_view(guild_id: int, bot, author_id: Optional[int] = No
                 role_display = "`Non configuré`"
             gold_hint = " ✨" if gold_only else ""
 
-            set_btn = Button(label="Modifier", style=ButtonStyle.secondary, emoji="<:modifier:1495444144712192003>")
-            set_btn.callback = _cb_set_role(guild_id, bot, author_id, key)
+            if role_id:
+                action_btn = Button(
+                    label="Retirer", style=ButtonStyle.danger, emoji="<:supprimer:1495444051623809075>"
+                )
+                action_btn.callback = _cb_remove_role(guild_id, bot, author_id, key)
+            else:
+                action_btn = Button(label="Modifier", style=ButtonStyle.secondary, emoji="<:modifier:1495444144712192003>")
+                action_btn.callback = _cb_set_role(guild_id, bot, author_id, key, emoji, label)
+
             container.add_item(Section(
                 TextDisplay(f"**{emoji} {label}{gold_hint}**\n-# {role_display}"),
-                accessory=set_btn,
+                accessory=action_btn,
             ))
-
-            if role_id:
-                remove_btn = Button(
-                    label="Retirer le rôle", style=ButtonStyle.danger, emoji="<:supprimer:1495444051623809075>"
-                )
-                remove_btn.callback = _cb_remove_role(guild_id, bot, author_id, key)
-                container.add_item(ActionRow(remove_btn))
 
         container.add_item(Separator())
 
     # ── Footer ──
+    lien = settings.doc_url
+
     container.add_item(ActionRow(Button(
-        label="Documentation", style=ButtonStyle.link, url=DOC_URL, emoji="📚"
+        label="Documentation", style=ButtonStyle.link, url=lien, emoji="📚"
     )))
     container.add_item(Separator())
     container.add_item(TextDisplay("-# GuideOn Studio"))
@@ -171,14 +174,51 @@ def _cb_gold_lock(author_id):
     return cb
 
 
-def _cb_set_role(guild_id, bot, author_id, key):
+async def _validate_role_selection(interaction: Interaction, role_id: int) -> Optional[str]:
+    """Vérifs de sécurité avant d'accepter un rôle auto (hiérarchie + type)."""
+
+    guild = interaction.guild
+    role = guild.get_role(role_id) if guild else None
+    if role is None:
+        return "Rôle introuvable sur ce serveur."
+
+    if role.position >= guild.me.top_role.position:
+        return (
+            "Ce rôle est au-dessus ou au même niveau que mon rôle.\n"
+            "-# Placez mon rôle plus haut dans la hiérarchie."
+        )
+
+    if role.is_default() or role.is_bot_managed() or role.is_integration():
+        return "Ce type de rôle ne peut pas être utilisé (rôle par défaut, bot ou intégration)."
+
+    return None
+
+
+def _cb_set_role(guild_id, bot, author_id, key, emoji, label):
     check = _guard(author_id)
 
     async def cb(interaction: Interaction):
         if not await check(interaction):
             return
-        await interaction.response.send_modal(
-            SetRoleModal(guild_id, bot, author_id, key)
+
+        cfg = await load_autorole_config(guild_id)
+
+        async def _on_save(role_id: int) -> None:
+            await save_autorole_config(guild_id, {key: role_id})
+
+        async def _build_return_view():
+            return await create_autorole_view(guild_id, bot, author_id)
+
+        await interaction.response.edit_message(
+            view=SelectPageView(
+                kind="role",
+                title=f"{emoji} {label}",
+                current_value=cfg.get(key),
+                owner_id=author_id,
+                on_save=_on_save,
+                build_return_view=_build_return_view,
+                validate=_validate_role_selection,
+            )
         )
     return cb
 
@@ -192,60 +232,3 @@ def _cb_remove_role(guild_id, bot, author_id, key):
         await save_autorole_config(guild_id, {key: None})
         await _rerender(interaction, guild_id, bot, author_id)
     return cb
-
-
-# ======================================================
-# ======================= MODAL ========================
-# ======================================================
-
-class SetRoleModal(Modal, title="✏️ Définir un rôle automatique"):
-    def __init__(self, guild_id: int, bot, author_id: Optional[int], key: str):
-        super().__init__()
-        self.guild_id = guild_id
-        self.bot = bot
-        self.author_id = author_id
-        self.key = key
-
-        self.role_input = TextInput(
-            label="ID du rôle",
-            placeholder="Ex : 987654321098765432",
-            required=True,
-            max_length=20,
-        )
-        self.add_item(self.role_input)
-
-    async def on_submit(self, interaction: Interaction):
-        guild = interaction.guild
-        value = self.role_input.value.strip()
-
-        if not value.isdigit():
-            return await interaction.response.send_message(
-                view=error_container("L'**ID** doit être un __nombre entier__."), ephemeral=True
-            )
-
-        role = guild.get_role(int(value))
-        if not isinstance(role, discord.Role):
-            return await interaction.response.send_message(
-                view=error_container("Rôle **introuvable** sur ce serveur."), ephemeral=True
-            )
-
-        if role.position >= guild.me.top_role.position:
-            return await interaction.response.send_message(
-                view=error_container(
-                    "Ce rôle est __au-dessus__ ou au même niveau que mon rôle.\n"
-                    "-# Placez mon rôle plus haut dans la hiérarchie."
-                ),
-                ephemeral=True,
-            )
-
-        if role.is_default() or role.is_bot_managed() or role.is_integration():
-            return await interaction.response.send_message(
-                view=error_container(
-                    "Ce type de rôle ne peut pas être utilisé "
-                    "(rôle par défaut, bot ou intégration)."
-                ),
-                ephemeral=True,
-            )
-
-        await save_autorole_config(self.guild_id, {self.key: role.id})
-        await _rerender(interaction, self.guild_id, self.bot, self.author_id)
