@@ -33,5 +33,6 @@ async def get_stats(request: Request):
 
     total_guilds = len(guilds)
     total_members = sum(g.member_count or 0 for g in guilds)
+    ping = round(bot.latency * 1000)
 
-    return {"total_guilds": total_guilds, "total_members": total_members}
+    return {"total_guilds": total_guilds, "total_members": total_members, "ping": ping}
