@@ -1,6 +1,7 @@
 """
-views/reaction_role/config_view.py — Interface /config role_reaction.
+views/reaction_role/config_view.py — Interface de configuration du système de rôle reaction.
 """
+
 from __future__ import annotations
 
 import logging
@@ -25,17 +26,24 @@ from utils.managers.reaction_role_manager import (
     supprimer_message_reaction,
 )
 
+from utils.settings import settings
+
 log = logging.getLogger(__name__)
 
+
+# ============================================================
+# 🔩 Paramètres
+# ============================================================
+
 DEFAULT_TEXT = "Choisissez le rôle qui vous plaît selon les emojis ci-dessous."
-DOC_URL = "https://guideonbot.guideon.dev/documentation"
 
 
-# ======================================================
-# =================== UI HELPERS =======================
-# ======================================================
+# ============================================================
+# 🛠️ Fonctions utilitaires (UI)
+# ============================================================
 
 def _progress_bar(current: int, maximum: int, length: int = 5) -> str:
+    """Gère la barre de progression."""
     if maximum <= 0:
         return "▱" * length
     filled = round((current / maximum) * length)
@@ -43,13 +51,14 @@ def _progress_bar(current: int, maximum: int, length: int = 5) -> str:
     return "▰" * filled + "▱" * (length - filled)
 
 
-def _preview(text: str, max_len: int = 60) -> str:
+def _preview(text: str, max_len: int = 40) -> str:
+    """Raccourcit le texte pour affichage."""
     return (text[:max_len] + "…") if len(text) > max_len else text
 
 
-# ======================================================
-# ===================== MODALS =========================
-# ======================================================
+# ============================================================
+# 📑 Modals (texte + emoji)
+# ============================================================
 
 class MessageTextModal(Modal, title="✏️ Modifier le texte du message"):
     def __init__(self, current_text: str):
@@ -76,10 +85,6 @@ class MessageTextModal(Modal, title="✏️ Modifier le texte du message"):
 
 
 class EmojiModal(Modal, title="😀 Choisir un emoji"):
-    """Modal de saisie d'un emoji, chaîné vers `on_valid` une fois le format
-    validé — `on_valid` répond lui-même à l'interaction (édite le message
-    d'origine vers l'étape suivante : voir `_open_slot` ci-dessous)."""
-
     def __init__(self, default: str = "", *, on_valid: Callable[[Interaction, str], Awaitable[None]]):
         super().__init__()
         self._on_valid = on_valid
@@ -121,12 +126,12 @@ class EmojiModal(Modal, title="😀 Choisir un emoji"):
         await self._on_valid(interaction, emoji)
 
 
-# ======================================================
-# ============= VUE PUBLIQUE (message posté) ===========
-# ======================================================
+# ============================================================
+# 💻 View publique
+# ============================================================
 
 def build_sent_message_view(text: str, guild: discord.Guild, couples: list[dict[str, Any]]) -> LayoutView:
-    """LayoutView publique envoyée dans le salon cible (sans boutons)."""
+    """Interface publique envoyée dans le salon cible."""
 
     view = LayoutView(timeout=None)
     container = Container()
@@ -145,21 +150,24 @@ def build_sent_message_view(text: str, guild: discord.Guild, couples: list[dict[
     couples_text = "\n".join(lines) if lines else "_Aucun rôle configuré._"
 
     container.add_item(TextDisplay(f"## Rôles disponibles\n{couples_text}"))
+    container.add_item(Separator())
+    container.add_item(TextDisplay("-# GuideOn Studio"))
+    
     view.add_item(container)
     return view
 
 
-# ======================================================
-# ================== VUE PRINCIPALE ====================
-# ======================================================
+# ============================================================
+# 🧩 View de configuration
+# ============================================================
 
 async def create_reaction_role_view(guild_id: int, bot, page: str = "main", data: Optional[dict[str, Any]] = None, author_id: Optional[int] = None) -> Optional[BaseLayoutView]:
-    """Vue principale dynamique. Renvoie None en cas d'erreur bloquante."""
+    """Constrution de l'interface de création."""
 
     try:
         await nettoyer_messages_supprimes(guild_id, bot)
     except Exception:
-        log.exception("Nettoyage RR non bloquant échoué (guild=%s)", guild_id)
+        log.exception("[Rôle-Réaction] Nettoyage des messages non bloquant échoué (guild=%s)", guild_id)
 
     if data is None:
         data = {"text": DEFAULT_TEXT, "couples": [], "channel": None}
@@ -205,26 +213,20 @@ async def create_reaction_role_view(guild_id: int, bot, page: str = "main", data
     return view
 
 
-# ------------------------------------------------------
-# PAGE MAIN
-# ------------------------------------------------------
-
 async def _build_main(container, guild_id, bot, is_gold_server, author_id):
+    """Construction de la page d'accueil."""
 
     messages = await obtenir_tous_messages(guild_id)
     limite = obtenir_limite_messages(guild_id)
     nb = len(messages)
     restant = max(0, limite - nb)
     progress = _progress_bar(nb, limite)
-    gold_badge = " ✨" if is_gold_server else ""
 
-    container.add_item(TextDisplay(
-        f"# 🎭 Rôles Réaction{gold_badge}\n"
-        "-# Attribuez des rôles automatiquement via réactions"
-    ))
+    container.add_item(TextDisplay("# 🎭 Rôles Réaction"))
     container.add_item(Separator())
 
     upgrade_hint = "" if is_gold_server else "\n-# 💡 Passez Gold pour débloquer plus de messages"
+    
     container.add_item(TextDisplay(
         f"### 📊 Utilisation\n"
         f"`{progress}` **{nb} / {limite}** message(s) — {restant} slot(s) disponible(s)"
@@ -246,7 +248,7 @@ async def _build_main(container, guild_id, bot, is_gold_server, author_id):
             await inter.response.edit_message(view=new_view)
         else:
             await inter.response.send_message(
-                view=error_container("Impossible d'ouvrir la création."), ephemeral=True
+                view=error_container("Impossible d'ouvrir l'**interface de création**."), ephemeral=True
             )
 
     create_btn.callback = create_cb
@@ -273,18 +275,16 @@ async def _build_main(container, guild_id, bot, is_gold_server, author_id):
     container.add_item(Separator())
 
     container.add_item(ActionRow(Button(
-        label="Documentation", style=ButtonStyle.link, url=DOC_URL, emoji="📚"
+        label="Documentation", style=ButtonStyle.link, url=settings.doc_url, emoji="📚"
     )))
+
     container.add_item(Separator())
     container.add_item(TextDisplay("-# GuideON Studio"))
 
 
-# ------------------------------------------------------
-# PAGE CREATE
-# ------------------------------------------------------
+async def _build_create(container, guild, guild_id, bot, data, is_gold_server, limite_couples, author_id):
+    """Création d'un nouveau message rôle réaction."""
 
-async def _build_create(container, guild, guild_id, bot, data, is_gold_server,
-                        limite_couples, author_id):
     couples = data["couples"]
     channel_id = data["channel"]
     nb_couples = len(couples)
@@ -304,14 +304,13 @@ async def _build_create(container, guild, guild_id, bot, data, is_gold_server,
             missing.append("au moins 1 couple emoji/rôle")
         if not has_channel:
             missing.append("un salon de destination")
-        status_line = f"⚠️ Manquant : {', '.join(missing)}"
+        status_line = f"<:erreur:1495443907281031359> Manquant : {', '.join(missing)}"
 
     container.add_item(TextDisplay(f"# 📝 Créer un message\n-# `{steps_bar}` {status_line}"))
     container.add_item(Separator())
 
-    # ── Texte ──
     container.add_item(TextDisplay("### 💬 Texte affiché"))
-    edit_text_btn = Button(label="Modifier", style=ButtonStyle.secondary, emoji="✏️")
+    edit_text_btn = Button(label="Modifier", style=ButtonStyle.secondary, emoji="<:modifier:1495444144712192003>")
 
     async def edit_text(inter: Interaction):
         modal = MessageTextModal(data["text"])
@@ -329,12 +328,10 @@ async def _build_create(container, guild, guild_id, bot, data, is_gold_server,
     ))
     container.add_item(Separator())
 
-    # ── Couples ──
-    # Flux emoji -> rôle centralisé et en place (une seule et même page qui
-    # se transforme : create -> modal emoji -> SelectPageView rôle -> create).
-    # Plus aucune page/message éphémère séparé, plus aucun .wait() bloquant.
 
     async def _validate_role_for_couple(role_inter: Interaction, role_id: int) -> Optional[str]:
+        """Vérifie que le rôle du couple est valide."""
+
         role = guild.get_role(role_id)
         if role is None:
             return "Rôle introuvable."
@@ -356,13 +353,14 @@ async def _build_create(container, guild, guild_id, bot, data, is_gold_server,
         return None
 
     def _make_emoji_modal(index: int) -> EmojiModal:
-        """Construit le modal emoji pour le slot `index` (existant ou nouveau)."""
+        """Construit le modal emoji."""
+
         current = couples[index] if index < len(couples) else None
         emoji_default = current["emoji"] if current else ""
         current_role_id = current["role_id"] if current else None
 
         async def _on_emoji_valid(modal_inter: Interaction, emoji: str) -> None:
-            # Emoji déjà utilisé sur un autre couple ?
+            """Vérifie que l'emoji n'appartient pas à un autre couple."""
             for idx, c in enumerate(couples):
                 if idx != index and c["emoji"] == emoji:
                     await modal_inter.response.send_message(
@@ -372,6 +370,7 @@ async def _build_create(container, guild, guild_id, bot, data, is_gold_server,
                     return
 
             async def _on_role_save(role_id: int) -> None:
+                """Sauvegarde le couple emoji/rôle."""
                 new_couple = {"emoji": emoji, "role_id": role_id}
                 if index < len(couples):
                     couples[index] = new_couple
@@ -381,10 +380,6 @@ async def _build_create(container, guild, guild_id, bot, data, is_gold_server,
             async def _build_return_view():
                 return await create_reaction_role_view(guild_id, bot, "create", data, author_id)
 
-            # Le modal a été ouvert depuis un composant (bouton Ajouter/Modifier)
-            # -> edit_message ici édite bien CE MÊME message (comportement
-            # documenté de discord.py pour les interactions modal_submit
-            # chaînées depuis un component).
             await modal_inter.response.edit_message(
                 view=SelectPageView(
                     kind="role",
@@ -407,14 +402,16 @@ async def _build_create(container, guild, guild_id, bot, data, is_gold_server,
 
     for i, couple in enumerate(couples):
         role = guild.get_role(couple["role_id"])
-        role_str = role.mention if role else "~~Rôle supprimé~~"
-        edit_btn = Button(label="Modifier", style=ButtonStyle.secondary, emoji="✏️")
-        remove_btn = Button(label="Retirer", style=ButtonStyle.danger, emoji="🗑️")
+        role_str = role.mention if role else "`Rôle supprimé`"
+        edit_btn = Button(label="Modifier", style=ButtonStyle.secondary, emoji="<:modifier:1495444144712192003>")
+        remove_btn = Button(label="Retirer", style=ButtonStyle.danger, emoji="<:supprimer:1495444051623809075>")
 
         async def edit_cb(inter: Interaction, index=i):
+            """Modifie un couple."""
             await inter.response.send_modal(_make_emoji_modal(index))
 
         async def remove_cb(inter: Interaction, index=i):
+            """Supprime un couple."""
             if index < len(couples):
                 removed = couples.pop(index)
                 new_view = await create_reaction_role_view(guild_id, bot, "create", data, author_id)
@@ -437,9 +434,10 @@ async def _build_create(container, guild, guild_id, bot, data, is_gold_server,
         container.add_item(rr)
 
     add_btn = Button(label="Ajouter un couple", style=ButtonStyle.success,
-                     emoji="➕", disabled=nb_couples >= limite_couples)
+                     emoji="<:plus:1495444111505752154>", disabled=nb_couples >= limite_couples)
 
     async def add_couple_cb(inter: Interaction):
+        """Ajoute un couple."""
         await inter.response.send_modal(_make_emoji_modal(len(couples)))
 
     add_btn.callback = add_couple_cb
@@ -448,12 +446,13 @@ async def _build_create(container, guild, guild_id, bot, data, is_gold_server,
     container.add_item(ar)
     container.add_item(Separator())
 
-    # ── Salon ──
     container.add_item(TextDisplay("### #️⃣ Salon de destination"))
     channel_text = f"<#{channel_id}>" if channel_id else "`Non défini`"
-    channel_btn = Button(label="Choisir", style=ButtonStyle.secondary, emoji="#️⃣")
+    channel_btn = Button(label="Modifier", style=ButtonStyle.secondary, emoji="<:modifier:1495444144712192003>")
 
     async def _validate_channel_for_create(chan_inter: Interaction, new_channel_id: int) -> Optional[str]:
+        """Vérifie que le salon est valide pour l'envoi du message."""
+
         channel = chan_inter.guild.get_channel(new_channel_id) if chan_inter.guild else None
         if not isinstance(channel, discord.TextChannel):
             return "Salon texte introuvable."
@@ -493,13 +492,13 @@ async def _build_create(container, guild, guild_id, bot, data, is_gold_server,
 
     channel_btn.callback = choose_channel_cb
     container.add_item(Section(
-        TextDisplay(f"**Destination :** {channel_text}\n-# Le message de réaction sera posté ici"),
+        TextDisplay(f"**Destination :** {channel_text}\n-# Le message de réaction sera posté dans ce salon."),
         accessory=channel_btn,
     ))
     container.add_item(Separator())
-
-    # ── Navigation (Retour + Envoi sur la même ligne, Envoi à droite) ──
-    back_btn = Button(label="Retour", style=ButtonStyle.secondary, emoji="⬅️")
+    
+    
+    back_btn = Button(label="Retour", style=ButtonStyle.secondary, emoji="<:retour:1515658955190308995>")
 
     async def back_cb(inter: Interaction):
         new_view = await create_reaction_role_view(guild_id, bot, "main", author_id=author_id)
@@ -537,7 +536,7 @@ async def _build_create(container, guild, guild_id, bot, data, is_gold_server,
             try:
                 await msg.add_reaction(c["emoji"])
             except discord.HTTPException:
-                log.warning("RR: réaction impossible %s sur msg %s", c["emoji"], msg.id)
+                log.warning("[Rôle-Réaction] réaction impossible %s sur msg %s", c["emoji"], msg.id)
 
         reactions_data = [{**c, "created_at": datetime.now().isoformat()} for c in couples]
         await creer_message_reaction(guild_id, ch.id, msg.id, data["text"], reactions_data)
@@ -556,9 +555,9 @@ async def _build_create(container, guild, guild_id, bot, data, is_gold_server,
     container.add_item(TextDisplay("-# GuideON Studio"))
 
 
-# ------------------------------------------------------
-# PAGE LIST
-# ------------------------------------------------------
+# ============================================================
+# 📋 Interface liste message
+# ============================================================
 
 async def _build_list(container, guild_id, bot, author_id):
     container.add_item(TextDisplay(
@@ -596,7 +595,7 @@ async def _build_list(container, guild_id, bot, author_id):
             if len(reactions) > 3:
                 preview += " …"
 
-            delete_btn = Button(label="Supprimer", style=ButtonStyle.danger, emoji="🗑️")
+            delete_btn = Button(label="Supprimer", style=ButtonStyle.danger, emoji="<:supprimer:1495444051623809075>")
 
             async def delete_cb(inter: Interaction, mid=msg_id, ch_id=data_msg["channel_id"]):
                 await supprimer_message_reaction(guild_id, int(mid))
@@ -627,7 +626,7 @@ async def _build_list(container, guild_id, bot, author_id):
             ))
             container.add_item(Separator())
 
-    back_btn = Button(label="Retour", style=ButtonStyle.secondary, emoji="⬅️")
+    back_btn = Button(label="Retour", style=ButtonStyle.secondary, emoji="<:retour:1515658955190308995>")
 
     async def back_main_cb(inter: Interaction):
         new_view = await create_reaction_role_view(guild_id, bot, "main", author_id=author_id)

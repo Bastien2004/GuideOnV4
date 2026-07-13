@@ -1,5 +1,5 @@
 """
-views/autorole/config_view.py — Interface /config autorole.
+views/autorole/config_view.py — Interface de configuration du système d'auto-rôle.
 """
 
 from __future__ import annotations
@@ -20,6 +20,11 @@ from utils.settings import settings
 
 log = logging.getLogger(__name__)
 
+
+# ============================================================
+# 🔩 Paramètres
+# ============================================================
+
 SLOT_CONFIG = [
     (1, "🎯", "Rôle automatique 1", False),
     (2, "🎯", "Rôle automatique 2", False),
@@ -27,9 +32,9 @@ SLOT_CONFIG = [
 ]
 
 
-# ======================================================
-# ==================== BUILDER =========================
-# ======================================================
+# ============================================================
+# 🧩 Fonctions principales
+# ============================================================
 
 async def create_autorole_view(guild_id: int, bot, author_id: Optional[int] = None) -> Optional[LayoutView]:
     """Construction de la view de configuration de l'auto-rôle."""
@@ -43,10 +48,10 @@ async def create_autorole_view(guild_id: int, bot, author_id: Optional[int] = No
 
     view = LayoutView(timeout=600)
     container = Container()
+
     container.add_item(TextDisplay("# 🎭 Configuration Auto-rôle"))
     container.add_item(Separator())
 
-    # ── Toggle ON/OFF ──
     enabled = cfg.get("auto_role_active", False)
     toggle_btn = Button(
         label="✅ Activé" if enabled else "❌ Désactivé",
@@ -63,7 +68,6 @@ async def create_autorole_view(guild_id: int, bot, author_id: Optional[int] = No
     ))
     container.add_item(Separator())
 
-    # ── Slots ──
     for slot_num, emoji, label, gold_only in SLOT_CONFIG:
         key = f"role_id_{slot_num}"
         role_id = cfg.get(key)
@@ -81,7 +85,7 @@ async def create_autorole_view(guild_id: int, bot, author_id: Optional[int] = No
             if role:
                 role_display = role.mention
             elif role_id:
-                role_display = "`⚠️ Rôle supprimé`"
+                role_display = "<:erreur:1495443907281031359> **Rôle supprimé**"
             else:
                 role_display = "`Non configuré`"
             gold_hint = " ✨" if gold_only else ""
@@ -102,12 +106,9 @@ async def create_autorole_view(guild_id: int, bot, author_id: Optional[int] = No
 
         container.add_item(Separator())
 
-    # ── Footer ──
     lien = settings.doc_url
+    container.add_item(ActionRow(Button(label="Documentation", style=ButtonStyle.link, url=lien, emoji="📚")))
 
-    container.add_item(ActionRow(Button(
-        label="Documentation", style=ButtonStyle.link, url=lien, emoji="📚"
-    )))
     container.add_item(Separator())
     container.add_item(TextDisplay("-# GuideOn Studio"))
 
@@ -115,11 +116,13 @@ async def create_autorole_view(guild_id: int, bot, author_id: Optional[int] = No
     return view
 
 
-# ======================================================
-# ===================== CALLBACKS ======================
-# ======================================================
+# ============================================================
+# 📑 CallBacks
+# ============================================================
 
 def _guard(author_id: Optional[int]):
+    """Vérification de l'interaction (auteur de la commande + admin)."""
+
     async def check(interaction: Interaction) -> bool:
         if author_id is not None and interaction.user.id != author_id:
             await interaction.response.send_message(
@@ -131,7 +134,7 @@ def _guard(author_id: Optional[int]):
         member = interaction.user
         if not isinstance(member, discord.Member) or not member.guild_permissions.administrator:
             await interaction.response.send_message(
-                view=error_container("Vous devez être **Administrateur**."),
+                view=error_container("Vous devez être **Administrateur** pour réaliser cette action."),
                 ephemeral=True,
             )
             return False
@@ -140,10 +143,12 @@ def _guard(author_id: Optional[int]):
 
 
 async def _rerender(interaction: Interaction, guild_id: int, bot, author_id):
+    """Mise à jour de l'interface après configuration."""
+
     new_view = await create_autorole_view(guild_id, bot, author_id)
     if new_view is None:
         await interaction.response.send_message(
-            view=error_container("Serveur **introuvable**."), ephemeral=True
+            view=error_container("Le serveur est **introuvable**."), ephemeral=True
         )
         return
     if interaction.response.is_done():
@@ -153,6 +158,8 @@ async def _rerender(interaction: Interaction, guild_id: int, bot, author_id):
 
 
 def _cb_toggle(guild_id, bot, author_id):
+    """Activation / désactivation du système auto-rôle."""
+
     check = _guard(author_id)
 
     async def cb(interaction: Interaction):
@@ -165,6 +172,8 @@ def _cb_toggle(guild_id, bot, author_id):
 
 
 def _cb_gold_lock(author_id):
+    """Gestion verrouillage Gold+."""
+
     check = _guard(author_id)
 
     async def cb(interaction: Interaction):
@@ -175,7 +184,7 @@ def _cb_gold_lock(author_id):
 
 
 async def _validate_role_selection(interaction: Interaction, role_id: int) -> Optional[str]:
-    """Vérifs de sécurité avant d'accepter un rôle auto (hiérarchie + type)."""
+    """Vérification de sécurité pour un rôle (hiérarchie + type)."""
 
     guild = interaction.guild
     role = guild.get_role(role_id) if guild else None
@@ -189,12 +198,14 @@ async def _validate_role_selection(interaction: Interaction, role_id: int) -> Op
         )
 
     if role.is_default() or role.is_bot_managed() or role.is_integration():
-        return "Ce type de rôle ne peut pas être utilisé (rôle par défaut, bot ou intégration)."
+        return "Ce type de rôle ne peut pas être utilisé."
 
     return None
 
 
 def _cb_set_role(guild_id, bot, author_id, key, emoji, label):
+    """Modification ou ajout d'un rôle automatique."""
+
     check = _guard(author_id)
 
     async def cb(interaction: Interaction):
@@ -224,6 +235,8 @@ def _cb_set_role(guild_id, bot, author_id, key, emoji, label):
 
 
 def _cb_remove_role(guild_id, bot, author_id, key):
+    """Retrait d'un rôle automatique."""
+
     check = _guard(author_id)
 
     async def cb(interaction: Interaction):

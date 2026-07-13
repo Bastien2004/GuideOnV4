@@ -1,5 +1,5 @@
 """
-views/bienvenue/config_view.py — Interface /config bienvenue.
+views/bienvenue/config_view.py — Interface de configuraion du système de bienvenue.
 """
 
 from __future__ import annotations
@@ -28,12 +28,12 @@ from views._components.select_page import SelectPageView
 from views._components.text_modal import TextModal
 from utils.settings import settings
 
-
-# ============================================================
-# 📦 Constantes
-# ============================================================
-
 log = logging.getLogger(__name__)
+
+
+# ============================================================
+# 🔩 Paramètres
+# ============================================================
 
 VARIABLES_HELP_SHORT = "Vous disposez de **plusieurs variables** pour __personnaliser__\nvos **message** de __bienvenue__ et de __départ__."
 
@@ -246,7 +246,6 @@ class BienvenueView(BaseLayoutView):
         c.add_item(Section(TextDisplay("➤ **Variables**"), accessory=vars_btn))
         c.add_item(Separator())
 
-        # Retour + Aperçu (libre pour tout le monde)
         back_btn = Button(label="Retour", style=ButtonStyle.secondary, emoji="<:precedent:1515658763913138236>")
         back_btn.callback = self._cb_back
         preview_btn = Button(label="Aperçu", style=ButtonStyle.secondary, emoji="👁️")
@@ -256,36 +255,43 @@ class BienvenueView(BaseLayoutView):
         c.add_item(Separator())
         c.add_item(TextDisplay("-# GuideOn Studio"))
 
-    # ------------------------------------------------------------------
-    # Callbacks — navigation
-    # ------------------------------------------------------------------
+
+    # ============================================================
+    # 🔩 Fonctions utilitaires (CallBacks + Navigation)
+    # ============================================================
 
     def _make_cb_open(self, kind: str):
+        """Gestion callbakcs page de config."""
         async def cb(interaction: Interaction):
             await self._rerender(interaction, page=kind)
         return cb
 
+
     async def _cb_back(self, interaction: Interaction) -> None:
+        """Retour à la page principale."""
         await self._rerender(interaction, page="main")
 
-    # ------------------------------------------------------------------
-    # Callbacks — actions
-    # ------------------------------------------------------------------
 
     async def _cb_toggle_system(self, interaction: Interaction) -> None:
+        """Gestion toggle on/off."""
         current = self.cfg.get("system_active", False)
         await save_bienvenue_config(self.guild.id, {"system_active": not current})
         await self._rerender(interaction)
 
+
     async def _cb_reset(self, interaction: Interaction) -> None:
+        """Réinitialise la config bienvenue."""
         await reset_bienvenue_config(self.guild.id)
         await self._rerender(interaction, page="main")
 
+
     async def _cb_gold_lock(self, interaction: Interaction) -> None:
+        """Affiche un message d'erreur si le serveur n'est pas Gold+."""
         await send_gold_error(interaction)
 
+
     async def _cb_show_variables(self, interaction: Interaction) -> None:
-        """Liste complète des variables."""
+        """Affiche la liste complète des variables."""
 
         lines = [f"`{var}` — {desc}" for var, desc in VARIABLES_FULL]
         view = BaseLayoutView(owner_id=self.owner_id, timeout=120)
@@ -299,22 +305,30 @@ class BienvenueView(BaseLayoutView):
         view.add_item(c)
         await interaction.response.send_message(view=view, ephemeral=True)
 
+
     def _make_cb_toggle_kind(self, kind: str):
+        """Active/désactive le message d'arrivée ou de départ."""
+
         async def cb(interaction: Interaction):
             current = self.cfg.get(f"{kind}_active", False)
             await save_bienvenue_config(self.guild.id, {f"{kind}_active": not current})
             await self._rerender(interaction, page=kind)
         return cb
 
+
     def _make_cb_set_format(self, kind: str, fmt: str):
+        """Change le format du message (embed ou texte)."""
+
         async def cb(interaction: Interaction):
             await save_bienvenue_config(self.guild.id, {f"{kind}_format": fmt})
             await self._rerender(interaction, page=kind)
         return cb
 
-    def _make_cb_edit_message(self, kind: str):
-        _, label, _ = KIND_LABELS[kind]
 
+    def _make_cb_edit_message(self, kind: str):
+        """Ouvre le modal de configuration du message."""
+
+        _, label, _ = KIND_LABELS[kind]
         async def cb(interaction: Interaction):
             current = self.cfg.get(f"{kind}_message", "")
 
@@ -325,7 +339,7 @@ class BienvenueView(BaseLayoutView):
             modal = TextModal(
                 title=f"✏️ Message — {label}",
                 label="Message",
-                placeholder="Variables : {user} {mention} {server} {member_count}",
+                placeholder="Variables : {user}, {mention}, {server}, {member_count} ...",
                 default=current,
                 min_length=1,
                 max_length=2000,
@@ -335,9 +349,11 @@ class BienvenueView(BaseLayoutView):
             await interaction.response.send_modal(modal)
         return cb
 
-    def _make_cb_edit_image(self, kind: str):
-        _, label, _ = KIND_LABELS[kind]
 
+    def _make_cb_edit_image(self, kind: str):
+        """"Ouvre le modal de configuration de l'image."""
+
+        _, label, _ = KIND_LABELS[kind]
         async def cb(interaction: Interaction):
             if not is_gold(self.guild.id):
                 await send_gold_error(interaction)
@@ -368,16 +384,18 @@ class BienvenueView(BaseLayoutView):
             await interaction.response.send_modal(modal)
         return cb
 
+
     def _make_cb_remove_image(self, kind: str):
+        """Supprime l'image personnalisée."""
+
         async def cb(interaction: Interaction):
             await save_bienvenue_config(self.guild.id, {f"{kind}_image_url": None})
             await self._rerender(interaction, page=kind)
         return cb
 
+
     def _make_cb_pick_channel(self, kind: str):
         """Envoie l'interface de sélection."""
-
-        emoji, label, _ = KIND_LABELS[kind]
 
         async def _validate(inter: Interaction, channel_id: int) -> Optional[str]:
             channel = inter.guild.get_channel(channel_id) if inter.guild else None
@@ -412,6 +430,7 @@ class BienvenueView(BaseLayoutView):
                 )
             )
         return cb
+
 
     def _make_cb_preview(self, kind: str):
         """Système d'aperçu des messages bienvenue/départ."""
