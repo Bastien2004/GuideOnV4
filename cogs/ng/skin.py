@@ -82,17 +82,28 @@ async def create_skin_view(pseudo: str, mode: str = "corps_3d") -> LayoutView:
     container.add_item(nav_row)
     container.add_item(Separator())
 
-    download_btn = Button(
-        label="Télécharger",
+    download_render_btn = Button(
+        label="Télécharger le modèle",
         style=ButtonStyle.link,
         url=skins[mode],
         emoji="📥"
     )
 
-    container.add_item(Section(
-        TextDisplay(f"**{titles.get(mode)}**\n-# Télécharger ce rendu"),
-        accessory=download_btn
+    download_original_btn = Button(
+        label="Skin original",
+        style=ButtonStyle.link,
+        url=skins["original"],
+        emoji="🧥"
+    )
+
+    download_row = ActionRow()
+    download_row.add_item(download_render_btn)
+    download_row.add_item(download_original_btn)
+
+    container.add_item(TextDisplay(
+        f"**Modèle {titles.get(mode)}**\n-# Télécharger ce modèle ou le skin original"
     ))
+    container.add_item(download_row)
 
     container.add_item(Separator())
     container.add_item(TextDisplay("-# GuideOn Studio"))
