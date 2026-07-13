@@ -1,6 +1,7 @@
 """
-views/role_all/config_view.py — Interface /config role_all.
+views/role_all/config_view.py — Interface d'utilisation du système de rôle all.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -15,6 +16,11 @@ from utils.container_universel import error_container
 from views._components.role_select import RoleSelect
 
 log = logging.getLogger(__name__)
+
+
+# ============================================================
+# 🔩 Paramètres
+# ============================================================
 
 APPLY_DELAY = 0.4
 PROGRESS_EVERY = 10
@@ -38,8 +44,7 @@ def _bot_can_manage(guild: discord.Guild, role: discord.Role) -> bool:
 
 
 def _admin_can_manage(member: discord.Member, role: discord.Role) -> bool:
-    """L'admin peut-il gérer ce rôle ? (hiérarchie)"""
-
+    """Vérifie que l'admin à la perm de gérer ce rôle."""
     if member.id == member.guild.owner_id:
         return True
     return role.position < member.top_role.position
@@ -69,7 +74,7 @@ async def apply_role_to_all(guild: discord.Guild, role: discord.Role, action: st
     action_label = "Ajout" if action == "add" else "Retrait"
 
     progress_msg = await interaction.followup.send(
-        f"⏳ **{action_label} en cours…**\n"
+        f"<:temps:1511260273506259024> **{action_label} en cours…**\n"
         f"Rôle : {role.mention} · 0 / {total} membres traités",
         ephemeral=True,
     )
@@ -114,7 +119,7 @@ async def apply_role_to_all(guild: discord.Guild, role: discord.Role, action: st
         if i % PROGRESS_EVERY == 0 or i == total:
             try:
                 await progress_msg.edit(content=(
-                    f"⏳ **{action_label} en cours…**\n"
+                    f"<:temps:1511260273506259024> **{action_label} en cours…**\n"
                     f"Rôle : {role.mention} · {i} / {total} membres traités"
                 ))
             except (discord.NotFound, discord.HTTPException):
@@ -137,14 +142,14 @@ def _make_result_view(action: str, role: discord.Role, results: dict) -> LayoutV
     view = LayoutView(timeout=None)
     container = Container()
     container.add_item(TextDisplay(
-        f"# ✅ Opération terminée\n"
+        f"# <:info:1495443961144152094> Opération terminée\n"
         f"-# Rôle {role.mention} {action_label} **{results['success']}** membre(s)"
     ))
     container.add_item(Separator())
     container.add_item(TextDisplay(
-        f"**✅ Succès :** {results['success']}\n"
-        f"**⏭️ Ignorés :** {results['skipped']}\n"
-        f"**❌ Erreurs :** {results['errors']}"
+        f"**<:valider:1495444292867723284> Succès :** {results['success']}\n"
+        f"**<:annuler:1495444256754761979> Ignorés :** {results['skipped']}\n"
+        f"**<:erreur:1495443907281031359> Erreurs :** {results['errors']}"
     ))
     if results["errors"] > 0:
         container.add_item(Separator())
@@ -252,7 +257,7 @@ def _build_main(container, guild, bot, author_id, selected_role):
     if selected_role:
         stats = get_role_stats(guild, selected_role)
         can_manage = _bot_can_manage(guild, selected_role)
-        warn = ("\n-# ⚠️ Je ne peux pas gérer ce rôle (hiérarchie insuffisante)"
+        warn = ("\n-# <:erreur:1495443907281031359> Je ne peux pas gérer ce rôle (hiérarchie insuffisante)"
                 if not can_manage else "")
         container.add_item(Separator())
         container.add_item(TextDisplay(
@@ -287,11 +292,11 @@ def _build_main(container, guild, bot, author_id, selected_role):
         remove_btn.callback = _go_confirm("remove")
 
         container.add_item(Section(
-            TextDisplay(f"**➕ Ajouter à tous**\n-# {stats['without_role']} membre(s) recevront le rôle"),
+            TextDisplay(f"**<:plus:1495444111505752154> Ajouter à tous**\n-# {stats['without_role']} membre(s) recevront le rôle"),
             accessory=add_btn,
         ))
         container.add_item(Section(
-            TextDisplay(f"**➖ Retirer à tous**\n-# {stats['with_role']} membre(s) perdront le rôle"),
+            TextDisplay(f"**<:moins:1508532114465882285> Retirer à tous**\n-# {stats['with_role']} membre(s) perdront le rôle"),
             accessory=remove_btn,
         ))
 
@@ -304,7 +309,7 @@ def _build_confirm(container, guild, bot, author_id, selected_role, action):
     affected = stats["without_role"] if action == "add" else stats["with_role"]
     verb = "ajouter" if action == "add" else "retirer"
 
-    container.add_item(TextDisplay("# ⚠️ Confirmation\n-# Cette action est irréversible !"))
+    container.add_item(TextDisplay("# <:erreur:1495443907281031359> Confirmation\n-# Cette action est irréversible !"))
     container.add_item(Separator())
     container.add_item(TextDisplay(
         f"Vous allez **{verb}** {selected_role.mention} "
@@ -312,19 +317,19 @@ def _build_confirm(container, guild, bot, author_id, selected_role, action):
     ))
     container.add_item(Separator())
 
-    confirm_label = "✅ Confirmer l'ajout" if action == "add" else "🗑️ Confirmer le retrait"
+    confirm_label = "<:valider:1495444292867723284> Confirmer l'ajout" if action == "add" else "<:supprimer:1495444051623809075> Confirmer le retrait"
     confirm_btn = Button(
         label=f"Confirmer — {verb.capitalize()}",
         style=ButtonStyle.success if action == "add" else ButtonStyle.danger,
-        emoji="✅",
+        emoji="<:valider:1495444292867723284>",
     )
-    cancel_btn = Button(label="Annuler", style=ButtonStyle.secondary, emoji="◀️")
+    cancel_btn = Button(label="Annuler", style=ButtonStyle.secondary, emoji="<:retour:1515658955190308995>")
 
     async def confirm_cb(interaction: Interaction):
         check = _guard(author_id)
         if not await check(interaction):
             return
-        # Re-vérif hiérarchie au moment de l'exécution (le rôle a pu bouger)
+
         if not _bot_can_manage(guild, selected_role):
             return await interaction.response.edit_message(
                 view=error_container("Je ne peux plus gérer ce rôle (hiérarchie modifiée).")
@@ -356,7 +361,7 @@ def _build_confirm(container, guild, bot, author_id, selected_role, action):
         accessory=confirm_btn,
     ))
     container.add_item(Section(
-        TextDisplay("**◀️ Annuler**\n-# Revenir sans effectuer de modification"),
+        TextDisplay("**<:retour:1515658955190308995> Annuler**\n-# Revenir sans effectuer de modification"),
         accessory=cancel_btn,
     ))
     container.add_item(Separator())

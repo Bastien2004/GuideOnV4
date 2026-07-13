@@ -57,6 +57,61 @@ def _preview(text: str, max_len: int = 40) -> str:
 
 
 # ============================================================
+# 😀 Validation emoji
+# ============================================================
+
+_ZWJ = "‍"
+_VARIATION_SELECTOR_16 = "️"
+_COMBINING_ENCLOSING_KEYCAP = "⃣"
+_SKIN_TONE_MODIFIERS = {"\U0001F3FB", "\U0001F3FC", "\U0001F3FD", "\U0001F3FE", "\U0001F3FF"}
+_KEYCAP_BASES = set("#*0123456789")
+_REGIONAL_INDICATOR_MIN = 0x1F1E6
+_REGIONAL_INDICATOR_MAX = 0x1F1FF
+
+
+def _is_regional_indicator(ch: str) -> bool:
+    return _REGIONAL_INDICATOR_MIN <= ord(ch) <= _REGIONAL_INDICATOR_MAX
+
+
+def _is_single_unicode_emoji(raw: str) -> bool:
+    """Vérifie que le texte contient un seul emoji."""
+
+    if not raw or len(raw) > 16:
+        return False
+
+    chars = list(raw)
+    n = len(chars)
+
+    if n == 2 and _is_regional_indicator(chars[0]) and _is_regional_indicator(chars[1]):
+        return True
+
+    base = chars[0]
+
+    if base in _KEYCAP_BASES:
+        rest = chars[1:]
+        if rest and rest[0] == _VARIATION_SELECTOR_16:
+            rest = rest[1:]
+        return rest == [_COMBINING_ENCLOSING_KEYCAP]
+
+    if ord(base) < 0x2000 or _is_regional_indicator(base):
+        return False
+
+    i = 1
+    while i < n:
+        ch = chars[i]
+        if ch == _VARIATION_SELECTOR_16 or ch in _SKIN_TONE_MODIFIERS:
+            i += 1
+            continue
+        if ch == _ZWJ:
+            if i + 1 >= n:
+                return False
+            i += 2
+            continue
+        return False
+    return True
+
+
+# ============================================================
 # 📑 Modals (texte + emoji)
 # ============================================================
 
@@ -108,19 +163,26 @@ class EmojiModal(Modal, title="😀 Choisir un emoji"):
                 parsed = discord.PartialEmoji.from_str(raw)
                 if parsed.id is None:
                     raise ValueError("Pas d'ID")
+                
+                if str(parsed) != raw:
+                    raise ValueError("Plusieurs emojis détectés")
                 emoji = raw
             except Exception:
                 return await interaction.response.send_message(
                     view=error_container(
                         "Format d'emoji personnalisé invalide.\n"
-                        "-# Utilisez `<:nom:123456789>` ou `<a:nom:123456789>`"
+                        "-# Utilisez `<:nom:123456789>` ou `<a:nom:123456789>` — un seul emoji à la fois."
                     ),
                     ephemeral=True,
                 )
         else:
-            if len(raw) > 8:
+            if not _is_single_unicode_emoji(raw):
                 return await interaction.response.send_message(
-                    view=error_container("Cet __emoji__ ne semble **pas valide**."), ephemeral=True
+                    view=error_container(
+                        "Veuillez entrer **un seul emoji**.\n"
+                        "-# Plusieurs emojis à la suite ne sont pas autorisés."
+                    ),
+                    ephemeral=True,
                 )
             emoji = raw
         await self._on_valid(interaction, emoji)
@@ -152,7 +214,7 @@ def build_sent_message_view(text: str, guild: discord.Guild, couples: list[dict[
     container.add_item(TextDisplay(f"## Rôles disponibles\n{couples_text}"))
     container.add_item(Separator())
     container.add_item(TextDisplay("-# GuideOn Studio"))
-    
+
     view.add_item(container)
     return view
 
@@ -220,13 +282,13 @@ async def _build_main(container, guild_id, bot, is_gold_server, author_id):
     limite = obtenir_limite_messages(guild_id)
     nb = len(messages)
     restant = max(0, limite - nb)
-    progress = _progress_bar(nb, limite)
+    progress = _progress_bar(nb, limite, length=max(limite, 1))
 
     container.add_item(TextDisplay("# 🎭 Rôles Réaction"))
     container.add_item(Separator())
 
     upgrade_hint = "" if is_gold_server else "\n-# 💡 Passez Gold pour débloquer plus de messages"
-    
+
     container.add_item(TextDisplay(
         f"### 📊 Utilisation\n"
         f"`{progress}` **{nb} / {limite}** message(s) — {restant} slot(s) disponible(s)"
@@ -397,7 +459,7 @@ async def _build_create(container, guild, guild_id, bot, data, is_gold_server, l
     gold_suffix = " ✨" if is_gold_server else ""
     container.add_item(TextDisplay(
         f"### 🎨 Couples emoji / rôle{gold_suffix}\n"
-        f"-# `{_progress_bar(nb_couples, limite_couples)}` {nb_couples} / {limite_couples} configuré(s)"
+        f"-# `{_progress_bar(nb_couples, limite_couples, length=max(limite_couples, 1))}` {nb_couples} / {limite_couples} configuré(s)"
     ))
 
     for i, couple in enumerate(couples):
@@ -496,8 +558,8 @@ async def _build_create(container, guild, guild_id, bot, data, is_gold_server, l
         accessory=channel_btn,
     ))
     container.add_item(Separator())
-    
-    
+
+
     back_btn = Button(label="Retour", style=ButtonStyle.secondary, emoji="<:retour:1515658955190308995>")
 
     async def back_cb(inter: Interaction):
