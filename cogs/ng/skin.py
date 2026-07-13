@@ -83,7 +83,7 @@ async def create_skin_view(pseudo: str, mode: str = "corps_3d") -> LayoutView:
     container.add_item(Separator())
 
     download_render_btn = Button(
-        label="Télécharger le modèle",
+        label="Télécharger ce modèle",
         style=ButtonStyle.link,
         url=skins[mode],
         emoji="📥"
