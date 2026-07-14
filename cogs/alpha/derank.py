@@ -321,8 +321,6 @@ class _ConfirmDerank(LayoutView):
             cfg.get("rank_emoji"),
         )
 
-        # Affiche journaliste : pertinente pour complet / staff / journaliste
-        # (pas affilié/builder, qui n'ont jamais eu d'affiche dédiée).
         if role in ("complet", "staff", "journaliste"):
             await _send_to_channel(
                 interaction.client,

@@ -26,19 +26,18 @@ log = logging.getLogger(__name__)
 # ── Règles (placeholders — à remplacer) ──────────────────────
 
 EVENT_RULES = [
-    "Respectez les consignes et décisions du staff organisateur en tout temps.",
-    "Les insultes, provocations et comportements toxiques envers les autres participants sont interdits.",
-    "Tout comportement visant à tricher, exploiter des bugs ou obtenir un avantage déloyal entraîne une disqualification immédiate.",
-    "Rejoignez l'event uniquement lorsque le staff vous y invite. Ne tentez pas d'accéder à la zone avant le signal.",
-    "Une fois éliminé, quittez la zone de jeu sans perturber le déroulement de la partie.",
-    "Le staff Alpha se réserve le droit de sanctionner tout joueur ne respectant pas ces règles.",
+    "➤ Le spawn kill est interdit.",
+    "➤ Le team-up est interdit.",
+    "➤ Le focus est interdit.",
+    "➤ La fusion de stuff est interdite.",
+    "➤ Camper lors d'un event est interdit.",
+    "➤ Sortir ou tenter de sortir du stuff event est interdit.",
 ]
-
 
 def build_event_regle_view() -> LayoutView:
     view = LayoutView(timeout=None)
     c = Container()
-    c.add_item(TextDisplay("# ⚔️ Règles des Events Alpha"))
+    c.add_item(TextDisplay("# 📚 Règlement events M+"))
     c.add_item(Separator())
     rules_txt = "\n".join(f"**{i+1}.** {r}" for i, r in enumerate(EVENT_RULES))
     c.add_item(TextDisplay(rules_txt))

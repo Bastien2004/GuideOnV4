@@ -24,7 +24,7 @@ from views.alpha.edit_list_view import EditListView
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 5)
-@app_commands.command(name="edit_stafflist_alpha", description="📋 [DEV] Gestion de la liste staff Alpha")
+@app_commands.command(name="edit_stafflist_alpha", description="📋 [ALPHA] Gestion de la liste staff Alpha")
 async def alpha_edit_stafflist(interaction: Interaction) -> None:
 
     # 🔐 Vérification des permissions.
