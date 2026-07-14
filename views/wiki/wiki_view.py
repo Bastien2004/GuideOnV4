@@ -385,7 +385,7 @@ class WikiSupportView(BaseLayoutView):
         c.add_item(Separator())
         c.add_item(ActionRow(*_nav_buttons(self.owner_id, active="support", bot=self.bot)))
         c.add_item(Separator())
-        c.add_item(TextDisplay("-# GuideON Studio — nous sommes là pour t'aider !"))
+        c.add_item(TextDisplay("-# GuideON Studio"))
         self.add_item(c)
 
 

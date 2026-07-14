@@ -90,10 +90,7 @@ async def create_gestion_view(guild_id: int, target_id: int, bot, author_id: Opt
         max_values=1,
     )
     type_select.callback = _cb_pick_type(guild_id, target_id, bot, author_id)
-    container.add_item(TextDisplay(
-        f"### 🎯 Type sélectionné\n"
-        f"-# {TYPE_LABELS[selected_type][1]} **{TYPE_LABELS[selected_type][0]}** "
-    ))
+    container.add_item(TextDisplay(f"### 🎯 Type sélectionné :"))
     container.add_item(ActionRow(type_select))
 
     btn_add = Button(label="Ajouter", style=ButtonStyle.success, emoji="<:plus:1495444111505752154>")
