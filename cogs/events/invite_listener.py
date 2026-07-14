@@ -3,8 +3,8 @@ cogs/events/invite_listener.py — Tracking des invitations Discord.
 
 commands.Cog avec setup() → chargé automatiquement par _load_cogs_from_directory
 (rglob récursif sur cogs/). Maintient un cache des invites par serveur et
-détecte, à chaque on_member_join, l'invite dont le compteur a augmenté pour
-attribuer l'arrivée au bon inviteur.
+détecte, à chaque on_member_join, l'invite utilisée pour attribuer l'arrivée
+au bon inviteur.
 
 Logique métier (V4) :
 
@@ -23,17 +23,36 @@ Logique métier (V4) :
     2. règle V3 : pénalité "left" uniquement si départ < 24h après l'arrivée
     3. mark_left() : retrouve le VRAI inviteur via la table de liens et incrémente "left"
 
-⚠️ La détection d'invite repose sur un diff de compteurs. Cas non détectables :
-arrivée via vanity URL, lien externe, invite supprimée juste avant le join,
-race condition (deux arrivées simultanées sur deux invites différentes). Dans
-ces cas, le lien est enregistré avec inviter_id=None (pas de pénalité au départ,
-pas d'incrémentation regular/fake).
+⚠️ Détection : deux mécanismes complémentaires.
+
+1. Invite à usages multiples (illimité ou non) : toujours présente dans
+   `guild.invites()` après le join, avec `uses` incrémenté → détectée par
+   diff de compteur (mécanisme historique, inchangé).
+
+2. Invite à usage UNIQUE (max_uses=1) ou qui vient d'atteindre son max_uses :
+   Discord la SUPPRIME dès qu'elle est consommée. Elle est donc absente de
+   `guild.invites()` au moment où on_member_join s'exécute — un simple diff
+   de compteur ne peut jamais la voir puisqu'elle a disparu de la liste
+   observée. C'était un bug réel : toute arrivée via un lien à usage unique
+   n'était jamais attribuée (inviter_id restait toujours None). Corrigé en
+   gardant, pour chaque code, un instantané (uses/max_uses/inviter) — à la
+   fois dans le cache courant et dans un tampon `_recent_deletes` alimenté
+   par on_invite_delete — et en traitant comme candidate toute invite connue
+   qui a disparu alors qu'elle était sur le point d'atteindre son max_uses.
+
+Cas non détectables (limite inhérente à une détection par diff, non
+spécifique à cette correction) : arrivée via vanity URL, lien externe,
+race condition (deux arrivées quasi simultanées sur deux invites différentes
+avant rafraîchissement du cache). Dans ces cas, le lien est enregistré avec
+inviter_id=None (pas de pénalité au départ, pas d'incrémentation regular/fake).
 """
 from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 import discord
 from discord.ext import commands
@@ -51,16 +70,29 @@ log = logging.getLogger(__name__)
 FAKE_ACCOUNT_AGE = timedelta(days=7)
 LEFT_PENALTY_WINDOW = timedelta(days=1)
 
+# Durée pendant laquelle une invite tout juste supprimée reste consultable
+# pour l'attribution d'un join (voir _recent_deletes ci-dessous).
+RECENT_DELETE_TTL_SECONDS = 15.0
+
+InviteSnapshot = dict  # {"uses": int, "max_uses": int, "inviter_id": int | None, "inviter_is_bot": bool}
+
 
 class InviteListener(commands.Cog):
     """Cog de tracking des invitations."""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        # {guild_id: {code: uses_count}}  — on stocke juste le compteur d'uses,
-        # pas l'objet Invite entier (économise la mémoire et évite les refs périmées).
-        self._invite_cache: dict[int, dict[str, int]] = {}
-        # Lock par guild pour sérialiser cache_invites ↔ on_member_join.
+        # {guild_id: {code: InviteSnapshot}} — instantané complet (pas
+        # seulement le compteur "uses") afin de pouvoir attribuer un join même
+        # quand l'invite a disparu (usage unique consommé).
+        self._invite_cache: dict[int, dict[str, InviteSnapshot]] = {}
+        # {guild_id: {code: {**InviteSnapshot, "deleted_at": float}}} — tampon
+        # des invites tout juste supprimées, pour couvrir le cas où
+        # on_invite_delete traite la suppression AVANT que on_member_join
+        # n'ait eu la main sur le lock (l'ordre relatif des deux events n'est
+        # pas garanti par la gateway).
+        self._recent_deletes: dict[int, dict[str, InviteSnapshot]] = {}
+        # Lock par guild pour sérialiser cache_invites ↔ on_member_join ↔ on_invite_delete.
         self._guild_locks: dict[int, asyncio.Lock] = {}
 
     # ------------------------------------------------------------------
@@ -74,7 +106,29 @@ class InviteListener(commands.Cog):
             self._guild_locks[guild_id] = lock
         return lock
 
-    async def _refresh_cache(self, guild: discord.Guild) -> dict[str, int] | None:
+    @staticmethod
+    def _snapshot_invite(invite: discord.Invite) -> InviteSnapshot:
+        inviter = invite.inviter
+        return {
+            "uses": invite.uses or 0,
+            "max_uses": getattr(invite, "max_uses", 0) or 0,
+            "inviter_id": inviter.id if inviter is not None else None,
+            "inviter_is_bot": bool(inviter is not None and inviter.bot),
+        }
+
+    def _prune_recent_deletes(self, guild_id: int) -> None:
+        recent = self._recent_deletes.get(guild_id)
+        if not recent:
+            return
+        now = time.monotonic()
+        expired = [
+            code for code, snap in recent.items()
+            if now - snap.get("deleted_at", 0.0) > RECENT_DELETE_TTL_SECONDS
+        ]
+        for code in expired:
+            recent.pop(code, None)
+
+    async def _refresh_cache(self, guild: discord.Guild) -> dict[str, InviteSnapshot] | None:
         """
         Récupère les invites Discord et écrit le cache de la guild. Renvoie le
         nouveau cache, ou None si on n'a pas la permission de lire les invites.
@@ -92,35 +146,76 @@ class InviteListener(commands.Cog):
             log.exception("[Invite] Échec récupération invites guild %s", guild.id)
             return None
 
-        cache = {invite.code: (invite.uses or 0) for invite in invites}
+        cache = {invite.code: self._snapshot_invite(invite) for invite in invites}
         self._invite_cache[guild.id] = cache
         return cache
 
     @staticmethod
-    def _is_fake_account(member: discord.Member) -> bool:
-        """True si le compte du membre a moins de FAKE_ACCOUNT_AGE."""
-        age = datetime.now(timezone.utc) - member.created_at
-        return age < FAKE_ACCOUNT_AGE
+    def _resolve_inviter(
+        inviter_id: Optional[int], inviter_is_bot: bool, joining_member_id: int
+    ) -> Optional[int]:
+        """Filtre les inviteurs invalides (bot, ou membre s'auto-invitant)."""
+        if inviter_id is None or inviter_is_bot or inviter_id == joining_member_id:
+            return None
+        return inviter_id
 
-    @staticmethod
+    @classmethod
     def _detect_used_code(
-        cache: dict[str, int], current: dict[str, "discord.Invite"]
-    ) -> "discord.Invite | None":
+        cls,
+        before: dict[str, InviteSnapshot],
+        recent_deleted: dict[str, InviteSnapshot],
+        current: dict[str, "discord.Invite"],
+        joining_member_id: int,
+    ) -> Optional[tuple[str, Optional[int]]]:
         """
-        Trouve l'invite dont le compteur uses a augmenté par rapport au cache.
-        Si plusieurs ont changé (rare, race condition) ou aucune, renvoie None.
+        Détermine l'invite utilisée pour ce join. Renvoie (code, inviter_id)
+        ou None si ambigu/indétectable. `inviter_id` est déjà filtré (bot /
+        auto-invitation exclus).
+
+        Deux sources de candidats :
+        1. Invite toujours présente dans `current`, avec uses incrémenté par
+           rapport à `before` (invite à usages multiples, y compris illimitée).
+        2. Invite connue (dans `before` OU `recent_deleted`) mais absente de
+           `current`, qui était sur le point d'atteindre son max_uses — c'est
+           la signature d'une invite à usage unique (ou dernier usage
+           disponible) qui vient d'être consommée puis supprimée par Discord.
         """
-        candidates: list[discord.Invite] = []
+        candidates: list[tuple[str, Optional[int]]] = []
+
+        # 1) Compteur incrémenté sur une invite toujours en vie.
         for code, invite in current.items():
-            old_uses = cache.get(code)
+            old = before.get(code)
             new_uses = invite.uses or 0
-            if old_uses is None:
-                # Invite apparue entre deux events (race) : si uses >= 1 et
-                # le cache ne la connaissait pas, on la considère comme candidate.
+            inviter = invite.inviter
+            inviter_id = inviter.id if inviter is not None else None
+            inviter_is_bot = bool(inviter is not None and inviter.bot)
+
+            if old is None:
+                # Invite apparue entre deux events (race) : si uses >= 1 et le
+                # cache ne la connaissait pas encore, on la considère candidate.
                 if new_uses >= 1:
-                    candidates.append(invite)
-            elif new_uses > old_uses:
-                candidates.append(invite)
+                    candidates.append((code, cls._resolve_inviter(inviter_id, inviter_is_bot, joining_member_id)))
+            elif new_uses > old.get("uses", 0):
+                candidates.append((code, cls._resolve_inviter(inviter_id, inviter_is_bot, joining_member_id)))
+
+        # 2) Invite disparue (usage unique consommé, ou dernier usage atteint).
+        known_gone_sources: dict[str, InviteSnapshot] = {**before, **recent_deleted}
+        for code, snap in known_gone_sources.items():
+            if code in current:
+                continue
+            max_uses = snap.get("max_uses", 0)
+            uses = snap.get("uses", 0)
+            # max_uses=0 signifie illimité chez Discord : une invite illimitée
+            # ne disparaît jamais "d'usure", donc on ne considère ce cas que
+            # pour une invite à usages limités sur le point d'être épuisée.
+            if max_uses and uses + 1 >= max_uses:
+                candidates.append((
+                    code,
+                    cls._resolve_inviter(
+                        snap.get("inviter_id"), snap.get("inviter_is_bot", False), joining_member_id,
+                    ),
+                ))
+
         if len(candidates) == 1:
             return candidates[0]
         return None  # ambigu ou aucun
@@ -197,7 +292,7 @@ class InviteListener(commands.Cog):
             return
         async with self._lock_for(guild.id):
             self._invite_cache.setdefault(guild.id, {})
-            self._invite_cache[guild.id][invite.code] = invite.uses or 0
+            self._invite_cache[guild.id][invite.code] = self._snapshot_invite(invite)
 
     @commands.Cog.listener()
     async def on_invite_delete(self, invite: discord.Invite) -> None:
@@ -206,8 +301,16 @@ class InviteListener(commands.Cog):
             return
         async with self._lock_for(guild.id):
             cache = self._invite_cache.get(guild.id)
-            if cache is not None:
-                cache.pop(invite.code, None)
+            entry = cache.pop(invite.code, None) if cache is not None else None
+            if entry is None:
+                # Invite jamais vue dans notre cache (bot lancé après sa
+                # création, par ex.) : on reconstruit un instantané minimal
+                # depuis l'objet fourni par l'event.
+                entry = self._snapshot_invite(invite)
+
+            recent = self._recent_deletes.setdefault(guild.id, {})
+            recent[invite.code] = {**entry, "deleted_at": time.monotonic()}
+            self._prune_recent_deletes(guild.id)
 
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member) -> None:
@@ -240,25 +343,31 @@ class InviteListener(commands.Cog):
             # lien sans inviteur (membre arrivé avant le 1er load).
             if guild.id not in self._invite_cache:
                 self._invite_cache[guild.id] = {
-                    c: (i.uses or 0) for c, i in current_by_code.items()
+                    code: self._snapshot_invite(inv) for code, inv in current_by_code.items()
                 }
                 used = None
             else:
-                used = self._detect_used_code(self._invite_cache[guild.id], current_by_code)
-                # MAJ du cache (uses uniquement)
+                before = self._invite_cache[guild.id]
+                recent_deleted = self._recent_deletes.get(guild.id, {})
+                self._prune_recent_deletes(guild.id)
+
+                used = self._detect_used_code(before, recent_deleted, current_by_code, member.id)
+
+                # MAJ du cache (instantané complet)
                 self._invite_cache[guild.id] = {
-                    c: (i.uses or 0) for c, i in current_by_code.items()
+                    code: self._snapshot_invite(inv) for code, inv in current_by_code.items()
                 }
+                # Le code identifié comme consommé ne doit plus servir à
+                # attribuer un futur join (évite une double-attribution si un
+                # 2e join arrivait après coup sur le même code déjà disparu).
+                if used is not None:
+                    recent_deleted.pop(used[0], None)
 
         # Détermination inviter + fake
         inviter_id = None
         invite_code = None
         if used is not None:
-            invite_code = used.code
-            inviter = used.inviter
-            # used.inviter peut être None pour certaines invites (vanity, widget…).
-            if inviter is not None and not inviter.bot and inviter.id != member.id:
-                inviter_id = inviter.id
+            invite_code, inviter_id = used
 
         is_fake = self._is_fake_account(member) if inviter_id is not None else False
 
@@ -284,6 +393,12 @@ class InviteListener(commands.Cog):
             await self._maybe_grant_reward(
                 guild, inviter_id, inviter_stats.get("total", 0), cfg
             )
+
+    @staticmethod
+    def _is_fake_account(member: discord.Member) -> bool:
+        """True si le compte du membre a moins de FAKE_ACCOUNT_AGE."""
+        age = datetime.now(timezone.utc) - member.created_at
+        return age < FAKE_ACCOUNT_AGE
 
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member) -> None:

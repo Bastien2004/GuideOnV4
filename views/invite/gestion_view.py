@@ -1,14 +1,7 @@
 """
-views/invite/gestion_view.py — Interface /invite gestion <membre>.
-
-Permet à un admin d'ajuster manuellement les compteurs d'un membre :
-- choisir un type (regular / fake / bonus / left) via un Select
-- ajouter ou retirer une quantité via un TextModal
-- réinitialiser tous les compteurs du membre (avec confirmation)
-
-La cible est fixée à la création de la vue (target_id). Toutes les actions
-demandent une confirmation visuelle via re-render des stats à jour.
+views/invite/gestion_view.py — Interface de gestion des invitations.
 """
+
 from __future__ import annotations
 
 import logging
@@ -16,61 +9,46 @@ from typing import Optional
 
 import discord
 from discord import ButtonStyle, Interaction, SelectOption
-from discord.ui import (
-    ActionRow,
-    Button,
-    Container,
-    LayoutView,
-    Section,
-    Select,
-    Separator,
-    TextDisplay,
-)
+from discord.ui import ActionRow, Button, Container, Select, Separator, TextDisplay
 
-from utils.container_universel import error_container, success_container
-from utils.managers.invite_manager import (
-    VALID_TYPES,
-    add_invite,
-    get_user_stats,
-    remove_invite,
-    reset_user_stats,
-)
+from utils.container_universel import error_container
+from utils.managers.invite_manager import VALID_TYPES, add_invite, get_user_stats, remove_invite, reset_user_stats
+
+from views._components.base_view import BaseLayoutView
 from views._components.confirm_view import ConfirmView
 from views._components.text_modal import TextModal
+
 
 log = logging.getLogger(__name__)
 
 
-# Libellés humains des types de compteurs
+# ============================================================
+# 🔩 Paramètres
+# ============================================================
+
 TYPE_LABELS = {
     "regular": ("Régulières", "✅"),
     "fake": ("Fausses", "🚫"),
     "bonus": ("Bonus", "🎁"),
-    "left": ("Parties", "🚪"),
+    "left": ("Parties", "🍃"),
 }
 
-# Type sélectionné par défaut (le seul qui ait vraiment du sens en ajustement manuel)
 DEFAULT_TYPE = "bonus"
 
 
-# ======================================================
-# =============== CONSTRUCTION DE LA VUE ===============
-# ======================================================
+# ============================================================
+# 🧩 Constrcution de l'interface
+# ============================================================
 
-async def create_gestion_view(
-    guild_id: int,
-    target_id: int,
-    bot,
-    author_id: Optional[int] = None,
-    selected_type: str = DEFAULT_TYPE,
-) -> Optional[LayoutView]:
-    """Construit l'interface /invite gestion <membre>."""
+async def create_gestion_view(guild_id: int, target_id: int, bot, author_id: Optional[int] = None, selected_type: str = DEFAULT_TYPE) -> Optional[BaseLayoutView]:
+    """Construction de l'interface de gestion d'invitations des utilisateurs."""
+
     if selected_type not in VALID_TYPES:
         selected_type = DEFAULT_TYPE
 
     guild = bot.get_guild(guild_id)
     if guild is None:
-        log.error("Guild %s introuvable dans le cache", guild_id)
+        log.error("[INVITE] Guild %s introuvable dans le cache", guild_id)
         return None
 
     target = guild.get_member(target_id)
@@ -78,26 +56,24 @@ async def create_gestion_view(
 
     stats = await get_user_stats(guild_id, target_id)
 
-    view = LayoutView(timeout=None)
+    view = BaseLayoutView(owner_id=author_id, timeout=600)
     container = Container()
 
+    container.add_item(TextDisplay(f"# <:fichier:1495446721520730242> Gestion Invitations"))
+    container.add_item(Separator())
+
     container.add_item(TextDisplay(
-        f"# 🛠️ Gestion · Invitations\n-# Cible : {target_display}"
+        f"### 📊 Statistiques {target_display} :\n"
+        f"-# ⇝ Régulières : **{stats['regular']}**\n"
+        f"-# ⇝ Fausses : **{stats['fake']}**\n"
+        f"-# ⇝ Bonus : **{stats['bonus']}**\n"
+        f"-# ⇝ Parties : **{stats['left']}**\n\n"
+
+        f"-# ⇝ Score total : **{stats['total']}**"
     ))
     container.add_item(Separator())
 
-    # --- Récap des compteurs ---
-    container.add_item(TextDisplay(
-        "### 📊 Compteurs actuels\n"
-        f"-# ✅ Régulières : **{stats['regular']}**\n"
-        f"-# 🚫 Fausses : **{stats['fake']}**\n"
-        f"-# 🎁 Bonus : **{stats['bonus']}**\n"
-        f"-# 🚪 Parties : **{stats['left']}**\n"
-        f"-# 🧮 Total effectif : **{stats['total']}**"
-    ))
-    container.add_item(Separator())
 
-    # --- Sélecteur de type ---
     options = [
         SelectOption(
             label=TYPE_LABELS[t][0],
@@ -108,7 +84,7 @@ async def create_gestion_view(
         for t in VALID_TYPES
     ]
     type_select = Select(
-        placeholder="Type de compteur à modifier",
+        placeholder="Type de valeur à modifier",
         options=options,
         min_values=1,
         max_values=1,
@@ -117,18 +93,16 @@ async def create_gestion_view(
     container.add_item(TextDisplay(
         f"### 🎯 Type sélectionné\n"
         f"-# {TYPE_LABELS[selected_type][1]} **{TYPE_LABELS[selected_type][0]}** "
-        f"(actuel : {stats[selected_type]})"
     ))
     container.add_item(ActionRow(type_select))
 
-    # --- Boutons add / remove / reset ---
-    btn_add = Button(label="Ajouter", style=ButtonStyle.success, emoji="➕")
+    btn_add = Button(label="Ajouter", style=ButtonStyle.success, emoji="<:plus:1495444111505752154>")
     btn_add.callback = _cb_modify(guild_id, target_id, bot, author_id, selected_type, add=True)
 
-    btn_remove = Button(label="Retirer", style=ButtonStyle.secondary, emoji="➖")
+    btn_remove = Button(label="Retirer", style=ButtonStyle.secondary, emoji="<:moins:1508532114465882285>")
     btn_remove.callback = _cb_modify(guild_id, target_id, bot, author_id, selected_type, add=False)
 
-    btn_reset = Button(label="Réinitialiser", style=ButtonStyle.danger, emoji="♻️")
+    btn_reset = Button(label="Réinitialiser", style=ButtonStyle.danger, emoji="<:recharger:1495444327629852703>")
     btn_reset.callback = _cb_reset(guild_id, target_id, bot, author_id)
 
     container.add_item(ActionRow(btn_add, btn_remove, btn_reset))
@@ -139,11 +113,12 @@ async def create_gestion_view(
     return view
 
 
-# ======================================================
-# ===================== CALLBACKS ======================
-# ======================================================
+# ============================================================
+# 📑 CallBack
+# ============================================================
 
 def _guard(author_id: Optional[int]):
+    """Sécurisation des boutons/menus (auteur + admin)."""
     async def check(interaction: Interaction) -> bool:
         if author_id is not None and interaction.user.id != author_id:
             await interaction.response.send_message(
@@ -156,7 +131,7 @@ def _guard(author_id: Optional[int]):
         member = interaction.user
         if not isinstance(member, discord.Member) or not member.guild_permissions.administrator:
             await interaction.response.send_message(
-                view=error_container("Vous devez être **Administrateur**."),
+                view=error_container("Vous devez être **Administrateur** pour effectuer cette action."),
                 ephemeral=True,
             )
             return False
@@ -164,9 +139,8 @@ def _guard(author_id: Optional[int]):
     return check
 
 
-async def _rerender(
-    interaction: Interaction, guild_id: int, target_id: int, bot, author_id, selected_type: str,
-):
+async def _rerender(interaction: Interaction, guild_id: int, target_id: int, bot, author_id, selected_type: str):
+    """Mise à jour de l'interface de configuration."""
     new_view = await create_gestion_view(guild_id, target_id, bot, author_id, selected_type)
     if new_view is None:
         await interaction.response.send_message(
@@ -180,12 +154,11 @@ async def _rerender(
 
 
 def _cb_pick_type(guild_id, target_id, bot, author_id):
+    """Gère le menu du type d'invites (bonus, regulière ...)."""
     check = _guard(author_id)
-
     async def cb(interaction: Interaction):
         if not await check(interaction):
             return
-        # interaction.data["values"] est la liste des valeurs sélectionnées
         values = (interaction.data or {}).get("values") or []
         new_type = values[0] if values else DEFAULT_TYPE
         if new_type not in VALID_TYPES:
@@ -195,6 +168,8 @@ def _cb_pick_type(guild_id, target_id, bot, author_id):
 
 
 def _cb_modify(guild_id, target_id, bot, author_id, invite_type: str, *, add: bool):
+    """Gère les boutons d'ajout et retrait d'invites."""
+
     check = _guard(author_id)
     action_label = "Ajouter" if add else "Retirer"
 
@@ -210,7 +185,7 @@ def _cb_modify(guild_id, target_id, bot, author_id, invite_type: str, *, add: bo
                 n = int(value)
             except ValueError:
                 await inter.response.send_message(
-                    view=error_container("La quantité doit être un **nombre entier**."),
+                    view=error_container("La __quantité__ doit être un **nombre entier**."),
                     ephemeral=True,
                 )
                 return
@@ -250,6 +225,8 @@ def _cb_modify(guild_id, target_id, bot, author_id, invite_type: str, *, add: bo
 
 
 def _cb_reset(guild_id, target_id, bot, author_id):
+    """Gère le bouton de reset des invites."""
+
     check = _guard(author_id)
 
     async def cb(interaction: Interaction):
@@ -270,29 +247,26 @@ def _cb_reset(guild_id, target_id, bot, author_id):
             return
 
         await reset_user_stats(guild_id, target_id)
-        # Re-render via l'original parent (on a déjà répondu à l'interaction du bouton reset).
         new_view = await create_gestion_view(guild_id, target_id, bot, author_id)
         if new_view is None:
             return
         try:
             await interaction.edit_original_response(view=new_view)
         except (discord.NotFound, discord.HTTPException):
-            log.warning("[Invite] Re-render après reset impossible (message introuvable)")
+            log.warning("[Invite] Mise à jour de l'interface impossible (message introuvable)")
     return cb
 
 
-# ======================================================
-# ========== COMPAT COMMANDE : InviteGestionView =======
-# ======================================================
+# ============================================================
+# 🧩 Class principale
+# ============================================================
 
 class InviteGestionView:
+
     @classmethod
-    async def create(
-        cls, guild_id: int, target_id: int, author_id: int, bot
-    ) -> LayoutView:
+    async def create(cls, guild_id: int, target_id: int, author_id: int, bot) -> BaseLayoutView:
         view = await create_gestion_view(guild_id, target_id, bot, author_id)
+        
         if view is None:
-            return error_container(
-                "**Impossible** de charger la __gestion__ (serveur introuvable)."
-            )
+            return error_container("**Impossible** de charger l'interface de __gestion__.")
         return view

@@ -1,17 +1,7 @@
 """
-views/invite/config_view.py — Interface /invite config.
-
-Pattern identique à views/bienvenue/config_view.py :
-- fonction create_invite_view(guild_id, bot, author_id) qui construit un LayoutView
-- callbacks fermés _cb_*(...) ;  _guard(author_id) vérifie auteur + admin
-- wrapper class InviteConfigView avec classmethod .create() pour la commande
-
-Contenu du panneau :
-- État du système (toggle ON/OFF, alertes si activé mais incomplet)
-- Rôle-récompense (RoleSelect ephemeral pour choisir, bouton "Retirer" si défini)
-- Seuil d'invites requis (TextModal pour saisir un entier > 0)
-- Bouton "Réinitialiser" (remet les valeurs par défaut)
+views/invite/config_view.py — Interface de configuration du système d'invitations.
 """
+
 from __future__ import annotations
 
 import logging
@@ -19,50 +9,50 @@ from typing import Optional
 
 import discord
 from discord import ButtonStyle, Interaction
-from discord.ui import ActionRow, Button, Container, LayoutView, Section, Separator, TextDisplay
+from discord.ui import ActionRow, Button, Container, Section, Separator, TextDisplay
 
 from utils.container_universel import error_container
-from utils.managers.invite_manager import (
-    load_invite_config,
-    reset_invite_config,
-    save_invite_config,
-)
-from views._components.role_select import RoleSelect
+from utils.managers.invite_manager import load_invite_config, save_invite_config
+
+from views._components.base_view import BaseLayoutView
+from views._components.select_page import SelectPageView
+from views._components.text_modal import TextModal
+from utils.settings import settings
 
 log = logging.getLogger(__name__)
 
 
-# ======================================================
-# =================== UI HELPERS =======================
-# ======================================================
+# ============================================================
+# 📑 Fonctions (UI)
+# ============================================================
 
 def _state_btn(active: bool) -> Button:
+    """Gestion bouton d'état ON/OFF."""
     return Button(
         label="Activé" if active else "Désactivé",
         style=ButtonStyle.success if active else ButtonStyle.danger,
-        emoji="🟢" if active else "🔴",
+        emoji="<:valider:1495444292867723284>" if active else "<:annuler:1495444256754761979>",
     )
 
 
 def _role_label(role_id: Optional[int], guild: discord.Guild) -> str:
-    """Affichage lisible d'un rôle (mention si trouvé, ID en fallback, ou 'aucun')."""
+    """Gestion affichage du rôle."""
     if role_id is None:
-        return "`aucun rôle`"
+        return "`Non configuré`"
     role = guild.get_role(role_id)
-    return role.mention if role is not None else f"`ID {role_id} (rôle introuvable)`"
+    return role.mention if role is not None else f"`Rôle supprimé (ID {role_id})`"
 
 
-# ======================================================
-# =============== CONSTRUCTION DE LA VUE ===============
-# ======================================================
+# ============================================================
+# 🧩 Construction de l'interface
+# ============================================================
 
-async def create_invite_view(
-    guild_id: int, bot, author_id: Optional[int] = None
-) -> Optional[LayoutView]:
-    """Construit l'interface /invite config. Renvoie None si guild introuvable."""
+async def create_invite_view(guild_id: int, bot, author_id: Optional[int] = None) -> Optional[BaseLayoutView]:
+    """Construit l'interface de configuration."""
+
     guild = bot.get_guild(guild_id)
     if guild is None:
-        log.error("Guild %s introuvable dans le cache", guild_id)
+        log.error("[Invite] Guild %s introuvable dans le cache", guild_id)
         return None
 
     cfg = await load_invite_config(guild_id)
@@ -70,86 +60,48 @@ async def create_invite_view(
     reward_role_id = cfg.get("reward_role_id")
     threshold = cfg.get("reward_threshold", 10)
 
-    # Diagnostic : système activé mais incomplet ?
-    issues: list[str] = []
-    if enabled:
-        if reward_role_id is None:
-            issues.append("aucun rôle-récompense")
-        elif guild.get_role(reward_role_id) is None:
-            issues.append("rôle-récompense introuvable")
-        if threshold <= 0:
-            issues.append("seuil invalide")
-    if not enabled:
-        etat = "-# ⚪ Système **désactivé**"
-    elif issues:
-        etat = "-# ⚠️ Actif mais incomplet : " + ", ".join(issues)
-    else:
-        etat = "-# ✅ Système **opérationnel**"
-
-    view = LayoutView(timeout=None)
+    view = BaseLayoutView(owner_id=author_id, timeout=600)
     container = Container()
 
-    container.add_item(TextDisplay(f"# 📨 Configuration · Invitations\n{etat}"))
+    container.add_item(TextDisplay(f"# 📨 Configuration Invitations"))
     container.add_item(Separator())
 
-    # --- Bloc : état du système ---
     btn_sys = _state_btn(enabled)
     btn_sys.callback = _cb_toggle(guild_id, bot, author_id)
-    container.add_item(
-        Section(TextDisplay("**État du système**"), accessory=btn_sys)
-    )
+    container.add_item(Section(
+        TextDisplay("**🔘 Statut du système**\n-# Active ou désactive le suivi des invitations."),
+        accessory=btn_sys,
+    ))
     container.add_item(Separator())
 
-    # --- Bloc : rôle-récompense ---
-    btn_pick_role = Button(
-        label="Choisir un rôle",
-        style=ButtonStyle.secondary,
-        emoji="🎁",
-    )
-    btn_pick_role.callback = _cb_pick_role(guild_id, bot, author_id)
-    container.add_item(
-        Section(
-            TextDisplay(
-                f"### 🎁 Rôle-récompense\n-# Attribué automatiquement au seuil "
-                f"d'invitations.\n-# Rôle : {_role_label(reward_role_id, guild)}"
-            ),
-            accessory=btn_pick_role,
-        )
-    )
-    # Bouton "Retirer" en plus si un rôle est défini
     if reward_role_id is not None:
-        btn_clear_role = Button(
-            label="Retirer le rôle",
-            style=ButtonStyle.danger,
-            emoji="🗑️",
-        )
-        btn_clear_role.callback = _cb_clear_role(guild_id, bot, author_id)
-        container.add_item(ActionRow(btn_clear_role))
+        role_btn = Button(label="Retirer", style=ButtonStyle.danger, emoji="<:supprimer:1495444051623809075>")
+        role_btn.callback = _cb_clear_role(guild_id, bot, author_id)
+    else:
+        role_btn = Button(label="Modifier", style=ButtonStyle.secondary, emoji="<:modifier:1495444144712192003>")
+        role_btn.callback = _cb_pick_role(guild_id, bot, author_id)
+    container.add_item(Section(
+        TextDisplay(
+            f"**🎁 Rôle-récompense**\n-# Attribué automatiquement au seuil d'invitations.\n"
+            f"-# Actuel : {_role_label(reward_role_id, guild)}"
+        ),
+        accessory=role_btn,
+    ))
     container.add_item(Separator())
 
-    # --- Bloc : seuil ---
-    btn_threshold = Button(
-        label=f"Modifier ({threshold})",
-        style=ButtonStyle.secondary,
-        emoji="🎯",
-    )
+    btn_threshold = Button(label="Modifier", style=ButtonStyle.secondary, emoji="<:modifier:1495444144712192003>")
     btn_threshold.callback = _cb_edit_threshold(guild_id, bot, author_id)
-    container.add_item(
-        Section(
-            TextDisplay(
-                f"### 🎯 Seuil requis\n-# Nombre d'invitations à atteindre pour "
-                f"obtenir le rôle.\n-# Seuil actuel : **{threshold}**"
-            ),
-            accessory=btn_threshold,
-        )
-    )
+    container.add_item(Section(
+        TextDisplay(
+            f"**🎯 Seuil requis**\n-# Seuil d'invitations obtenir le rôle.\n"
+            f"-# Actuel : **{threshold}**"
+        ),
+        accessory=btn_threshold,
+    ))
     container.add_item(Separator())
 
-    # --- Bloc : actions globales ---
-    btn_reset = Button(label="Réinitialiser", style=ButtonStyle.danger, emoji="♻️")
-    btn_reset.callback = _cb_reset(guild_id, bot, author_id)
-    container.add_item(ActionRow(btn_reset))
-
+    doc_btn = Button(label="Documentation", style=ButtonStyle.link, url=settings.doc_url, emoji="📚")
+    container.add_item(ActionRow(doc_btn))
     container.add_item(Separator())
     container.add_item(TextDisplay("-# GuideOn Studio"))
 
@@ -157,24 +109,23 @@ async def create_invite_view(
     return view
 
 
-# ======================================================
-# ===================== CALLBACKS ======================
-# ======================================================
+# ============================================================
+# 📑 CallBack
+# ============================================================
 
 def _guard(author_id: Optional[int]):
+    """Vérification auteur + administrateur."""
     async def check(interaction: Interaction) -> bool:
         if author_id is not None and interaction.user.id != author_id:
             await interaction.response.send_message(
-                view=error_container(
-                    "Seul l'**auteur** de la commande peut utiliser ce __menu__."
-                ),
+                view=error_container("Seul l'**auteur** de la commande peut utiliser ce __menu__."),
                 ephemeral=True,
             )
             return False
         member = interaction.user
         if not isinstance(member, discord.Member) or not member.guild_permissions.administrator:
             await interaction.response.send_message(
-                view=error_container("Vous devez être **Administrateur**."),
+                view=error_container("Vous devez être **Administrateur** pour effectuer cette **action**."),
                 ephemeral=True,
             )
             return False
@@ -183,6 +134,7 @@ def _guard(author_id: Optional[int]):
 
 
 async def _rerender(interaction: Interaction, guild_id: int, bot, author_id):
+    """Met à jour l'interface."""
     new_view = await create_invite_view(guild_id, bot, author_id)
     if new_view is None:
         await interaction.response.send_message(
@@ -196,8 +148,8 @@ async def _rerender(interaction: Interaction, guild_id: int, bot, author_id):
 
 
 def _cb_toggle(guild_id, bot, author_id):
+    """Gère le bouton d'activation."""
     check = _guard(author_id)
-
     async def cb(interaction: Interaction):
         if not await check(interaction):
             return
@@ -207,20 +159,9 @@ def _cb_toggle(guild_id, bot, author_id):
     return cb
 
 
-def _cb_reset(guild_id, bot, author_id):
-    check = _guard(author_id)
-
-    async def cb(interaction: Interaction):
-        if not await check(interaction):
-            return
-        await reset_invite_config(guild_id)
-        await _rerender(interaction, guild_id, bot, author_id)
-    return cb
-
-
 def _cb_clear_role(guild_id, bot, author_id):
+    """Gère le bouton de suppression de rôle."""
     check = _guard(author_id)
-
     async def cb(interaction: Interaction):
         if not await check(interaction):
             return
@@ -229,88 +170,60 @@ def _cb_clear_role(guild_id, bot, author_id):
     return cb
 
 
-def _cb_pick_role(guild_id, bot, author_id):
-    check = _guard(author_id)
+async def _validate_role_for_invite(interaction: Interaction, role_id: int) -> Optional[str]:
+    """Vérification du rôle."""
+    guild = interaction.guild
+    role = guild.get_role(role_id) if guild else None
+    if role is None:
+        return "Rôle introuvable."
+    if role.is_default():
+        return "Le rôle **everyone** ne peut pas être utilisé."
+    if role.managed:
+        return "Ce rôle est **géré** par une intégration et ne peut pas être attribué."
+    if guild.me is not None and role.position >= guild.me.top_role.position:
+        return (
+            f"Je ne peux pas attribuer {role.mention} : son rang est "
+            f"**supérieur ou égal** au mien.\n-# Placez mon rôle plus haut dans la hiérarchie."
+        )
+    return None
 
+
+def _cb_pick_role(guild_id, bot, author_id):
+    """Gère le bouton du sélection du rôle."""
+    check = _guard(author_id)
     async def cb(interaction: Interaction):
         if not await check(interaction):
             return
 
-        async def on_select(sel: Interaction, role_ids: list[int]):
-            if not role_ids:
-                return
-            role_id = role_ids[0]
-            role = sel.guild.get_role(role_id)
-            # Garde-fous : ni @everyone, ni un rôle géré (intégration bot/booster), ni au-dessus du bot
-            if role is None:
-                await sel.response.send_message(
-                    view=error_container("Rôle **introuvable**."),
-                    ephemeral=True,
-                )
-                return
-            if role.is_default():
-                await sel.response.send_message(
-                    view=error_container("Le rôle **@everyone** ne peut pas être utilisé."),
-                    ephemeral=True,
-                )
-                return
-            if role.managed:
-                await sel.response.send_message(
-                    view=error_container(
-                        "Ce rôle est **géré** par une intégration et ne peut pas être attribué."
-                    ),
-                    ephemeral=True,
-                )
-                return
-            me = sel.guild.me
-            if me is not None and role >= me.top_role:
-                await sel.response.send_message(
-                    view=error_container(
-                        f"Je ne peux pas attribuer {role.mention} : son rang est "
-                        f"**supérieur ou égal** au mien."
-                    ),
-                    ephemeral=True,
-                )
-                return
+        cfg = await load_invite_config(guild_id)
 
+        async def _on_save(role_id: int) -> None:
             await save_invite_config(guild_id, {"reward_role_id": role_id})
-            new_view = await create_invite_view(guild_id, bot, author_id)
-            await sel.response.edit_message(view=new_view)
 
-        async def on_cancel(cancel_inter: Interaction):
-            new_view = await create_invite_view(guild_id, bot, author_id)
-            await cancel_inter.response.edit_message(view=new_view)
+        async def _build_return_view():
+            return await create_invite_view(guild_id, bot, author_id)
 
-        select = RoleSelect(
-            placeholder="Sélectionner un rôle",
-            on_select=on_select,
-            min_values=1,
-            max_values=1,
+        await interaction.response.edit_message(
+            view=SelectPageView(
+                kind="role",
+                title="🎁 Rôle-récompense",
+                description="-# Attribué automatiquement au seuil d'invitations.",
+                current_value=cfg.get("reward_role_id"),
+                owner_id=author_id,
+                on_save=_on_save,
+                build_return_view=_build_return_view,
+                validate=_validate_role_for_invite,
+            )
         )
-        btn_cancel = Button(label="Annuler", style=ButtonStyle.secondary, emoji="↩️")
-        btn_cancel.callback = on_cancel
-
-        temp = LayoutView(timeout=120)
-        c = Container()
-        c.add_item(TextDisplay("# 🎁 Choisir le rôle-récompense"))
-        c.add_item(TextDisplay("-# Attribué automatiquement au seuil d'invitations atteint."))
-        c.add_item(Separator())
-        c.add_item(ActionRow(select))
-        c.add_item(Separator())
-        c.add_item(ActionRow(btn_cancel))
-        temp.add_item(c)
-
-        await interaction.response.edit_message(view=temp)
     return cb
 
 
 def _cb_edit_threshold(guild_id, bot, author_id):
+    """Gère le bouton d'édition du nombre seuil."""
     check = _guard(author_id)
-
     async def cb(interaction: Interaction):
         if not await check(interaction):
             return
-        from views._components.text_modal import TextModal  # import local pour éviter cycles
 
         current = (await load_invite_config(guild_id)).get("reward_threshold", 10)
 
@@ -353,16 +266,15 @@ def _cb_edit_threshold(guild_id, bot, author_id):
     return cb
 
 
-# ======================================================
-# ========== COMPAT COMMANDE : InviteConfigView ========
-# ======================================================
+# ============================================================
+# 📑 CallBack
+# ============================================================
 
 class InviteConfigView:
     @classmethod
-    async def create(cls, guild_id: int, author_id: int, bot) -> LayoutView:
+    async def create(cls, guild_id: int, author_id: int, bot):
         view = await create_invite_view(guild_id, bot, author_id)
+        
         if view is None:
-            return error_container(
-                "**Impossible** de charger la __configuration__ (serveur introuvable)."
-            )
+            return error_container("**Impossible** de charger la __configuration__ (serveur introuvable).")
         return view
