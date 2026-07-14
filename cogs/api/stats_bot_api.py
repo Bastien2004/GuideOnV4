@@ -20,6 +20,7 @@ log = logging.getLogger(__name__)
 class StatsResponse(BaseModel):
     total_guilds: int
     total_members: int
+    ping: int
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -34,4 +35,7 @@ async def get_stats(request: Request):
     total_guilds = len(guilds)
     total_members = sum(g.member_count or 0 for g in guilds)
 
-    return {"total_guilds": total_guilds, "total_members": total_members}
+    latency = bot.latency
+    ping = round(latency * 1000) if latency == latency else 0
+
+    return {"total_guilds": total_guilds, "total_members": total_members, "ping": ping}
