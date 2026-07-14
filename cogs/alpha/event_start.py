@@ -79,7 +79,7 @@ def build_start_event_view(
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="start_event", description="🎮 Annonce le début d'un event Alpha")
+@app_commands.command(name="event_start", description="🎮 [M+] Annonce le début d'un event Alpha")
 @app_commands.describe(event="Nom de l'event à annoncer")
 @app_commands.autocomplete(event=_event_autocomplete)
 async def event_start(interaction: Interaction, event: str) -> None:
