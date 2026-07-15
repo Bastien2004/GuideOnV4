@@ -22,6 +22,7 @@ from utils.managers.alpha_nota_manager import (
     is_past_deadline,
 )
 
+
 from views.alpha.nota_debug_view import build_nota_debug_view
 
 

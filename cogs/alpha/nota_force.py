@@ -4,6 +4,8 @@ cogs/dev/nota_force.py — Force l'envoi du message de présence des notations
 
 from __future__ import annotations
 
+import logging
+
 import discord
 from discord import app_commands, Interaction
 
@@ -16,59 +18,81 @@ from utils.error_handler import handle_app_command_error
 
 from utils.managers.alpha_nota_manager import (
     load_nota_config,
-    load_nota_state,
-)
-
-from views.alpha.nota_view import build_presence_view
-from utils.managers.alpha_nota_manager import (
     get_all_nota_operators,
     get_available_operators,
 )
 
+from views.alpha.nota_view import build_presence_view
+
+log = logging.getLogger(__name__)
+
+# ============================================================
+# 🔩 Paramètre
+# ============================================================
+
+RESTRICTED_USER_ID = 930821995787091988
+
+async def _check_restricted(interaction: Interaction) -> bool:
+    """Restreint la commande à RESTRICTED_USER_ID."""
+    if interaction.user.id != RESTRICTED_USER_ID:
+        await interaction.response.send_message(
+            view=error_container("Vous n'avez pas la **permission** pour effectuer cette __commande__."),
+            ephemeral=True,
+        )
+        return False
+    return True
+
+
+# ============================================================
+# 🧪 Commande : /alpha nota_force
+# ============================================================
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(
-    name="nota_force",
-    description="🧪 [OP] Force l'envoi du message de présence"
-)
+@app_commands.command(name="nota_force", description="🧪 [OP] Force l'envoi du message de présence")
 async def nota_force(interaction: Interaction) -> None:
 
+    # 🔐 Permissions
     if not await check_dev(interaction, "**forcer les notations**"):
         return
 
+    # 🔒 Restriction supplémentaire (utilisateur unique)
+    if not await _check_restricted(interaction):
+        return
+
+    # 🕒 Defer
     try:
         await interaction.response.defer(ephemeral=True)
     except (discord.NotFound, discord.HTTPException):
         return
 
-    if not await verifier_commande(interaction, "dev_nota_force"):
+    # ⚙️ Activation commande
+    if not await verifier_commande(interaction, "alpha_nota_force"):
         return
 
-    await tracker_commande(interaction, "dev_nota_force")
+    # 📊 Tracking
+    await tracker_commande(interaction, "alpha_nota_force")
 
     cfg = await load_nota_config(interaction.guild_id)
-    state = await load_nota_state(interaction.guild_id)
-
     channel_id = cfg.get("channel_staff_id")
 
+    # 🔎 Vérification qu'un salon est configuré.
     if not channel_id:
         return await interaction.followup.send(
-            view=error_container(
-                "Aucun salon staff configuré."
-            ),
-            ephemeral=True
+            view=error_container("Aucun **salon staff** configuré."),
+            ephemeral=True,
         )
 
+    # 🔎 Vérification que le salon existe.
     channel = interaction.client.get_channel(channel_id)
-
     if channel is None:
-        return await interaction.followup.send(
-            view=error_container(
-                f"Salon introuvable : `{channel_id}`"
-            ),
-            ephemeral=True
-        )
+        try:
+            channel = await interaction.client.fetch_channel(channel_id)
+        except (discord.NotFound, discord.HTTPException):
+            return await interaction.followup.send(
+                view=error_container(f"Salon **introuvable** (ID `{channel_id}` invalide ou bot sans accès)."),
+                ephemeral=True,
+            )
 
     operators = await get_all_nota_operators(interaction.guild_id)
     available_ids = await get_available_operators(interaction.guild_id)
@@ -79,25 +103,25 @@ async def nota_force(interaction: Interaction) -> None:
         deadline_passed=False,
     )
 
+    # 💻 Envoi.
     try:
         msg = await channel.send(view=view)
-
-    except Exception as e:
+    except discord.HTTPException:
+        log.exception("[NOTA_FORCE] Erreur envoi | guild=%s", interaction.guild_id)
         return await interaction.followup.send(
-            view=error_container(
-                f"Erreur d'envoi : `{e}`"
-            ),
-            ephemeral=True
+            view=error_container("Une **erreur Discord** est survenue."),
+            ephemeral=True,
         )
 
     await interaction.followup.send(
-        view=success_container(
-            f"Message envoyé.\n"
-            f"Message ID : `{msg.id}`"
-        ),
-        ephemeral=True
+        view=success_container(f"Message envoyé dans {channel.mention} !\nMessage ID : `{msg.id}`"),
+        ephemeral=True,
     )
 
+
+# ============================================================
+# ❌ Gestion des erreurs
+# ============================================================
 
 @nota_force.error
 async def nota_force_error(
