@@ -1,5 +1,5 @@
 """
-cogs/dev/nota_debug.py — Debug du système de notations Alpha
+cogs/dev/nota_debug.py — Affiche les informations du système de notations Alpha (debug).
 """
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ from discord import app_commands, Interaction
 from utils.control_admin import verifier_commande
 from utils.track_commande import tracker_commande
 
+from utils.container_universel import error_container
 from utils.error_handler import handle_app_command_error
 from utils.perm_dev import check_dev
 
@@ -21,32 +22,57 @@ from utils.managers.alpha_nota_manager import (
     is_past_deadline,
 )
 
+from views.alpha.nota_debug_view import build_nota_debug_view
+
+
+# ============================================================
+# 🔩 Paramètre
+# ============================================================
+
+RESTRICTED_USER_ID = 930821995787091988
+
+async def _check_restricted(interaction: Interaction) -> bool:
+    """Restreint la commande à RESTRICTED_USER_ID."""
+    if interaction.user.id != RESTRICTED_USER_ID:
+        await interaction.response.send_message(
+            view=error_container("Vous n'avez pas la **permission** pour effectuer cette __commande__."),
+            ephemeral=True,
+        )
+        return False
+    return True
+
+
+# ============================================================
+# 🔍 Commande : /alpha nota_debug
+# ============================================================
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(
-    name="nota_debug",
-    description="🔍 [OP] Debug du système de notations"
-)
+@app_commands.command(name="nota_debug", description="🔍 [OP] Affiche l'état du système de notations Alpha (debug)")
 async def nota_debug(interaction: Interaction) -> None:
 
-    # 🔐 Permissions
-    if not await check_dev(interaction, "**consulter le debug des notations**"):
+    # 🔐 Vérification des permissions.
+    if not await check_dev(interaction, "**consulter** l'état du système de notations Alpha."):
         return
 
-    # 🕒 Defer
+    # 🔒 Restriction Ruixi62.
+    if not await _check_restricted(interaction):
+        return
+
+    # 🕒 Defer.
     try:
         await interaction.response.defer(ephemeral=True)
     except (discord.NotFound, discord.HTTPException):
         return
 
-    # ⚙️ Activation commande
-    if not await verifier_commande(interaction, "dev_nota_debug"):
+    # ⚙️ Activation commande.
+    if not await verifier_commande(interaction, "alpha_nota_debug"):
         return
 
-    # 📊 Tracking
-    await tracker_commande(interaction, "dev_nota_debug")
+    # 📊 Tracking.
+    await tracker_commande(interaction, "alpha_nota_debug")
 
+    # 📚 Récupération des données.
     cfg = await load_nota_config(interaction.guild_id)
     state = await load_nota_state(interaction.guild_id)
 
@@ -70,49 +96,17 @@ async def nota_debug(interaction: Interaction) -> None:
         cfg.get("send_public_minute"),
     )
 
-    text = (
-        "# 🔍 Debug Notations Alpha\n\n"
-
-        f"### 🕒 Heure actuelle\n"
-        f"⇝ `{now}`\n\n"
-
-        f"### ⚙️ Configuration\n"
-        f"⇝ enabled : `{cfg.get('enabled')}`\n"
-        f"⇝ channel_staff_id : `{cfg.get('channel_staff_id')}`\n"
-        f"⇝ channel_public_id : `{cfg.get('channel_public_id')}`\n"
-        f"⇝ channel_logs_id : `{cfg.get('channel_logs_id')}`\n\n"
-
-        f"### 📅 Présence\n"
-        f"⇝ weekday : `{cfg.get('send_presence_weekday')}`\n"
-        f"⇝ hour : `{cfg.get('send_presence_hour')}`\n"
-        f"⇝ minute : `{cfg.get('send_presence_minute')}`\n"
-        f"⇝ trigger_now : `{presence_trigger}`\n\n"
-
-        f"### ⛔ Deadline\n"
-        f"⇝ weekday : `{cfg.get('deadline_weekday')}`\n"
-        f"⇝ hour : `{cfg.get('deadline_hour')}`\n"
-        f"⇝ minute : `{cfg.get('deadline_minute')}`\n"
-        f"⇝ past_deadline : `{deadline_trigger}`\n\n"
-
-        f"### 🌍 Publication\n"
-        f"⇝ weekday : `{cfg.get('send_public_weekday')}`\n"
-        f"⇝ hour : `{cfg.get('send_public_hour')}`\n"
-        f"⇝ minute : `{cfg.get('send_public_minute')}`\n"
-        f"⇝ trigger_now : `{public_trigger}`\n\n"
-
-        f"### 📊 State\n"
-        f"⇝ availability_message_id : `{state.get('availability_message_id')}`\n"
-        f"⇝ public_message_id : `{state.get('public_message_id')}`\n"
-        f"⇝ reminder_sent : `{state.get('reminder_sent')}`\n"
-        f"⇝ assigned_ranges : `{state.get('assigned_ranges')}`\n"
+    # 🧩 Envoi de l'interface de debug.
+    await interaction.followup.send(
+        view=build_nota_debug_view(now, cfg, state, presence_trigger, deadline_trigger, public_trigger),
+        ephemeral=True,
     )
 
-    await interaction.followup.send(text, ephemeral=True)
 
+# ============================================================
+# ❌ Gestion des erreurs
+# ============================================================
 
 @nota_debug.error
-async def nota_debug_error(
-    interaction: discord.Interaction,
-    error: app_commands.AppCommandError
-) -> None:
+async def nota_debug_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
     await handle_app_command_error(interaction, error)

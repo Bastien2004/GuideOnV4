@@ -16,6 +16,7 @@ from utils.control_admin import verifier_commande
 from utils.perm_alpha import check_modo_plus
 from utils.container_universel import error_container, success_container
 from utils.error_handler import handle_app_command_error
+
 from utils.managers.alpha_event_config_manager import load_event_config
 from views.alpha.event_regle_view import build_event_regle_view
 
