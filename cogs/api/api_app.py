@@ -1,5 +1,5 @@
 """
-cogs/api/api_app.py — API Boutique + ONU
+cogs/api/api_app.py — API Boutique + ONU.
 """
 
 from __future__ import annotations

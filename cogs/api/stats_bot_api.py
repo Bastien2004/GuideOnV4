@@ -1,5 +1,5 @@
 """
-cogs/api/api_stats.py — API Stats pour V4
+cogs/api/api_stats.py — API Stats.
 """
 from __future__ import annotations
 

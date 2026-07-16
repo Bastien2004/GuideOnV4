@@ -1,5 +1,5 @@
 """
-cogs/api/api_staff.py — API Staff pour V4
+cogs/api/api_staff.py — API Staff.
 """
 from __future__ import annotations
 
