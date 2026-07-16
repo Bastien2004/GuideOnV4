@@ -1,13 +1,20 @@
 """
 cogs/alpha/stafflist.py — Gère l'affichage de la liste du staff Alpha.
-"""
 
+Construction de la view déplacée dans views/alpha/stafflist_view.py (voir
+ce fichier pour la justification LayoutView vs BaseLayoutView).
+
+refresh_staff_message reste ici (pas dans le fichier view) : c'est de la
+logique d'orchestration DB + Discord réutilisée ailleurs dans le projet
+(import local depuis utils/derank_logic.py pour éviter un import circulaire
+de cog) — pas de la construction de view pure.
+"""
 from __future__ import annotations
 
 import logging
+
 import discord
 from discord import app_commands, Interaction
-from discord.ui import LayoutView, Container, TextDisplay, Separator
 
 from utils.botbancmd import verifier_ban_utilisateur
 from utils.control_admin import verifier_commande
@@ -20,8 +27,8 @@ from utils.perm_alpha import check_op_alpha
 from utils.managers.alpha_staff_manager import list_staff
 from utils.managers.alpha_rank_config_manager import load_rank_config
 from utils.managers.alpha_message_manager import get_alpha_message, upsert_alpha_message, clear_alpha_message
-from utils.alpha_staff_display import build_member_line
-from utils.db.models.alpha_staff import GRADES_ORDER, GRADE_LABELS, GRADE_EMOJIS
+
+from views.alpha.stafflist_view import build_stafflist_view
 
 log = logging.getLogger(__name__)
 
@@ -29,72 +36,7 @@ MESSAGE_KEY = "stafflist"
 
 
 # ============================================================
-# 🧩 Création de l'interface
-# ============================================================
-
-def build_stafflist_view(members: list[dict]) -> LayoutView:
-    """
-    Affiche UNIQUEMENT les 6 grades de la hiérarchie staff (administrateur
-    → guide) en sections, plus une section Builders dédiée (tous les
-    is_builder=True, avec leur pseudo builder — pas de badge, déjà listés
-    avec leur pseudo dédié).
-
-    Un membre purement Journaliste/Affilié (grade=None, aucun is_builder)
-    n'apparaît dans AUCUNE section — invisible dans la stafflist, comme
-    voulu (seuls les 6 grades + Builders y figurent).
-    """
-    view = LayoutView(timeout=None)
-
-    # ── Header ────────────────────────────────────────────────
-    header = Container()
-    header.add_item(TextDisplay("# <:AlphaStaff:1493512964337307698> Effectif Staff Alpha"))
-    view.add_item(header)
-
-    # ── Un Container par grade présent (administrateur → guide) ──
-    for grade in GRADES_ORDER:
-        grade_members = [m for m in members if m["grade"] == grade]
-        if not grade_members:
-            continue
-
-        emoji = GRADE_EMOJIS.get(grade, "•")
-        label = GRADE_LABELS.get(grade, grade.replace("_", " ").title())
-
-        c = Container()
-        c.add_item(TextDisplay(f"## {emoji} {label}"))
-        c.add_item(Separator())
-
-        block = "\n".join(build_member_line(m) for m in grade_members)
-
-        c.add_item(TextDisplay(block))
-        c.add_item(Separator())
-        view.add_item(c)
-
-    # ── Section Builders dédiée (tous les is_builder=True) ────
-    builders = [m for m in members if m.get("is_builder")]
-    if builders:
-        c = Container()
-        c.add_item(TextDisplay("## 🧱 Builders"))
-        c.add_item(Separator())
-
-        block = "\n".join(
-            f"**{m.get('pseudo_jeu_builder') or m['pseudo_jeu']}** — <@{m['discord_id']}> — `{m['discord_id']}`"
-            for m in builders
-        )
-
-        c.add_item(TextDisplay(block))
-        c.add_item(Separator())
-        view.add_item(c)
-
-    # ── Footer ────────────────────────────────────────────────
-    footer = Container()
-    footer.add_item(TextDisplay("-# GuideOn Studio"))
-    view.add_item(footer)
-
-    return view
-
-
-# ============================================================
-# 🔄 Fonction de mise à jour (réutilisable par d'autres commandes) 
+# 🔄 Fonction de mise à jour (réutilisable par d'autres commandes)
 # ============================================================
 
 async def refresh_staff_message(bot: discord.Client, guild_id: int) -> None:
@@ -143,7 +85,7 @@ async def refresh_staff_message(bot: discord.Client, guild_id: int) -> None:
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="stafflist", description="📋 Crée ou met à jour la liste du staff Alpha")
+@app_commands.command(name="stafflist", description="📋 [OP] Crée ou met à jour la liste du staff Alpha")
 async def stafflist(interaction: Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.

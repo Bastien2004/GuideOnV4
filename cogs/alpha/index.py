@@ -33,7 +33,7 @@ MESSAGE_KEY = "index"
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 20)
-@app_commands.command(name="index", description="📋 [OP] Envoi ou mit à jour l'interface d'information (index) du serveur Alpha")
+@app_commands.command(name="index", description="📋 [OP] Envoi ou met à jour l'interface d'information (index) du serveur Alpha")
 async def index(interaction: Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.

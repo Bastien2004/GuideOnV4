@@ -41,7 +41,7 @@ def build_test_view() -> LayoutView:
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="test", description="🧪 Commande de test Alpha")
+@app_commands.command(name="test", description="🧪 [DEV] Commande de test Alpha")
 async def test_alpha(interaction: Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.

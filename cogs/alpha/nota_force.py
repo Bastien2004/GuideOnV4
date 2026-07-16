@@ -124,8 +124,5 @@ async def nota_force(interaction: Interaction) -> None:
 # ============================================================
 
 @nota_force.error
-async def nota_force_error(
-    interaction: discord.Interaction,
-    error: app_commands.AppCommandError
-) -> None:
+async def nota_force_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
     await handle_app_command_error(interaction, error)

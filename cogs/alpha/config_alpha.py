@@ -23,7 +23,7 @@ from views.alpha.config_dashboard_view import ConfigDashboardView
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 5)
-@app_commands.command(name="config_alpha", description="⚙️ [ALPHA] Dashboard configuration systèmes Alpha")
+@app_commands.command(name="config_alpha", description="⚙️ [OP] Dashboard configuration systèmes Alpha")
 async def config_alpha(interaction: Interaction) -> None:
 
     # 🔐 Vérification des permissions.
