@@ -1,14 +1,7 @@
 """
 cogs/alpha/stafflist.py — Gère l'affichage de la liste du staff Alpha.
-
-Construction de la view déplacée dans views/alpha/stafflist_view.py (voir
-ce fichier pour la justification LayoutView vs BaseLayoutView).
-
-refresh_staff_message reste ici (pas dans le fichier view) : c'est de la
-logique d'orchestration DB + Discord réutilisée ailleurs dans le projet
-(import local depuis utils/derank_logic.py pour éviter un import circulaire
-de cog) — pas de la construction de view pure.
 """
+
 from __future__ import annotations
 
 import logging

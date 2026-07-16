@@ -1,10 +1,7 @@
 """
 cogs/alpha/nous_rejoindre.py — Gestion de l'interface nous_rejoindre.
-
-Construction de la view et des fichiers attachés déplacée dans
-views/alpha/nous_rejoindre_view.py (voir ce fichier pour la justification
-LayoutView vs BaseLayoutView).
 """
+
 from __future__ import annotations
 
 import logging
@@ -93,7 +90,7 @@ async def nous_rejoindre(interaction: Interaction) -> None:
 
     guild_id = interaction.guild_id
 
-    # 🔍 Message existant en DB ?
+    # 🔍 Vérification si le message existe.
     msg_cfg = await get_alpha_message(guild_id, MESSAGE_KEY)
     existing: discord.Message | None = None
     if msg_cfg and msg_cfg.message_id:
@@ -121,7 +118,7 @@ async def nous_rejoindre(interaction: Interaction) -> None:
                 log.warning("[NOUS REJOINDRE ALPHA] Impossible d'ajouter la réaction | guild=%s", guild_id)
 
         return await interaction.followup.send(
-            view=success_container(f"**Tutoriel** envoyé dans {channel.mention} !"),
+            view=success_container(f"Le **Tutoriel** a été envoyé dans {channel.mention} !"),
             ephemeral=True,
         )
 

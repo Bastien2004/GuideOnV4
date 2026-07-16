@@ -1,5 +1,5 @@
 """
-cogs/alpha/event_regle.py — Affiche les règles des events m+
+cogs/alpha/event_regle.py — Affiche les règles des events M+.
 """
 
 from __future__ import annotations

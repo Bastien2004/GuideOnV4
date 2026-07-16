@@ -1,11 +1,7 @@
 """
 cogs/alpha/rank.py — Gestion des rank staff Alpha.
-
-Fichier trop lourd à l'origine (DB, rôles Discord, annonces mêlés à la
-commande) — logique métier extraite dans utils/alpha_rank_logic.py, à l'image
-de utils/derank_logic.py. Construction des annonces déplacée dans
-views/alpha/rank_view.py.
 """
+
 from __future__ import annotations
 
 import logging
@@ -29,6 +25,11 @@ from utils.db.models.alpha_staff import GRADES_ORDER, GRADE_LABELS, SECONDARY_ST
 from utils.alpha_rank_logic import RankValidationError, execute_grade_rank, execute_statut_rank
 
 log = logging.getLogger(__name__)
+
+
+# ============================================================
+# 🛠️ Paramètres
+# ============================================================
 
 TYPE_CHOICES = [
     app_commands.Choice(name="Grade (Staff)", value="grade"),
@@ -55,29 +56,16 @@ VALEUR_CHOICES = GRADE_CHOICES + STATUT_CHOICES
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
 @app_commands.command(name="rank", description="⬆️ [OP] Rank-up un membre du staff Alpha")
-@app_commands.describe(
-    membre="Membre Discord à rank-up",
-    pseudo_jeu="Pseudo NationsGlory du membre",
-    type="Grade (hiérarchie staff) ou Statut (journaliste/affilié/builder)",
-    valeur="Grade ou statut à attribuer (selon le type choisi)",
-    pseudo_jeu_builder="Pseudo NationsGlory du compte builder (requis si type=statut, valeur=builder)",
-)
+@app_commands.describe(membre="utilisateur Discord", pseudo_jeu="Pseudo IG exact", type="Type de rank-up",valeur="Grade ou statut à attribuer", pseudo_jeu_builder="Pseudo IG du compte builder")
 @app_commands.choices(type=TYPE_CHOICES, valeur=VALEUR_CHOICES)
-async def rank(
-    interaction: Interaction,
-    membre: discord.Member,
-    pseudo_jeu: str,
-    type: app_commands.Choice[str],
-    valeur: app_commands.Choice[str],
-    pseudo_jeu_builder: str | None = None,
-) -> None:
+async def rank(interaction: Interaction, membre: discord.Member, pseudo_jeu: str, type: app_commands.Choice[str], valeur: app_commands.Choice[str], pseudo_jeu_builder: str | None = None) -> None:
 
     # 🛡️ Vérification ban utilisateur.
     if not await verifier_ban_utilisateur(interaction):
         return
 
     # 🔐 Vérification Opérateur.
-    if not await check_op_alpha(interaction, "**effectuer un rank-up**"):
+    if not await check_op_alpha(interaction, "**effectuer** un rank-up"):
         return
 
     # 🕒 Defer.
@@ -93,10 +81,7 @@ async def rank(
     # 📊 Tracking.
     await tracker_commande(interaction, "alpha_rank")
 
-    # 🔎 Cohérence type/valeur — VALEUR_CHOICES est l'union des deux jeux de
-    # choix (Discord ne permet pas de choix dynamiques sans autocomplete),
-    # donc on doit valider manuellement que `valeur` appartient bien au bon
-    # univers pour le `type` demandé.
+    # 🔎 Vérification cohérence type/valeur.
     if type.value == "grade" and valeur.value not in GRADES_ORDER:
         return await interaction.followup.send(
             view=error_container(
@@ -109,7 +94,7 @@ async def rank(
         return await interaction.followup.send(
             view=error_container(
                 f"**{valeur.name}** n'est pas un statut valide. "
-                f"Avec `type:Statut`, choisis parmi : Journaliste, Affilié, Builder."
+                f"Avec `type:Statut`, choisis parmi : Journaliste, Affilié ou Builder."
             ),
             ephemeral=True,
         )
@@ -118,7 +103,7 @@ async def rank(
     existing = await get_staff_member(membre.id)
     pseudo = pseudo_jeu.strip()
 
-    # 🚀 Délégation à la logique métier (utils/alpha_rank_logic.py).
+    # 🚀 Gestion du rank-up.
     try:
         if type.value == "grade":
             result = await execute_grade_rank(
@@ -132,7 +117,7 @@ async def rank(
         view = warning_container(e.message) if e.warning else error_container(e.message)
         return await interaction.followup.send(view=view, ephemeral=True)
 
-    # ✅ Message de confirmation (commun aux deux branches).
+    # ✅ Gestion message de confirmation.
     lines = ["• Rôle(s) Discord mis à jour"]
     if result.new_nick:
         lines.append(f"• Pseudo renommé : `{result.new_nick}`")

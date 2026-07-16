@@ -136,7 +136,7 @@ async def event_start(interaction: Interaction, event: str) -> None:
 
     # ✅ Confirmation éphémère.
     status_warn = (
-        f"\n⚠️ Cet event est en **{STATUS_LABELS.get(event_data['status'], event_data['status'])}**."
+        f"\n<:erreur:1495443907281031359> Cet event est en **{STATUS_LABELS.get(event_data['status'], event_data['status'])}**."
         if event_data["status"] != "fonctionne" else ""
     )
     await interaction.followup.send(

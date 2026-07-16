@@ -1,5 +1,5 @@
 """
-cogs/dev/nota_force.py — Force l'envoi du message de présence des notations
+cogs/alpha/nota_force.py — Force l'envoi du message de présence des notations.
 """
 
 from __future__ import annotations

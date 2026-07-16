@@ -1,9 +1,7 @@
 """
-cogs/alpha/regle_interne.py — Gestion de l'interface des règles internes du Alpha
-
-Construction de la view déplacée dans views/alpha/regle_interne_view.py
-(voir ce fichier pour la justification LayoutView vs BaseLayoutView).
+cogs/alpha/regle_interne.py — Gestion de l'interface des règles internes du Alpha.
 """
+
 from __future__ import annotations
 
 import logging

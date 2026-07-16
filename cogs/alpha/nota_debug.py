@@ -1,5 +1,5 @@
 """
-cogs/dev/nota_debug.py — Affiche les informations du système de notations Alpha (debug).
+cogs/alpha/nota_debug.py — Affiche les informations du système de notations Alpha (debug).
 """
 
 from __future__ import annotations

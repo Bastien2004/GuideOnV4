@@ -1,5 +1,5 @@
 """
-cogs/alpha/event_list.py — Affiche les events M+ du Alpha
+cogs/alpha/event_list.py — Affiche les events M+ du Alpha.
 """
 
 from __future__ import annotations
