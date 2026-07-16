@@ -1,10 +1,7 @@
 """
-views/birthday/next_view.py — Vue /birthday next (VIP).
-
-Vue non-interactive. Affiche le prochain anniversaire à venir, en groupant
-les utilisateurs qui partagent la même date. Si année connue, affiche l'âge
-atteint à cette date.
+views/birthday/next_view.py — Affiche le prochain anniversaire (VIP).
 """
+
 from __future__ import annotations
 
 from datetime import date
@@ -23,38 +20,28 @@ MONTHS_FR = {
 def _format_days_until(d: date, today: date) -> str:
     days = (d - today).days
     if days == 0:
-        return "🎉 **aujourd'hui** !"
+        return "🎉 **Aujourd'hui** !"
     if days == 1:
-        return "**demain**"
-    return f"dans **{days}** jours"
+        return "**Demain**"
+    return f"Dans **{days}** jours"
 
 
-def build_next_view(
-    next_date: date,
-    users: list[dict],
-    guild: discord.Guild,
-    today: date,
-) -> LayoutView:
-    """
-    Construit la vue. `users` est la liste des utilisateurs (dict) partageant
-    cette même date. Au moins un user attendu.
-    """
+def build_next_view(next_date: date, users: list[dict], guild: discord.Guild, today: date) -> LayoutView:
+    """Construction de l'interface."""
+
     view = LayoutView(timeout=None)
     container = Container()
 
-    container.add_item(TextDisplay(
-        f"# 🎂 Prochain anniversaire\n-# {guild.name}"
-    ))
+    container.add_item(TextDisplay("# 🎂 Prochain anniversaire"))
     container.add_item(Separator())
 
     month_name = MONTHS_FR.get(next_date.month, str(next_date.month))
     container.add_item(TextDisplay(
-        f"### 📅 {next_date.day:02d} {month_name}\n"
-        f"-# {_format_days_until(next_date, today)}"
+        f"### <:calendrier:1511260222042148955> {next_date.day:02d} {month_name}\n"
+        f"-# ➥ {_format_days_until(next_date, today)}"
     ))
     container.add_item(Separator())
 
-    # Bloc utilisateurs (mentions + âge si connu)
     lines: list[str] = []
     for u in users:
         member = guild.get_member(u["user_id"])
@@ -66,9 +53,9 @@ def build_next_view(
         lines.append(f"-# 🎈 {display}{age_txt}")
 
     if len(users) > 1:
-        container.add_item(TextDisplay(f"### 👥 Membres concernés ({len(users)})"))
+        container.add_item(TextDisplay(f"### <:profil:1495444182137831515> Membres concernés ({len(users)})"))
     else:
-        container.add_item(TextDisplay("### 👤 Membre concerné"))
+        container.add_item(TextDisplay("### <:profil:1495444182137831515> Membre concerné"))
     container.add_item(TextDisplay("\n".join(lines)))
 
     container.add_item(Separator())
@@ -82,11 +69,5 @@ class BirthdayNextView:
     """Wrapper pour la cohérence d'API avec les autres systèmes."""
 
     @classmethod
-    def create(
-        cls,
-        next_date: date,
-        users: list[dict],
-        guild: discord.Guild,
-        today: date,
-    ) -> LayoutView:
+    def create(cls, next_date: date, users: list[dict], guild: discord.Guild, today: date) -> LayoutView:
         return build_next_view(next_date, users, guild, today)

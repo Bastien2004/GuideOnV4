@@ -45,10 +45,10 @@ class PaginatedView(BaseLayoutView):
         self.clear_items()
         container = self.build_page_container(self.page_items())
 
-        prev_btn = Button(label="<:precedent:1515658763913138236>", style=ButtonStyle.secondary, disabled=self.page == 0)
+        prev_btn = Button(label="", emoji = "<:precedent:1515658763913138236>", style=ButtonStyle.secondary, disabled=self.page == 0)
         prev_btn.callback = self._prev
 
-        next_btn = Button(label="<:suivant:1515658825913339904>", style=ButtonStyle.secondary, disabled=self.page >= self.total_pages - 1)
+        next_btn = Button(label="", emoji = "<:suivant:1515658825913339904>", style=ButtonStyle.secondary, disabled=self.page >= self.total_pages - 1)
         next_btn.callback = self._next
 
         container.add_item(Separator())
