@@ -1,8 +1,5 @@
 """
-views/birthday/list_view.py — Vue paginée /birthday list (VIP).
-
-Hérite de PaginatedView. Affiche les anniversaires des 30 prochains jours,
-triés par proximité, avec mention du membre + date + âge (si année connue).
+views/birthday/list_view.py — Affiche la liste des anniversaires dans les 30 prochains jours.
 """
 from __future__ import annotations
 
@@ -15,10 +12,6 @@ from discord.ui import Container, Separator, TextDisplay
 from utils.managers.birthday_manager import compute_age
 from views._components.paginated_view import PaginatedView
 
-
-# Médailles sur le podium (les 3 plus proches)
-MEDALS = {1: "🥇", 2: "🥈", 3: "🥉"}
-
 MONTHS_FR = {
     1: "janvier", 2: "février", 3: "mars", 4: "avril", 5: "mai", 6: "juin",
     7: "juillet", 8: "août", 9: "septembre", 10: "octobre", 11: "novembre", 12: "décembre",
@@ -28,10 +21,10 @@ MONTHS_FR = {
 def _format_days_until(d: date, today: date) -> str:
     days = (d - today).days
     if days == 0:
-        return "**aujourd'hui** 🎉"
+        return "**Aujourd'hui** 🎉"
     if days == 1:
-        return "**demain**"
-    return f"dans **{days}** jours"
+        return "**Demain**"
+    return f"Dans **{days}** jours"
 
 
 class BirthdayListView(PaginatedView):
@@ -46,7 +39,6 @@ class BirthdayListView(PaginatedView):
         today: date,
         per_page: int = 20,
     ):
-        # On ajoute le rang absolu pour les médailles
         items_with_rank = [(i + 1, nxt, user) for i, (nxt, user) in enumerate(entries)]
         self.guild = guild
         self.today = today
@@ -54,10 +46,7 @@ class BirthdayListView(PaginatedView):
 
     def build_page_container(self, page_items: list) -> Container:
         container = Container()
-        container.add_item(TextDisplay(
-            f"# 🎂 Anniversaires à venir · {self.guild.name}\n"
-            f"-# 30 prochains jours"
-        ))
+        container.add_item(TextDisplay("# 🎂 Anniversaires à venir"))
         container.add_item(Separator())
 
         if not page_items:
@@ -70,7 +59,7 @@ class BirthdayListView(PaginatedView):
         for rank, nxt, user in page_items:
             member = self.guild.get_member(user["user_id"])
             display = member.mention if member else f"`utilisateur {user['user_id']}`"
-            prefix = MEDALS.get(rank, f"**#{rank}**")
+            prefix = "➩"
             month_name = MONTHS_FR.get(user["month"], str(user["month"]))
             age_txt = ""
             if user.get("year"):
