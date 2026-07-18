@@ -1,8 +1,5 @@
 """
 cogs/dev/join_serv.py — Crée une invitation Discord sur un serveur où le bot est présent.
-
-Recherche du salon + création de l'invitation déplacées dans
-utils/join_serv.py, construction de la vue dans views/dev/join_serv_view.py.
 """
 
 from __future__ import annotations
@@ -26,7 +23,7 @@ from views.dev.join_serv_view import build_invite_view
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="join_serv", description="🔗 [DEV] Crée une invitation sur un serveur où GuideOn est présent")
+@app_commands.command(name="join_serv", description="🔗 [DEV] Crée une invitation sur un serveur")
 @app_commands.describe(id_serveur="ID du serveur cible")
 async def join_serv(interaction: Interaction, id_serveur: str) -> None:
 
@@ -59,7 +56,7 @@ async def join_serv(interaction: Interaction, id_serveur: str) -> None:
         return await interaction.followup.send(
             view=error_container("GuideOn n'est présent sur **aucun serveur** avec cet ID."), ephemeral=True)
 
-    # 🚀 Délégation à la logique métier (utils/join_serv.py).
+    # 🚀 Création de l'invitation.
     try:
         invite, channel = await create_server_invite(guild, interaction.user)
     except JoinServError as e:

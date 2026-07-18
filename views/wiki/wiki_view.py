@@ -13,11 +13,14 @@ convention V4. Sécurité owner-check sur toutes les vues interactives.
 """
 from __future__ import annotations
 
+from datetime import timedelta
+
 import discord
 from discord import ButtonStyle, SelectOption
 from discord.ui import ActionRow, Button, Container, Select, Separator, TextDisplay
 
-from utils.datetime_utils import format_duration, now_utc
+from utils.datetime_utils import format_duration
+from utils.uptime import uptime_seconds
 from views._components.base_view import BaseLayoutView
 
 # ═══════════════════════════════════════════════════════════════
@@ -157,9 +160,9 @@ COMMANDS_PER_PAGE = 4
 # 🔧  Helpers internes
 # ═══════════════════════════════════════════════════════════════
 
-def _uptime(bot: discord.Client) -> str:
-    start = getattr(bot, "start_time", None)
-    return format_duration(now_utc() - start) if start else "Indisponible"
+def _uptime() -> str:
+    """Uptime du bot depuis son démarrage."""
+    return format_duration(timedelta(seconds=uptime_seconds()))
 
 
 def _make_category_select(owner_id: int, callback) -> Select:
@@ -245,7 +248,7 @@ class WikiHomeView(BaseLayoutView):
         c.add_item(TextDisplay(
             f"**Utilisateurs :** `{sum(g.member_count or 0 for g in bot.guilds)}`\n"
             f"**Commandes :** `{total_cmds}`\n"
-            f"**Uptime :** `{_uptime(bot)}`"
+            f"**Uptime :** `{_uptime()}`"
         ))
         c.add_item(Separator())
         c.add_item(TextDisplay("Sélectionne une catégorie pour explorer les commandes :"))
