@@ -1,6 +1,7 @@
 """
-views/ticket/transcript.py — Génération de transcript + suppression définitive.
+views/ticket/transcript.py — Génération de transcript + suppression des tickets.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -21,7 +22,7 @@ log = logging.getLogger(__name__)
 DELETE_DELAY_SECONDS = 8
 
 # ============================================================
-# 🧱 Template HTML (identique V3)
+# 🧱 Template HTML transcript
 # ============================================================
 
 HTML_TEMPLATE = """<!DOCTYPE html>
@@ -87,7 +88,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         <div class="chat">
             {rows}
         </div>
-        <footer>Généré par GuideON Studio • Système de Tickets</footer>
+        <footer>GuideOn Studio</footer>
     </div>
 </body>
 </html>"""
@@ -174,11 +175,7 @@ async def generate_transcripts(channel: discord.TextChannel, ticket: dict) -> tu
 # 🗑️ Suppression définitive
 # ============================================================
 
-async def do_delete_ticket(
-    interaction: discord.Interaction,
-    channel: discord.TextChannel,
-    ticket: dict,
-) -> None:
+async def do_delete_ticket(interaction: discord.Interaction, channel: discord.TextChannel, ticket: dict) -> None:
     """Archive (transcript) → supprime en DB → supprime le salon après délai."""
     if not interaction.response.is_done():
         await interaction.response.defer(ephemeral=True)
@@ -206,7 +203,7 @@ async def do_delete_ticket(
                     f"**Raison :** `{ticket.get('raison', 'Inconnue')}`."
                 ))
                 lc.add_item(Separator())
-                lc.add_item(TextDisplay("-# GuideON Studio"))
+                lc.add_item(TextDisplay("-# GuideOn Studio"))
                 log_view.add_item(lc)
 
                 await tc.send(view=log_view)
@@ -215,7 +212,7 @@ async def do_delete_ticket(
                     discord.File(fp=j_bytes, filename=j_name),
                 ])
             else:
-                log.warning("Salon transcript %s introuvable (guild=%s).", tc_id, guild_id)
+                log.warning("[TICKET] Salon transcript %s introuvable (guild=%s).", tc_id, guild_id)
 
         await tm.delete_ticket(channel.id)
 
@@ -227,13 +224,45 @@ async def do_delete_ticket(
         )
 
         await asyncio.sleep(DELETE_DELAY_SECONDS)
-        await channel.delete(
-            reason=f"Ticket #{ticket.get('ticket_number')} supprimé par {interaction.user}"
-        )
+
+        try:
+            await channel.delete(
+                reason=f"Ticket #{ticket.get('ticket_number')} supprimé par {interaction.user}"
+            )
+        except discord.NotFound:
+            log.warning(
+                "[TICKET] Salon %s déjà supprimé au moment du delete() (ticket #%s) — rien à faire.",
+                channel.id, ticket.get("ticket_number"),
+            )
+        except discord.HTTPException:
+            log.exception(
+                "[TICKET] Erreur Discord lors de la suppression du salon %s (ticket #%s).",
+                channel.id, ticket.get("ticket_number"),
+            )
+            try:
+                await interaction.followup.send(
+                    view=error_container(
+                        "Le salon n'a pas pu être supprimé automatiquement (erreur Discord). "
+                        "Vous pouvez le supprimer manuellement."
+                    ),
+                    ephemeral=True,
+                )
+            except discord.HTTPException:
+                log.warning(
+                    "[TICKET] Impossible d'envoyer le message d'erreur de suppression pour le ticket %s.",
+                    channel.id,
+                )
 
     except Exception:
         log.exception("Erreur critique pendant la suppression du ticket %s.", channel.id)
-        await interaction.followup.send(
-            view=error_container("Une erreur est survenue lors de la génération du transcript."),
-            ephemeral=True,
-        )
+        try:
+            await interaction.followup.send(
+                view=error_container("Une erreur est survenue lors de la génération du transcript."),
+                ephemeral=True,
+            )
+        except discord.HTTPException:
+            log.warning(
+                "[TICKET] Impossible d'envoyer le message d'erreur pour le ticket %s "
+                "(salon probablement déjà supprimé).",
+                channel.id,
+            )

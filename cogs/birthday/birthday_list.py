@@ -44,7 +44,7 @@ async def birthday_list(interaction: discord.Interaction) -> None:
         await send_vip_error(interaction)
         return
 
-    # 🕒 Defer..
+    # 🕒 Defer.
     try:
         await interaction.response.defer(ephemeral=True)
     except (discord.NotFound, discord.HTTPException):
