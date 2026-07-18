@@ -1,5 +1,5 @@
 """
-cogs/dev/botban.py — Gestion des bans globaux du bot (ban/unban/liste).
+cogs/dev/botban.py — Gestion des bannissements du bot.
 """
 
 from __future__ import annotations

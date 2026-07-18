@@ -4,8 +4,6 @@ cogs/dev/delete_message.py — Supprime un message de GuideOn donné.
 
 from __future__ import annotations
 
-import logging
-
 import discord
 from discord import app_commands, Interaction
 
@@ -16,7 +14,7 @@ from utils.container_universel import error_container, success_container, warnin
 from utils.error_handler import handle_app_command_error
 from utils.perm_dev import check_dev
 
-log = logging.getLogger(__name__)
+from utils.dev_delete_message import DeleteMessageError, delete_bot_message
 
 # ============================================================
 # 🧭 Commande : /dev delete_message
@@ -41,7 +39,7 @@ async def delete_message(interaction: Interaction, id_salon: str, id_message: st
     # ⚙️ Vérification maintenance.
     if not await verifier_commande(interaction, "dev_delete_message"):
         return
-    
+
     # 📊 Tracking.
     await tracker_commande(interaction, "dev_delete_message")
 
@@ -49,109 +47,26 @@ async def delete_message(interaction: Interaction, id_salon: str, id_message: st
     try:
         channel_id = int(id_salon)
         message_id = int(id_message)
-
     except ValueError:
         return await interaction.followup.send(
             view=error_container("`id_salon` et `id_message` doivent être des **identifiants numériques**."),
             ephemeral=True,
         )
 
-    # 💻 Récupération du salon.
-    channel = interaction.client.get_channel(channel_id)
-    if channel is None:
-        try:
-            channel = await interaction.client.fetch_channel(channel_id)
-
-        except discord.NotFound:
-            return await interaction.followup.send(
-                view=error_container("Salon **introuvable** (ID invalide ou bot non présent sur ce serveur)."),
-                ephemeral=True,
-            )
-        
-        except discord.Forbidden:
-            return await interaction.followup.send(
-                view=error_container("Le bot n'a pas **accès** à ce __salon__."),
-                ephemeral=True,
-            )
-        
-        except discord.HTTPException:
-            log.exception("[DELETE_MESSAGE] Erreur fetch_channel %d", channel_id)
-            return await interaction.followup.send(
-                view=error_container("Une **erreur Discord** est survenue lors de la __récupération du salon__."),
-                ephemeral=True,
-            )
-
-    if not isinstance(channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel, discord.StageChannel)):
-        return await interaction.followup.send(
-            view=error_container("Ce type de salon n'est pas **supporté**."),
-            ephemeral=True,
-        )
-
-    # 📨 Récupération du message.
+    # 🚀 Gestion de la suppression.
     try:
-        message = await channel.fetch_message(message_id)
-
-    except discord.NotFound:
-        return await interaction.followup.send(
-            view=error_container("Message **introuvable** dans ce salon."),
-            ephemeral=True,
-        )
-    
-    except discord.Forbidden:
-        return await interaction.followup.send(
-            view=error_container("Le bot n'a pas la **permission** de lire ce salon."),
-            ephemeral=True,
-        )
-    
-    except discord.HTTPException:
-        log.exception("[DELETE_MESSAGE] Erreur fetch_message %d/%d", channel_id, message_id)
-        return await interaction.followup.send(
-            view=error_container("Une **erreur Discord** est survenue lors de la __récupération du message__."),
-            ephemeral=True,
-        )
-
-    # 🛡️ Vérification que le message provient du bot.
-    if message.author.id != interaction.client.user.id:
-        return await interaction.followup.send(
-            view=warning_container(
-                "Ce message n'a **pas été envoyé par GuideOn** — suppression refusée."), ephemeral=True)
-
-    # ℹ️ Récupération des informations du message.
-    guild_name = getattr(channel.guild, "name", "DM") if hasattr(channel, "guild") else "DM"
-    channel_name = getattr(channel, "name", str(channel_id))
-    content_preview = (message.content or "*[contenu vide / embed / composants]*")[:200]
-
-    # 🗑️ Suppression
-    try:
-        await message.delete()
-    except discord.NotFound:
-        return await interaction.followup.send(
-            view=warning_container("Le message était déjà **supprimé**."),
-            ephemeral=True,
-        )
-    
-    except discord.Forbidden:
-        return await interaction.followup.send(
-            view=error_container("Le bot n'a pas la **permission** de __supprimer ce message__."),
-            ephemeral=True,
-        )
-    
-    except discord.HTTPException:
-        log.exception("[DELETE_MESSAGE] Erreur suppression %d/%d", channel_id, message_id)
-        return await interaction.followup.send(
-            view=error_container("Une **erreur Discord** est survenue lors de la __suppression__."),
-            ephemeral=True,
-        )
-
-    log.info("[DELETE_MESSAGE] Message %d supprimé par %s | salon=%d (%s) guild=%s", message_id, interaction.user.id, channel_id, channel_name, guild_name)
+        info = await delete_bot_message(interaction.client, channel_id, message_id, interaction.user.id)
+    except DeleteMessageError as e:
+        view = warning_container(e.message) if e.warning else error_container(e.message)
+        return await interaction.followup.send(view=view, ephemeral=True)
 
     # ✉️ Envoi de la confirmation de suppression.
     await interaction.followup.send(
         view=success_container(
-            f"Message supprimé avec succès.\n\n"
-            f"**Serveur :** {guild_name}\n"
-            f"**Salon :** #{channel_name} (`{channel_id}`)\n"
-            f"**Aperçu :** {content_preview}"
+            f"Message supprimé correctement.\n\n"
+            f"**Serveur :** {info.guild_name}\n"
+            f"**Salon :** #{info.channel_name} (`{info.channel_id}`)\n"
+            f"**Aperçu :** {info.content_preview}"
         ),
         ephemeral=True,
     )
