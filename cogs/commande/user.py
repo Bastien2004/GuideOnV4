@@ -1,6 +1,11 @@
 """
-Commande /user — Sélectionne un membre via un menu déroulant et affiche son
-profil (résultat identique à /id <id_discord>).
+Commande /user — Affiche le profil d'un membre du serveur, choisi via le
+menu déroulant natif de Discord (paramètre membre: discord.Member).
+
+Résultat identique à /id <id_discord>, réutilise la même vue de profil
+(views/user/user_view.py). Discord résout et valide déjà le membre
+lui-même — pas besoin de fetch_user ni de gestion NotFound/HTTPException
+ici, contrairement à /id qui accepte un ID/mention en texte libre.
 
 Reste en commands.Cog, comme /id : commande racine autonome, pas une
 sous-commande d'un groupe.
@@ -16,7 +21,7 @@ from utils.control_admin import verifier_commande
 from utils.track_commande import tracker_commande
 from utils.error_handler import handle_app_command_error
 
-from views.user.user_picker_view import UserLookupView
+from views.user.user_view import build_user_view
 
 
 # ============================================================
@@ -30,8 +35,9 @@ class UserLookup(commands.Cog):
 
     @app_commands.guild_only()
     @app_commands.checks.cooldown(1, 10)
-    @app_commands.command(name="user", description="👤 Sélectionne un membre via un menu déroulant et affiche son profil.")
-    async def user_command(self, interaction: discord.Interaction):
+    @app_commands.command(name="user", description="👤 Affiche le profil d'un membre du serveur.")
+    @app_commands.describe(membre="Le membre dont afficher le profil")
+    async def user_command(self, interaction: discord.Interaction, membre: discord.Member):
 
         # 🛡️ Vérification ban utilisateur.
         if not await verifier_ban_utilisateur(interaction):
@@ -50,9 +56,9 @@ class UserLookup(commands.Cog):
         # 📊 Tracking.
         await tracker_commande(interaction, "user_command")
 
-        # 🧩 Envoi du menu de sélection.
-        view = UserLookupView(owner_id=interaction.user.id, bot=self.bot)
-        await interaction.followup.send(view=view, ephemeral=True)
+        # 🧩 Construction + envoi (même vue que /id).
+        view = build_user_view(membre)
+        await interaction.followup.send(view=view)
 
     # ============================================================
     # ❌ Gestion des erreurs
