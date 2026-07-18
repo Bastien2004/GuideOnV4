@@ -20,9 +20,9 @@ from utils.command_debug import get_command_debug_info
 from views.dev.debug_cmd_view import build_debug_cmd_view
 
 
-# ════════════════════════════════════════════════════════════
+# ============================================================
 # 🧭 Commande : /dev debug_cmd
-# ════════════════════════════════════════════════════════════
+# ============================================================
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)

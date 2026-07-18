@@ -1,9 +1,8 @@
 """
-Tracking du temps de démarrage du bot.
+utils/uptime.py - Gère l'uptime du bot.
 """
 from datetime import datetime, timezone
 
-# Capturé au moment où le module est importé (= au démarrage)
 START_TIME: datetime = datetime.now(timezone.utc)
 
 
