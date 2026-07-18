@@ -1,5 +1,5 @@
 """
-Commande /id — Affiche les informations d'un utilisateur.
+cogs/commande/id.py — Affiche les informations d'un utilisateur.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ class UserID(commands.Cog):
 
     @app_commands.guild_only()
     @app_commands.checks.cooldown(1, 10)
-    @app_commands.command(name="id", description="👤 Récupère les informations d’un utilisateur via son ID ou sa mention.")
+    @app_commands.command(name="id", description="👤 Récupère les informations d’un utilisateur via son ID ou sa mention")
     @app_commands.describe(user_id="L’ID ou la mention de l’utilisateur")
     async def id_command(self, interaction: discord.Interaction, user_id: str):
 
@@ -44,11 +44,11 @@ class UserID(commands.Cog):
             return
 
         # ⚙️ Vérification maintenance.
-        if not await verifier_commande(interaction, "id_command"):
+        if not await verifier_commande(interaction, "id_cmd"):
             return
 
         # 📊 Tracking.
-        await tracker_commande(interaction, "id_command")
+        await tracker_commande(interaction, "id_cmd")
 
         # 🔍 Extraction ID.
         uid = extract_id(user_id)

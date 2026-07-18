@@ -1,6 +1,7 @@
 """
-cogs/commande/report.py — Permet de signaler un problème sur le bot.
+cogs/commande/report.py — Permet de signaler un bug sur le bot.
 """
+
 from __future__ import annotations
 
 import logging
@@ -46,11 +47,11 @@ class Report(commands.Cog):
             return
 
         # ⚙️ Vérification maintenance.
-        if not await verifier_commande(interaction, "report"):
+        if not await verifier_commande(interaction, "report_cmd"):
             return
 
         # 📊 Tracking.
-        await tracker_commande(interaction, "report")
+        await tracker_commande(interaction, "report_cmd")
 
         # 🪟 Ouverture de l'interface.
         clear_draft(interaction.user.id)

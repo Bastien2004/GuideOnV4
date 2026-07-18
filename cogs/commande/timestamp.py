@@ -1,6 +1,7 @@
 """
-Commande /timestamp — Convertit une date en timestamp Discord.
+cogs/commande/timestamp.py — Convertit une date en timestamp Discord.
 """
+
 from __future__ import annotations
 
 import logging
@@ -10,10 +11,11 @@ from discord import app_commands
 from discord.ext import commands
 
 from utils.botbancmd import verifier_ban_utilisateur
-from utils.container_universel import error_container
-from utils.control_admin import verifier_commande
-from utils.error_handler import handle_app_command_error
 from utils.track_commande import tracker_commande
+from utils.control_admin import verifier_commande
+
+from utils.error_handler import handle_app_command_error
+from utils.container_universel import error_container
 
 from views.timestamp.timestamp_view import build_main_view
 
@@ -46,11 +48,11 @@ class Timestamp(commands.Cog):
             return
 
         # ⚙️ Vérification maintenance.
-        if not await verifier_commande(interaction, "timestamp_command"):
+        if not await verifier_commande(interaction, "timestamp_cmd"):
             return
 
         # 📊 Tracking.
-        await tracker_commande(interaction, "timestamp_command")
+        await tracker_commande(interaction, "timestamp_cmd")
 
         # 🧩 Construction et envoi de la vue.
         try:
