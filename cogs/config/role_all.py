@@ -1,6 +1,7 @@
 """
-cogs/config/role_all.py — Commande /config role_all.
+cogs/config/role_all.py — Affiche l'interface de gestion du rôle all.
 """
+
 from __future__ import annotations
 
 import logging
@@ -62,7 +63,7 @@ async def role_all(interaction: discord.Interaction) -> None:
         await interaction.followup.send(view=view, ephemeral=True)
 
     except Exception:
-        log.exception("**Ouverture** config role_all **échouée** (guild=%s)", interaction.guild.id)
+        log.exception("[ROLE-ALL] Ouverture de l'interface de gestion échouée (guild=%s)", interaction.guild.id)
         await interaction.followup.send(
             view=error_container("**Impossible** d'ouvrir l'__interface de gestion__."),
             ephemeral=True,

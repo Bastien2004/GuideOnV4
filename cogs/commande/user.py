@@ -1,15 +1,7 @@
 """
-Commande /user — Affiche le profil d'un membre du serveur, choisi via le
-menu déroulant natif de Discord (paramètre membre: discord.Member).
-
-Résultat identique à /id <id_discord>, réutilise la même vue de profil
-(views/user/user_view.py). Discord résout et valide déjà le membre
-lui-même — pas besoin de fetch_user ni de gestion NotFound/HTTPException
-ici, contrairement à /id qui accepte un ID/mention en texte libre.
-
-Reste en commands.Cog, comme /id : commande racine autonome, pas une
-sous-commande d'un groupe.
+cogs/commande/user.py — Affiche les informations d'un utilisateur.
 """
+
 from __future__ import annotations
 
 import discord
@@ -35,7 +27,7 @@ class UserLookup(commands.Cog):
 
     @app_commands.guild_only()
     @app_commands.checks.cooldown(1, 10)
-    @app_commands.command(name="user", description="👤 Affiche le profil d'un membre du serveur.")
+    @app_commands.command(name="user", description="👤 Affiche le profil d'un membre du serveur")
     @app_commands.describe(membre="Le membre dont afficher le profil")
     async def user_command(self, interaction: discord.Interaction, membre: discord.Member):
 
@@ -50,11 +42,11 @@ class UserLookup(commands.Cog):
             return
 
         # ⚙️ Vérification maintenance.
-        if not await verifier_commande(interaction, "user_command"):
+        if not await verifier_commande(interaction, "user_cmd"):
             return
 
         # 📊 Tracking.
-        await tracker_commande(interaction, "user_command")
+        await tracker_commande(interaction, "user_cmd")
 
         # 🧩 Construction + envoi (même vue que /id).
         view = build_user_view(membre)

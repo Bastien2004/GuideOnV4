@@ -1,6 +1,7 @@
 """
-cogs/config/autorole.py — Interface de configuration du système d'autorôle.
+cogs/config/autorole.py — Affiche l'interface de configuration du système d'auto-rôle.
 """
+
 from __future__ import annotations
 
 import logging
@@ -64,9 +65,9 @@ async def autorole(interaction: discord.Interaction) -> None:
             )
         await interaction.followup.send(view=view, ephemeral=True)
     except Exception:
-        log.exception("**Ouverture** config autorole **échouée** (guild=%s)", interaction.guild.id)
+        log.exception("[AUTOROLE] Ouverture de l'interface de configuration échouée (guild=%s)", interaction.guild.id)
         await interaction.followup.send(
-            view=error_container("**Impossible** d'ouvrir la __configuration__."),
+            view=error_container("Impossible d'ouvrir l'**interface de configuration**."),
             ephemeral=True,
         )
 

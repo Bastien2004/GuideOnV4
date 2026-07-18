@@ -29,7 +29,7 @@ class Info(commands.Cog):
         self.bot = bot
 
     @app_commands.guild_only()
-    @app_commands.checks.cooldown(1, 10)
+    @app_commands.checks.cooldown(1, 15)
     @app_commands.command(name="info", description="❔ Découvrir GuideON")
     async def info(self, interaction: Interaction) -> None:
 

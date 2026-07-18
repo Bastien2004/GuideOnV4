@@ -1,6 +1,7 @@
 """
-cogs/config/bienvenue.py — Commande /config bienvenue.
+cogs/config/bienvenue.py — Affiche l'interface de configuration du système de bienvenue.
 """
+
 from __future__ import annotations
 
 import logging
@@ -66,11 +67,9 @@ async def bienvenue(interaction: discord.Interaction) -> None:
             )
         await interaction.followup.send(view=view, ephemeral=True)
     except Exception:
-        log.exception("Ouverture config bienvenue echouee (guild=%s)", interaction.guild.id)
+        log.exception("[BIENVENUE] Ouverture de l'interface de configuration echouée (guild=%s)", interaction.guild.id)
         await interaction.followup.send(
-            view=error_container(
-                "Impossible d'ouvrir la configuration."
-            ),
+            view=error_container("Impossible d'ouvrir l'**interface de configuration**."),
             ephemeral=True,
         )
 

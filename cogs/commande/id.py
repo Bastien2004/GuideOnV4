@@ -1,5 +1,5 @@
 """
-cogs/commande/id.py — Affiche les informations d'un utilisateur.
+cogs/commande/id.py — Affiche les informations d'un utilisateur depuis son identifiant.
 """
 
 from __future__ import annotations

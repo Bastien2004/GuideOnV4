@@ -43,11 +43,11 @@ class Wiki(commands.Cog):
             return
 
         # ⚙️ Vérification maintenance.
-        if not await verifier_commande(interaction, "wiki"):
+        if not await verifier_commande(interaction, "wiki_cmd"):
             return
 
         # 📊 Tracking.
-        await tracker_commande(interaction, "wiki")
+        await tracker_commande(interaction, "wiki_cmd")
 
         # 📖 Envoi du wiki.
         view = WikiHomeView(bot=self.bot, owner_id=interaction.user.id)
