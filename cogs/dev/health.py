@@ -42,7 +42,7 @@ async def health(interaction: Interaction) -> None:
     # 📊 Tracking.
     await tracker_commande(interaction, "dev_health")
 
-    # 🚀 Délégation à la logique métier (utils/health.py).
+    # 🚀 # 🚀 Récupération et envoi des données.
     data = await gather_health_data(interaction.client)
     view = build_health_view(data)
 

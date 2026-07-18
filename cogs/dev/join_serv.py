@@ -1,14 +1,14 @@
 """
 cogs/dev/join_serv.py — Crée une invitation Discord sur un serveur où le bot est présent.
+
+Recherche du salon + création de l'invitation déplacées dans
+utils/join_serv.py, construction de la vue dans views/dev/join_serv_view.py.
 """
 
 from __future__ import annotations
 
-import logging
-
 import discord
 from discord import app_commands, Interaction
-from discord.ui import Container, LayoutView, Separator, TextDisplay
 
 from utils.control_admin import verifier_commande
 from utils.track_commande import tracker_commande
@@ -17,59 +17,8 @@ from utils.container_universel import error_container
 from utils.error_handler import handle_app_command_error
 from utils.perm_dev import check_dev
 
-log = logging.getLogger(__name__)
-
-
-# ============================================================
-# 📁  Fonctions utilitaires
-# ============================================================
-
-def _find_invitable_channel(guild: discord.Guild) -> discord.TextChannel | None:
-    """Cherche un salon libre d'invitations."""
-
-    me = guild.me
-
-    if me is None:
-        return None
-
-    candidates: list[discord.TextChannel] = []
-
-    if guild.system_channel is not None:
-        candidates.append(guild.system_channel)
-    candidates += [c for c in guild.text_channels if c not in candidates]
-
-    for channel in candidates:
-        perms = channel.permissions_for(me)
-        if perms.create_instant_invite:
-            return channel
-        
-    return None
-
-
-def _build_invite_view(guild: discord.Guild, invite: discord.Invite, channel: discord.TextChannel) -> LayoutView:
-    """Construit la view d'invitation."""
-
-    view = LayoutView(timeout=None)
-    c = Container()
-
-    c.add_item(TextDisplay("# <:valider:1495444292867723284> Invitation créée"))
-    c.add_item(Separator())
-
-    c.add_item(TextDisplay(
-        f"⇝ **Serveur :** {guild.name}\n"
-        f"⇝ **ID :** `{guild.id}`\n"
-        f"⇝ **Salon :** {channel.mention}\n"
-        f"⇝ **Expire dans :** 24h\n"
-        f"⇝ **Usages :** Illimités\n\n"
-        f"**Lien :** {invite.url}"
-    ))
-    
-    c.add_item(Separator())
-    c.add_item(TextDisplay("-# GuideOn Studio"))
-    view.add_item(c)
-
-    return view
-
+from utils.join_serv import JoinServError, create_server_invite
+from views.dev.join_serv_view import build_invite_view
 
 # ============================================================
 # 🧭 Commande : /dev join_serv
@@ -110,47 +59,14 @@ async def join_serv(interaction: Interaction, id_serveur: str) -> None:
         return await interaction.followup.send(
             view=error_container("GuideOn n'est présent sur **aucun serveur** avec cet ID."), ephemeral=True)
 
-    # 🔎 Recherche d'un salon où créer l'invitation.
-    channel = _find_invitable_channel(guild)
-    if channel is None:
-        return await interaction.followup.send(
-            view=error_container(
-                f"Aucun salon de **{guild.name}** ne permet à GuideOn de créer une invitation "
-                f"(permission `Créer une invitation` manquante partout)."
-            ),
-            ephemeral=True,
-        )
-
-    # 🔗 Création de l'invitation.
+    # 🚀 Délégation à la logique métier (utils/join_serv.py).
     try:
-        invite = await channel.create_invite(
-            max_age=86400,
-            max_uses=0,
-            temporary=False,
-            unique=True,
-            reason=f"Demandé par {interaction.user} ({interaction.user.id}) via /dev join_serv",
-        )
-
-    except discord.Forbidden:
-        return await interaction.followup.send(
-            view=error_container(f"GuideOn n'a pas la permission de créer une invitation sur **{guild.name}**."),
-            ephemeral=True,
-        )
-    
-    except discord.HTTPException:
-        log.exception("[DEV_JOIN_SERV] Erreur create_invite guild=%d", guild_id)
-        return await interaction.followup.send(
-            view=error_container("Une **erreur Discord** est survenue lors de la création de l'invitation."),
-            ephemeral=True,
-        )
-
-    log.info(
-        "[DEV_JOIN_SERV] Invitation créée pour %s (%d) | salon=%d | demandé par %d",
-        guild.name, guild.id, channel.id, interaction.user.id,
-    )
+        invite, channel = await create_server_invite(guild, interaction.user)
+    except JoinServError as e:
+        return await interaction.followup.send(view=error_container(e.message), ephemeral=True)
 
     # ✉️ Envoi de l'invitation.
-    await interaction.followup.send(view=_build_invite_view(guild, invite, channel), ephemeral=True)
+    await interaction.followup.send(view=build_invite_view(guild, invite, channel), ephemeral=True)
 
 
 # ============================================================

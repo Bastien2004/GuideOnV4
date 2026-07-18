@@ -1,5 +1,5 @@
 """
-cogs/dev/guild_info.py — Informations détaillées sur un serveur où GuideOn est présent.
+cogs/dev/guild_info.py — Affiche les informations d'un serveur Discord.
 """
 
 from __future__ import annotations
@@ -61,7 +61,7 @@ async def guild_info(interaction: Interaction, id_serveur: str) -> None:
             ephemeral=True,
         )
 
-    # 🚀 Délégation à la logique métier (utils/guild_info.py).
+    # 🚀 Récupération et envoi des informations.
     info = await gather_guild_info(guild)
 
     view = build_guild_info_view(guild, info)
