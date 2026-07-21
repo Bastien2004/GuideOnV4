@@ -37,7 +37,7 @@ GUILDS_PER_PAGE = 10
 async def stat_server(interaction: Interaction) -> None:
 
     # 🔐 Vérification des permissions.
-    if not await check_dev(interaction, "consulter les statistiques serveurs"):
+    if not await check_dev(interaction, "**consulter** les __statistiques__ serveurs"):
         return
 
     # 🕒 Defer.

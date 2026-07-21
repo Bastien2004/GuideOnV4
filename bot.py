@@ -20,7 +20,7 @@ from utils.managers.boutique_manager import refresh_cache, cache_refresher_loop
 from utils.managers.permission_manager import refresh_cache as refresh_perms, cache_refresher_loop as perms_refresher_loop
 from cogs.api.base import app as fastapi_app
 
-from utils.groupes import groupeDEV, groupeCONFIG, groupeNG, groupeTICKET, groupeINV, groupeBIRTHDAY, groupeGIVE, groupeALPHA, groupeEXP
+from utils.groupes import groupeDEV, groupeCONFIG, groupeNG, groupeTICKET, groupeINV, groupeBIRTHDAY, groupeGIVE, groupeALPHA, groupeEXP, groupeMOD
 
 """A laisser ! """
 import cogs.api.notation_api_app
@@ -191,7 +191,7 @@ class GuideONBot(commands.Bot):
         from cogs.giveaway.giveaway_manage import giveaway_manage
                 
         # ── IMPORT MOD ──
-        # from cogs.mod.exemple import ...
+        from cogs.mod.mod_permissions import mod_permissions
         
         # ── IMPORT EXP ──
         from cogs.exp.exp_level import exp_level
@@ -260,12 +260,10 @@ class GuideONBot(commands.Bot):
         for cmd in [giveaway_blacklist, giveaway_create, giveaway_list, giveaway_manage]:
             groupGIVE.add_command(cmd)
 
-        '''
         # 🛡️ ── MOD ──
         groupMOD = groupeMOD()
-        for cmd in []:
+        for cmd in [mod_permissions]:
             groupMOD.add_command(cmd)
-        '''
 
         # 🧩 ── EXP ──
         groupEXP = groupeEXP()
@@ -280,7 +278,7 @@ class GuideONBot(commands.Bot):
             
             self._groupALPHA.add_command(cmd)
 
-        for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY, groupGIVE, groupEXP]:
+        for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY, groupGIVE, groupEXP, groupMOD]:
             self.tree.add_command(group)
 
         log.info("✅ Groupes de commandes enregistrés.")

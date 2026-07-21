@@ -1,5 +1,5 @@
 """
-cogs/dev/gold.py — Gère le don ou le retrait de l'abonnement Gold+.
+cogs/dev/gold.py — Gère l'abonnement Gold+.
 """
 
 from __future__ import annotations

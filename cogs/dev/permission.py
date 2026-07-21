@@ -1,9 +1,5 @@
 """
-cogs/dev/permissions.py — Commande /dev permissions : gère les permissions
-internes (DEV, STAFF, OP_ALPHA).
-
-Garde créateur déplacée dans utils/permissions_dev.py, construction de
-l'interface déplacée dans views/dev/permissions_view.py.
+cogs/dev/permissions.py — Gère les permissions internes du bot (DEV, STAFF, OP_ALPHA).
 """
 from __future__ import annotations
 

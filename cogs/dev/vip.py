@@ -1,13 +1,5 @@
 """
-cogs/dev/vip.py — Toggle VIP sur un utilisateur, pour les tests dev.
-
-Calqué sur cogs/dev/gold.py, avec une différence de paramètre assumée :
-VIP est rattaché à un utilisateur (discord_id = user_id dans shop_entries),
-Gold+ à un serveur. Le gold.py original doit parser un ID de serveur en
-string car Discord n'offre pas de type de paramètre "Guild" natif pour un
-slash command. Ici, `membre: discord.Member` est un type natif — Discord
-résout et valide directement le membre, donc pas besoin du parsing/lookup
-manuel utilisé côté serveur.
+cogs/dev/vip.py — Gère le grade VIP.
 """
 
 from __future__ import annotations
@@ -35,7 +27,7 @@ log = logging.getLogger(__name__)
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="vip", description="✨ [DEV] Toggle le statut VIP d'un utilisateur (tests)")
+@app_commands.command(name="vip", description="✨ [DEV] Gère le statut VIP d'un utilisateur")
 @app_commands.describe(membre="Membre Discord cible")
 async def vip(interaction: Interaction, membre: discord.Member) -> None:
 
