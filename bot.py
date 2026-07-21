@@ -20,7 +20,7 @@ from utils.managers.boutique_manager import refresh_cache, cache_refresher_loop
 from utils.managers.permission_manager import refresh_cache as refresh_perms, cache_refresher_loop as perms_refresher_loop
 from cogs.api.base import app as fastapi_app
 
-from utils.groupes import groupeDEV, groupeCONFIG, groupeNG, groupeTICKET, groupeINV, groupeBIRTHDAY, groupeGIVE, groupeALPHA
+from utils.groupes import groupeDEV, groupeCONFIG, groupeNG, groupeTICKET, groupeINV, groupeBIRTHDAY, groupeGIVE, groupeALPHA, groupeEXP
 
 """A laisser ! """
 import cogs.api.notation_api_app
@@ -194,7 +194,10 @@ class GuideONBot(commands.Bot):
         # from cogs.mod.exemple import ...
         
         # ── IMPORT EXP ──
-        # from cogs.exp.exemple import ...
+        from cogs.exp.exp_level import exp_level
+        from cogs.exp.exp_leaderboard import exp_leaderboard
+        from cogs.exp.exp_gestion import exp_gestion
+        from cogs.exp.exp_config import exp_config
         
         # ── IMPORT ALPHA ──
         from cogs.alpha.test import test_alpha
@@ -262,12 +265,12 @@ class GuideONBot(commands.Bot):
         groupMOD = groupeMOD()
         for cmd in []:
             groupMOD.add_command(cmd)
+        '''
 
         # 🧩 ── EXP ──
         groupEXP = groupeEXP()
-        for cmd in []:
+        for cmd in [exp_level, exp_leaderboard, exp_gestion, exp_config]:
             groupEXP.add_command(cmd)
-        '''
 
         # 💋 ── ALPHA ──
         self._groupALPHA = groupeALPHA()
@@ -277,7 +280,7 @@ class GuideONBot(commands.Bot):
             
             self._groupALPHA.add_command(cmd)
 
-        for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY, groupGIVE]:
+        for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY, groupGIVE, groupEXP]:
             self.tree.add_command(group)
 
         log.info("✅ Groupes de commandes enregistrés.")
@@ -459,4 +462,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        pass
+        pass

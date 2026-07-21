@@ -25,6 +25,7 @@ from utils.db.models.alpha_event_config import AlphaEventConfig
 from utils.db.models.command_stats import CommandStatDaily
 from utils.db.models.bot_ban import BotBan
 from utils.db.models.staff import StaffConfig
+from utils.db.models.exp import ExpConfig, ExpUser
 
 __all__ = [
     "Base",
@@ -64,4 +65,6 @@ __all__ = [
     "CommandStatDaily",
     "BotBan",
     "StaffConfig",
-]
+    "ExpConfig",
+    "ExpUser",
+]
