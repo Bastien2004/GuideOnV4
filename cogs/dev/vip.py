@@ -51,10 +51,7 @@ async def vip(interaction: Interaction, membre: discord.Member) -> None:
     # ✨ Toggle VIP.
     removed = await remove_entry(ShopRole.VIP, membre.id)
     if removed:
-        log.info(
-            "[DEV_VIP] VIP retiré pour %s (%d) | demandé par %d",
-            membre.display_name, membre.id, interaction.user.id,
-        )
+        log.info("[DEV_VIP] VIP retiré pour %s (%d) | demandé par %d", membre.display_name, membre.id, interaction.user.id)
         return await interaction.followup.send(
             view=success_container(f"VIP **désactivé** pour **{membre.display_name}** (<@{membre.id}>)."),
             ephemeral=True,
