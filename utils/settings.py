@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     # URLs externes
     website_url: str = "https://guideonbot.guideon.dev/"
     shop_url: str = "https://guideonbot.guideon.dev/"
-    doc_url: str = "https://guideonbot.guideon.dev/"
+    doc_url: str = "https://guideonbot.guideon.dev/aide"
 
     # Logging
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
