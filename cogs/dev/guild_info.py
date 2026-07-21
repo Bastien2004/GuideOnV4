@@ -24,7 +24,7 @@ from views.dev.guild_info_view import build_guild_info_view
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="guild_info", description="🏠 [DEV] Informations détaillées sur un serveur")
+@app_commands.command(name="guild_info", description="🏠 [DEV] Affiche les informations d'un serveur")
 @app_commands.describe(id_serveur="ID du serveur cible")
 async def guild_info(interaction: Interaction, id_serveur: str) -> None:
 

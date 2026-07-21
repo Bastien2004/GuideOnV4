@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="botban", description="🚫 [DEV] Gestion des bans globaux du bot")
+@app_commands.command(name="botban", description="🚫 [DEV] Gère les bannissements du bot")
 async def botban(interaction: Interaction) -> None:
 
     # 🔐 Vérification des permissions.

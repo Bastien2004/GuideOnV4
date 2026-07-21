@@ -28,7 +28,7 @@ log = logging.getLogger(__name__)
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 15)
-@app_commands.command(name="role_all", description="👥 Attribuer ou retirer un rôle à tous les membres du serveur",)
+@app_commands.command(name="role_all", description="👥 Attribue ou retire un rôle à tous les membres du serveur",)
 async def role_all(interaction: discord.Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.

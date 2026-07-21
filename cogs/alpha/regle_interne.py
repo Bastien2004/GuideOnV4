@@ -33,7 +33,7 @@ MESSAGE_KEY = "regle_interne"
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 20)
-@app_commands.command(name="regle_interne", description="⚖️ [OP] Envoi ou mise à jour des règles internes du Alpha")
+@app_commands.command(name="regle_interne", description="⚖️ [OP] Envoie ou mise à jour des règles internes du Alpha")
 async def regle_interne(interaction: Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.

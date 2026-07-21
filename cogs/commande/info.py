@@ -30,7 +30,7 @@ class Info(commands.Cog):
 
     @app_commands.guild_only()
     @app_commands.checks.cooldown(1, 15)
-    @app_commands.command(name="info", description="❔ Découvrir GuideON")
+    @app_commands.command(name="info", description="❔ Découvre GuideOn Bot")
     async def info(self, interaction: Interaction) -> None:
 
         # 🛡️ Vérification ban utilisateur.

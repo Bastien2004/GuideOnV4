@@ -22,7 +22,7 @@ from views.dev.health_view import build_health_view
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="health", description="🤖 [DEV] État de santé global du bot")
+@app_commands.command(name="health", description="🤖 [DEV] Envoie l'état de santé du bot")
 async def health(interaction: Interaction) -> None:
 
     # 🔐 Vérification des permissions.

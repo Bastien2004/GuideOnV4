@@ -33,7 +33,7 @@ class Report(commands.Cog):
 
     @app_commands.guild_only()
     @app_commands.checks.cooldown(1, 10)
-    @app_commands.command(name="report", description="⚠️ Signaler un bug ou un problème")
+    @app_commands.command(name="report", description="⚠️ Signale un bug ou un problème")
     async def report_cmd(self, interaction: discord.Interaction) -> None:
         
         # 🛡️ Vérification ban utilisateur.
