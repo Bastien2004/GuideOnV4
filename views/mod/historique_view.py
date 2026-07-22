@@ -18,7 +18,7 @@ def _status_label(sanction: dict) -> str:
         if sanction["active"]:
             return "🟢 En cours"
         return "⚪ Expirée"
-    if sanction["type"] == SanctionType.BAN.value:
+    if sanction["type"] in (SanctionType.BAN.value, SanctionType.SOFTBAN.value):
         return "🟢 En cours" if sanction["active"] else "⚪ Terminée"
     return "⚪ Terminée"
 

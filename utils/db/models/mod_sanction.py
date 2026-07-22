@@ -7,10 +7,12 @@ d'un membre (historique 100% consultatif, aucune escalade automatique — cf.
 discussion avec Paul). L'id est un code court (utils.id_sanction.sanction_id,
 6 caractères), prévu depuis la V3 mais jamais utilisé jusqu'ici.
 
-`active` distingue une sanction encore "en vigueur" (mute/ban non expiré et
-non révoqué) d'une sanction terminée (kick/softban, instantanés, toujours
-active=False dès la création ; ou mute/ban expiré/révoqué). Ce n'est PAS une
-notion d'escalade, juste "est-ce que l'effet Discord est toujours actif".
+`active` distingue une sanction encore "en vigueur" (mute/ban/softban non
+expiré et non révoqué) d'une sanction terminée (warn/kick, instantanés,
+toujours active=False dès la création ; ou mute/ban/softban expiré/révoqué).
+Ce n'est PAS une notion d'escalade, juste "est-ce que l'effet Discord est
+toujours actif". SOFTBAN est un ban permanent (avec purge de messages à la
+création) : il ne se lève jamais tout seul, uniquement via /mod unban.
 """
 from __future__ import annotations
 
@@ -37,10 +39,11 @@ class SanctionType(str, enum.Enum):
 
 
 # Types pouvant être révoqués manuellement (unwarn / unmute / unban).
-REVOCABLE_TYPES = (SanctionType.WARN, SanctionType.MUTE, SanctionType.BAN, SanctionType.TEMPBAN)
+# SOFTBAN est un ban permanent (avec purge de messages) : révocable comme BAN.
+REVOCABLE_TYPES = (SanctionType.WARN, SanctionType.MUTE, SanctionType.BAN, SanctionType.TEMPBAN, SanctionType.SOFTBAN)
 
 # Types instantanés : aucun état Discord persistant, active=False dès la création.
-INSTANT_TYPES = (SanctionType.WARN, SanctionType.KICK, SanctionType.SOFTBAN)
+INSTANT_TYPES = (SanctionType.WARN, SanctionType.KICK)
 
 
 class Sanction(Base, TimestampMixin):

@@ -52,8 +52,9 @@ PERMISSION_KEYS: list[PermissionKey] = [
     PermissionKey("mod_ban", "Bannir (ban)", "Bannir définitivement un membre du serveur.", "action"),
     PermissionKey("mod_tempban", "Bannir temporairement (tempban)", "Bannir un membre pour une durée déterminée.", "action"),
     PermissionKey("mod_unban", "Débannir (unban)", "Lever un ban (définitif ou temporaire) avant son expiration.", "action"),
-    PermissionKey("mod_softban", "Softban", "Bannir puis débannir immédiatement (purge messages).", "action"),
+    PermissionKey("mod_softban", "Softban", "Bannir définitivement un membre en purgeant ses derniers messages.", "action"),
     PermissionKey("mod_historique", "Voir l'historique", "Consulter le casier judiciaire d'un membre.", "action"),
+    PermissionKey("mod_rename", "Renommer", "Modifier le pseudo d'un membre.", "action"),
     # ---- Actions : outils ponctuels ----
     PermissionKey("mod_clear", "Clear", "Supprimer des messages en masse dans un salon.", "action"),
     PermissionKey("mod_lock", "Lock / Unlock salon", "Verrouiller ou déverrouiller un salon textuel.", "action"),
