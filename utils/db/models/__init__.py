@@ -27,6 +27,7 @@ from utils.db.models.bot_ban import BotBan
 from utils.db.models.staff import StaffConfig
 from utils.db.models.exp import ExpConfig, ExpUser
 from utils.db.models.mod_permission import ModPermissionRole
+from utils.db.models.mod_sanction import ModSanctionConfig, Sanction, SanctionType
 
 __all__ = [
     "Base",
@@ -69,4 +70,7 @@ __all__ = [
     "ExpConfig",
     "ExpUser",
     "ModPermissionRole",
-]
+    "Sanction",
+    "SanctionType",
+    "ModSanctionConfig",
+]

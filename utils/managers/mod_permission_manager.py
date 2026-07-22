@@ -45,11 +45,14 @@ class PermissionKey:
 PERMISSION_KEYS: list[PermissionKey] = [
     # ---- Actions : sanctions ----
     PermissionKey("mod_warn", "Avertir (warn)", "Donner un avertissement à un membre.", "action"),
-    PermissionKey("mod_mute", "Rendre muet (mute)", "Rendre un membre muet temporairement.", "action"),
+    PermissionKey("mod_unwarn", "Annuler un avertissement", "Révoquer un warn précis par son ID.", "action"),
+    PermissionKey("mod_mute", "Rendre muet (mute)", "Rendre un membre muet temporairement (timeout Discord).", "action"),
+    PermissionKey("mod_unmute", "Démute", "Lever le mute (timeout) d'un membre avant son expiration.", "action"),
     PermissionKey("mod_kick", "Expulser (kick)", "Expulser un membre du serveur.", "action"),
-    PermissionKey("mod_ban", "Bannir (ban)", "Bannir un membre du serveur.", "action"),
+    PermissionKey("mod_ban", "Bannir (ban)", "Bannir définitivement un membre du serveur.", "action"),
+    PermissionKey("mod_tempban", "Bannir temporairement (tempban)", "Bannir un membre pour une durée déterminée.", "action"),
+    PermissionKey("mod_unban", "Débannir (unban)", "Lever un ban (définitif ou temporaire) avant son expiration.", "action"),
     PermissionKey("mod_softban", "Softban", "Bannir puis débannir immédiatement (purge messages).", "action"),
-    PermissionKey("mod_sanction_revoke", "Révoquer une sanction", "Annuler une sanction active (unmute, unban...).", "action"),
     PermissionKey("mod_historique", "Voir l'historique", "Consulter le casier judiciaire d'un membre.", "action"),
     # ---- Actions : outils ponctuels ----
     PermissionKey("mod_clear", "Clear", "Supprimer des messages en masse dans un salon.", "action"),

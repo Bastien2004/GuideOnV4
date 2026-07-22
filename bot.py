@@ -192,6 +192,16 @@ class GuideONBot(commands.Bot):
                 
         # ── IMPORT MOD ──
         from cogs.mod.mod_permissions import mod_permissions
+        from cogs.mod.mod_warn import mod_warn
+        from cogs.mod.mod_unwarn import mod_unwarn
+        from cogs.mod.mod_mute import mod_mute
+        from cogs.mod.mod_unmute import mod_unmute
+        from cogs.mod.mod_kick import mod_kick
+        from cogs.mod.mod_ban import mod_ban
+        from cogs.mod.mod_tempban import mod_tempban
+        from cogs.mod.mod_unban import mod_unban
+        from cogs.mod.mod_softban import mod_softban
+        from cogs.mod.mod_historique import mod_historique
         
         # ── IMPORT EXP ──
         from cogs.exp.exp_level import exp_level
@@ -262,7 +272,10 @@ class GuideONBot(commands.Bot):
 
         # 🛡️ ── MOD ──
         groupMOD = groupeMOD()
-        for cmd in [mod_permissions]:
+        for cmd in [
+            mod_permissions, mod_warn, mod_unwarn, mod_mute, mod_unmute,
+            mod_kick, mod_ban, mod_tempban, mod_unban, mod_softban, mod_historique,
+        ]:
             groupMOD.add_command(cmd)
 
         # 🧩 ── EXP ──
@@ -460,4 +473,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        pass
+        pass
