@@ -1,5 +1,5 @@
 """
-cogs/mod/mod_historique.py — Permet de consulter l'historique de sanction d'un membre.
+cogs/mod/mod_historique.py — Affiche l'historique des sanctions d'un membre.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ log = logging.getLogger(__name__)
 
 
 # ============================================================
-# 📁 Commande : /mod historique <utilisateur>
+# 🧭 Commande : /mod historique <utilisateur>
 # ============================================================
 
 @app_commands.guild_only()
@@ -54,6 +54,7 @@ async def mod_historique(interaction: discord.Interaction, utilisateur: discord.
     # 📊 Tracking.
     await tracker_commande(interaction, "mod_historique")
 
+    # 📁 Récupération des données.
     try:
         history = await get_user_history(interaction.guild.id, utilisateur.id)
         stats = await get_user_stats(interaction.guild.id, utilisateur.id)
@@ -65,22 +66,14 @@ async def mod_historique(interaction: discord.Interaction, utilisateur: discord.
             )
             return
 
-        view = HistoriqueView(
-            history,
-            target_display=utilisateur.mention,
-            stats=stats,
-            guild=interaction.guild,
-            owner_id=interaction.user.id,
-            per_page=8,
-        )
+        view = HistoriqueView(history, target_display=utilisateur.mention, stats=stats, guild=interaction.guild, owner_id=interaction.user.id, per_page=8)
         await interaction.followup.send(view=view, ephemeral=True)
 
     except Exception:
-        log.exception(
-            "[MOD_HISTORIQUE] Affichage échoué guild=%s target=%s", interaction.guild.id, utilisateur.id
-        )
+        log.exception("[MOD_HISTORIQUE] Erreur affichage de l'historique guild=%s target=%s", interaction.guild.id, utilisateur.id)
+        
         await interaction.followup.send(
-            view=error_container("Impossible d'afficher le **casier judiciaire**."), ephemeral=True
+            view=error_container("Impossible d'afficher l'**historique des sanctions** de ce membre'."), ephemeral=True
         )
 
 
