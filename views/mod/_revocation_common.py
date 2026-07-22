@@ -1,15 +1,7 @@
 """
-views/mod/_revocation_common.py — Sous-etape commune "raison optionnelle +
-confirmation" pour /mod unban, /mod unmute, /mod unwarn.
-
-Factorise le panneau de confirmation partage par les trois vues de
-selection specialisees (unban_select_view / unmute_select_view /
-unwarn_select_view), qui different uniquement par la maniere dont la
-cible est listee (bannis Discord / mutes actifs / warns actifs).
-
-Style aligne sur views/bienvenue/config_view.py : Section(TextDisplay, accessory=Button)
-par champ, icones maison (modifier/valider/retour) plutot que des emojis unicode.
+views/mod/_revocation_common.py — Interface de révocation.
 """
+
 from __future__ import annotations
 
 import logging
@@ -27,11 +19,6 @@ from views._components.text_modal import TextModal
 log = logging.getLogger(__name__)
 
 MAX_REVOKE_REASON_LENGTH = 500
-
-# Icones maison — cohérence avec views/bienvenue et views/autorole.
-ICON_MODIFIER = "<:modifier:1495444144712192003>"
-ICON_VALIDER = "<:valider:1495444292867723284>"
-ICON_RETOUR = "<:retour:1515658955190308995>"
 
 RevokeAction = Callable[[str | None], Awaitable[dict]]
 BuildBackView = Callable[[], Awaitable[discord.ui.View]]
@@ -65,11 +52,11 @@ class RevocationConfirmView(BaseLayoutView):
         container.add_item(TextDisplay(f"# {self._title}"))
         container.add_item(Separator())
 
-        container.add_item(TextDisplay(f"**🎯 Cible**\n-# {self._target_display}"))
+        container.add_item(TextDisplay(f"**🎯 Cible** : {self._target_display}"))
         container.add_item(Separator())
 
         reason_display = f"« {self.reason} »" if self.reason else "`Aucune (optionnel)`"
-        btn_reason = Button(label="Modifier", style=ButtonStyle.secondary, emoji=ICON_MODIFIER)
+        btn_reason = Button(label="Modifier", style=ButtonStyle.secondary, emoji="<:modifier:1495444144712192003>")
         btn_reason.callback = self._on_click_reason
         container.add_item(Section(
             TextDisplay(f"**📝 Raison**\n-# {reason_display}"),
@@ -77,9 +64,9 @@ class RevocationConfirmView(BaseLayoutView):
         ))
         container.add_item(Separator())
 
-        btn_confirm = Button(label="Confirmer", emoji=ICON_VALIDER, style=ButtonStyle.danger)
+        btn_confirm = Button(label="Confirmer", emoji="<:valider:1495444292867723284>", style=ButtonStyle.danger)
         btn_confirm.callback = self._on_confirm_click
-        btn_back = Button(label="Retour", emoji=ICON_RETOUR, style=ButtonStyle.secondary)
+        btn_back = Button(label="Retour", emoji="<:retour:1515658955190308995>", style=ButtonStyle.secondary)
         btn_back.callback = self._on_back
         container.add_item(ActionRow(btn_confirm, btn_back))
 

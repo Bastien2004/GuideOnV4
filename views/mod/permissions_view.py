@@ -1,9 +1,5 @@
 """
-views/mod/permissions_view.py — Dashboard des permissions /mod.
-
-Un menu déroulant liste toutes les clés de permission (actions + panneaux
-de config). Sélectionner une clé affiche les rôles actuellement autorisés
-et un bouton pour les réassigner via un sélecteur de rôles natif Discord.
+views/mod/permissions_view.py — Dashboard de gestion des permissions mod
 """
 
 from __future__ import annotations
@@ -16,19 +12,14 @@ from discord import ButtonStyle, Interaction, SelectOption
 from discord.ui import ActionRow, Button, Container, Select, Separator, TextDisplay
 
 from utils.container_universel import error_container
-from utils.managers.mod_permission_manager import (
-    PERMISSION_KEYS,
-    get_all_for_guild,
-    get_permission_key,
-    set_roles,
-)
+from utils.managers.mod_permission_manager import PERMISSION_KEYS, get_all_for_guild, get_permission_key, set_roles
 
 from views._components.base_view import BaseLayoutView
 from views._components.role_select import RoleSelect
 
 log = logging.getLogger(__name__)
 
-CATEGORY_EMOJIS = {"action": "⚡", "config": "⚙️"}
+CATEGORY_EMOJIS = {"action": "<:sanctionner:1495444382587949086>", "config": "<:parametre:1495444004328706059>"}
 
 
 # ============================================================
@@ -59,9 +50,7 @@ def _roles_display(guild: discord.Guild, role_ids: list[int]) -> str:
     return " ".join(mentions)
 
 
-async def create_permissions_view(
-    guild_id: int, bot, author_id: Optional[int] = None, selected_key: Optional[str] = None
-) -> Optional[BaseLayoutView]:
+async def create_permissions_view(guild_id: int, bot, author_id: Optional[int] = None, selected_key: Optional[str] = None) -> Optional[BaseLayoutView]:
     """Construit le dashboard de permissions /mod."""
 
     guild = bot.get_guild(guild_id)
@@ -74,17 +63,17 @@ async def create_permissions_view(
     view = BaseLayoutView(owner_id=author_id, timeout=600)
     container = Container()
 
-    container.add_item(TextDisplay("# 🔐 Permissions /mod"))
+    container.add_item(TextDisplay("# <:erreur_cad:1495446243957018684> Permissions /mod"))
     container.add_item(Separator())
+
     container.add_item(TextDisplay(
-        "-# Choisissez une commande ou un panneau de config pour voir/modifier "
-        "les rôles autorisés à l'utiliser. Sans rôle assigné, seul un "
-        "**Administrateur** peut l'utiliser."
+        "Configurez les **accès** pour chaque système (plusieurs rôles possible)."
+        "Par défaut, seul les rôles avec permission **administrateur** ont accès."
     ))
     container.add_item(Separator())
 
     key_select = Select(
-        placeholder="Choisir une commande / un panneau...",
+        placeholder="Choisir un système...",
         options=_build_key_options(selected_key),
         min_values=1,
         max_values=1,
