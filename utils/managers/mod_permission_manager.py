@@ -65,7 +65,7 @@ PERMISSION_KEYS: list[PermissionKey] = [
     # jamais délégable via lui-même. Sinon un rôle non-admin pourrait s'auto-
     # accorder n'importe quelle autre permission (escalade de privilège).
     PermissionKey("config_sanctions", "Config. sanctions", "Réglages généraux du système de sanctions.", "config"),
-    PermissionKey("config_logs", "Config. logs", "Réglages des salons de logs (chercheur/expert/espion).", "config"),
+    PermissionKey("config_logs", "Config. logs", "Réglages du système de logs (stagiaire/chercheur/espion).", "config"),
 ]
 
 _KEYS_BY_ID: dict[str, PermissionKey] = {pk.key: pk for pk in PERMISSION_KEYS}

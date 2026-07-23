@@ -33,6 +33,7 @@ from utils.db.models.mod_sanction import (
 )
 from utils.db.session import get_session
 from utils.id_sanction import sanction_id
+from utils.managers.mod_log_manager import log_mod_action
 
 log = logging.getLogger(__name__)
 
@@ -154,6 +155,12 @@ async def _persist_sanction(
         "[MOD_SANCTION] %s créée id=%s guild=%s user=%s moderator=%s",
         type_.value, result["id"], guild_id, user_id, moderator_id,
     )
+
+    _, action_label = SANCTION_LABELS[type_]
+    await log_mod_action(
+        guild_id, action_label, moderator_id, user_id, reason,
+        extra=f"Sanction #{result['id']}",
+    )
     return result
 
 
@@ -174,6 +181,12 @@ async def revoke_sanction(sanction_id_: str, revoked_by: int, revoked_reason: st
         result = row.to_dict()
 
     log.info("[MOD_SANCTION] Révoquée id=%s par=%s", sanction_id_, revoked_by)
+
+    _, type_label = SANCTION_LABELS[SanctionType(result["type"])]
+    await log_mod_action(
+        result["guild_id"], f"Révocation — {type_label}", revoked_by, result["user_id"],
+        revoked_reason or "Non précisée", extra=f"Sanction #{result['id']}",
+    )
     return result
 
 

@@ -28,6 +28,7 @@ from utils.db.models.staff import StaffConfig
 from utils.db.models.exp import ExpConfig, ExpUser
 from utils.db.models.mod_permission import ModPermissionRole
 from utils.db.models.mod_sanction import ModSanctionConfig, Sanction, SanctionType
+from utils.db.models.mod_log import LogConfig
 
 __all__ = [
     "Base",
@@ -73,4 +74,5 @@ __all__ = [
     "Sanction",
     "SanctionType",
     "ModSanctionConfig",
+    "LogConfig",
 ]

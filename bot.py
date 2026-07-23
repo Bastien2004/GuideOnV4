@@ -203,6 +203,7 @@ class GuideONBot(commands.Bot):
         from cogs.mod.mod_softban import mod_softban
         from cogs.mod.mod_historique import mod_historique
         from cogs.mod.mod_rename import mod_rename
+        from cogs.mod.mod_logs import mod_logs
         
         # ── IMPORT EXP ──
         from cogs.exp.exp_level import exp_level
@@ -275,7 +276,7 @@ class GuideONBot(commands.Bot):
         groupMOD = groupeMOD()
         for cmd in [
             mod_permissions, mod_warn, mod_unwarn, mod_mute, mod_unmute,
-            mod_kick, mod_ban, mod_tempban, mod_unban, mod_softban, mod_historique, mod_rename,
+            mod_kick, mod_ban, mod_tempban, mod_unban, mod_softban, mod_historique, mod_rename, mod_logs,
         ]:
             groupMOD.add_command(cmd)
 

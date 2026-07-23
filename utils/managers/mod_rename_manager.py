@@ -12,6 +12,8 @@ import logging
 
 import discord
 
+from utils.managers.mod_log_manager import log_mod_action
+
 log = logging.getLogger(__name__)
 
 MIN_NICKNAME_LENGTH = 1
@@ -57,4 +59,10 @@ async def rename_member(
         "[MOD_RENAME] %s -> %s guild=%s user=%s moderator=%s",
         old_nickname, new_nickname or member.name, member.guild.id, member.id, moderator_id,
     )
-    return {"user_id": member.id, "old_nickname": old_nickname, "new_nickname": new_nickname or member.name}
+
+    final_nickname = new_nickname or member.name
+    await log_mod_action(
+        member.guild.id, "Renommage", moderator_id, member.id, reason,
+        extra=f"« {old_nickname} » -> « {final_nickname} »",
+    )
+    return {"user_id": member.id, "old_nickname": old_nickname, "new_nickname": final_nickname}
