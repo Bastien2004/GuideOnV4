@@ -6,20 +6,22 @@ chaque palier incluant tous les evenements du precedent (cf. PACK_EVENTS).
 Espion necessite un serveur Gold+ (verifie a l'activation ET a l'envoi,
 au cas ou le statut Gold+ serait perdu entre-temps).
 
-Les logs sont envoyes en Components V2 (jamais d'embed, conformement aux
-conventions du bot) dans le salon configure par /mod logs.
+Les logs sont envoyes en embed Discord (decision explicite de Paul pour
+ce module precis — le reste du bot reste en Components V2), avec couleur
+par categorie d'evenement, horodatage, miniature quand disponible (avatar
+du membre, icone du serveur, rendu de l'emoji/sticker) et pied de page
+GuideOn Studio.
 
 bind_bot() permet de resoudre un guild_id en discord.Guild depuis les
 managers (utils.managers.mod_sanction_manager, mod_rename_manager) sans
 leur faire porter une dependance directe sur le client Discord — appele
-une fois au demarrage du bot (cf. cogs/events/mod_log_listener.py).
+une fois au demarrage du bot (cf. cogs/events/mod_log_guild.py).
 """
 from __future__ import annotations
 
 import logging
 
 import discord
-from discord.ui import Container, LayoutView, Separator, TextDisplay
 
 from utils.boutique.gold_manager import is_gold
 from utils.db.models.mod_log import LogConfig
@@ -106,6 +108,48 @@ PACK_EVENTS: dict[str, frozenset[str]] = {
     "espion": frozenset(_ESPION_EVENTS),
 }
 
+# ============================================================
+# 🎨 Couleurs par catégorie d'évènement
+# ============================================================
+
+_COLOR_CREATE = discord.Color.green()
+_COLOR_DELETE = discord.Color.red()
+_COLOR_UPDATE = discord.Color.orange()
+_COLOR_MOD_ACTION = discord.Color.dark_gold()
+_COLOR_BOOST = discord.Color.from_rgb(255, 115, 250)
+_COLOR_PIN = discord.Color.blurple()
+_COLOR_VOICE = discord.Color.teal()
+
+EVENT_COLORS: dict[str, discord.Color] = {
+    "message_delete": _COLOR_DELETE,
+    "message_edit": _COLOR_UPDATE,
+    "member_join": _COLOR_CREATE,
+    "member_leave": _COLOR_DELETE,
+    "role_add": _COLOR_CREATE,
+    "role_remove": _COLOR_DELETE,
+    "mod_action": _COLOR_MOD_ACTION,
+    "channel_create": _COLOR_CREATE,
+    "channel_delete": _COLOR_DELETE,
+    "channel_update": _COLOR_UPDATE,
+    "role_create": _COLOR_CREATE,
+    "role_delete": _COLOR_DELETE,
+    "role_update": _COLOR_UPDATE,
+    "voice_join": _COLOR_VOICE,
+    "voice_leave": _COLOR_VOICE,
+    "guild_update": _COLOR_UPDATE,
+    "member_rename": _COLOR_UPDATE,
+    "emoji_create": _COLOR_CREATE,
+    "emoji_delete": _COLOR_DELETE,
+    "emoji_update": _COLOR_UPDATE,
+    "sticker_create": _COLOR_CREATE,
+    "sticker_delete": _COLOR_DELETE,
+    "sticker_update": _COLOR_UPDATE,
+    "user_rename": _COLOR_UPDATE,
+    "avatar_update": _COLOR_UPDATE,
+    "message_pin": _COLOR_PIN,
+    "boost": _COLOR_BOOST,
+}
+
 
 # ============================================================
 # 🔌 Liaison bot (résolution guild_id -> discord.Guild)
@@ -115,7 +159,7 @@ _bot_ref: discord.Client | None = None
 
 
 def bind_bot(bot: discord.Client) -> None:
-    """À appeler une fois au démarrage (cf. cogs/events/mod_log_listener.py)."""
+    """À appeler une fois au démarrage (cf. cogs/events/mod_log_guild.py)."""
     global _bot_ref
     _bot_ref = bot
 
@@ -190,38 +234,63 @@ async def is_event_enabled(guild_id: int, event_key: str) -> bool:
     return event_key in PACK_EVENTS.get(pack, frozenset())
 
 
-async def _resolve_log_channel(guild_id: int) -> discord.abc.Messageable | None:
+async def _resolve_log_channel(guild_id: int) -> tuple[discord.abc.Messageable | None, discord.Guild | None]:
     if _bot_ref is None:
-        return None
+        return None, None
     guild = _bot_ref.get_guild(guild_id)
     if guild is None:
-        return None
+        return None, None
     cfg = await load_log_config(guild_id)
     channel_id = cfg.get("log_channel_id")
     if channel_id is None:
-        return None
-    return guild.get_channel(channel_id)
+        return None, guild
+    return guild.get_channel(channel_id), guild
 
 
-async def send_log(guild_id: int, event_key: str, lines: list[str]) -> None:
-    """Envoie un log Components V2 si l'évènement est activé pour ce serveur."""
+async def send_log(
+    guild_id: int,
+    event_key: str,
+    fields: list[tuple[str, str, bool]],
+    *,
+    description: str | None = None,
+    thumbnail_url: str | None = None,
+    image_url: str | None = None,
+) -> None:
+    """
+    Envoie un log en embed décoré si l'évènement est activé pour ce serveur.
+
+    `fields` : liste de (nom, valeur, inline). `description` : texte libre
+    affiché sous le titre (ex. contenu d'un message). `thumbnail_url` :
+    avatar du membre concerné, icône du serveur, ou rendu de l'emoji/sticker.
+    """
     if not await is_event_enabled(guild_id, event_key):
         return
 
-    channel = await _resolve_log_channel(guild_id)
+    channel, guild = await _resolve_log_channel(guild_id)
     if channel is None:
         return
 
     emoji, label = EVENT_CATALOG[event_key]
-    view = LayoutView(timeout=None)
-    container = Container()
-    container.add_item(TextDisplay(f"### {emoji} {label}"))
-    container.add_item(Separator())
-    container.add_item(TextDisplay("\n".join(lines)))
-    view.add_item(container)
+    embed = discord.Embed(
+        title=f"{emoji} {label}",
+        description=description,
+        color=EVENT_COLORS.get(event_key, discord.Color.blurple()),
+        timestamp=discord.utils.utcnow(),
+    )
+    for name, value, inline in fields:
+        embed.add_field(name=name, value=value or "`Aucune`", inline=inline)
+
+    if thumbnail_url:
+        embed.set_thumbnail(url=thumbnail_url)
+    if image_url:
+        embed.set_image(url=image_url)
+
+    footer_text = "GuideOn Studio"
+    footer_icon = guild.icon.url if guild is not None and guild.icon is not None else None
+    embed.set_footer(text=footer_text, icon_url=footer_icon)
 
     try:
-        await channel.send(view=view)
+        await channel.send(embed=embed)
     except (discord.Forbidden, discord.HTTPException):
         log.warning("[MOD_LOG] Envoi impossible guild=%s event=%s", guild_id, event_key)
 
@@ -231,12 +300,12 @@ async def log_mod_action(
     *, extra: str | None = None,
 ) -> None:
     """Log générique pour toute action /mod (sanction ou renommage)."""
-    lines = [
-        f"**Modérateur :** <@{moderator_id}>",
-        f"**Cible :** <@{target_id}>",
-        f"**Action :** {action_label}",
-        f"**Raison :** {reason}",
+    fields = [
+        ("Modérateur", f"<@{moderator_id}>", True),
+        ("Cible", f"<@{target_id}>", True),
+        ("Action", action_label, True),
+        ("Raison", reason, False),
     ]
     if extra:
-        lines.append(f"-# {extra}")
-    await send_log(guild_id, "mod_action", lines)
+        fields.append(("Détail", extra, False))
+    await send_log(guild_id, "mod_action", fields)

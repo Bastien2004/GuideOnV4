@@ -21,6 +21,16 @@ from utils.managers.mod_log_manager import send_log
 log = logging.getLogger(__name__)
 
 
+def _duration_label(delta) -> str:
+    days = delta.days
+    if days >= 1:
+        return f"{days} jour(s)"
+    hours = delta.seconds // 3600
+    if hours >= 1:
+        return f"{hours} heure(s)"
+    return f"{max(delta.seconds // 60, 1)} minute(s)"
+
+
 class ModLogMembers(commands.Cog):
     """Logs des évènements liés aux membres et aux utilisateurs."""
 
@@ -29,16 +39,30 @@ class ModLogMembers(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member) -> None:
+        fields = [
+            ("Membre", f"{member.mention} (`{member.id}`)", True),
+            ("Compte créé", f"<t:{int(member.created_at.timestamp())}:R>", True),
+            ("Effectif du serveur", str(member.guild.member_count), True),
+        ]
         await send_log(
-            member.guild.id, "member_join",
-            [f"**Membre :** {member.mention} (`{member.id}`)", f"-# Compte créé <t:{int(member.created_at.timestamp())}:R>"],
+            member.guild.id, "member_join", fields,
+            thumbnail_url=member.display_avatar.url,
         )
 
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member) -> None:
+        fields = [
+            ("Membre", f"{member} (`{member.id}`)", True),
+            ("Effectif du serveur", str(member.guild.member_count), True),
+        ]
+        if member.joined_at is not None:
+            stayed = discord.utils.utcnow() - member.joined_at
+            fields.append(("Arrivé le", f"<t:{int(member.joined_at.timestamp())}:R>", True))
+            fields.append(("Resté", _duration_label(stayed), True))
+
         await send_log(
-            member.guild.id, "member_leave",
-            [f"**Membre :** {member} (`{member.id}`)"],
+            member.guild.id, "member_leave", fields,
+            thumbnail_url=member.display_avatar.url,
         )
 
     @commands.Cog.listener()
@@ -49,10 +73,11 @@ class ModLogMembers(commands.Cog):
             await send_log(
                 guild_id, "member_rename",
                 [
-                    f"**Membre :** {after.mention}",
-                    f"**Avant :** {before.nick or before.name}",
-                    f"**Après :** {after.nick or after.name}",
+                    ("Membre", f"{after.mention} (`{after.id}`)", True),
+                    ("Avant", before.nick or before.name, True),
+                    ("Après", after.nick or after.name, True),
                 ],
+                thumbnail_url=after.display_avatar.url,
             )
 
         before_roles = set(before.roles)
@@ -63,7 +88,11 @@ class ModLogMembers(commands.Cog):
                 continue
             await send_log(
                 guild_id, "role_add",
-                [f"**Membre :** {after.mention}", f"**Rôle :** {role.mention}"],
+                [
+                    ("Membre", f"{after.mention} (`{after.id}`)", True),
+                    ("Rôle", f"{role.mention} (`{role.id}`)", True),
+                ],
+                thumbnail_url=after.display_avatar.url,
             )
 
         for role in before_roles - after_roles:
@@ -71,14 +100,30 @@ class ModLogMembers(commands.Cog):
                 continue
             await send_log(
                 guild_id, "role_remove",
-                [f"**Membre :** {after.mention}", f"**Rôle :** {role.mention}"],
+                [
+                    ("Membre", f"{after.mention} (`{after.id}`)", True),
+                    ("Rôle", f"{role.mention} (`{role.id}`)", True),
+                ],
+                thumbnail_url=after.display_avatar.url,
             )
 
         if before.premium_since != after.premium_since:
-            if after.premium_since is not None:
-                await send_log(guild_id, "boost", [f"**Membre :** {after.mention} a commencé à **booster** le serveur."])
-            else:
-                await send_log(guild_id, "boost", [f"**Membre :** {after.mention} ne boost plus le serveur."])
+            guild = after.guild
+            fields = [
+                ("Membre", f"{after.mention} (`{after.id}`)", True),
+                ("Niveau du serveur", f"Niveau {guild.premium_tier}", True),
+                ("Boosts actifs", str(guild.premium_subscription_count), True),
+            ]
+            description = (
+                f"{after.mention} a commencé à **booster** le serveur."
+                if after.premium_since is not None
+                else f"{after.mention} ne boost plus le serveur."
+            )
+            await send_log(
+                guild_id, "boost", fields,
+                description=description,
+                thumbnail_url=after.display_avatar.url,
+            )
 
     @commands.Cog.listener()
     async def on_user_update(self, before: discord.User, after: discord.User) -> None:
@@ -88,14 +133,21 @@ class ModLogMembers(commands.Cog):
             for guild in guilds:
                 await send_log(
                     guild.id, "user_rename",
-                    [f"**Utilisateur :** {after.mention} (`{after.id}`)", f"**Avant :** {before}", f"**Après :** {after}"],
+                    [
+                        ("Utilisateur", f"{after.mention} (`{after.id}`)", True),
+                        ("Avant", str(before), True),
+                        ("Après", str(after), True),
+                    ],
+                    thumbnail_url=after.display_avatar.url,
                 )
 
         if before.avatar != after.avatar:
             for guild in guilds:
                 await send_log(
                     guild.id, "avatar_update",
-                    [f"**Utilisateur :** {after.mention} (`{after.id}`)"],
+                    [("Utilisateur", f"{after.mention} (`{after.id}`)", True)],
+                    thumbnail_url=before.display_avatar.url,
+                    image_url=after.display_avatar.url,
                 )
 
 

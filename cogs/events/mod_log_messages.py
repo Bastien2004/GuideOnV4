@@ -15,7 +15,7 @@ from utils.managers.mod_log_manager import send_log
 
 log = logging.getLogger(__name__)
 
-MAX_PREVIEW_LENGTH = 500
+MAX_PREVIEW_LENGTH = 1000
 
 
 def _preview(content: str | None) -> str:
@@ -38,13 +38,19 @@ class ModLogMessages(commands.Cog):
         if message.guild is None or message.author is None or message.author.bot:
             return
 
+        attachments = len(message.attachments)
+        fields = [
+            ("Auteur", f"{message.author.mention} (`{message.author.id}`)", True),
+            ("Salon", message.channel.mention, True),
+            ("ID du message", f"`{message.id}`", True),
+        ]
+        if attachments:
+            fields.append(("Pièces jointes", str(attachments), True))
+
         await send_log(
-            message.guild.id, "message_delete",
-            [
-                f"**Auteur :** {message.author.mention}",
-                f"**Salon :** {message.channel.mention}",
-                f"**Contenu :** {_preview(message.content)}",
-            ],
+            message.guild.id, "message_delete", fields,
+            description=_preview(message.content),
+            thumbnail_url=message.author.display_avatar.url,
         )
 
     @commands.Cog.listener()
@@ -54,15 +60,17 @@ class ModLogMessages(commands.Cog):
         if before.content == after.content:
             return
 
+        fields = [
+            ("Auteur", f"{before.author.mention} (`{before.author.id}`)", True),
+            ("Salon", before.channel.mention, True),
+            ("Lien", f"[Aller au message]({after.jump_url})", True),
+            ("Avant", _preview(before.content), False),
+            ("Après", _preview(after.content), False),
+        ]
+
         await send_log(
-            before.guild.id, "message_edit",
-            [
-                f"**Auteur :** {before.author.mention}",
-                f"**Salon :** {before.channel.mention}",
-                f"**Avant :** {_preview(before.content)}",
-                f"**Après :** {_preview(after.content)}",
-                f"-# [Aller au message]({after.jump_url})",
-            ],
+            before.guild.id, "message_edit", fields,
+            thumbnail_url=before.author.display_avatar.url,
         )
 
     @commands.Cog.listener()
@@ -83,10 +91,17 @@ class ModLogMessages(commands.Cog):
         except discord.HTTPException:
             log.debug("[MOD_LOG] Impossible de consulter l'audit-log pour l'épinglage (guild=%s)", guild.id)
 
-        await send_log(
-            guild.id, "message_pin",
-            [f"**Salon :** {channel.mention}", f"**Par :** {actor}"],
-        )
+        pin_count = None
+        try:
+            pin_count = len(await channel.pins())
+        except (discord.Forbidden, discord.HTTPException, AttributeError):
+            pass
+
+        fields = [("Salon", channel.mention, True), ("Par", actor, True)]
+        if pin_count is not None:
+            fields.append(("Messages épinglés", str(pin_count), True))
+
+        await send_log(guild.id, "message_pin", fields)
 
 
 async def setup(bot: commands.Bot) -> None:

@@ -22,16 +22,46 @@ class ModLogVoice(commands.Cog):
         self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState,
     ) -> None:
         if before.channel is None and after.channel is not None:
-            await send_log(member.guild.id, "voice_join", [f"**Membre :** {member.mention}", f"**Salon :** {after.channel.mention}"])
+            await send_log(
+                member.guild.id, "voice_join",
+                [
+                    ("Membre", f"{member.mention} (`{member.id}`)", True),
+                    ("Salon", after.channel.mention, True),
+                    ("Membres présents", str(len(after.channel.members)), True),
+                ],
+                thumbnail_url=member.display_avatar.url,
+            )
             return
 
         if before.channel is not None and after.channel is None:
-            await send_log(member.guild.id, "voice_leave", [f"**Membre :** {member.mention}", f"**Salon :** {before.channel.mention}"])
+            await send_log(
+                member.guild.id, "voice_leave",
+                [
+                    ("Membre", f"{member.mention} (`{member.id}`)", True),
+                    ("Salon", before.channel.mention, True),
+                ],
+                thumbnail_url=member.display_avatar.url,
+            )
             return
 
         if before.channel is not None and after.channel is not None and before.channel.id != after.channel.id:
-            await send_log(member.guild.id, "voice_leave", [f"**Membre :** {member.mention}", f"**Salon :** {before.channel.mention}"])
-            await send_log(member.guild.id, "voice_join", [f"**Membre :** {member.mention}", f"**Salon :** {after.channel.mention}"])
+            await send_log(
+                member.guild.id, "voice_leave",
+                [
+                    ("Membre", f"{member.mention} (`{member.id}`)", True),
+                    ("Salon", before.channel.mention, True),
+                ],
+                thumbnail_url=member.display_avatar.url,
+            )
+            await send_log(
+                member.guild.id, "voice_join",
+                [
+                    ("Membre", f"{member.mention} (`{member.id}`)", True),
+                    ("Salon", after.channel.mention, True),
+                    ("Membres présents", str(len(after.channel.members)), True),
+                ],
+                thumbnail_url=member.display_avatar.url,
+            )
 
 
 async def setup(bot: commands.Bot) -> None:
