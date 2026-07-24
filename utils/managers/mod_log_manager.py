@@ -275,7 +275,6 @@ async def send_log(
         title=f"{emoji} {label}",
         description=description,
         color=EVENT_COLORS.get(event_key, discord.Color.blurple()),
-        timestamp=discord.utils.utcnow(),
     )
     for name, value, inline in fields:
         embed.add_field(name=name, value=value or "`Aucune`", inline=inline)
@@ -285,7 +284,9 @@ async def send_log(
     if image_url:
         embed.set_image(url=image_url)
 
-    footer_text = "GuideOn Studio"
+    now = discord.utils.utcnow()
+    guild_name = guild.name if guild is not None else "Serveur"
+    footer_text = f"{guild_name} • {now:%d/%m/%Y à %Hh%M}"
     footer_icon = guild.icon.url if guild is not None and guild.icon is not None else None
     embed.set_footer(text=footer_text, icon_url=footer_icon)
 
@@ -299,13 +300,30 @@ async def log_mod_action(
     guild_id: int, action_label: str, moderator_id: int, target_id: int, reason: str,
     *, extra: str | None = None,
 ) -> None:
-    """Log générique pour toute action /mod (sanction ou renommage)."""
+    """Log générique pour toute action /mod ciblant un membre (sanction ou renommage)."""
     fields = [
         ("Modérateur", f"<@{moderator_id}>", True),
         ("Cible", f"<@{target_id}>", True),
         ("Action", action_label, True),
         ("Raison", reason, False),
     ]
+    if extra:
+        fields.append(("Détail", extra, False))
+    await send_log(guild_id, "mod_action", fields)
+
+
+async def log_channel_action(
+    guild_id: int, action_label: str, moderator_id: int, channel: discord.abc.GuildChannel,
+    *, reason: str | None = None, extra: str | None = None,
+) -> None:
+    """Log générique pour toute action /mod ciblant un salon (clear, lock/unlock, gestion vocale)."""
+    fields = [
+        ("Modérateur", f"<@{moderator_id}>", True),
+        ("Salon", channel.mention, True),
+        ("Action", action_label, True),
+    ]
+    if reason:
+        fields.append(("Raison", reason, False))
     if extra:
         fields.append(("Détail", extra, False))
     await send_log(guild_id, "mod_action", fields)
