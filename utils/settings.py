@@ -8,7 +8,6 @@ Usage :
 
 from typing import Literal
 
-from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -28,21 +27,6 @@ class Settings(BaseSettings):
     guild_anniv_id: int = 1411296579528294402
 
     report_channel_id: int = 1488233511277297976
-
-    # Environnement — distingue prod (DB `guideon`) de dev (DB `guideon_dev`).
-    # Défaut "prod" volontaire (fail-safe) : un déploiement existant sans
-    # variable ENV dans son .env doit rester bloqué sur les commandes
-    # réservées au dev (/dev setng, /dev unsetng — cf refonte multi-serveurs
-    # phase 5) plutôt que de les autoriser par accident.
-    env: Literal["dev", "prod"] = "prod"
-
-    @field_validator("env", mode="before")
-    @classmethod
-    def _normalize_env(cls, value: object) -> object:
-        """Tolère ENV=DEV / Dev / dev etc. dans le .env (insensible à la casse)."""
-        if isinstance(value, str):
-            return value.strip().lower()
-        return value
 
     # Database
     database_url: str = "postgresql+asyncpg://guideon:guideon@localhost:5432/guideon"

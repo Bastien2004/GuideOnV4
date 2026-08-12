@@ -2,13 +2,14 @@
 utils/managers/ng_server_manager.py — Cache + lookup de la table ng_servers.
 
 La table ng_servers est alimentee par le site (voir utils.db.models.ng_server).
-Ce manager ne fait que LIRE et mettre en cache — jamais d'ecriture ici, sauf
-depuis /dev setng et /dev unsetng qui ecrivent dans la DB dev et appellent
-ensuite reload_cache() (phase 5 de la refonte, hors scope de ce module).
+Ce manager ne fait que LIRE et mettre en cache. Les fonctions d'ecriture
+(dev_create_server / dev_delete_server_by_guild) restent exposees pour usage
+interne (tests, futurs outils d'administration) mais ne sont plus appelees
+par une commande utilisateur.
 
 Pattern de cache calque sur utils.managers.permission_manager :
 - chargement complet en memoire au demarrage
-- reload_cache() idempotent, safe a appeler a chaud (ex: /dev reload_servers)
+- reload_cache() idempotent, safe a appeler a chaud
 - lectures sync instantanees depuis le cache
 """
 from __future__ import annotations
@@ -101,19 +102,12 @@ def list_all_servers() -> list[NGServer]:
 
 
 # ══════════════════════════════════════════════════════════════════════════
-# ✍️ ÉCRITURES ASYNC — RÉSERVÉES à /dev setng et /dev unsetng
+# ✍️ ÉCRITURES ASYNC — usage interne uniquement
 # ══════════════════════════════════════════════════════════════════════════
 #
-# Toute autre écriture dans ng_servers doit passer par l'interface site
-# (source de vérité, voir utils.db.models.ng_server et §11 du prompt de
-# refonte). Ces deux fonctions existent uniquement pour la simulation dev
-# (§9) : le bot tournant contre `guideon_dev` peut se faire passer pour
-# n'importe quel serveur NG sans jamais toucher `guideon` (prod).
-#
-# Le garde `settings.env == 'dev'` est vérifié côté commande
-# (cogs/dev/setng.py), PAS ici — ce manager ne connaît pas le contexte
-# d'appel et ne doit pas dépendre de utils.settings pour rester testable
-# indépendamment de l'environnement.
+# Toute écriture dans ng_servers doit normalement passer par l'interface site
+# (source de vérité, voir utils.db.models.ng_server). Ces deux fonctions sont
+# conservées pour les tests et les besoins d'administration ponctuels.
 
 
 class NGServerNameConflictError(Exception):

@@ -1,10 +1,9 @@
 """
 utils/db/models/ng_server.py — Table maitre des serveurs NationsGlory.
 
-Alimentee par le site (interface web). Le bot ne fait que la LIRE :
-aucune ecriture bot ne doit cibler cette table en dehors de /dev setng
-et /dev unsetng (mode simulation, DB dev uniquement — voir utils.perm_check
-et la commande dev associee, phase 5 de la refonte multi-serveurs).
+Alimentee par le site (interface web). Le bot ne fait que la LIRE en
+fonctionnement normal. Les fonctions d'ecriture ng_server_manager.dev_*
+restent disponibles pour usage interne (tests, admin ponctuel).
 """
 from __future__ import annotations
 

@@ -99,12 +99,10 @@ class GuideONBot(commands.Bot):
 
         # ── Serveurs NG + RBAC (refonte multi-serveurs, phases 1-2) ──
         # Chargement initial obligatoire : ng_server_manager n'a pas de TTL
-        # automatique (reload explicite uniquement, cf /dev setng, /dev
-        # unsetng, futur webhook /reload_servers §11 du prompt). Sans cet
-        # appel, get_server_by_guild()/list_active_servers() renvoient
-        # toujours vide. permission_rbac_manager a un TTL 60s auto-géré
-        # (_ensure_fresh) mais on prime quand même le cache ici pour éviter
-        # un premier appel à froid.
+        # automatique (reload explicite uniquement). Sans cet appel,
+        # get_server_by_guild()/list_active_servers() renvoient toujours vide.
+        # permission_rbac_manager a un TTL 60s auto-géré (_ensure_fresh) mais
+        # on prime quand même le cache ici pour éviter un premier appel à froid.
         await reload_ng_servers()
         await refresh_rbac()
 
@@ -158,7 +156,6 @@ class GuideONBot(commands.Bot):
         # ── IMPORT DEV ──
         from cogs.dev.maintenance import maintenance
         from cogs.dev.permission import permissions
-        from cogs.dev.setng import setng, unsetng
         from cogs.dev.delete_message import delete_message
         from cogs.dev.kick import kick
         from cogs.dev.stat_server import stat_server
@@ -281,7 +278,7 @@ class GuideONBot(commands.Bot):
 
         # 💻 ── DEV ──
         self._groupDEV = groupeDEV()
-        for cmd in [maintenance, permissions, setng, unsetng, delete_message, kick, stat_server, stat_cmd,
+        for cmd in [maintenance, permissions, delete_message, kick, stat_server, stat_cmd,
                     join_serv, health, guild_info, debug_cmd, botban, gold, vip]:
             self._groupDEV.add_command(cmd)
 
