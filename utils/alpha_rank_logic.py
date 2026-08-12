@@ -27,7 +27,7 @@ from utils.db.models.alpha_staff import (
     STATUT_INCOMPATIBLE_GRADES,
     STATUTS_SECONDAIRES_ORDER,
 )
-from utils.managers.alpha_staff_manager import update_staff_member, upsert_staff_member
+from utils.managers.ng_staff_manager import update_staff_member, upsert_staff_member
 from views.alpha.rank_view import (
     build_dev_message,
     build_grade_announcement,
@@ -38,6 +38,12 @@ from views.alpha.rank_view import (
 log = logging.getLogger(__name__)
 
 NICK_PREFIX_PRIORITY: tuple[str, ...] = ("affilie", "journaliste", "builder")
+
+# Refonte multi-serveurs phase 12 : execute_grade_rank/execute_statut_rank
+# acceptent désormais un paramètre `server` optionnel (kwarg-only, défaut
+# "alpha") pour rester 100% compatibles avec /alpha rank (qui ne le passe
+# jamais) tout en permettant à /ngstaff rank de le résoudre dynamiquement
+# via ng_server_manager.get_server_by_guild(interaction.guild_id).
 
 
 # ============================================================
@@ -222,6 +228,8 @@ async def execute_grade_rank(
     new_grade: str,
     cfg: dict,
     existing: dict | None,
+    *,
+    server: str = "alpha",
 ) -> RankResult:
     """Change le grade (hiérarchie staff) d'un membre : DB, rôles, pseudo, annonces, stafflist."""
 
@@ -236,7 +244,7 @@ async def execute_grade_rank(
     statuses_stripped = new_grade in STATUT_INCOMPATIBLE_GRADES and any(current_secondary.values())
 
     await upsert_staff_member(
-        membre.id, pseudo, new_grade,
+        server, membre.id, pseudo, new_grade,
         is_journaliste=target_secondary["journaliste"],
         is_affilie=target_secondary["affilie"],
         is_builder=target_secondary["builder"],
@@ -276,7 +284,7 @@ async def execute_grade_rank(
 
     # 📋 Mise à jour de la liste staff (import local, évite un import circulaire de cog).
     from cogs.alpha.stafflist import refresh_staff_message
-    await refresh_staff_message(bot, guild_id)
+    await refresh_staff_message(bot, guild_id, server=server)
 
     extra = (
         "⚠️ Statut(s) Journaliste/Affilié/Builder retiré(s) (incompatible avec ce grade)."
@@ -295,6 +303,8 @@ async def execute_statut_rank(
     cfg: dict,
     existing: dict | None,
     pseudo_jeu_builder: str | None,
+    *,
+    server: str = "alpha",
 ) -> RankResult:
     """Attribue un statut secondaire (journaliste/affilié/builder) cumulable : DB, rôles, annonces, stafflist.
 
@@ -336,7 +346,7 @@ async def execute_statut_rank(
         update_kwargs["pseudo_jeu_builder"] = builder_pseudo_clean
 
     if existing:
-        await update_staff_member(membre.id, **update_kwargs)
+        await update_staff_member(server, membre.id, **update_kwargs)
         target_secondary = {
             key: existing.get(f"is_{key}", False) for key in STATUTS_SECONDAIRES_ORDER
         }
@@ -344,7 +354,7 @@ async def execute_statut_rank(
     else:
         # Statut "pur" — pas de grade existant.
         await upsert_staff_member(
-            membre.id, pseudo, None,
+            server, membre.id, pseudo, None,
             is_journaliste=(statut == "journaliste"),
             is_affilie=(statut == "affilie"),
             is_builder=(statut == "builder"),
@@ -395,6 +405,6 @@ async def execute_statut_rank(
 
     # 📋 Mise à jour de la liste staff (import local, évite un import circulaire de cog).
     from cogs.alpha.stafflist import refresh_staff_message
-    await refresh_staff_message(bot, guild_id)
+    await refresh_staff_message(bot, guild_id, server=server)
 
     return RankResult(label=meta["label"], new_nick=new_nick, builder_pseudo=builder_pseudo_clean)

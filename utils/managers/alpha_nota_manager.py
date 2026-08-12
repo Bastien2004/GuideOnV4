@@ -31,8 +31,16 @@ from utils.db.models.alpha_nota_config import (
     NOTA_OPERATOR_GRADES,
 )
 
-from utils.db.models.alpha_staff import AlphaStaffMember, GRADE_LABELS, GRADE_PREFIXES
+from utils.db.models.alpha_staff import GRADE_LABELS, GRADE_PREFIXES
+from utils.db.models.ng_staff import NGStaffMember
 from utils.db.session import get_session
+
+# Refonte multi-serveurs phase 7 : ce module lisait alpha_staff en direct
+# (en contournant alpha_staff_manager). Bascule minimale vers ng_staff pour
+# éviter que le système de notations se fige silencieusement après le
+# cutover rank/derank (qui n'écrit plus dans alpha_staff). Le reste du
+# système de notations (4 tables AlphaNota*) n'est PAS migré ici — c'est
+# la phase 9 dédiée ("Migration Notations") du prompt de refonte.
 
 log = logging.getLogger(__name__)
 
@@ -338,8 +346,9 @@ async def generate_notation_ranges(guild_id: int, countries_count: int) -> list[
 
     async with get_session() as session:
         rows = (await session.execute(
-            select(AlphaStaffMember).where(
-                AlphaStaffMember.grade.in_(NOTA_OPERATOR_GRADES)
+            select(NGStaffMember).where(
+                NGStaffMember.server == "alpha",
+                NGStaffMember.grade.in_(NOTA_OPERATOR_GRADES),
             )
         )).scalars().all()
 
@@ -366,7 +375,9 @@ async def generate_notation_ranges(guild_id: int, countries_count: int) -> list[
 async def get_all_nota_operators(guild_id: int) -> list[dict]:
     """Retourne la liste des OPs pour l'affichage."""
     async with get_session() as session:
-        rows = (await session.execute(select(AlphaStaffMember))).scalars().all()
+        rows = (
+            await session.execute(select(NGStaffMember).where(NGStaffMember.server == "alpha"))
+        ).scalars().all()
     return [
         {
             "discord_id":      r.discord_id,

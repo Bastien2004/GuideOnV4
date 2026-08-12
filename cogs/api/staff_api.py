@@ -10,10 +10,15 @@ from fastapi import Depends, HTTPException, Request
 from pydantic import BaseModel
 from starlette import status
 
-from utils.managers import alpha_staff_manager as asm
+from utils.managers import ng_staff_manager as asm
 from cogs.api.base import app, require_token
 
 log = logging.getLogger(__name__)
+
+# Refonte multi-serveurs phase 7 : l'API site n'est pas encore
+# multi-serveurs (§11 du prompt : "Extension future : site pourra lire
+# ces tables"). En attendant, câblée en dur sur "alpha".
+SERVER = "alpha"
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -55,14 +60,14 @@ class Blame(BaseModel):
 @app.get("/staff", dependencies=[Depends(require_token)])
 async def get_staff(request: Request):
     """Récupère toute la liste du staff."""
-    members = await asm.list_staff()
+    members = await asm.list_staff(SERVER)
     return {"staff": members}
 
 
 @app.get("/staff/{discord_id}", dependencies=[Depends(require_token)])
 async def get_staff_member(request: Request, discord_id: int):
     """Récupère un membre spécifique."""
-    member = await asm.get_staff_member(discord_id)
+    member = await asm.get_staff_member(SERVER, discord_id)
     if member is None:
         raise HTTPException(status_code=404, detail="Membre non trouvé.")
     return member
@@ -72,6 +77,7 @@ async def get_staff_member(request: Request, discord_id: int):
 async def add_staff_member(request: Request, member: StaffMember):
     """Ajoute un membre (échoue si déjà présent)."""
     created = await asm.add_staff_member(
+        SERVER,
         discord_id=member.discord_id,
         pseudo_jeu=member.pseudo_jeu,
         grade=member.grade,
@@ -93,6 +99,7 @@ async def add_staff_member(request: Request, member: StaffMember):
 async def upsert_staff_member(request: Request, member: StaffMember):
     """Ajoute ou met à jour un membre."""
     created = await asm.upsert_staff_member(
+        SERVER,
         discord_id=member.discord_id,
         pseudo_jeu=member.pseudo_jeu,
         grade=member.grade,
@@ -113,7 +120,7 @@ async def update_staff_member(request: Request, payload: UpdateMemberPayload):
     if not fields:
         raise HTTPException(status_code=400, detail="Au moins un champ doit être fourni.")
 
-    updated = await asm.update_staff_member(payload.discord_id, **fields)
+    updated = await asm.update_staff_member(SERVER, payload.discord_id, **fields)
     if not updated:
         raise HTTPException(status_code=404, detail="Membre non trouvé.")
     return {"message": "Membre mis à jour.", "discord_id": payload.discord_id, "fields": fields}
@@ -122,7 +129,7 @@ async def update_staff_member(request: Request, payload: UpdateMemberPayload):
 @app.delete("/staff/member/remove/{discord_id}", dependencies=[Depends(require_token)])
 async def remove_staff_member(request: Request, discord_id: int):
     """Supprime un membre du staff."""
-    deleted = await asm.remove_staff_member(discord_id)
+    deleted = await asm.remove_staff_member(SERVER, discord_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Membre non trouvé.")
     return {"message": "Membre supprimé avec succès.", "discord_id": discord_id}
@@ -131,14 +138,14 @@ async def remove_staff_member(request: Request, discord_id: int):
 @app.post("/staff/member/{discord_id}/blame/add", dependencies=[Depends(require_token)])
 async def add_blame(request: Request, discord_id: int, blame: Blame):
     """Ajoute un blâme à un membre."""
-    member = await asm.get_staff_member(discord_id)
+    member = await asm.get_staff_member(SERVER, discord_id)
     if member is None:
         raise HTTPException(status_code=404, detail="Membre non trouvé.")
 
     blames = member.get("blames") or []
     blames.append(blame.model_dump())
 
-    updated = await asm.update_staff_member(discord_id, blames=blames)
+    updated = await asm.update_staff_member(SERVER, discord_id, blames=blames)
     if not updated:
         raise HTTPException(status_code=500, detail="Mise à jour échouée.")
     return {"message": "Blâme ajouté.", "blames": blames}
@@ -147,7 +154,7 @@ async def add_blame(request: Request, discord_id: int, blame: Blame):
 @app.delete("/staff/member/{discord_id}/blame/remove/{index}", dependencies=[Depends(require_token)])
 async def remove_blame(request: Request, discord_id: int, index: int):
     """Supprime un blâme d'un membre."""
-    member = await asm.get_staff_member(discord_id)
+    member = await asm.get_staff_member(SERVER, discord_id)
     if member is None:
         raise HTTPException(status_code=404, detail="Membre non trouvé.")
 
@@ -156,5 +163,5 @@ async def remove_blame(request: Request, discord_id: int, index: int):
         raise HTTPException(status_code=404, detail="Blâme non trouvé.")
 
     removed = blames.pop(index)
-    await asm.update_staff_member(discord_id, blames=blames)
+    await asm.update_staff_member(SERVER, discord_id, blames=blames)
     return {"message": "Blâme supprimé.", "removed": removed}

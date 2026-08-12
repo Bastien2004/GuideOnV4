@@ -17,7 +17,8 @@ import time
 import discord
 from discord.ext import commands
 
-from utils.managers.alpha_role_react_manager import get_rr_entries
+from utils.managers.ng_role_react_manager import get_rr_entries
+from utils.managers.ng_server_manager import get_server_by_guild
 
 log = logging.getLogger(__name__)
 
@@ -54,6 +55,10 @@ class RoleReactAlphaListener(commands.Cog):
         if guild is None:
             return
 
+        ng_server = get_server_by_guild(guild.id)
+        if ng_server is None:
+            return  # Discord inconnu du cache ng_servers — rien à faire.
+
         member = interaction.user
         if not isinstance(member, discord.Member):
             return
@@ -72,7 +77,7 @@ class RoleReactAlphaListener(commands.Cog):
         self._last_click[key] = now
 
         # Vérifier que ce rôle est bien dans la liste configurée
-        entries = await get_rr_entries(guild.id)
+        entries = await get_rr_entries(ng_server.name)
         entry = next((e for e in entries if e["role_id"] == role_id), None)
         if entry is None:
             return await interaction.response.send_message(

@@ -1,10 +1,22 @@
 """
-utils/managers/notations_manager.py — Manager API pour AlphaNotaConfig.
+utils/managers/notations_manager.py — Manager API pour NGNotaConfig.
 
 Miroir en cache sync de la config notations, pour des lectures rapides
 côté API (cogs/api/notation_api_app.py) sans aller-retour DB à chaque
-requête. Séparé du manager Discord (alpha_nota_manager.py) qui a son
-propre cache TTL indépendant sur le même modèle.
+requête. Séparé du manager Discord (ng_nota_manager.py) qui a son propre
+cache TTL indépendant sur le même modèle.
+
+Refonte multi-serveurs phase 9 : ce module — comme l'API `/notations/*`
+qu'il alimente — a TOUJOURS été conçu pour un unique serveur : `GET
+/notations`, `/notations/set_ids` et `/notations/set_time` ne prennent
+aucun `guild_id`/identifiant de serveur en entrée, il n'existe donc aucun
+signal pour router vers un serveur NG en particulier (contrairement à
+`onu_manager.py` où chaque endpoint reçoit un `guild_id` explicite). Ce
+module reste donc volontairement mono-serveur : `SERVER = "alpha"` en dur.
+Une vraie API notations multi-serveurs nécessiterait de faire évoluer le
+contrat externe (ajouter un identifiant de serveur à chaque endpoint) —
+hors périmètre de cette phase, à traiter avec la généralisation de
+`/ngstaff` (§13 du prompt, phase 12).
 """
 from __future__ import annotations
 
@@ -12,13 +24,14 @@ import asyncio
 import logging
 import time
 
-from sqlalchemy import select
-
-from utils.db.models.alpha_nota_config import AlphaNotaConfig
+from utils.db.models.ng_nota_config import NGNotaConfig
 from utils.db.session import get_session
-
+from utils.managers.ng_server_manager import get_server_by_name
 
 log = logging.getLogger(__name__)
+
+# Refonte multi-serveurs phase 9 : voir docstring du module.
+SERVER = "alpha"
 
 # Durée de vie du cache avant qu'un refresh soit considéré comme "périmé".
 CACHE_TTL_SECONDS = 60
@@ -30,6 +43,15 @@ _cache: dict | None = None
 _cache_loaded_at: float = 0.0          # time.monotonic() du dernier refresh OK
 _cache_ready: bool = False             # True dès qu'un refresh a réussi une fois
 _refresh_lock = asyncio.Lock()         # évite deux refresh concurrents
+
+
+def _with_guild_id(result: dict) -> dict:
+    """Ajoute 'guild_id' au résultat pour compat avec le contrat externe du
+    site (qui n'a aucune notion de 'server'), résolu depuis ng_servers."""
+    ng_server = get_server_by_name(SERVER)
+    result = dict(result)
+    result["guild_id"] = ng_server.discord_guild_id if ng_server is not None else None
+    return result
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -46,12 +68,12 @@ async def refresh_cache() -> None:
     async with _refresh_lock:
         try:
             async with get_session() as session:
-                row = await session.scalar(select(AlphaNotaConfig))
+                row = await session.get(NGNotaConfig, SERVER)
         except Exception:
             log.exception("Refresh cache notations échoué — on garde l'ancien cache")
             return
 
-        _cache = row.to_dict() if row is not None else None
+        _cache = _with_guild_id(row.to_dict()) if row is not None else None
         _cache_loaded_at = time.monotonic()
         _cache_ready = True
 
@@ -104,8 +126,8 @@ async def get_config() -> dict | None:
     Renvoie None si aucune config n'est enregistrée.
     """
     async with get_session() as session:
-        row = await session.scalar(select(AlphaNotaConfig))
-    return row.to_dict() if row is not None else None
+        row = await session.get(NGNotaConfig, SERVER)
+    return _with_guild_id(row.to_dict()) if row is not None else None
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -113,18 +135,16 @@ async def get_config() -> dict | None:
 # ══════════════════════════════════════════════════════════════════════════
 
 async def update_full_config(data: dict) -> dict:
-    """Met à jour la config complète des notations"""
-    guild_id = int(data.get("guild_id") or data.get("id_guild_notations"))
-
+    """Met à jour la config complète des notations (toujours server='alpha')."""
     async with get_session() as session:
-        row = await session.get(AlphaNotaConfig, guild_id)
+        row = await session.get(NGNotaConfig, SERVER)
         if row is None:
             # Créer une nouvelle config
-            row = AlphaNotaConfig(guild_id=guild_id)
+            row = NGNotaConfig(server=SERVER)
         else:
             # Mettre à jour les champs existants
             for key, value in data.items():
-                if key not in ("guild_id", "id_guild_notations") and hasattr(row, key):
+                if key not in ("guild_id", "id_guild_notations", "server") and hasattr(row, key):
                     setattr(row, key, value)
 
         session.add(row)
@@ -132,20 +152,20 @@ async def update_full_config(data: dict) -> dict:
         result = row.to_dict()
 
     await refresh_cache()
-    log.info("Config notations mise à jour complète (guild=%s)", guild_id)
-    return result
+    log.info("Config notations mise à jour complète (server=%s)", SERVER)
+    return _with_guild_id(result)
 
 
 async def update_partial(partial: dict) -> dict:
-    """Met à jour partiellement la config des notations"""
+    """Met à jour partiellement la config des notations (toujours server='alpha')."""
     async with get_session() as session:
-        row = await session.scalar(select(AlphaNotaConfig))
+        row = await session.get(NGNotaConfig, SERVER)
         if row is None:
             raise ValueError(
                 "Aucune config notations en DB — utilisez update_full_config() d'abord."
             )
         for key, value in partial.items():
-            if hasattr(row, key):
+            if key not in ("guild_id", "id_guild_notations", "server") and hasattr(row, key):
                 setattr(row, key, value)
 
         await session.flush()
@@ -153,4 +173,4 @@ async def update_partial(partial: dict) -> dict:
 
     await refresh_cache()
     log.info("Config notations mise à jour partielle : %s", list(partial.keys()))
-    return result
+    return _with_guild_id(result)

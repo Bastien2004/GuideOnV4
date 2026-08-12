@@ -17,10 +17,12 @@ from utils.settings import settings
 from utils.logging_config import setup_logging
 from cogs.api.api_app import run_api_server
 from utils.managers.boutique_manager import refresh_cache, cache_refresher_loop
-from utils.managers.permission_manager import refresh_cache as refresh_perms, cache_refresher_loop as perms_refresher_loop
+from utils.managers.ng_server_manager import list_active_servers as list_active_ng_servers
+from utils.managers.ng_server_manager import reload_cache as reload_ng_servers
+from utils.managers.permission_rbac_manager import refresh_cache as refresh_rbac
 from cogs.api.base import app as fastapi_app
 
-from utils.groupes import groupeDEV, groupeCONFIG, groupeNG, groupeTICKET, groupeINV, groupeBIRTHDAY, groupeGIVE, groupeALPHA, groupeEXP, groupeMOD
+from utils.groupes import groupeDEV, groupeCONFIG, groupeNG, groupeTICKET, groupeINV, groupeBIRTHDAY, groupeGIVE, groupeALPHA, groupeEXP, groupeMOD, groupeNGSTAFF
 
 """A laisser ! """
 import cogs.api.notation_api_app
@@ -87,9 +89,24 @@ class GuideONBot(commands.Bot):
         await refresh_cache()
         asyncio.create_task(cache_refresher_loop())
 
-        # ── Permissions internes ──
-        await refresh_perms()
-        asyncio.create_task(perms_refresher_loop())
+        # ── Permissions internes (legacy PermissionRole/permission_entries) ──
+        # Refonte multi-serveurs, phase 15 (nettoyage legacy) : retiré.
+        # utils/managers/permission_manager.py n'a plus aucun lecteur depuis
+        # que perm_alpha.py / perm_dev.py / perm_staff.py lisent le RBAC
+        # (permission_rbac_manager, déjà rafraîchi ci-dessous) — voir
+        # PHASE_15.md. Rafraîchir un cache que plus personne ne consulte
+        # n'avait plus de raison d'être.
+
+        # ── Serveurs NG + RBAC (refonte multi-serveurs, phases 1-2) ──
+        # Chargement initial obligatoire : ng_server_manager n'a pas de TTL
+        # automatique (reload explicite uniquement, cf /dev setng, /dev
+        # unsetng, futur webhook /reload_servers §11 du prompt). Sans cet
+        # appel, get_server_by_guild()/list_active_servers() renvoient
+        # toujours vide. permission_rbac_manager a un TTL 60s auto-géré
+        # (_ensure_fresh) mais on prime quand même le cache ici pour éviter
+        # un premier appel à froid.
+        await reload_ng_servers()
+        await refresh_rbac()
 
         # ── Chargement commandes simples  ──
         await self._load_cogs_from_directory("cogs")
@@ -141,6 +158,7 @@ class GuideONBot(commands.Bot):
         # ── IMPORT DEV ──
         from cogs.dev.maintenance import maintenance
         from cogs.dev.permission import permissions
+        from cogs.dev.setng import setng, unsetng
         from cogs.dev.delete_message import delete_message
         from cogs.dev.kick import kick
         from cogs.dev.stat_server import stat_server
@@ -226,9 +244,19 @@ class GuideONBot(commands.Bot):
         from cogs.alpha.event_regle import event_regle
         from cogs.alpha.event_start import event_start
         from cogs.alpha.config_alpha import config_alpha
-        from cogs.alpha.edit_stafflist import alpha_edit_stafflist
+        # alpha_edit_stafflist : plus importée (phase 13) — /alpha edit_stafflist_alpha
+        # est dépréciée au profit de /ngstaff edit_stafflist (§7 du prompt, "disparaît").
+        # cogs/alpha/edit_stafflist.py reste sur disque, jamais supprimé (safety net).
         from cogs.alpha.nota_force import nota_force
         from cogs.alpha.nota_debug import nota_debug
+
+        # ── IMPORT NGSTAFF (refonte multi-serveurs, phases 11-12) ──
+        from cogs.ngstaff.ngstaff_config import ngstaff_config
+        from cogs.ngstaff.ngstaff_derank import ngstaff_derank
+        from cogs.ngstaff.ngstaff_edit_stafflist import ngstaff_edit_stafflist
+        from cogs.ngstaff.ngstaff_nota_debug import ngstaff_nota_debug
+        from cogs.ngstaff.ngstaff_rank import ngstaff_rank
+        from cogs.ngstaff.ngstaff_stafflist import ngstaff_stafflist
 
         ### ASSEMBLAGE DES GROUPES DE COMMANDES ###
 
@@ -253,7 +281,7 @@ class GuideONBot(commands.Bot):
 
         # 💻 ── DEV ──
         self._groupDEV = groupeDEV()
-        for cmd in [maintenance, permissions, delete_message, kick, stat_server, stat_cmd,
+        for cmd in [maintenance, permissions, setng, unsetng, delete_message, kick, stat_server, stat_cmd,
                     join_serv, health, guild_info, debug_cmd, botban, gold, vip]:
             self._groupDEV.add_command(cmd)
 
@@ -291,11 +319,21 @@ class GuideONBot(commands.Bot):
 
         # 💋 ── ALPHA ──
         self._groupALPHA = groupeALPHA()
+        # alpha_edit_stafflist_alpha n'est plus enregistrée ici depuis la phase 13
+        # (dépréciée au profit de /ngstaff edit_stafflist — voir import ci-dessus).
         for cmd in [test_alpha, regle_interne, nous_rejoindre, index,
                     stafflist, rank, alpha_derank, event_start, event_regle, event_list, config_alpha,
-                    alpha_edit_stafflist, nota_debug, nota_force]:
+                    nota_debug, nota_force]:
             
             self._groupALPHA.add_command(cmd)
+
+        # 🧑‍💼 ── NGSTAFF (refonte multi-serveurs, phases 11-12) ──
+        self._groupNGSTAFF = groupeNGSTAFF()
+        for cmd in [
+            ngstaff_config, ngstaff_rank, ngstaff_derank, ngstaff_stafflist,
+            ngstaff_edit_stafflist, ngstaff_nota_debug,
+        ]:
+            self._groupNGSTAFF.add_command(cmd)
 
         for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY, groupGIVE, groupEXP, groupMOD]:
             self.tree.add_command(group)
@@ -339,6 +377,35 @@ class GuideONBot(commands.Bot):
 
             except Exception as e:
                 log.error(f"❌ Erreur ALPHA {gid}: {e}")
+
+        # -----------------------------
+        # NGSTAFF (refonte multi-serveurs, phase 11)
+        # -----------------------------
+        # Contrairement à ALPHA_GUILDS/DEV_GUILDS/SUPPORT_GUILDS (listes
+        # câblées en dur), la liste des guildes cibles est résolue à chaud
+        # depuis le cache ng_servers (peuplé par reload_ng_servers() plus tôt
+        # dans setup_hook, avant l'appel à cette méthode) — §13 du prompt de
+        # refonte : "détection dynamique via ng_servers". Un serveur NG ajouté
+        # après coup nécessite un redémarrage du bot (ou un futur
+        # /dev reload_servers + re-sync, hors scope de cette phase).
+        for ng_server in list_active_ng_servers():
+            guild = discord.Object(id=ng_server.discord_guild_id)
+
+            try:
+                try:
+                    self.tree.add_command(self._groupNGSTAFF, guild=guild)
+                except discord.app_commands.CommandAlreadyRegistered:
+                    pass
+
+                synced = await self.tree.sync(guild=guild)
+
+                log.info(
+                    f"🧑\u200d💼 Commandes NGSTAFF synchronisées sur {ng_server.name} "
+                    f"({ng_server.discord_guild_id}, {len(synced)} cmd)"
+                )
+
+            except Exception as e:
+                log.error(f"❌ Erreur NGSTAFF {ng_server.name} ({ng_server.discord_guild_id}): {e}")
 
         # -----------------------------
         # DEV

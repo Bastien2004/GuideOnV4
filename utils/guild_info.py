@@ -10,10 +10,11 @@ from dataclasses import dataclass
 
 import discord
 
-from utils.managers.alpha_rank_config_manager import get_rank_config_obj
+from utils.managers.ng_rank_config_manager import get_rank_config_obj
+from utils.managers.ng_server_manager import get_server_by_guild
 from utils.managers.ticket_manager import list_panels
 from utils.managers.birthday_manager import load_birthday_config
-from utils.managers.alpha_nota_manager import load_nota_config
+from utils.managers.ng_nota_manager import load_nota_config as load_ng_nota_config
 
 
 @dataclass
@@ -31,10 +32,21 @@ class GuildInfoData:
 
 async def detect_modules(guild_id: int) -> dict[str, bool]:
     """Détecte quels modules sont configurés/activés pour cette guild."""
-    alpha_cfg = await get_rank_config_obj(guild_id)
+    # Refonte multi-serveurs phase 7 : get_rank_config_obj prend maintenant
+    # un `server` (str), pas un guild_id. On résout le serveur NG associé à
+    # ce guild_id (None si ce n'est pas un Discord NG connu) avant d'aller
+    # chercher sa config rank.
+    ng_server = get_server_by_guild(guild_id)
+    alpha_cfg = await get_rank_config_obj(ng_server.name) if ng_server else None
     panels = await list_panels(guild_id)
     birthday_cfg = await load_birthday_config(guild_id)
-    nota_cfg = await load_nota_config(guild_id)
+    # Refonte multi-serveurs, phase 15 (nettoyage legacy) : appelait
+    # auparavant l'ancien alpha_nota_manager.load_nota_config(guild_id),
+    # qui lit la table alpha_nota_configs, gelée (non écrite) depuis la
+    # bascule de phase 9. La détection du module "Notations" ici affichait
+    # donc un état obsolète pour /dev guild_info. Corrigé pour lire
+    # ng_nota_manager (server-keyed, la vraie source vivante).
+    nota_cfg = await load_ng_nota_config(ng_server.name) if ng_server else {}
 
     return {
         "Alpha": alpha_cfg is not None,

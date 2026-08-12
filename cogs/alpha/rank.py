@@ -17,14 +17,23 @@ from utils.container_universel import error_container, success_container, warnin
 from utils.error_handler import handle_app_command_error
 from utils.perm_alpha import check_op_alpha
 
-from utils.managers.alpha_staff_manager import get_staff_member
-from utils.managers.alpha_rank_config_manager import load_rank_config
+from utils.managers.ng_staff_manager import get_staff_member
+from utils.managers.ng_rank_config_manager import load_rank_config
 
 from utils.db.models.alpha_staff import GRADES_ORDER, GRADE_LABELS, SECONDARY_STATUSES, STATUTS_SECONDAIRES_ORDER
 
 from utils.alpha_rank_logic import RankValidationError, execute_grade_rank, execute_statut_rank
 
 log = logging.getLogger(__name__)
+
+# Refonte multi-serveurs (§7 du prompt) : câblé en dur sur "alpha" en
+# permanence. Un équivalent générique /ngstaff existe (phase 12, voir
+# PHASE_12.md) mais ce fichier — /alpha — reste volontairement inchangé :
+# la logique partagée (utils/alpha_rank_logic.py, alpha_derank_logic.py,
+# refresh_staff_message) accepte `server` en kwarg-only avec défaut
+# "alpha", donc cette commande continue de se comporter à l'identique
+# sans jamais passer `server=`.
+SERVER = "alpha"
 
 
 # ============================================================
@@ -99,8 +108,8 @@ async def rank(interaction: Interaction, membre: discord.Member, pseudo_jeu: str
             ephemeral=True,
         )
 
-    cfg = await load_rank_config(interaction.guild_id)
-    existing = await get_staff_member(membre.id)
+    cfg = await load_rank_config(SERVER)
+    existing = await get_staff_member(SERVER, membre.id)
     pseudo = pseudo_jeu.strip()
 
     # 🚀 Gestion du rank-up.

@@ -15,12 +15,17 @@ from utils.track_commande import tracker_commande
 
 from utils.container_universel import error_container, success_container
 from utils.error_handler import handle_app_command_error
-from utils.perm_alpha import check_op_alpha
+from utils.perm_alpha import check_op_alpha, require_alpha_guild
 
-from utils.managers.alpha_rank_config_manager import load_rank_config
+from utils.managers.ng_rank_config_manager import load_rank_config
 from utils.managers.alpha_message_manager import get_alpha_message, upsert_alpha_message, clear_alpha_message
 
 from views.alpha.index_view import build_index_view, get_fresh_files
+
+# Refonte multi-serveurs (§7 du prompt) : câblé en dur sur "alpha" en
+# permanence — cette commande fait partie des "systèmes particuliers"
+# Alpha-only, elle n'a jamais d'équivalent /ngstaff (voir PHASE_13.md).
+SERVER = "alpha"
 
 log = logging.getLogger(__name__)
 
@@ -35,6 +40,10 @@ MESSAGE_KEY = "index"
 @app_commands.checks.cooldown(1, 20)
 @app_commands.command(name="index", description="📋 [OP] Envoie ou met à jour l'interface d'information (index) du serveur Alpha")
 async def index(interaction: Interaction) -> None:
+
+    # 🌐 Vérification "Discord Alpha" (défense en profondeur, phase 13).
+    if not await require_alpha_guild(interaction):
+        return
 
     # 🛡️ Vérification ban utilisateur.
     if not await verifier_ban_utilisateur(interaction):
@@ -58,7 +67,7 @@ async def index(interaction: Interaction) -> None:
     await tracker_commande(interaction, "alpha_index")
 
     # 🧩 Récupération de la configuration.
-    cfg = await load_rank_config(interaction.guild_id)
+    cfg = await load_rank_config(SERVER)
     channel_id = cfg.get("content_index_channel_id")
     emoji_str = cfg.get("content_index_emoji")
     guild_id = interaction.guild_id

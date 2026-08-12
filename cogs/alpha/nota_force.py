@@ -16,13 +16,16 @@ from utils.perm_dev import check_dev
 from utils.container_universel import success_container, error_container
 from utils.error_handler import handle_app_command_error
 
-from utils.managers.alpha_nota_manager import (
+from utils.managers.ng_nota_manager import (
     load_nota_config,
     get_all_nota_operators,
     get_available_operators,
 )
 
 from views.alpha.nota_view import build_presence_view
+
+# Refonte multi-serveurs phase 9 : commande dédiée au dashboard Alpha.
+SERVER = "alpha"
 
 log = logging.getLogger(__name__)
 
@@ -73,7 +76,7 @@ async def nota_force(interaction: Interaction) -> None:
     # 📊 Tracking
     await tracker_commande(interaction, "alpha_nota_force")
 
-    cfg = await load_nota_config(interaction.guild_id)
+    cfg = await load_nota_config(SERVER)
     channel_id = cfg.get("channel_staff_id")
 
     # 🔎 Vérification qu'un salon est configuré.
@@ -94,8 +97,8 @@ async def nota_force(interaction: Interaction) -> None:
                 ephemeral=True,
             )
 
-    operators = await get_all_nota_operators(interaction.guild_id)
-    available_ids = await get_available_operators(interaction.guild_id)
+    operators = await get_all_nota_operators(SERVER)
+    available_ids = await get_available_operators(SERVER)
 
     view = build_presence_view(
         operators=operators,

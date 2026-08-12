@@ -14,7 +14,7 @@ from utils.container_universel import error_container
 from utils.error_handler import handle_app_command_error
 from utils.perm_dev import check_dev
 
-from utils.managers.alpha_nota_manager import (
+from utils.managers.ng_nota_manager import (
     load_nota_config,
     load_nota_state,
     now_paris,
@@ -22,8 +22,10 @@ from utils.managers.alpha_nota_manager import (
     is_past_deadline,
 )
 
-
 from views.alpha.nota_debug_view import build_nota_debug_view
+
+# Refonte multi-serveurs phase 9 : commande dédiée au dashboard Alpha.
+SERVER = "alpha"
 
 
 # ============================================================
@@ -74,8 +76,8 @@ async def nota_debug(interaction: Interaction) -> None:
     await tracker_commande(interaction, "alpha_nota_debug")
 
     # 📚 Récupération des données.
-    cfg = await load_nota_config(interaction.guild_id)
-    state = await load_nota_state(interaction.guild_id)
+    cfg = await load_nota_config(SERVER)
+    state = await load_nota_state(SERVER)
 
     now = now_paris()
 

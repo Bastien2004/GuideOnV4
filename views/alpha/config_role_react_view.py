@@ -16,7 +16,7 @@ import discord
 from discord import ButtonStyle, Interaction
 from discord.ui import ActionRow, Button, Container, LayoutView, Separator, TextDisplay
 
-from utils.managers.alpha_role_react_manager import (
+from utils.managers.ng_role_react_manager import (
     MAX_ROLES, add_rr_entry, get_rr_entries, get_rr_entry_count,
     load_rr_config, remove_rr_entry, save_rr_config, update_rr_entry,
 )
@@ -27,25 +27,34 @@ from views.alpha.role_react_view import build_role_react_view, is_valid_emoji, p
 
 log = logging.getLogger(__name__)
 
+# Refonte multi-serveurs phase 11 : ce fichier est désormais partagé entre
+# /alpha config_alpha (dashboard="alpha", toujours server="alpha") et
+# /ngstaff config (dashboard="ngstaff", server résolu dynamiquement). Le
+# marqueur `dashboard` sert uniquement au bouton "Tableau de bord" pour
+# revenir au bon hub parent. guild_id / self.guild_id / self_._gid gardent
+# leur rôle de navigation/identité de vue.
+
 
 def _ch(v): return f"<#{v}>" if v else "*Non configuré*"
 
 
 # ── helpers retour ────────────────────────────────────────────
 
-def _back_main(guild_id: int, owner_id: int):
+def _back_main(guild_id: int, server: str, owner_id: int, *, dashboard: str = "alpha"):
     async def _fn(i: Interaction):
-        cfg = await load_rr_config(guild_id)
-        entries = await get_rr_entries(guild_id)
+        cfg = await load_rr_config(server)
+        entries = await get_rr_entries(server)
         await i.response.edit_message(
-            view=RoleReactConfigView(guild_id, cfg, entries, owner_id)
+            view=RoleReactConfigView(guild_id, server, cfg, entries, owner_id, dashboard=dashboard)
         )
     return _fn
 
-def _back_roles(guild_id: int, owner_id: int):
+def _back_roles(guild_id: int, server: str, owner_id: int, *, dashboard: str = "alpha"):
     async def _fn(i: Interaction):
-        entries = await get_rr_entries(guild_id)
-        await i.response.edit_message(view=_RolesView(guild_id, entries, owner_id))
+        entries = await get_rr_entries(server)
+        await i.response.edit_message(
+            view=_RolesView(guild_id, server, entries, owner_id, dashboard=dashboard)
+        )
     return _fn
 
 
@@ -54,12 +63,23 @@ def _back_roles(guild_id: int, owner_id: int):
 # ════════════════════════════════════════════════════════════
 
 class RoleReactConfigView(LayoutView):
-    def __init__(self, guild_id: int, cfg: dict, entries: list[dict], owner_id: int) -> None:
+    def __init__(
+        self,
+        guild_id: int,
+        server: str,
+        cfg: dict,
+        entries: list[dict],
+        owner_id: int,
+        *,
+        dashboard: str = "alpha",
+    ) -> None:
         super().__init__(timeout=300)
         self.guild_id = guild_id
+        self.server = server
         self.cfg = cfg
         self.entries = entries
         self.owner_id = owner_id
+        self.dashboard = dashboard
         self._build()
 
     async def interaction_check(self, i: Interaction) -> bool:
@@ -109,15 +129,19 @@ class RoleReactConfigView(LayoutView):
         self.add_item(c)
 
     async def _on_channel(self, i: Interaction) -> None:
-        await i.response.edit_message(view=_ChannelView(self.guild_id, self.cfg, self.owner_id))
+        await i.response.edit_message(
+            view=_ChannelView(self.guild_id, self.server, self.cfg, self.owner_id, dashboard=self.dashboard)
+        )
 
     async def _on_roles(self, i: Interaction) -> None:
-        entries = await get_rr_entries(self.guild_id)
-        await i.response.edit_message(view=_RolesView(self.guild_id, entries, self.owner_id))
+        entries = await get_rr_entries(self.server)
+        await i.response.edit_message(
+            view=_RolesView(self.guild_id, self.server, entries, self.owner_id, dashboard=self.dashboard)
+        )
 
     async def _on_deploy(self, i: Interaction) -> None:
         await i.response.defer(ephemeral=True)
-        cfg = await load_rr_config(self.guild_id)
+        cfg = await load_rr_config(self.server)
         channel_id = cfg.get("channel_id")
         if not channel_id:
             return await i.followup.send("Configurez d'abord le **salon** (📡 Salon).", ephemeral=True)
@@ -129,7 +153,7 @@ class RoleReactConfigView(LayoutView):
             except (discord.NotFound, discord.HTTPException):
                 return await i.followup.send("Salon introuvable.", ephemeral=True)
 
-        entries = await get_rr_entries(self.guild_id)
+        entries = await get_rr_entries(self.server)
         view = build_role_react_view(entries)
 
         # Create or update
@@ -139,7 +163,7 @@ class RoleReactConfigView(LayoutView):
                 existing = await channel.fetch_message(cfg["message_id"])
             except (discord.NotFound, discord.HTTPException):
                 existing = None
-                await save_rr_config(self.guild_id, message_id=None)
+                await save_rr_config(self.server, message_id=None)
 
         try:
             if existing:
@@ -147,25 +171,33 @@ class RoleReactConfigView(LayoutView):
                 action = "mis à jour"
             else:
                 sent = await channel.send(view=view)
-                await save_rr_config(self.guild_id, message_id=sent.id)
+                await save_rr_config(self.server, message_id=sent.id)
                 action = "déployé"
         except discord.HTTPException as e:
             log.exception("[ROLE_REACT] Erreur déploiement | guild=%d", self.guild_id)
             return await i.followup.send(f"Erreur Discord : {e}", ephemeral=True)
 
         # Recharger et refresher la vue config
-        cfg = await load_rr_config(self.guild_id)
-        entries = await get_rr_entries(self.guild_id)
+        cfg = await load_rr_config(self.server)
+        entries = await get_rr_entries(self.server)
         await i.edit_original_response(
-            view=RoleReactConfigView(self.guild_id, cfg, entries, self.owner_id)
+            view=RoleReactConfigView(
+                self.guild_id, self.server, cfg, entries, self.owner_id, dashboard=self.dashboard
+            )
         )
         await i.followup.send(
             f"✅ Message {action} dans {channel.mention} !", ephemeral=True
         )
 
     async def _on_back(self, i: Interaction) -> None:
-        from views.alpha.config_dashboard_view import ConfigDashboardView
-        await i.response.edit_message(view=ConfigDashboardView(self.guild_id, self.owner_id))
+        if self.dashboard == "ngstaff":
+            from views.ngstaff.config_dashboard_view import NGStaffConfigDashboardView
+            await i.response.edit_message(
+                view=NGStaffConfigDashboardView(self.guild_id, self.server, self.owner_id)
+            )
+        else:
+            from views.alpha.config_dashboard_view import ConfigDashboardView
+            await i.response.edit_message(view=ConfigDashboardView(self.guild_id, self.owner_id))
 
 
 # ════════════════════════════════════════════════════════════
@@ -173,11 +205,15 @@ class RoleReactConfigView(LayoutView):
 # ════════════════════════════════════════════════════════════
 
 class _ChannelView(LayoutView):
-    def __init__(self, guild_id: int, cfg: dict, owner_id: int) -> None:
+    def __init__(
+        self, guild_id: int, server: str, cfg: dict, owner_id: int, *, dashboard: str = "alpha"
+    ) -> None:
         super().__init__(timeout=300)
         self.guild_id = guild_id
+        self.server = server
         self.cfg = cfg
         self.owner_id = owner_id
+        self.dashboard = dashboard
         self._build()
 
     async def interaction_check(self, i): return i.user.id == self.owner_id
@@ -197,14 +233,16 @@ class _ChannelView(LayoutView):
         )))
         c.add_item(Separator())
         btn = Button(label="↩️ Retour", style=ButtonStyle.secondary, custom_id="rr_back_ch")
-        btn.callback = _back_main(self.guild_id, self.owner_id)
+        btn.callback = _back_main(self.guild_id, self.server, self.owner_id, dashboard=self.dashboard)
         c.add_item(ActionRow(btn))
         c.add_item(TextDisplay("-# GuideOn Studio"))
         self.add_item(c)
 
     async def _on_select(self, i: Interaction, channel_id: int) -> None:
-        cfg = await save_rr_config(self.guild_id, channel_id=channel_id, message_id=None)
-        await i.response.edit_message(view=_ChannelView(self.guild_id, cfg, self.owner_id))
+        cfg = await save_rr_config(self.server, channel_id=channel_id, message_id=None)
+        await i.response.edit_message(
+            view=_ChannelView(self.guild_id, self.server, cfg, self.owner_id, dashboard=self.dashboard)
+        )
 
 
 # ════════════════════════════════════════════════════════════
@@ -212,11 +250,15 @@ class _ChannelView(LayoutView):
 # ════════════════════════════════════════════════════════════
 
 class _RolesView(LayoutView):
-    def __init__(self, guild_id: int, entries: list[dict], owner_id: int) -> None:
+    def __init__(
+        self, guild_id: int, server: str, entries: list[dict], owner_id: int, *, dashboard: str = "alpha"
+    ) -> None:
         super().__init__(timeout=300)
         self.guild_id = guild_id
+        self.server = server
         self.entries = entries
         self.owner_id = owner_id
+        self.dashboard = dashboard
         self._build()
 
     async def interaction_check(self, i): return i.user.id == self.owner_id
@@ -266,7 +308,7 @@ class _RolesView(LayoutView):
         )
         btn_back = Button(label="↩️ Retour", style=ButtonStyle.secondary, custom_id="rr_back_rl")
         btn_add.callback  = self._on_add
-        btn_back.callback = _back_main(self.guild_id, self.owner_id)
+        btn_back.callback = _back_main(self.guild_id, self.server, self.owner_id, dashboard=self.dashboard)
         c.add_item(ActionRow(btn_add, btn_back))
         c.add_item(TextDisplay("-# GuideOn Studio"))
         self.add_item(c)
@@ -276,10 +318,14 @@ class _RolesView(LayoutView):
         entry = next((e for e in self.entries if e["id"] == entry_id), None)
         if entry is None:
             return await i.response.send_message("Rôle introuvable.", ephemeral=True)
-        await i.response.edit_message(view=_EditRoleView(self.guild_id, entry, self.owner_id))
+        await i.response.edit_message(
+            view=_EditRoleView(self.guild_id, self.server, entry, self.owner_id, dashboard=self.dashboard)
+        )
 
     async def _on_add(self, i: Interaction) -> None:
-        await i.response.edit_message(view=_AddStep1View(self.guild_id, self.owner_id))
+        await i.response.edit_message(
+            view=_AddStep1View(self.guild_id, self.server, self.owner_id, dashboard=self.dashboard)
+        )
 
 
 # ════════════════════════════════════════════════════════════
@@ -287,11 +333,15 @@ class _RolesView(LayoutView):
 # ════════════════════════════════════════════════════════════
 
 class _EditRoleView(LayoutView):
-    def __init__(self, guild_id: int, entry: dict, owner_id: int) -> None:
+    def __init__(
+        self, guild_id: int, server: str, entry: dict, owner_id: int, *, dashboard: str = "alpha"
+    ) -> None:
         super().__init__(timeout=300)
         self.guild_id = guild_id
+        self.server = server
         self.entry = entry
         self.owner_id = owner_id
+        self.dashboard = dashboard
         self._build()
 
     async def interaction_check(self, i): return i.user.id == self.owner_id
@@ -319,7 +369,7 @@ class _EditRoleView(LayoutView):
         btn_emoji.callback = self._on_emoji
         btn_desc.callback  = self._on_desc
         btn_del.callback   = self._on_delete
-        btn_back.callback  = _back_roles(self.guild_id, self.owner_id)
+        btn_back.callback  = _back_roles(self.guild_id, self.server, self.owner_id, dashboard=self.dashboard)
 
         c.add_item(ActionRow(btn_label, btn_emoji, btn_desc, btn_del, btn_back))
         c.add_item(TextDisplay("-# GuideOn Studio"))
@@ -334,12 +384,14 @@ class _EditRoleView(LayoutView):
                     "vérifie que le nom et l'emoji n'ont pas été inversés.",
                     ephemeral=True,
                 )
-            await update_rr_entry(self.guild_id, self.entry["id"], **{field: value or None})
-            entries = await get_rr_entries(self.guild_id)
+            await update_rr_entry(self.server, self.entry["id"], **{field: value or None})
+            entries = await get_rr_entries(self.server)
             entry = next((e for e in entries if e["id"] == self.entry["id"]), None)
             if entry:
                 self.entry = entry
-            await i.response.edit_message(view=_EditRoleView(self.guild_id, self.entry, self.owner_id))
+            await i.response.edit_message(
+                view=_EditRoleView(self.guild_id, self.server, self.entry, self.owner_id, dashboard=self.dashboard)
+            )
         return TextModal(
             title=title, label=label_txt,
             placeholder=current or "",
@@ -352,10 +404,12 @@ class _EditRoleView(LayoutView):
         async def on_submit(inter: Interaction, value: str) -> None:
             if not value.strip():
                 return await inter.response.send_message("Le label ne peut pas être vide.", ephemeral=True)
-            await update_rr_entry(self.guild_id, self.entry["id"], label=value.strip())
-            entries = await get_rr_entries(self.guild_id)
+            await update_rr_entry(self.server, self.entry["id"], label=value.strip())
+            entries = await get_rr_entries(self.server)
             self.entry = next((e for e in entries if e["id"] == self.entry["id"]), self.entry)
-            await inter.response.edit_message(view=_EditRoleView(self.guild_id, self.entry, self.owner_id))
+            await inter.response.edit_message(
+                view=_EditRoleView(self.guild_id, self.server, self.entry, self.owner_id, dashboard=self.dashboard)
+            )
         modal = TextModal(
             title="Modifier le label", label="Nouveau label",
             placeholder="Ex: Actualités", default=self.entry["label"],
@@ -376,9 +430,11 @@ class _EditRoleView(LayoutView):
         ))
 
     async def _on_delete(self, i: Interaction) -> None:
-        await remove_rr_entry(self.guild_id, self.entry["id"])
-        entries = await get_rr_entries(self.guild_id)
-        await i.response.edit_message(view=_RolesView(self.guild_id, entries, self.owner_id))
+        await remove_rr_entry(self.server, self.entry["id"])
+        entries = await get_rr_entries(self.server)
+        await i.response.edit_message(
+            view=_RolesView(self.guild_id, self.server, entries, self.owner_id, dashboard=self.dashboard)
+        )
 
 
 # ════════════════════════════════════════════════════════════
@@ -448,15 +504,20 @@ class _AddStep1View(LayoutView):
                         ephemeral=True,
                     )
 
-                ok = await add_rr_entry(self_._gid, self_._rid, label, emoji, desc)
-                entries = await get_rr_entries(self_._gid)
+                ok = await add_rr_entry(self_._server, self_._rid, label, emoji, desc)
+                entries = await get_rr_entries(self_._server)
+                new_view = _RolesView(
+                    self_._gid, self_._server, entries, self_._oid, dashboard=self_._dashboard
+                )
                 if not ok:
-                    await inter.response.edit_message(view=_RolesView(self_._gid, entries, self_._oid))
+                    await inter.response.edit_message(view=new_view)
                     await inter.followup.send(
                         "Impossible d'ajouter ce rôle (limite atteinte ou rôle déjà présent).",
                         ephemeral=True,
                     )
                 else:
-                    await inter.response.edit_message(view=_RolesView(self_._gid, entries, self_._oid))
+                    await inter.response.edit_message(view=new_view)
 
-        await i.response.send_modal(_Step2Modal(self.guild_id, role_id, self.owner_id))
+        await i.response.send_modal(
+            _Step2Modal(self.guild_id, self.server, role_id, self.owner_id, dashboard=self.dashboard)
+        )

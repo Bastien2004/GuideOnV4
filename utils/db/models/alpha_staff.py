@@ -1,14 +1,20 @@
 """
-utils/db/models/alpha_staff.py — Modèle des membres du staff Alpha.
+utils/db/models/alpha_staff.py — Constantes partagées du système de grades
+staff (labels, emojis, ordre, statuts secondaires).
+
+Refonte multi-serveurs, phase 15 (nettoyage legacy) : la classe
+AlphaStaffMember (modèle ORM de l'ancienne table alpha_staff, gelée
+depuis la bascule de phase 6) a été retirée — elle n'était plus
+instanciée nulle part (utils/managers/alpha_staff_manager.py, son seul
+utilisateur, a été supprimé dans cette même phase). Les constantes
+ci-dessous (GRADES_ORDER, GRADE_LABELS, etc.) restent en revanche vivantes
+et largement utilisées (ré-exportées par utils/db/models/ng_staff.py,
+importées directement par de nombreux cogs/views/managers) — ce fichier
+reste donc leur emplacement canonique, seul le modèle ORM mort a été
+retiré.
 """
 
 from __future__ import annotations
-
-from sqlalchemy import BigInteger, Boolean, String, Index, JSON
-from sqlalchemy.orm import Mapped, mapped_column
-
-from utils.db.base import Base, TimestampMixin
-
 
 GRADES_ORDER: list[str] = [
     "administrateur",
@@ -82,52 +88,3 @@ SECONDARY_STATUSES: dict[str, dict] = {
     },
 }
 
-
-class AlphaStaffMember(Base, TimestampMixin):
-    """Gestion d'un membre du staff."""
-
-    __tablename__ = "alpha_staff"
-
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-
-    discord_id: Mapped[int] = mapped_column(BigInteger, nullable=False, unique=True)
-    pseudo_jeu: Mapped[str] = mapped_column(String(64), nullable=False)
-    grade: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    skin_head_emoji: Mapped[str] = mapped_column(String(128), nullable=False, default="")
-
-    is_journaliste: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, server_default="false"
-    )
-    is_affilie: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, server_default="false"
-    )
-    is_builder: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, server_default="false"
-    )
-    pseudo_jeu_builder: Mapped[str | None] = mapped_column(String(64), nullable=True)
-
-    blames: Mapped[list] = mapped_column(JSON, nullable=True, default=list)
-
-    __table_args__ = (
-        Index("ix_alpha_staff_grade", "grade"),
-    )
-
-    def to_dict(self) -> dict:
-        return {
-            "discord_id":         self.discord_id,
-            "pseudo_jeu":         self.pseudo_jeu,
-            "grade":              self.grade,
-            "skin_head_emoji":    self.skin_head_emoji,
-            "is_journaliste":     self.is_journaliste,
-            "is_affilie":         self.is_affilie,
-            "is_builder":         self.is_builder,
-            "pseudo_jeu_builder": self.pseudo_jeu_builder,
-            "blames":             self.blames or [],
-        }
-
-    def __repr__(self) -> str:
-        return (
-            f"<AlphaStaffMember id={self.id} pseudo={self.pseudo_jeu!r} "
-            f"grade={self.grade!r} journaliste={self.is_journaliste} "
-            f"affilie={self.is_affilie} builder={self.is_builder}>"
-        )

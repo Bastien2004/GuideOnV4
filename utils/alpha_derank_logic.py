@@ -21,9 +21,13 @@ from discord.ui import Container, LayoutView, Separator, TextDisplay
 
 from utils.alpha_rank_logic import apply_staff_roles, compute_nick_prefix
 from utils.db.models.alpha_staff import GRADE_LABELS, SECONDARY_STATUSES, STATUTS_SECONDAIRES_ORDER
-from utils.managers.alpha_staff_manager import remove_staff_member, update_staff_member
+from utils.managers.ng_staff_manager import remove_staff_member, update_staff_member
 
 log = logging.getLogger(__name__)
+
+# Refonte multi-serveurs phase 12 : execute_derank accepte désormais un
+# paramètre `server` optionnel (kwarg-only, défaut "alpha") — voir la même
+# note dans utils/alpha_rank_logic.py.
 
 
 def secondary_dict(member_data: dict) -> dict[str, bool]:
@@ -175,6 +179,8 @@ async def execute_derank(
     cfg: dict,
     guild_id: int,
     role: str,
+    *,
+    server: str = "alpha",
 ) -> None:
     """
     Exécute le derank déjà confirmé : persistance DB, rôles Discord, pseudo,
@@ -192,7 +198,7 @@ async def execute_derank(
 
     if not has_remaining_state:
         # Plus rien à conserver -> ligne supprimée entièrement.
-        await remove_staff_member(member_data["discord_id"])
+        await remove_staff_member(server, member_data["discord_id"])
     else:
         update_kwargs: dict = {
             "grade": target_grade,
@@ -202,7 +208,7 @@ async def execute_derank(
         }
         if role == "builder" or role == "complet":
             update_kwargs["pseudo_jeu_builder"] = None
-        await update_staff_member(member_data["discord_id"], **update_kwargs)
+        await update_staff_member(server, member_data["discord_id"], **update_kwargs)
 
     # ── Rôles Discord ──────────────────────────────────────
     await apply_staff_roles(
@@ -242,4 +248,4 @@ async def execute_derank(
         )
 
     from cogs.alpha.stafflist import refresh_staff_message
-    await refresh_staff_message(bot, guild_id)
+    await refresh_staff_message(bot, guild_id, server=server)

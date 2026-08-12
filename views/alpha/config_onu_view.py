@@ -15,17 +15,23 @@ import discord
 from discord import ButtonStyle, Interaction
 from discord.ui import ActionRow, Button, Container, LayoutView, Separator, TextDisplay
 
-from utils.managers.alpha_onu_manager import (
+from utils.managers.ng_onu_manager import (
     load_onu_config, save_onu_config,
     get_onu_ping_members, add_onu_ping_member, remove_onu_ping_member,
 )
-from utils.db.models.alpha_onu_config import JOURS_LABELS
+from utils.db.models.ng_onu_config import JOURS_LABELS
 from views._components.channel_select import ChannelSelect
 from views._components.role_select import RoleSelect
 from views._components.user_select import UserSelect
 from views._components.text_modal import TextModal
 
 log = logging.getLogger(__name__)
+
+# Refonte multi-serveurs phase 11 : ce fichier est désormais partagé entre
+# /alpha config_alpha (dashboard="alpha", toujours server="alpha") et
+# /ngstaff config (dashboard="ngstaff", server résolu dynamiquement). Le
+# marqueur `dashboard` sert uniquement au bouton "Tableau de bord" pour
+# revenir au bon hub parent.
 
 
 # ── Helpers ──────────────────────────────────────────────────
@@ -42,11 +48,15 @@ def _bool(v): return "✅ Activé" if v else "❌ Désactivé"
 # ════════════════════════════════════════════════════════════
 
 class ONUConfigView(LayoutView):
-    def __init__(self, guild_id: int, cfg: dict, owner_id: int) -> None:
+    def __init__(
+        self, guild_id: int, server: str, cfg: dict, owner_id: int, *, dashboard: str = "alpha"
+    ) -> None:
         super().__init__(timeout=300)
         self.guild_id = guild_id
+        self.server = server
         self.cfg = cfg
         self.owner_id = owner_id
+        self.dashboard = dashboard
         self._build()
 
     async def interaction_check(self, i: Interaction) -> bool:
@@ -92,29 +102,35 @@ class ONUConfigView(LayoutView):
         self.add_item(c)
 
     async def _reload(self, i: Interaction) -> None:
-        cfg = await load_onu_config(self.guild_id)
-        await i.response.edit_message(view=ONUConfigView(self.guild_id, cfg, self.owner_id))
+        cfg = await load_onu_config(self.server)
+        await i.response.edit_message(view=ONUConfigView(self.guild_id, self.server, cfg, self.owner_id, dashboard=self.dashboard))
 
     async def _on_salon(self, i: Interaction) -> None:
-        cfg = await load_onu_config(self.guild_id)
-        await i.response.edit_message(view=_SalonRoleView(self.guild_id, cfg, self.owner_id))
+        cfg = await load_onu_config(self.server)
+        await i.response.edit_message(view=_SalonRoleView(self.guild_id, self.server, cfg, self.owner_id, dashboard=self.dashboard))
 
     async def _on_horaires(self, i: Interaction) -> None:
-        cfg = await load_onu_config(self.guild_id)
-        await i.response.edit_message(view=_HorairesView(self.guild_id, cfg, self.owner_id))
+        cfg = await load_onu_config(self.server)
+        await i.response.edit_message(view=_HorairesView(self.guild_id, self.server, cfg, self.owner_id, dashboard=self.dashboard))
 
     async def _on_ping(self, i: Interaction) -> None:
-        cfg = await load_onu_config(self.guild_id)
-        members = await get_onu_ping_members(self.guild_id)
-        await i.response.edit_message(view=_PingMPView(self.guild_id, cfg, self.owner_id, members))
+        cfg = await load_onu_config(self.server)
+        members = await get_onu_ping_members(self.server)
+        await i.response.edit_message(view=_PingMPView(self.guild_id, self.server, cfg, self.owner_id, members, dashboard=self.dashboard))
 
     async def _on_param(self, i: Interaction) -> None:
-        cfg = await load_onu_config(self.guild_id)
-        await i.response.edit_message(view=_ParamsView(self.guild_id, cfg, self.owner_id))
+        cfg = await load_onu_config(self.server)
+        await i.response.edit_message(view=_ParamsView(self.guild_id, self.server, cfg, self.owner_id, dashboard=self.dashboard))
 
     async def _on_back(self, i: Interaction) -> None:
-        from views.alpha.config_dashboard_view import ConfigDashboardView
-        await i.response.edit_message(view=ConfigDashboardView(self.guild_id, self.owner_id))
+        if self.dashboard == "ngstaff":
+            from views.ngstaff.config_dashboard_view import NGStaffConfigDashboardView
+            await i.response.edit_message(
+                view=NGStaffConfigDashboardView(self.guild_id, self.server, self.owner_id)
+            )
+        else:
+            from views.alpha.config_dashboard_view import ConfigDashboardView
+            await i.response.edit_message(view=ConfigDashboardView(self.guild_id, self.owner_id))
 
 
 # ════════════════════════════════════════════════════════════
@@ -122,11 +138,15 @@ class ONUConfigView(LayoutView):
 # ════════════════════════════════════════════════════════════
 
 class _SalonRoleView(LayoutView):
-    def __init__(self, guild_id: int, cfg: dict, owner_id: int) -> None:
+    def __init__(
+        self, guild_id: int, server: str, cfg: dict, owner_id: int, *, dashboard: str = "alpha"
+    ) -> None:
         super().__init__(timeout=300)
         self.guild_id = guild_id
+        self.server = server
         self.cfg = cfg
         self.owner_id = owner_id
+        self.dashboard = dashboard
         self._build()
 
     async def interaction_check(self, i): return i.user.id == self.owner_id
@@ -154,12 +174,12 @@ class _SalonRoleView(LayoutView):
         self.add_item(c)
 
     async def _save(self, i: Interaction, field: str, value) -> None:
-        self.cfg = await save_onu_config(self.guild_id, **{field: value})
-        await i.response.edit_message(view=_SalonRoleView(self.guild_id, self.cfg, self.owner_id))
+        self.cfg = await save_onu_config(self.server, **{field: value})
+        await i.response.edit_message(view=_SalonRoleView(self.guild_id, self.server, self.cfg, self.owner_id, dashboard=self.dashboard))
 
     async def _on_back(self, i: Interaction) -> None:
-        cfg = await load_onu_config(self.guild_id)
-        await i.response.edit_message(view=ONUConfigView(self.guild_id, cfg, self.owner_id))
+        cfg = await load_onu_config(self.server)
+        await i.response.edit_message(view=ONUConfigView(self.guild_id, self.server, cfg, self.owner_id, dashboard=self.dashboard))
 
 
 # ════════════════════════════════════════════════════════════
@@ -173,11 +193,15 @@ _JOUR_OPTIONS = [
 
 
 class _HorairesView(LayoutView):
-    def __init__(self, guild_id: int, cfg: dict, owner_id: int) -> None:
+    def __init__(
+        self, guild_id: int, server: str, cfg: dict, owner_id: int, *, dashboard: str = "alpha"
+    ) -> None:
         super().__init__(timeout=300)
         self.guild_id = guild_id
+        self.server = server
         self.cfg = cfg
         self.owner_id = owner_id
+        self.dashboard = dashboard
         self._build()
 
     async def interaction_check(self, i): return i.user.id == self.owner_id
@@ -215,8 +239,8 @@ class _HorairesView(LayoutView):
 
     async def _on_day(self, i: Interaction) -> None:
         val = int(i.data["values"][0])
-        self.cfg = await save_onu_config(self.guild_id, jour_onu=val)
-        await i.response.edit_message(view=_HorairesView(self.guild_id, self.cfg, self.owner_id))
+        self.cfg = await save_onu_config(self.server, jour_onu=val)
+        await i.response.edit_message(view=_HorairesView(self.guild_id, self.server, self.cfg, self.owner_id, dashboard=self.dashboard))
 
     def _make_time_modal(self, title: str, h_field: str, m_field: str, current_h, current_m):
         default = f"{current_h:02d}:{current_m:02d}" if current_h is not None and current_m is not None else ""
@@ -232,8 +256,8 @@ class _HorairesView(LayoutView):
                     "Format invalide. Utilisez **HH:MM** (ex: `17:00`).", ephemeral=True
                 )
                 return
-            self.cfg = await save_onu_config(self.guild_id, **{h_field: h, m_field: m})
-            await i.response.edit_message(view=_HorairesView(self.guild_id, self.cfg, self.owner_id))
+            self.cfg = await save_onu_config(self.server, **{h_field: h, m_field: m})
+            await i.response.edit_message(view=_HorairesView(self.guild_id, self.server, self.cfg, self.owner_id, dashboard=self.dashboard))
 
         return TextModal(
             title=title,
@@ -259,8 +283,8 @@ class _HorairesView(LayoutView):
         await i.response.send_modal(modal)
 
     async def _on_back(self, i: Interaction) -> None:
-        cfg = await load_onu_config(self.guild_id)
-        await i.response.edit_message(view=ONUConfigView(self.guild_id, cfg, self.owner_id))
+        cfg = await load_onu_config(self.server)
+        await i.response.edit_message(view=ONUConfigView(self.guild_id, self.server, cfg, self.owner_id, dashboard=self.dashboard))
 
 
 # ════════════════════════════════════════════════════════════
@@ -268,12 +292,23 @@ class _HorairesView(LayoutView):
 # ════════════════════════════════════════════════════════════
 
 class _PingMPView(LayoutView):
-    def __init__(self, guild_id: int, cfg: dict, owner_id: int, ping_ids: list[int]) -> None:
+    def __init__(
+        self,
+        guild_id: int,
+        server: str,
+        cfg: dict,
+        owner_id: int,
+        ping_ids: list[int],
+        *,
+        dashboard: str = "alpha",
+    ) -> None:
         super().__init__(timeout=300)
         self.guild_id = guild_id
+        self.server = server
         self.cfg = cfg
         self.owner_id = owner_id
         self.ping_ids = ping_ids
+        self.dashboard = dashboard
         self._build()
 
     async def interaction_check(self, i): return i.user.id == self.owner_id
@@ -322,35 +357,35 @@ class _PingMPView(LayoutView):
 
     async def _on_toggle(self, i: Interaction) -> None:
         new_val = not self.cfg.get("ping_mp", False)
-        self.cfg = await save_onu_config(self.guild_id, ping_mp=new_val)
-        members = await get_onu_ping_members(self.guild_id)
-        await i.response.edit_message(view=_PingMPView(self.guild_id, self.cfg, self.owner_id, members))
+        self.cfg = await save_onu_config(self.server, ping_mp=new_val)
+        members = await get_onu_ping_members(self.server)
+        await i.response.edit_message(view=_PingMPView(self.guild_id, self.server, self.cfg, self.owner_id, members, dashboard=self.dashboard))
 
     async def _on_add(self, i: Interaction, user_ids: list[int]) -> None:
         uid = user_ids[0]
-        added = await add_onu_ping_member(self.guild_id, uid)
-        members = await get_onu_ping_members(self.guild_id)
+        added = await add_onu_ping_member(self.server, uid)
+        members = await get_onu_ping_members(self.server)
         if not added:
             await i.response.send_message(f"<@{uid}> est déjà dans la ping-list.", ephemeral=True)
         else:
             await i.response.edit_message(
-                view=_PingMPView(self.guild_id, self.cfg, self.owner_id, members)
+                view=_PingMPView(self.guild_id, self.server, self.cfg, self.owner_id, members, dashboard=self.dashboard)
             )
 
     async def _on_remove(self, i: Interaction, user_ids: list[int]) -> None:
         uid = user_ids[0]
-        removed = await remove_onu_ping_member(self.guild_id, uid)
-        members = await get_onu_ping_members(self.guild_id)
+        removed = await remove_onu_ping_member(self.server, uid)
+        members = await get_onu_ping_members(self.server)
         if not removed:
             await i.response.send_message(f"<@{uid}> n'est pas dans la ping-list.", ephemeral=True)
         else:
             await i.response.edit_message(
-                view=_PingMPView(self.guild_id, self.cfg, self.owner_id, members)
+                view=_PingMPView(self.guild_id, self.server, self.cfg, self.owner_id, members, dashboard=self.dashboard)
             )
 
     async def _on_back(self, i: Interaction) -> None:
-        cfg = await load_onu_config(self.guild_id)
-        await i.response.edit_message(view=ONUConfigView(self.guild_id, cfg, self.owner_id))
+        cfg = await load_onu_config(self.server)
+        await i.response.edit_message(view=ONUConfigView(self.guild_id, self.server, cfg, self.owner_id, dashboard=self.dashboard))
 
 
 # ════════════════════════════════════════════════════════════
@@ -358,11 +393,15 @@ class _PingMPView(LayoutView):
 # ════════════════════════════════════════════════════════════
 
 class _ParamsView(LayoutView):
-    def __init__(self, guild_id: int, cfg: dict, owner_id: int) -> None:
+    def __init__(
+        self, guild_id: int, server: str, cfg: dict, owner_id: int, *, dashboard: str = "alpha"
+    ) -> None:
         super().__init__(timeout=300)
         self.guild_id = guild_id
+        self.server = server
         self.cfg = cfg
         self.owner_id = owner_id
+        self.dashboard = dashboard
         self._build()
 
     async def interaction_check(self, i): return i.user.id == self.owner_id
@@ -399,8 +438,8 @@ class _ParamsView(LayoutView):
 
     async def _on_image(self, i: Interaction) -> None:
         async def on_submit(inter: Interaction, value: str) -> None:
-            self.cfg = await save_onu_config(self.guild_id, image_name=value.strip() or None)
-            await inter.response.edit_message(view=_ParamsView(self.guild_id, self.cfg, self.owner_id))
+            self.cfg = await save_onu_config(self.server, image_name=value.strip() or None)
+            await inter.response.edit_message(view=_ParamsView(self.guild_id, self.server, self.cfg, self.owner_id, dashboard=self.dashboard))
         modal = TextModal(
             title="Image ONU",
             label="Nom du fichier (dans source/)",
@@ -413,8 +452,8 @@ class _ParamsView(LayoutView):
 
     async def _on_url(self, i: Interaction) -> None:
         async def on_submit(inter: Interaction, value: str) -> None:
-            self.cfg = await save_onu_config(self.guild_id, join_url=value.strip() or None)
-            await inter.response.edit_message(view=_ParamsView(self.guild_id, self.cfg, self.owner_id))
+            self.cfg = await save_onu_config(self.server, join_url=value.strip() or None)
+            await inter.response.edit_message(view=_ParamsView(self.guild_id, self.server, self.cfg, self.owner_id, dashboard=self.dashboard))
         modal = TextModal(
             title="URL rejoindre la conférence",
             label="URL Discord du salon vocal",
@@ -427,9 +466,9 @@ class _ParamsView(LayoutView):
 
     async def _on_toggle(self, i: Interaction) -> None:
         new_val = not self.cfg.get("enabled", True)
-        self.cfg = await save_onu_config(self.guild_id, enabled=new_val)
-        await i.response.edit_message(view=_ParamsView(self.guild_id, self.cfg, self.owner_id))
+        self.cfg = await save_onu_config(self.server, enabled=new_val)
+        await i.response.edit_message(view=_ParamsView(self.guild_id, self.server, self.cfg, self.owner_id, dashboard=self.dashboard))
 
     async def _on_back(self, i: Interaction) -> None:
-        cfg = await load_onu_config(self.guild_id)
-        await i.response.edit_message(view=ONUConfigView(self.guild_id, cfg, self.owner_id))
+        cfg = await load_onu_config(self.server)
+        await i.response.edit_message(view=ONUConfigView(self.guild_id, self.server, cfg, self.owner_id, dashboard=self.dashboard))

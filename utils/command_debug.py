@@ -120,9 +120,9 @@ _COOLDOWNS: dict[str, tuple[int, int]] = {
 # ════════════════════════════════════════════════════════════
 # type ∈ {"discord_admin", "interne", "boutique", "aucune"}
 #   discord_admin : permission Administrator Discord native (groupe CONFIG)
-#   interne       : permission interne au bot, voir utils.permission /
-#                   utils.perm_dev / utils.perm_alpha (DEV → DEV,
-#                   ALPHA → OP_ALPHA, etc.)
+#   interne       : permission interne au bot, voir utils.perm_dev /
+#                   utils.perm_alpha (RBAC : equipe_guideon.dev,
+#                   staff_alpha.op, etc. — depuis la phase 15)
 #   boutique      : palier boutique du bot (ex: Gold+, VIP)
 #   aucune        : pas de restriction (commande publique)
 # detail : libellé affiché (rôle interne, palier boutique...), None si non

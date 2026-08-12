@@ -13,6 +13,7 @@ from utils.track_commande import tracker_commande
 from utils.container_universel import error_container
 from utils.error_handler import handle_app_command_error
 from utils.createur import is_creator
+from utils.perm_alpha import require_alpha_guild
 
 from views.alpha.config_dashboard_view import ConfigDashboardView
 
@@ -25,6 +26,10 @@ from views.alpha.config_dashboard_view import ConfigDashboardView
 @app_commands.checks.cooldown(1, 5)
 @app_commands.command(name="config_alpha", description="⚙️ [OP] Dashboard configuration systèmes Alpha")
 async def config_alpha(interaction: Interaction) -> None:
+
+    # 🌐 Vérification "Discord Alpha" (défense en profondeur, phase 13).
+    if not await require_alpha_guild(interaction):
+        return
 
     # 🔐 Vérification des permissions.
     if not is_creator(interaction.user.id):

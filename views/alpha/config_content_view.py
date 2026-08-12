@@ -18,10 +18,15 @@ import discord
 from discord import ButtonStyle, Interaction
 from discord.ui import ActionRow, Button, Container, LayoutView, Separator, TextDisplay
 
-from utils.managers.alpha_rank_config_manager import load_rank_config, save_rank_config
+from utils.managers.ng_rank_config_manager import load_rank_config, save_rank_config
 from views._components.channel_select import ChannelSelect
 from views._components.role_select import RoleSelect
 from views._components.text_modal import TextModal
+
+# Refonte multi-serveurs (§7 du prompt) : câblé en dur sur "alpha" en
+# permanence — cette commande fait partie des "systèmes particuliers"
+# Alpha-only, elle n'a jamais d'équivalent /ngstaff (voir PHASE_13.md).
+SERVER = "alpha"
 
 log = logging.getLogger(__name__)
 
@@ -162,7 +167,7 @@ class ConfigContentView(LayoutView):
     # ── Sauvegarde ────────────────────────────────────────────
 
     async def _save(self, interaction: Interaction, field: str, value) -> None:
-        self.cfg = await save_rank_config(self.guild_id, **{field: value})
+        self.cfg = await save_rank_config(SERVER, **{field: value})
         await interaction.response.edit_message(
             view=ConfigContentView(self.guild_id, self.cfg, self.owner_id)
         )
@@ -176,7 +181,7 @@ class ConfigContentView(LayoutView):
     ) -> None:
         async def on_submit(inter: Interaction, value: str) -> None:
             value = value.strip()
-            self.cfg = await save_rank_config(self.guild_id, **{field: value or None})
+            self.cfg = await save_rank_config(SERVER, **{field: value or None})
             await inter.response.edit_message(
                 view=ConfigContentView(self.guild_id, self.cfg, self.owner_id)
             )

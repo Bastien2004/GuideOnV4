@@ -157,17 +157,26 @@ async def get_onu_config(request: Request, guild_id: int):
 
 @app.post("/onu/update_all", dependencies=[Depends(require_token)])
 async def update_onu_config(request: Request, config: ONUConfigUpdate):
-    return await om.update_full_config(config.model_dump(exclude_none=True))
+    try:
+        return await om.update_full_config(config.model_dump(exclude_none=True))
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @app.post("/onu/{guild_id}/ping/add", dependencies=[Depends(require_token)])
 async def add_onu_ping(request: Request, guild_id: int, ping: ONUPingPayload):
-    return await om.add_ping(guild_id, ping.discord_id, ping.name or "Unknown")
+    try:
+        return await om.add_ping(guild_id, ping.discord_id, ping.name or "Unknown")
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @app.post("/onu/{guild_id}/ping/remove", dependencies=[Depends(require_token)])
 async def remove_onu_ping(request: Request, guild_id: int, discord_id: int):
-    return await om.remove_ping(guild_id, discord_id)
+    try:
+        return await om.remove_ping(guild_id, discord_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 # ──────────────────────────────────────────────────────────────────────────

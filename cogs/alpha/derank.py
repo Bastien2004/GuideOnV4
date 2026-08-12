@@ -15,9 +15,18 @@ from utils.container_universel import warning_container
 from utils.error_handler import handle_app_command_error
 from utils.perm_alpha import check_op_alpha
 
-from utils.managers.alpha_staff_manager import get_staff_member
-from utils.managers.alpha_rank_config_manager import load_rank_config
+from utils.managers.ng_staff_manager import get_staff_member
+from utils.managers.ng_rank_config_manager import load_rank_config
 from views.alpha.derank_view import DerankConfirmView
+
+# Refonte multi-serveurs (§7 du prompt) : câblé en dur sur "alpha" en
+# permanence. Un équivalent générique /ngstaff existe (phase 12, voir
+# PHASE_12.md) mais ce fichier — /alpha — reste volontairement inchangé :
+# la logique partagée (utils/alpha_rank_logic.py, alpha_derank_logic.py,
+# refresh_staff_message) accepte `server` en kwarg-only avec défaut
+# "alpha", donc cette commande continue de se comporter à l'identique
+# sans jamais passer `server=`.
+SERVER = "alpha"
 
 
 # ============================================================
@@ -66,7 +75,7 @@ async def alpha_derank(interaction: Interaction, membre: discord.Member, role: a
     await tracker_commande(interaction, "alpha_derank")
 
     # 🔎 Vérification que le membre est dans le staff Alpha.
-    member_data = await get_staff_member(membre.id)
+    member_data = await get_staff_member(SERVER, membre.id)
     if member_data is None:
         return await interaction.followup.send(
             view=warning_container(f"**{membre.display_name}** n'est pas dans la **liste du staff** Alpha."),
@@ -75,7 +84,7 @@ async def alpha_derank(interaction: Interaction, membre: discord.Member, role: a
 
     # 🧩 Ouverture de la confirmation de derank.
     role_val = role.value if role else "complet"
-    cfg = await load_rank_config(interaction.guild_id)
+    cfg = await load_rank_config(SERVER)
     confirm_view = DerankConfirmView(
         membre, member_data, cfg, interaction.guild_id, role_val,
         owner_id=interaction.user.id,

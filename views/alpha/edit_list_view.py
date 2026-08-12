@@ -20,7 +20,7 @@ from discord import ButtonStyle, Interaction
 from discord.ui import ActionRow, Button, Container, LayoutView, Separator, TextDisplay
 
 from utils.container_universel import error_container, success_container, warning_container
-from utils.managers.alpha_staff_manager import (
+from utils.managers.ng_staff_manager import (
     add_staff_member,
     get_staff_member,
     list_staff,
@@ -33,15 +33,21 @@ from utils.alpha_staff_display import build_member_badges
 from views._components.user_select import UserSelect
 from views._components.text_modal import TextModal
 
+# Refonte multi-serveurs phase 12 : ce fichier est désormais partagé entre
+# /alpha edit_stafflist_alpha (server="alpha" implicite, param par défaut)
+# et /ngstaff edit_stafflist (server résolu dynamiquement). Toutes les
+# classes acceptent un kwarg `server: str = "alpha"` — défaut choisi pour ne
+# rien casser côté /alpha (qui ne le passe jamais explicitement).
+
 log = logging.getLogger(__name__)
 
 
 # ── Helper retour main ───────────────────────────────────────
 
-async def _back_to_main(interaction: Interaction, owner_id: int) -> None:
-    members = await list_staff()
+async def _back_to_main(interaction: Interaction, owner_id: int, server: str = "alpha") -> None:
+    members = await list_staff(server)
     await interaction.response.edit_message(
-        view=EditListView(interaction.guild_id, owner_id, members)
+        view=EditListView(interaction.guild_id, owner_id, members, server=server)
     )
 
 
@@ -52,11 +58,19 @@ async def _back_to_main(interaction: Interaction, owner_id: int) -> None:
 class EditListView(LayoutView):
     """Dashboard principal : résumé + 3 boutons d'action."""
 
-    def __init__(self, guild_id: int, owner_id: int, members: list[dict] | None = None) -> None:
+    def __init__(
+        self,
+        guild_id: int,
+        owner_id: int,
+        members: list[dict] | None = None,
+        *,
+        server: str = "alpha",
+    ) -> None:
         super().__init__(timeout=300)
         self.guild_id = guild_id
         self.owner_id = owner_id
         self.members = members or []
+        self.server = server
         self._build()
 
     async def interaction_check(self, interaction: Interaction) -> bool:
@@ -116,6 +130,7 @@ class EditListView(LayoutView):
             title="## ➕ Ajouter un membre",
             desc="Sélectionnez le membre Discord à ajouter à la liste staff.",
             on_select=self._after_select_add,
+            server=self.server,
         ))
 
     async def _on_modify(self, interaction: Interaction) -> None:
@@ -125,6 +140,7 @@ class EditListView(LayoutView):
             title="## ✏️ Modifier un membre",
             desc="Sélectionnez le membre dont vous souhaitez modifier les informations.",
             on_select=self._after_select_modify,
+            server=self.server,
         ))
 
     async def _on_remove(self, interaction: Interaction) -> None:
@@ -134,6 +150,7 @@ class EditListView(LayoutView):
             title="## ➖ Supprimer un membre",
             desc="Sélectionnez le membre à retirer de la liste staff.",
             on_select=self._after_select_remove,
+            server=self.server,
         ))
 
     # ── Callbacks post-UserSelect ─────────────────────────────
@@ -149,6 +166,7 @@ class EditListView(LayoutView):
                 discord_id=uid,
                 member_name=name,
                 on_grade=self._after_grade_add,
+                server=self.server,
             )
         )
 
@@ -166,6 +184,7 @@ class EditListView(LayoutView):
                     error_message="« Aucun grade » n'a pas de sens pour un **ajout** — "
                                   "choisissez un grade, ou utilisez `/alpha rank type:statut` "
                                   "pour un statut Journaliste/Affilié/Builder seul.",
+                    server=self.server,
                 )
             )
 
@@ -175,19 +194,19 @@ class EditListView(LayoutView):
             pseudo, emoji = values
             pseudo = pseudo.strip()
             emoji = emoji.strip()
-            already = await get_staff_member(discord_id)
+            already = await get_staff_member(self.server, discord_id)
             if already:
-                await update_staff_member(discord_id, pseudo_jeu=pseudo, grade=grade, skin_head_emoji=emoji or None)
+                await update_staff_member(self.server, discord_id, pseudo_jeu=pseudo, grade=grade, skin_head_emoji=emoji or None)
                 msg = f"**{pseudo}** (<@{discord_id}>) mis à jour — **{label}**."
             else:
-                await add_staff_member(discord_id, pseudo_jeu=pseudo, grade=grade, skin_head_emoji=emoji)
+                await add_staff_member(self.server, discord_id, pseudo_jeu=pseudo, grade=grade, skin_head_emoji=emoji)
                 msg = f"**{pseudo}** (<@{discord_id}>) ajouté — **{label}**."
             # Refresh stafflist
             from cogs.alpha.stafflist import refresh_staff_message
-            await refresh_staff_message(inter.client, self.guild_id)
-            members = await list_staff()
+            await refresh_staff_message(inter.client, self.guild_id, server=self.server)
+            members = await list_staff(self.server)
             await inter.response.edit_message(
-                view=EditListView(self.guild_id, self.owner_id, members)
+                view=EditListView(self.guild_id, self.owner_id, members, server=self.server)
             )
 
         modal = _AddStaffModal(
@@ -199,28 +218,28 @@ class EditListView(LayoutView):
 
     async def _after_select_modify(self, interaction: Interaction, user_ids: list[int]) -> None:
         uid = user_ids[0]
-        data = await get_staff_member(uid)
+        data = await get_staff_member(self.server, uid)
         if data is None:
             member = interaction.guild.get_member(uid)
             name = member.display_name if member else f"<@{uid}>"
             return await interaction.response.edit_message(
-                view=_NotFoundView(self.guild_id, self.owner_id, name)
+                view=_NotFoundView(self.guild_id, self.owner_id, name, server=self.server)
             )
         await interaction.response.edit_message(
-            view=_ModifyOptionsView(self.guild_id, self.owner_id, data)
+            view=_ModifyOptionsView(self.guild_id, self.owner_id, data, server=self.server)
         )
 
     async def _after_select_remove(self, interaction: Interaction, user_ids: list[int]) -> None:
         uid = user_ids[0]
-        data = await get_staff_member(uid)
+        data = await get_staff_member(self.server, uid)
         if data is None:
             member = interaction.guild.get_member(uid)
             name = member.display_name if member else f"<@{uid}>"
             return await interaction.response.edit_message(
-                view=_NotFoundView(self.guild_id, self.owner_id, name)
+                view=_NotFoundView(self.guild_id, self.owner_id, name, server=self.server)
             )
         await interaction.response.edit_message(
-            view=_ConfirmRemoveView(self.guild_id, self.owner_id, data)
+            view=_ConfirmRemoveView(self.guild_id, self.owner_id, data, server=self.server)
         )
 
 
@@ -233,11 +252,14 @@ class _UserSelectView(LayoutView):
         self, guild_id: int, owner_id: int,
         title: str, desc: str,
         on_select,
+        *,
+        server: str = "alpha",
     ) -> None:
         super().__init__(timeout=120)
         self.guild_id = guild_id
         self.owner_id = owner_id
         self._on_select = on_select
+        self.server = server
         self._build(title, desc)
 
     async def interaction_check(self, interaction: Interaction) -> bool:
@@ -263,7 +285,7 @@ class _UserSelectView(LayoutView):
         self.add_item(c)
 
     async def _on_back(self, interaction: Interaction) -> None:
-        await _back_to_main(interaction, self.owner_id)
+        await _back_to_main(interaction, self.owner_id, self.server)
 
 
 # ════════════════════════════════════════════════════════════
@@ -276,6 +298,8 @@ class _GradeSelectView(LayoutView):
         discord_id: int, member_name: str,
         on_grade,
         error_message: str | None = None,
+        *,
+        server: str = "alpha",
     ) -> None:
         super().__init__(timeout=120)
         self.guild_id = guild_id
@@ -284,6 +308,7 @@ class _GradeSelectView(LayoutView):
         self.member_name = member_name
         self._on_grade = on_grade
         self.error_message = error_message
+        self.server = server
         self._build()
 
     async def interaction_check(self, interaction: Interaction) -> bool:
@@ -337,7 +362,7 @@ class _GradeSelectView(LayoutView):
         return cb
 
     async def _on_back(self, interaction: Interaction) -> None:
-        await _back_to_main(interaction, self.owner_id)
+        await _back_to_main(interaction, self.owner_id, self.server)
 
 
 # ════════════════════════════════════════════════════════════
@@ -345,11 +370,14 @@ class _GradeSelectView(LayoutView):
 # ════════════════════════════════════════════════════════════
 
 class _ModifyOptionsView(LayoutView):
-    def __init__(self, guild_id: int, owner_id: int, member_data: dict) -> None:
+    def __init__(
+        self, guild_id: int, owner_id: int, member_data: dict, *, server: str = "alpha"
+    ) -> None:
         super().__init__(timeout=120)
         self.guild_id = guild_id
         self.owner_id = owner_id
         self.data = member_data
+        self.server = server
         self._build()
 
     async def interaction_check(self, interaction: Interaction) -> bool:
@@ -399,12 +427,12 @@ class _ModifyOptionsView(LayoutView):
         await interaction.response.send_modal(modal)
 
     async def _save_pseudo(self, interaction: Interaction, value: str) -> None:
-        await update_staff_member(self.data["discord_id"], pseudo_jeu=value.strip())
+        await update_staff_member(self.server, self.data["discord_id"], pseudo_jeu=value.strip())
         from cogs.alpha.stafflist import refresh_staff_message
-        await refresh_staff_message(interaction.client, self.guild_id)
-        members = await list_staff()
+        await refresh_staff_message(interaction.client, self.guild_id, server=self.server)
+        members = await list_staff(self.server)
         await interaction.response.edit_message(
-            view=EditListView(self.guild_id, self.owner_id, members)
+            view=EditListView(self.guild_id, self.owner_id, members, server=self.server)
         )
 
     async def _on_grade(self, interaction: Interaction) -> None:
@@ -415,18 +443,19 @@ class _ModifyOptionsView(LayoutView):
                 discord_id=self.data["discord_id"],
                 member_name=self.data["pseudo_jeu"],
                 on_grade=self._save_grade,
+                server=self.server,
             )
         )
 
     async def _save_grade(
         self, interaction: Interaction, discord_id: int, member_name: str, grade: str | None
     ) -> None:
-        await update_staff_member(discord_id, grade=grade)
+        await update_staff_member(self.server, discord_id, grade=grade)
         from cogs.alpha.stafflist import refresh_staff_message
-        await refresh_staff_message(interaction.client, self.guild_id)
-        members = await list_staff()
+        await refresh_staff_message(interaction.client, self.guild_id, server=self.server)
+        members = await list_staff(self.server)
         await interaction.response.edit_message(
-            view=EditListView(self.guild_id, self.owner_id, members)
+            view=EditListView(self.guild_id, self.owner_id, members, server=self.server)
         )
 
     async def _on_emoji(self, interaction: Interaction) -> None:
@@ -442,16 +471,16 @@ class _ModifyOptionsView(LayoutView):
         await interaction.response.send_modal(modal)
 
     async def _save_emoji(self, interaction: Interaction, value: str) -> None:
-        await update_staff_member(self.data["discord_id"], skin_head_emoji=value.strip())
+        await update_staff_member(self.server, self.data["discord_id"], skin_head_emoji=value.strip())
         from cogs.alpha.stafflist import refresh_staff_message
-        await refresh_staff_message(interaction.client, self.guild_id)
-        members = await list_staff()
+        await refresh_staff_message(interaction.client, self.guild_id, server=self.server)
+        members = await list_staff(self.server)
         await interaction.response.edit_message(
-            view=EditListView(self.guild_id, self.owner_id, members)
+            view=EditListView(self.guild_id, self.owner_id, members, server=self.server)
         )
 
     async def _on_back(self, interaction: Interaction) -> None:
-        await _back_to_main(interaction, self.owner_id)
+        await _back_to_main(interaction, self.owner_id, self.server)
 
 
 # ════════════════════════════════════════════════════════════
@@ -459,11 +488,14 @@ class _ModifyOptionsView(LayoutView):
 # ════════════════════════════════════════════════════════════
 
 class _ConfirmRemoveView(LayoutView):
-    def __init__(self, guild_id: int, owner_id: int, member_data: dict) -> None:
+    def __init__(
+        self, guild_id: int, owner_id: int, member_data: dict, *, server: str = "alpha"
+    ) -> None:
         super().__init__(timeout=60)
         self.guild_id = guild_id
         self.owner_id = owner_id
         self.data = member_data
+        self.server = server
         self._build()
 
     async def interaction_check(self, interaction: Interaction) -> bool:
@@ -492,16 +524,16 @@ class _ConfirmRemoveView(LayoutView):
         self.add_item(c)
 
     async def _on_confirm(self, interaction: Interaction) -> None:
-        await remove_staff_member(self.data["discord_id"])
+        await remove_staff_member(self.server, self.data["discord_id"])
         from cogs.alpha.stafflist import refresh_staff_message
-        await refresh_staff_message(interaction.client, self.guild_id)
-        members = await list_staff()
+        await refresh_staff_message(interaction.client, self.guild_id, server=self.server)
+        members = await list_staff(self.server)
         await interaction.response.edit_message(
-            view=EditListView(self.guild_id, self.owner_id, members)
+            view=EditListView(self.guild_id, self.owner_id, members, server=self.server)
         )
 
     async def _on_cancel(self, interaction: Interaction) -> None:
-        await _back_to_main(interaction, self.owner_id)
+        await _back_to_main(interaction, self.owner_id, self.server)
 
 
 # ════════════════════════════════════════════════════════════
@@ -509,10 +541,13 @@ class _ConfirmRemoveView(LayoutView):
 # ════════════════════════════════════════════════════════════
 
 class _NotFoundView(LayoutView):
-    def __init__(self, guild_id: int, owner_id: int, member_name: str) -> None:
+    def __init__(
+        self, guild_id: int, owner_id: int, member_name: str, *, server: str = "alpha"
+    ) -> None:
         super().__init__(timeout=60)
         self.guild_id = guild_id
         self.owner_id = owner_id
+        self.server = server
         c = Container()
         c.add_item(TextDisplay("## ❌ Membre introuvable"))
         c.add_item(Separator())
@@ -529,7 +564,7 @@ class _NotFoundView(LayoutView):
         return interaction.user.id == self.owner_id
 
     async def _on_back(self, interaction: Interaction) -> None:
-        await _back_to_main(interaction, self.owner_id)
+        await _back_to_main(interaction, self.owner_id, self.server)
 
 
 # ════════════════════════════════════════════════════════════

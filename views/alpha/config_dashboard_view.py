@@ -8,7 +8,15 @@ import discord
 from discord import Interaction
 from discord.ui import ActionRow, Container, LayoutView, Separator, TextDisplay
 
-from utils.managers.alpha_rank_config_manager import load_rank_config
+from utils.managers.ng_rank_config_manager import load_rank_config
+
+# Refonte multi-serveurs phase 11 : ce hub reste dédié au Discord Alpha
+# (SERVER câblé en dur). Les vues rank/onu/notations/role_react qu'il
+# ouvre sont désormais partagées avec /ngstaff config (elles acceptent un
+# paramètre `server` + `dashboard` — ici toujours "alpha" et dashboard par
+# défaut, donc pas besoin de le préciser). content/events restent propres
+# à Alpha, non concernés par la refonte multi-serveurs.
+SERVER = "alpha"
 
 
 # ════════════════════════════════════════════════════════════
@@ -96,23 +104,23 @@ class ConfigDashboardView(LayoutView):
         value = interaction.data["values"][0]
 
         if value == "rank":
-            cfg = await load_rank_config(self.guild_id)
+            cfg = await load_rank_config(SERVER)
             from views.alpha.config_alpha_view import ConfigRankView
             await interaction.response.edit_message(
-                view=ConfigRankView(self.guild_id, cfg, self.owner_id)
+                view=ConfigRankView(self.guild_id, SERVER, cfg, self.owner_id)
             )
         elif value == "content":
-            cfg = await load_rank_config(self.guild_id)
+            cfg = await load_rank_config(SERVER)
             from views.alpha.config_content_view import ConfigContentView
             await interaction.response.edit_message(
                 view=ConfigContentView(self.guild_id, cfg, self.owner_id)
             )
         elif value == "onu":
-            from utils.managers.alpha_onu_manager import load_onu_config
+            from utils.managers.ng_onu_manager import load_onu_config
             from views.alpha.config_onu_view import ONUConfigView
-            cfg = await load_onu_config(self.guild_id)
+            cfg = await load_onu_config(SERVER)
             await interaction.response.edit_message(
-                view=ONUConfigView(self.guild_id, cfg, self.owner_id)
+                view=ONUConfigView(self.guild_id, SERVER, cfg, self.owner_id)
             )
         elif value == "events":
             from utils.managers.alpha_event_config_manager import load_event_config
@@ -122,19 +130,19 @@ class ConfigDashboardView(LayoutView):
                 view=EventConfigView(self.guild_id, ev_cfg, self.owner_id)
             )
         elif value == "role_react":
-            from utils.managers.alpha_role_react_manager import load_rr_config, get_rr_entries
+            from utils.managers.ng_role_react_manager import load_rr_config, get_rr_entries
             from views.alpha.config_role_react_view import RoleReactConfigView
-            rr_cfg = await load_rr_config(self.guild_id)
-            entries = await get_rr_entries(self.guild_id)
+            rr_cfg = await load_rr_config(SERVER)
+            entries = await get_rr_entries(SERVER)
             await interaction.response.edit_message(
-                view=RoleReactConfigView(self.guild_id, rr_cfg, entries, self.owner_id)
+                view=RoleReactConfigView(self.guild_id, SERVER, rr_cfg, entries, self.owner_id)
             )
         elif value == "notations":
-            from utils.managers.alpha_nota_manager import load_nota_config
+            from utils.managers.ng_nota_manager import load_nota_config
             from views.alpha.config_nota_view import NotaConfigView
-            cfg = await load_nota_config(self.guild_id)
+            cfg = await load_nota_config(SERVER)
             await interaction.response.edit_message(
-                view=NotaConfigView(self.guild_id, cfg, self.owner_id)
+                view=NotaConfigView(self.guild_id, SERVER, cfg, self.owner_id)
             )
         else:
             await interaction.response.send_message("Ce système n'est pas encore disponible. 🔜", ephemeral=True)

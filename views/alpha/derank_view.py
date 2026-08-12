@@ -32,7 +32,7 @@ class DerankConfirmView(BaseLayoutView):
 
     def __init__(
         self, membre: discord.Member, member_data: dict, cfg: dict, guild_id: int, role: str,
-        *, owner_id: int,
+        *, owner_id: int, server: str = "alpha",
     ) -> None:
         """Création de l'interface de confirmation du derank."""
         super().__init__(owner_id=owner_id, timeout=120)
@@ -41,6 +41,7 @@ class DerankConfirmView(BaseLayoutView):
         self.cfg = cfg
         self.guild_id = guild_id
         self.role = role
+        self.server = server
         self._build()
 
     def _build(self) -> None:
@@ -126,7 +127,9 @@ class DerankConfirmView(BaseLayoutView):
             self.stop()
             return
 
-        await execute_derank(interaction.client, self.membre, d, self.cfg, self.guild_id, role)
+        await execute_derank(
+            interaction.client, self.membre, d, self.cfg, self.guild_id, role, server=self.server,
+        )
 
         await interaction.edit_original_response(view=success_container(f"**{d['pseudo_jeu']}** a été derank."))
         self.stop()

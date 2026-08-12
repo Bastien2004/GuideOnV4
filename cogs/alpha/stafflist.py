@@ -17,8 +17,8 @@ from utils.container_universel import error_container, success_container
 from utils.error_handler import handle_app_command_error
 from utils.perm_alpha import check_op_alpha
 
-from utils.managers.alpha_staff_manager import list_staff
-from utils.managers.alpha_rank_config_manager import load_rank_config
+from utils.managers.ng_staff_manager import list_staff
+from utils.managers.ng_rank_config_manager import load_rank_config
 from utils.managers.alpha_message_manager import get_alpha_message, upsert_alpha_message, clear_alpha_message
 
 from views.alpha.stafflist_view import build_stafflist_view
@@ -27,15 +27,31 @@ log = logging.getLogger(__name__)
 
 MESSAGE_KEY = "stafflist"
 
+# Refonte multi-serveurs (§7 du prompt) : câblé en dur sur "alpha" en
+# permanence. Un équivalent générique /ngstaff existe (phase 12, voir
+# PHASE_12.md) mais ce fichier — /alpha — reste volontairement inchangé :
+# la logique partagée (utils/alpha_rank_logic.py, alpha_derank_logic.py,
+# refresh_staff_message) accepte `server` en kwarg-only avec défaut
+# "alpha", donc cette commande continue de se comporter à l'identique
+# sans jamais passer `server=`.
+SERVER = "alpha"
+
 
 # ============================================================
 # 🔄 Fonction de mise à jour (réutilisable par d'autres commandes)
 # ============================================================
 
-async def refresh_staff_message(bot: discord.Client, guild_id: int) -> None:
-    """Rafraîchit la liste des staffs depuis la DB."""
+async def refresh_staff_message(bot: discord.Client, guild_id: int, *, server: str = "alpha") -> None:
+    """Rafraîchit la liste des staffs depuis la DB.
 
-    cfg = await load_rank_config(guild_id)
+    `server` (refonte multi-serveurs, phase 12) sélectionne la source des
+    données ng_rank_configs/ng_staff ; `guild_id` reste la clé Discord pour
+    savoir où (quel salon, quel message) rafraîchir — les deux notions sont
+    indépendantes (cf. utils/managers/alpha_message_manager.py, déjà
+    naturellement multi-serveurs puisque clé par guild_id).
+    """
+
+    cfg = await load_rank_config(server)
     channel_id = cfg.get("content_stafflist_channel_id")
     if not channel_id:
         log.warning("[STAFFLIST ALPHA] Refresh_staff_message : salon non configuré pour guild=%d", guild_id)
@@ -49,7 +65,7 @@ async def refresh_staff_message(bot: discord.Client, guild_id: int) -> None:
             log.warning("[STAFFLIST ALPHA] Refresh_staff_message : salon %d introuvable", channel_id)
             return
 
-    members = await list_staff()
+    members = await list_staff(server)
     view = build_stafflist_view(members)
 
     cfg = await get_alpha_message(guild_id, MESSAGE_KEY)
@@ -103,7 +119,7 @@ async def stafflist(interaction: Interaction) -> None:
     await tracker_commande(interaction, "alpha_stafflist")
 
     # 📋 Récupèration de la configuration.
-    rank_cfg = await load_rank_config(interaction.guild_id)
+    rank_cfg = await load_rank_config(SERVER)
     channel_id = rank_cfg.get("content_stafflist_channel_id")
     if not channel_id:
         return await interaction.followup.send(
@@ -126,7 +142,7 @@ async def stafflist(interaction: Interaction) -> None:
             )
 
     guild_id = interaction.guild_id
-    members = await list_staff()
+    members = await list_staff(SERVER)
     view = build_stafflist_view(members)
 
     # 🔍 Récupération message existant

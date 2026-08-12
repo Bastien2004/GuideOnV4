@@ -1,9 +1,19 @@
 """
-cogs/events/onu_alpha.py — Listener ONU Alpha.
+cogs/events/onu_alpha.py — Listener ONU multi-serveurs.
 
-Boucle toutes les 30 s. Pour chaque guild configuré et activé :
+Refonte multi-serveurs phase 8 : bascule complète sur ng_onu_manager /
+NGONUConfig / NGONUPingMember. `list_all_onu_configs()` renvoie désormais des
+configs clées par `server` (nom NGServer) et non plus `guild_id` : la boucle
+résout le guild_id Discord de chaque config via ng_server_manager
+(get_server_by_name) et ignore silencieusement les serveurs inconnus du
+cache ou désactivés (`NGServer.active is False`) — cf. §14 du prompt
+("Task loops : dispatch correct par serveur, gestion des serveurs
+active=false (ignorés)").
+
+Boucle toutes les 30 s. Pour chaque serveur NG configuré + activé (à la fois
+`NGServer.active` et `NGONUConfig.enabled`) :
   - Si on est le bon jour + bonne heure → envoie la pré-annonce OU l'annonce
-  - Les pré-annonces/annonces sont dé-dupliquées par (guild_id, "YYYY-MM-DD HH:MM")
+  - Les pré-annonces/annonces sont dé-dupliquées par (server, "YYYY-MM-DD HH:MM")
 
 Chargé automatiquement par _load_cogs_from_directory.
 """
@@ -20,22 +30,23 @@ from discord.ui import (
 )
 from discord import MediaGalleryItem
 
-from utils.managers.alpha_onu_manager import (
+from utils.managers.ng_onu_manager import (
     list_all_onu_configs,
     get_onu_ping_members,
 )
-from utils.db.models.alpha_onu_config import JOURS_LABELS
+from utils.managers.ng_server_manager import get_server_by_name
+from utils.db.models.ng_onu_config import JOURS_LABELS
 
 log = logging.getLogger(__name__)
 
 
 class ONUAlphaListener(commands.Cog):
-    """Gère les annonces ONU automatiques pour le serveur Alpha."""
+    """Gère les annonces ONU automatiques pour tous les serveurs NG configurés."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
-        self._last_pre: dict[int, str] = {}
-        self._last_ann: dict[int, str] = {}
+        self._last_pre: dict[str, str] = {}
+        self._last_ann: dict[str, str] = {}
         self.onu_task.start()
 
     def cog_unload(self) -> None:
@@ -61,6 +72,14 @@ class ONUAlphaListener(commands.Cog):
             if cfg.get("jour_onu") is None:
                 continue
 
+            server_name = cfg["server"]
+            ng_server = get_server_by_name(server_name)
+            if ng_server is None:
+                log.warning("[ONU] Serveur NG %r introuvable dans le cache", server_name)
+                continue
+            if not ng_server.active:
+                continue
+
             try:
                 from zoneinfo import ZoneInfo
                 tz = ZoneInfo(cfg.get("timezone") or "Europe/Paris")
@@ -72,7 +91,6 @@ class ONUAlphaListener(commands.Cog):
             if now.weekday() != cfg["jour_onu"]:
                 continue
 
-            guild_id = cfg["guild_id"]
             current_minute = now.strftime("%Y-%m-%d %H:%M")
 
             # Pré-annonce
@@ -81,10 +99,10 @@ class ONUAlphaListener(commands.Cog):
                 and cfg.get("pre_minute") is not None
                 and now.hour == cfg["pre_heure"]
                 and now.minute == cfg["pre_minute"]
-                and self._last_pre.get(guild_id) != current_minute
+                and self._last_pre.get(server_name) != current_minute
             ):
-                self._last_pre[guild_id] = current_minute
-                await self._send_pre_annonce(cfg)
+                self._last_pre[server_name] = current_minute
+                await self._send_pre_annonce(cfg, ng_server.discord_guild_id)
 
             # Annonce
             if (
@@ -92,10 +110,10 @@ class ONUAlphaListener(commands.Cog):
                 and cfg.get("ann_minute") is not None
                 and now.hour == cfg["ann_heure"]
                 and now.minute == cfg["ann_minute"]
-                and self._last_ann.get(guild_id) != current_minute
+                and self._last_ann.get(server_name) != current_minute
             ):
-                self._last_ann[guild_id] = current_minute
-                await self._send_annonce(cfg)
+                self._last_ann[server_name] = current_minute
+                await self._send_annonce(cfg, ng_server.discord_guild_id)
 
     @onu_task.before_loop
     async def before_onu(self) -> None:
@@ -109,10 +127,10 @@ class ONUAlphaListener(commands.Cog):
     # 🔧 Helpers
     # ════════════════════════════════════════════════════════
 
-    async def _get_channel(self, cfg: dict) -> discord.TextChannel | None:
-        guild = self.bot.get_guild(cfg["guild_id"])
+    async def _get_channel(self, cfg: dict, guild_id: int) -> discord.TextChannel | None:
+        guild = self.bot.get_guild(guild_id)
         if guild is None:
-            log.warning("[ONU] Guild %d introuvable", cfg["guild_id"])
+            log.warning("[ONU] Guild %d introuvable (server=%s)", guild_id, cfg.get("server"))
             return None
         channel = guild.get_channel(cfg["channel_id"])
         if channel is None:
@@ -137,8 +155,8 @@ class ONUAlphaListener(commands.Cog):
     # 📢 Pré-annonce
     # ════════════════════════════════════════════════════════
 
-    async def _send_pre_annonce(self, cfg: dict) -> None:
-        channel = await self._get_channel(cfg)
+    async def _send_pre_annonce(self, cfg: dict, guild_id: int) -> None:
+        channel = await self._get_channel(cfg, guild_id)
         if channel is None:
             return
 
@@ -168,9 +186,9 @@ class ONUAlphaListener(commands.Cog):
             if img:
                 kwargs["files"] = [img]
             await channel.send(**kwargs)
-            log.info("[ONU] Pré-annonce envoyée | guild=%d", cfg["guild_id"])
+            log.info("[ONU] Pré-annonce envoyée | server=%s", cfg.get("server"))
         except discord.HTTPException:
-            log.exception("[ONU] Erreur envoi pré-annonce | guild=%d", cfg["guild_id"])
+            log.exception("[ONU] Erreur envoi pré-annonce | server=%s", cfg.get("server"))
             return
 
         # Ping MP
@@ -181,8 +199,8 @@ class ONUAlphaListener(commands.Cog):
     # 📢 Annonce
     # ════════════════════════════════════════════════════════
 
-    async def _send_annonce(self, cfg: dict) -> None:
-        channel = await self._get_channel(cfg)
+    async def _send_annonce(self, cfg: dict, guild_id: int) -> None:
+        channel = await self._get_channel(cfg, guild_id)
         if channel is None:
             return
 
@@ -225,9 +243,9 @@ class ONUAlphaListener(commands.Cog):
             if img:
                 kwargs["files"] = [img]
             await channel.send(**kwargs)
-            log.info("[ONU] Annonce envoyée | guild=%d", cfg["guild_id"])
+            log.info("[ONU] Annonce envoyée | server=%s", cfg.get("server"))
         except discord.HTTPException:
-            log.exception("[ONU] Erreur envoi annonce | guild=%d", cfg["guild_id"])
+            log.exception("[ONU] Erreur envoi annonce | server=%s", cfg.get("server"))
 
     # ════════════════════════════════════════════════════════
     # 🔔 Ping MP
@@ -235,7 +253,7 @@ class ONUAlphaListener(commands.Cog):
 
     async def _send_mp(self, cfg: dict, guild: discord.Guild) -> None:
         """Envoie un DM aux membres de la ping-list."""
-        member_ids = await get_onu_ping_members(cfg["guild_id"])
+        member_ids = await get_onu_ping_members(cfg["server"])
         jour_label = JOURS_LABELS[cfg["jour_onu"]] if cfg.get("jour_onu") is not None else "ce soir"
 
         for uid in member_ids:

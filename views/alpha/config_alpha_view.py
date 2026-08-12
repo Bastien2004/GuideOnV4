@@ -10,9 +10,15 @@ import discord
 from discord import ButtonStyle, Interaction
 from discord.ui import ActionRow, Button, Container, LayoutView, Separator, TextDisplay
 
-from utils.managers.alpha_rank_config_manager import load_rank_config, save_rank_config
+from utils.managers.ng_rank_config_manager import load_rank_config, save_rank_config
 from views._components.channel_select import ChannelSelect
 from views._components.role_select import RoleSelect
+
+# Refonte multi-serveurs phase 11 : ce fichier est désormais partagé entre
+# /alpha config_alpha (dashboard="alpha", toujours server="alpha") et
+# /ngstaff config (dashboard="ngstaff", server résolu dynamiquement). Le
+# marqueur `dashboard` sert uniquement au bouton "Tableau de bord" pour
+# revenir au bon hub parent.
 
 log = logging.getLogger(__name__)
 
@@ -33,11 +39,15 @@ def _role(val: int | None) -> str:
 class ConfigRankView(LayoutView):
     """Dashboard principal — aperçu de la config + boutons de section."""
 
-    def __init__(self, guild_id: int, cfg: dict, owner_id: int) -> None:
+    def __init__(
+        self, guild_id: int, server: str, cfg: dict, owner_id: int, *, dashboard: str = "alpha"
+    ) -> None:
         super().__init__(timeout=300)
         self.guild_id = guild_id
+        self.server = server
         self.cfg = cfg
         self.owner_id = owner_id
+        self.dashboard = dashboard
         self._build()
 
     async def interaction_check(self, interaction: Interaction) -> bool:
@@ -114,27 +124,33 @@ class ConfigRankView(LayoutView):
     # ── Callbacks de navigation ──────────────────────────────
 
     async def _on_back_dash(self, interaction: Interaction) -> None:
-        from views.alpha.config_dashboard_view import ConfigDashboardView
-        await interaction.response.edit_message(
-            view=ConfigDashboardView(self.guild_id, self.owner_id)
-        )
+        if self.dashboard == "ngstaff":
+            from views.ngstaff.config_dashboard_view import NGStaffConfigDashboardView
+            await interaction.response.edit_message(
+                view=NGStaffConfigDashboardView(self.guild_id, self.server, self.owner_id)
+            )
+        else:
+            from views.alpha.config_dashboard_view import ConfigDashboardView
+            await interaction.response.edit_message(
+                view=ConfigDashboardView(self.guild_id, self.owner_id)
+            )
 
     async def _on_salons(self, interaction: Interaction) -> None:
-        cfg = await load_rank_config(self.guild_id)
+        cfg = await load_rank_config(self.server)
         await interaction.response.edit_message(
-            view=_SalonsView(self.guild_id, cfg, self.owner_id)
+            view=_SalonsView(self.guild_id, self.server, cfg, self.owner_id, dashboard=self.dashboard)
         )
 
     async def _on_pings(self, interaction: Interaction) -> None:
-        cfg = await load_rank_config(self.guild_id)
+        cfg = await load_rank_config(self.server)
         await interaction.response.edit_message(
-            view=_PingsView(self.guild_id, cfg, self.owner_id)
+            view=_PingsView(self.guild_id, self.server, cfg, self.owner_id, dashboard=self.dashboard)
         )
 
     async def _on_roles1(self, interaction: Interaction) -> None:
-        cfg = await load_rank_config(self.guild_id)
+        cfg = await load_rank_config(self.server)
         await interaction.response.edit_message(
-            view=_RolesView(self.guild_id, cfg, self.owner_id, page=1)
+            view=_RolesView(self.guild_id, self.server, cfg, self.owner_id, page=1, dashboard=self.dashboard)
         )
 
     async def _on_emoji(self, interaction: Interaction) -> None:
@@ -142,9 +158,9 @@ class ConfigRankView(LayoutView):
         current = self.cfg.get("rank_emoji") or ""
 
         async def on_submit(inter: Interaction, value: str) -> None:
-            cfg = await save_rank_config(self.guild_id, rank_emoji=value.strip() or None)
+            cfg = await save_rank_config(self.server, rank_emoji=value.strip() or None)
             await inter.response.edit_message(
-                view=ConfigRankView(self.guild_id, cfg, self.owner_id)
+                view=ConfigRankView(self.guild_id, self.server, cfg, self.owner_id, dashboard=self.dashboard)
             )
 
         modal = TextModal(
@@ -164,11 +180,15 @@ class ConfigRankView(LayoutView):
 # ════════════════════════════════════════════════════════════
 
 class _SalonsView(LayoutView):
-    def __init__(self, guild_id: int, cfg: dict, owner_id: int) -> None:
+    def __init__(
+        self, guild_id: int, server: str, cfg: dict, owner_id: int, *, dashboard: str = "alpha"
+    ) -> None:
         super().__init__(timeout=300)
         self.guild_id = guild_id
+        self.server = server
         self.cfg = cfg
         self.owner_id = owner_id
+        self.dashboard = dashboard
         self._build()
 
     async def interaction_check(self, interaction: Interaction) -> bool:
@@ -209,15 +229,15 @@ class _SalonsView(LayoutView):
         self.add_item(c)
 
     async def _save(self, interaction: Interaction, field: str, value: int) -> None:
-        self.cfg = await save_rank_config(self.guild_id, **{field: value})
+        self.cfg = await save_rank_config(self.server, **{field: value})
         await interaction.response.edit_message(
-            view=_SalonsView(self.guild_id, self.cfg, self.owner_id)
+            view=_SalonsView(self.guild_id, self.server, self.cfg, self.owner_id, dashboard=self.dashboard)
         )
 
     async def _on_back(self, interaction: Interaction) -> None:
-        cfg = await load_rank_config(self.guild_id)
+        cfg = await load_rank_config(self.server)
         await interaction.response.edit_message(
-            view=ConfigRankView(self.guild_id, cfg, self.owner_id)
+            view=ConfigRankView(self.guild_id, self.server, cfg, self.owner_id, dashboard=self.dashboard)
         )
 
 
@@ -226,11 +246,15 @@ class _SalonsView(LayoutView):
 # ════════════════════════════════════════════════════════════
 
 class _PingsView(LayoutView):
-    def __init__(self, guild_id: int, cfg: dict, owner_id: int) -> None:
+    def __init__(
+        self, guild_id: int, server: str, cfg: dict, owner_id: int, *, dashboard: str = "alpha"
+    ) -> None:
         super().__init__(timeout=300)
         self.guild_id = guild_id
+        self.server = server
         self.cfg = cfg
         self.owner_id = owner_id
+        self.dashboard = dashboard
         self._build()
 
     async def interaction_check(self, interaction: Interaction) -> bool:
@@ -269,15 +293,15 @@ class _PingsView(LayoutView):
         self.add_item(c)
 
     async def _save(self, interaction: Interaction, field: str, value: int) -> None:
-        self.cfg = await save_rank_config(self.guild_id, **{field: value})
+        self.cfg = await save_rank_config(self.server, **{field: value})
         await interaction.response.edit_message(
-            view=_PingsView(self.guild_id, self.cfg, self.owner_id)
+            view=_PingsView(self.guild_id, self.server, self.cfg, self.owner_id, dashboard=self.dashboard)
         )
 
     async def _on_back(self, interaction: Interaction) -> None:
-        cfg = await load_rank_config(self.guild_id)
+        cfg = await load_rank_config(self.server)
         await interaction.response.edit_message(
-            view=ConfigRankView(self.guild_id, cfg, self.owner_id)
+            view=ConfigRankView(self.guild_id, self.server, cfg, self.owner_id, dashboard=self.dashboard)
         )
 
 
@@ -310,12 +334,23 @@ _TOTAL_PAGES = len(_ROLES_PAGES)
 
 
 class _RolesView(LayoutView):
-    def __init__(self, guild_id: int, cfg: dict, owner_id: int, page: int = 1) -> None:
+    def __init__(
+        self,
+        guild_id: int,
+        server: str,
+        cfg: dict,
+        owner_id: int,
+        page: int = 1,
+        *,
+        dashboard: str = "alpha",
+    ) -> None:
         super().__init__(timeout=300)
         self.guild_id = guild_id
+        self.server = server
         self.cfg = cfg
         self.owner_id = owner_id
         self.page = page  # 1 à _TOTAL_PAGES
+        self.dashboard = dashboard
         self._build()
 
     async def interaction_check(self, interaction: Interaction) -> bool:
@@ -358,26 +393,35 @@ class _RolesView(LayoutView):
 
     def _make_save(self, field: str):
         async def _save(interaction: Interaction, role_ids: list[int]) -> None:
-            self.cfg = await save_rank_config(self.guild_id, **{field: role_ids[0]})
+            self.cfg = await save_rank_config(self.server, **{field: role_ids[0]})
             await interaction.response.edit_message(
-                view=_RolesView(self.guild_id, self.cfg, self.owner_id, page=self.page)
+                view=_RolesView(
+                    self.guild_id, self.server, self.cfg, self.owner_id,
+                    page=self.page, dashboard=self.dashboard,
+                )
             )
         return _save
 
     async def _on_prev(self, interaction: Interaction) -> None:
-        cfg = await load_rank_config(self.guild_id)
+        cfg = await load_rank_config(self.server)
         await interaction.response.edit_message(
-            view=_RolesView(self.guild_id, cfg, self.owner_id, page=self.page - 1)
+            view=_RolesView(
+                self.guild_id, self.server, cfg, self.owner_id,
+                page=self.page - 1, dashboard=self.dashboard,
+            )
         )
 
     async def _on_next(self, interaction: Interaction) -> None:
-        cfg = await load_rank_config(self.guild_id)
+        cfg = await load_rank_config(self.server)
         await interaction.response.edit_message(
-            view=_RolesView(self.guild_id, cfg, self.owner_id, page=self.page + 1)
+            view=_RolesView(
+                self.guild_id, self.server, cfg, self.owner_id,
+                page=self.page + 1, dashboard=self.dashboard,
+            )
         )
 
     async def _on_back(self, interaction: Interaction) -> None:
-        cfg = await load_rank_config(self.guild_id)
+        cfg = await load_rank_config(self.server)
         await interaction.response.edit_message(
-            view=ConfigRankView(self.guild_id, cfg, self.owner_id)
+            view=ConfigRankView(self.guild_id, self.server, cfg, self.owner_id, dashboard=self.dashboard)
         )

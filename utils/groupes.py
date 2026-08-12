@@ -119,3 +119,13 @@ class GroupeANNIVADMIN(app_commands.Group):
 
 def groupeANNIVADMIN():
     return GroupeANNIVADMIN()
+
+
+# Groupe NG Staff (refonte multi-serveurs, phase 11 : dashboard générique
+# multi-serveurs, cf /ngstaff config dans cogs/ngstaff/)
+class GroupeNGSTAFF(app_commands.Group):
+    def __init__(self):
+        super().__init__(name="ngstaff", description="Commandes staff NationsGlory (multi-serveurs)")
+
+def groupeNGSTAFF():
+    return GroupeNGSTAFF()
