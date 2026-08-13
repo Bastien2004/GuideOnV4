@@ -1,0 +1,1 @@
+# Système de génération de QR Code

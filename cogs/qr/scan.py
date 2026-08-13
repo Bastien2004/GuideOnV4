@@ -1,0 +1,1 @@
+# Permet au bot de scanner un QRcode et d'en extraire les informations
