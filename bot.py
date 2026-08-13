@@ -167,21 +167,13 @@ class GuideONBot(commands.Bot):
 
         # ── IMPORT NG ──
         from cogs.ng.autel import autel
-        from cogs.ng.claim import claim
-        from cogs.ng.classement import ng_classement
         from cogs.ng.convert import convert
-        from cogs.ng.country import country
         from cogs.ng.dynmaps import dynmaps
         from cogs.ng.info import ng_info
-        from cogs.ng.lvl import lvl
-        from cogs.ng.mmr import mmr
-        from cogs.ng.ngprofil import ngprofil
         from cogs.ng.ngversion import version
         from cogs.ng.onu import onu
-        from cogs.ng.pillage import pillage
         from cogs.ng.rd import rd
         from cogs.ng.sanction import sanction
-        from cogs.ng.serveur_stat import serveur_stat
         from cogs.ng.skin import skin
 
         # ── IMPORT INVITE ──
@@ -275,8 +267,7 @@ class GuideONBot(commands.Bot):
         
         # 🌐 ── NG ──
         groupNG = groupeNG()
-        for cmd in [autel, claim, ng_classement, convert, country, dynmaps, ng_info, lvl, mmr, ngprofil, version, onu, pillage, rd,
-                    sanction, serveur_stat, skin]:
+        for cmd in [autel, convert, dynmaps, ng_info, version, onu, rd, sanction, skin]:
             groupNG.add_command(cmd)
 
 
