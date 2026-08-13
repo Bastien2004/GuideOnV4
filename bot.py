@@ -243,6 +243,9 @@ class GuideONBot(commands.Bot):
         from cogs.ngstaff.ngstaff_rank import ngstaff_rank
         from cogs.ngstaff.ngstaff_stafflist import ngstaff_stafflist
 
+        # ── IMPORT QR ──
+        # from cogs.qr.xxxx import xxxxx
+
 
          # 🔩 ── CONFIG ──
         groupCONFIG = groupeCONFIG()
@@ -304,6 +307,12 @@ class GuideONBot(commands.Bot):
             groupEXP.add_command(cmd)
 
 
+        # 🪢 ── QR ──
+            groupQR = groupeQR()
+            for cmd in []: #Ajouter les commandes QR ici (scan, generate, list ...)
+                groupQR.add_command(cmd)
+
+
         # 💋 ── ALPHA ──
         self._groupALPHA = groupeALPHA()
         for cmd in [test_alpha, regle_interne, nous_rejoindre, index, event_start, event_regle, event_list]:
@@ -318,7 +327,7 @@ class GuideONBot(commands.Bot):
             self._groupNGSTAFF.add_command(cmd)
 
 
-        for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY, groupGIVE, groupEXP, groupMOD]:
+        for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY, groupGIVE, groupEXP, groupMOD, groupQR]:
             self.tree.add_command(group)
 
         log.info("[SETUP_HOOK] ✅ Groupes de commandes enregistrés.")
@@ -409,7 +418,7 @@ class GuideONBot(commands.Bot):
 
         # Sync commande support
 
-        SUPPORT_GUILDS = 1184114738813227059
+        SUPPORT_GUILDS = [1184114738813227059]
 
         for gid in SUPPORT_GUILDS:
             guild = discord.Object(id=gid)
@@ -492,18 +501,17 @@ class GuideONBot(commands.Bot):
             module = ".".join(path.with_suffix("").parts)
             try:
                 await self.load_extension(module)
-                log.info("[LOAD_CMD_COGS] OK %s", module)
+                log.info("[LOAD] %s", module)
                 loaded += 1
 
             except commands.NoEntryPointError:
-                log.debug("[LOAD_CMD_COGS] SKIP %s - manque setup()", module)
                 skipped += 1
 
             except Exception as e:
-                log.error("[LOAD_CMD_COGS] FAIL %s — %s", module, e, exc_info=True)
+                log.error("[ERROR LOAD] %s — %s", module, e, exc_info=True)
                 failed += 1
 
-        log.info("[LOAD_CMD_COGS] Cogs chargés: %d  |  Stubs ignorés: %d  |  Échecs: %d", loaded, skipped, failed)
+        log.info("[LOAD] Cogs chargés: %d  |  Stubs ignorés: %d  |  Échecs: %d", loaded, skipped, failed)
 
 
 # ============================================================
