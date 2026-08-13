@@ -1,6 +1,7 @@
 """
 utils/groupes.py — Groupes de commandes slash.
 """
+
 from discord import app_commands
 
 
@@ -103,29 +104,19 @@ def groupeBIRTHDAY():
     return GroupeBIRTHDAY()
 
 
-# Groupe Anniversaire
-class GroupeANNIV(app_commands.Group):
-    def __init__(self):
-        super().__init__(name="anniv", description="Commandes event anniversaire")
-
-def groupeANNIV():
-    return GroupeANNIV()
-
-
-# Groupe Anniversaire Admin
-class GroupeANNIVADMIN(app_commands.Group):
-    def __init__(self):
-        super().__init__(name="anniv_admin", description="Commandes administrateurs event anniversaire")
-
-def groupeANNIVADMIN():
-    return GroupeANNIVADMIN()
-
-
-# Groupe NG Staff (refonte multi-serveurs, phase 11 : dashboard générique
-# multi-serveurs, cf /ngstaff config dans cogs/ngstaff/)
+# Groupe NG Staff
 class GroupeNGSTAFF(app_commands.Group):
     def __init__(self):
-        super().__init__(name="ngstaff", description="Commandes staff NationsGlory (multi-serveurs)")
+        super().__init__(name="ngstaff", description="Commandes staff NationsGlory")
 
 def groupeNGSTAFF():
     return GroupeNGSTAFF()
+
+
+# Groupe qr
+class GroupeQR(app_commands.Group):
+    def __init__(self):
+        super().__init__(name="qr", description="Commandes QR code")
+
+def groupeQR():
+    return GroupeQR()

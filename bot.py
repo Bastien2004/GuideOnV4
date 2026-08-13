@@ -1,8 +1,7 @@
 """
-Point d'entrée GuideON V4.
-
-Lancement: python bot.py
+bot.py - Fichier principal du bot GuideOn.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -16,21 +15,41 @@ from discord.ext import commands
 from utils.settings import settings
 from utils.logging_config import setup_logging
 from cogs.api.api_app import run_api_server
+from cogs.api.base import app as fastapi_app
+
 from utils.managers.boutique_manager import refresh_cache, cache_refresher_loop
 from utils.managers.ng_server_manager import list_active_servers as list_active_ng_servers
 from utils.managers.ng_server_manager import reload_cache as reload_ng_servers
 from utils.managers.permission_rbac_manager import refresh_cache as refresh_rbac
-from cogs.api.base import app as fastapi_app
 
-from utils.groupes import groupeDEV, groupeCONFIG, groupeNG, groupeTICKET, groupeINV, groupeBIRTHDAY, groupeGIVE, groupeALPHA, groupeEXP, groupeMOD, groupeNGSTAFF
+
+from utils.groupes import *
 
 """A laisser ! """
 import cogs.api.notation_api_app
 import cogs.api.staff_api
 import cogs.api.stats_bot_api
 
+
+# ============================================================
+# 📁 Constantes & Paramètres
+# ============================================================
+
 log = logging.getLogger(__name__)
 
+
+msg_error_bd = ("Impossible de se connecter à la base de données.\n"
+                "  → Vérifie que PostgreSQL est démarré et que DATABASE_URL est correct.\n"
+                "  → DATABASE_URL actuel pointe vers : %s\n"
+                "  → Pour un Postgres local : docker run --name guideon-pg "
+                "-e POSTGRES_PASSWORD=guideon -e POSTGRES_USER=guideon "
+                "-e POSTGRES_DB=guideon -p 5432:5432 -d postgres:16\n"
+                "  → Ou bascule sur SQLite dans .env : "
+                "DATABASE_URL=sqlite+aiosqlite:///./guideon_dev.db")
+
+# ============================================================
+# 🔩 Fonctions utiles
+# ============================================================
 
 def _mask_db_url(url: str) -> str:
     """Masque le mot de passe dans une URL de DB avant de la logger."""
@@ -53,56 +72,34 @@ def build_intents() -> discord.Intents:
     return intents
 
 
+# ============================================================
+# 🧩 Class principale du bot (démarrage)
+# ============================================================
+
 class GuideONBot(commands.Bot):
-    """Classe principale du bot."""
+    """Gère le démarrage du bot."""
 
     def __init__(self) -> None:
-        super().__init__(
-            command_prefix="$",
-            intents=build_intents(),
-            help_command=None,
-        )
+        super().__init__(command_prefix="$", intents=build_intents(), help_command=None)
 
     async def setup_hook(self) -> None:
         setup_logging()
-        log.info("Démarrage du bot GuideOn")
+        log.info("[SETUP_HOOK]⏳ Démarrage du bot GuideOn")
 
         # ── DB ──
         from utils.db.engine import init_db
         try:
             await init_db()
+
         except Exception:
-            log.critical(
-                "Impossible de se connecter à la base de données.\n"
-                "  → Vérifie que PostgreSQL est démarré et que DATABASE_URL est correct.\n"
-                "  → DATABASE_URL actuel pointe vers : %s\n"
-                "  → Pour un Postgres local : docker run --name guideon-pg "
-                "-e POSTGRES_PASSWORD=guideon -e POSTGRES_USER=guideon "
-                "-e POSTGRES_DB=guideon -p 5432:5432 -d postgres:16\n"
-                "  → Ou bascule sur SQLite dans .env : "
-                "DATABASE_URL=sqlite+aiosqlite:///./guideon_dev.db",
-                _mask_db_url(settings.database_url),
-            )
+            log.critical(msg_error_bd, _mask_db_url(settings.database_url))
             raise
 
         # ── Boutique ──
         await refresh_cache()
         asyncio.create_task(cache_refresher_loop())
 
-        # ── Permissions internes (legacy PermissionRole/permission_entries) ──
-        # Refonte multi-serveurs, phase 15 (nettoyage legacy) : retiré.
-        # utils/managers/permission_manager.py n'a plus aucun lecteur depuis
-        # que perm_alpha.py / perm_dev.py / perm_staff.py lisent le RBAC
-        # (permission_rbac_manager, déjà rafraîchi ci-dessous) — voir
-        # PHASE_15.md. Rafraîchir un cache que plus personne ne consulte
-        # n'avait plus de raison d'être.
-
-        # ── Serveurs NG + RBAC (refonte multi-serveurs, phases 1-2) ──
-        # Chargement initial obligatoire : ng_server_manager n'a pas de TTL
-        # automatique (reload explicite uniquement). Sans cet appel,
-        # get_server_by_guild()/list_active_servers() renvoient toujours vide.
-        # permission_rbac_manager a un TTL 60s auto-géré (_ensure_fresh) mais
-        # on prime quand même le cache ici pour éviter un premier appel à froid.
+        # ── Permissions internes ──
         await reload_ng_servers()
         await refresh_rbac()
 
@@ -112,7 +109,7 @@ class GuideONBot(commands.Bot):
         # ── Chargement commandes groupes ──
         await self._register_command_groups()
 
-        # ── Réenregistrement des vues persistantes tickets ──
+        # ── Chargement des views persistantes (tickets) ──
         from views.ticket.persistence import register_persistent_views
         await register_persistent_views(self)
 
@@ -122,15 +119,15 @@ class GuideONBot(commands.Bot):
         fastapi_app.state.bot = self
         run_api_server()
 
-        log.info("setup_hook terminé")
+        log.info("[SETUP_HOOK] ✅ Démarrage terminé")
 
-    # ------------------------------------------------------------------
-    # 👥 Groupes de commandes
-    # ------------------------------------------------------------------
+
+    # ============================================================
+    # 🌐 Gestion des groupes de commandes
+    # ============================================================
+
     async def _register_command_groups(self) -> None:
         """Assemble les groupes de commandes."""
-
-        ### IMPORT DES COMMANDES DE GROUPES ###
 
         # ── IMPORT CONFIG ──
         from cogs.config.bienvenue import bienvenue
@@ -234,20 +231,11 @@ class GuideONBot(commands.Bot):
         from cogs.alpha.regle_interne import regle_interne
         from cogs.alpha.nous_rejoindre import nous_rejoindre
         from cogs.alpha.index import index
-        from cogs.alpha.stafflist import stafflist
-        from cogs.alpha.rank import rank
-        from cogs.alpha.derank import alpha_derank
         from cogs.alpha.event_list import event_list
         from cogs.alpha.event_regle import event_regle
         from cogs.alpha.event_start import event_start
-        from cogs.alpha.config_alpha import config_alpha
-        # alpha_edit_stafflist : plus importée (phase 13) — /alpha edit_stafflist_alpha
-        # est dépréciée au profit de /ngstaff edit_stafflist (§7 du prompt, "disparaît").
-        # cogs/alpha/edit_stafflist.py reste sur disque, jamais supprimé (safety net).
-        from cogs.alpha.nota_force import nota_force
-        from cogs.alpha.nota_debug import nota_debug
 
-        # ── IMPORT NGSTAFF (refonte multi-serveurs, phases 11-12) ──
+        # ── IMPORT NGSTAFF ──
         from cogs.ngstaff.ngstaff_config import ngstaff_config
         from cogs.ngstaff.ngstaff_derank import ngstaff_derank
         from cogs.ngstaff.ngstaff_edit_stafflist import ngstaff_edit_stafflist
@@ -255,7 +243,6 @@ class GuideONBot(commands.Bot):
         from cogs.ngstaff.ngstaff_rank import ngstaff_rank
         from cogs.ngstaff.ngstaff_stafflist import ngstaff_stafflist
 
-        ### ASSEMBLAGE DES GROUPES DE COMMANDES ###
 
          # 🔩 ── CONFIG ──
         groupCONFIG = groupeCONFIG()
@@ -295,63 +282,63 @@ class GuideONBot(commands.Bot):
         for cmd in [invite_config, invite_classement, invite_gestion, invite_user]:
             groupINV.add_command(cmd)
 
+
         # 🎁 ── GIVEAWAY ──
         groupGIVE = groupeGIVE()
         for cmd in [giveaway_blacklist, giveaway_create, giveaway_list, giveaway_manage]:
             groupGIVE.add_command(cmd)
+
 
         # 🛡️ ── MOD ──
         groupMOD = groupeMOD()
         for cmd in [
             mod_permissions, mod_warn, mod_unwarn, mod_mute, mod_unmute,
             mod_kick, mod_ban, mod_tempban, mod_unban, mod_softban, mod_historique, mod_rename, mod_logs,
-            mod_clear, mod_lock, mod_vocal,
-        ]:
+            mod_clear, mod_lock, mod_vocal]:
             groupMOD.add_command(cmd)
+
 
         # 🧩 ── EXP ──
         groupEXP = groupeEXP()
         for cmd in [exp_level, exp_leaderboard, exp_gestion, exp_config]:
             groupEXP.add_command(cmd)
 
+
         # 💋 ── ALPHA ──
         self._groupALPHA = groupeALPHA()
-        # alpha_edit_stafflist_alpha n'est plus enregistrée ici depuis la phase 13
-        # (dépréciée au profit de /ngstaff edit_stafflist — voir import ci-dessus).
-        for cmd in [test_alpha, regle_interne, nous_rejoindre, index,
-                    stafflist, rank, alpha_derank, event_start, event_regle, event_list, config_alpha,
-                    nota_debug, nota_force]:
-            
+        for cmd in [test_alpha, regle_interne, nous_rejoindre, index, event_start, event_regle, event_list]:
             self._groupALPHA.add_command(cmd)
 
-        # 🧑‍💼 ── NGSTAFF (refonte multi-serveurs, phases 11-12) ──
+
+        # 🚨 ── NGSTAFF ──
         self._groupNGSTAFF = groupeNGSTAFF()
         for cmd in [
             ngstaff_config, ngstaff_rank, ngstaff_derank, ngstaff_stafflist,
-            ngstaff_edit_stafflist, ngstaff_nota_debug,
-        ]:
+            ngstaff_edit_stafflist, ngstaff_nota_debug]:
             self._groupNGSTAFF.add_command(cmd)
+
 
         for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY, groupGIVE, groupEXP, groupMOD]:
             self.tree.add_command(group)
 
-        log.info("✅ Groupes de commandes enregistrés.")
+        log.info("[SETUP_HOOK] ✅ Groupes de commandes enregistrés.")
 
 
     async def _sync_commands(self):
 
-        # -----------------------------
-        # SYNC GLOBALE
-        # -----------------------------
+        # ============================================================
+        # 🌐 Synchronisation des commandes
+        # ============================================================
+
         try:
             synced = await self.tree.sync()
             log.info(f"🌍 {len(synced)} commandes globales synchronisées.")
         except Exception as e:
             log.error(f"❌ Erreur sync globale : {e}")
 
-        # -----------------------------
-        # ALPHA
-        # -----------------------------
+
+        # Sync commande Alpha
+
         ALPHA_GUILDS = [
             751903718135431188,
             1411296579528294402,
@@ -368,23 +355,14 @@ class GuideONBot(commands.Bot):
 
                 synced = await self.tree.sync(guild=guild)
 
-                log.info(
-                    f"💋 Commandes ALPHA synchronisées sur {gid} ({len(synced)} cmd)"
-                )
+                log.info(f"💋 Commandes ALPHA synchronisées sur {gid} ({len(synced)} cmd)")
 
             except Exception as e:
                 log.error(f"❌ Erreur ALPHA {gid}: {e}")
 
-        # -----------------------------
-        # NGSTAFF (refonte multi-serveurs, phase 11)
-        # -----------------------------
-        # Contrairement à ALPHA_GUILDS/DEV_GUILDS/SUPPORT_GUILDS (listes
-        # câblées en dur), la liste des guildes cibles est résolue à chaud
-        # depuis le cache ng_servers (peuplé par reload_ng_servers() plus tôt
-        # dans setup_hook, avant l'appel à cette méthode) — §13 du prompt de
-        # refonte : "détection dynamique via ng_servers". Un serveur NG ajouté
-        # après coup nécessite un redémarrage du bot (ou un futur
-        # /dev reload_servers + re-sync, hors scope de cette phase).
+
+        # Sync commande NGSTAFF
+
         for ng_server in list_active_ng_servers():
             guild = discord.Object(id=ng_server.discord_guild_id)
 
@@ -404,9 +382,8 @@ class GuideONBot(commands.Bot):
             except Exception as e:
                 log.error(f"❌ Erreur NGSTAFF {ng_server.name} ({ng_server.discord_guild_id}): {e}")
 
-        # -----------------------------
-        # DEV
-        # -----------------------------
+        # Sync commande DEV
+
         DEV_GUILDS = [
             1400451664946794618,
             1411296579528294402,
@@ -430,12 +407,9 @@ class GuideONBot(commands.Bot):
             except Exception as e:
                 log.error(f"❌ Erreur DEV {gid}: {e}")
 
-        # -----------------------------
-        # SUPPORT
-        # -----------------------------
-        SUPPORT_GUILDS = [
-            1184114738813227059,
-        ]
+        # Sync commande support
+
+        SUPPORT_GUILDS = 1184114738813227059
 
         for gid in SUPPORT_GUILDS:
             guild = discord.Object(id=gid)
@@ -443,9 +417,7 @@ class GuideONBot(commands.Bot):
             try:
                 synced = await self.tree.sync(guild=guild)
 
-                log.info(
-                    f"🛠️ Commandes SUPPORT synchronisées sur {gid} ({len(synced)} cmd)"
-                )
+                log.info(f"🛠️ Commandes SUPPORT synchronisées sur {gid} ({len(synced)} cmd)")
 
             except Exception as e:
                 log.error(f"❌ Erreur SUPPORT {gid}: {e}")
@@ -453,23 +425,31 @@ class GuideONBot(commands.Bot):
 
 
     async def on_ready(self) -> None:
+
         if not hasattr(self, "_ready_done"):
             self._ready_done = True
 
             await self._set_guild_avatars()
 
-        log.info("Connecté en tant que %s (%s)", self.user, self.user.id if self.user else "?")
-        log.info("%d serveurs connectés", len(self.guilds))
+        log.info("[READY] Connecté en tant que %s (%s)", self.user, self.user.id if self.user else "?")
+        log.info("[READY] %d serveurs connectés", len(self.guilds))
+
 
         await self.change_presence(
             status=discord.Status.online,
-            activity=discord.Game(name="GuideON V4"),
+            activity=discord.Activity(
+                type=discord.ActivityType.watching,
+                name=f"👀 {len(self.users)} utilisateurs accompagnés"
+            )
         )
 
 
+    # ============================================================
+    # 🖼️ Avatar personalisé par seveur
+    # ============================================================
 
-    ### GUILD AVATARS ###
     async def _set_guild_avatars(self):
+
         GUILD_AVATARS = {
             751903718135431188 : "source/GuideON Staff.webp",
         }
@@ -491,13 +471,8 @@ class GuideONBot(commands.Bot):
 
 
     async def _load_cogs_from_directory(self, base: str) -> None:
-        """
-        Parcourt récursivement le dossier cogs/ et charge tous les fichiers .py
-        (sauf __init__.py et les fichiers commençant par _).
+        """Charge tout les fichier .py du dossier cogs/."""
 
-        Skip silencieusement les fichiers vides ou sans fonction setup() :
-        ils ne sont pas encore implémentés, ce n'est pas une erreur.
-        """
         base_path = Path(base)
         loaded = 0
         skipped = 0
@@ -507,7 +482,6 @@ class GuideONBot(commands.Bot):
             if path.name.startswith("_") or path.name == "__init__.py":
                 continue
 
-            # Skip silencieusement les fichiers vides (= pas encore implémentés)
             try:
                 if path.stat().st_size == 0:
                     skipped += 1
@@ -518,21 +492,23 @@ class GuideONBot(commands.Bot):
             module = ".".join(path.with_suffix("").parts)
             try:
                 await self.load_extension(module)
-                log.info("  OK %s", module)
+                log.info("[LOAD_CMD_COGS] OK %s", module)
                 loaded += 1
+
             except commands.NoEntryPointError:
-                # Fichier non vide mais sans setup() → considéré comme stub aussi
-                log.debug("  SKIP %s (pas encore de setup())", module)
+                log.debug("[LOAD_CMD_COGS] SKIP %s - manque setup()", module)
                 skipped += 1
+
             except Exception as e:
-                log.error("  FAIL %s — %s", module, e, exc_info=True)
+                log.error("[LOAD_CMD_COGS] FAIL %s — %s", module, e, exc_info=True)
                 failed += 1
 
-        log.info(
-            "Cogs chargés: %d  |  Stubs ignorés: %d  |  Échecs: %d",
-            loaded, skipped, failed,
-        )
+        log.info("[LOAD_CMD_COGS] Cogs chargés: %d  |  Stubs ignorés: %d  |  Échecs: %d", loaded, skipped, failed)
 
+
+# ============================================================
+# 💻 Fonction main
+# ============================================================
 
 async def main() -> None:
     async with GuideONBot() as bot:
