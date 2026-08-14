@@ -452,7 +452,7 @@ class GuideONBot(commands.Bot):
 
         GUILD_AVATARS = {
             751903718135431188 : "source/GuideON Staff.webp",
-            948880111753625642 : "sourcre/GuideON VIP.webp",
+            948880111753625642 : "source/GuideON VIP.webp",
         }
 
         for guild_id, avatar_path in GUILD_AVATARS.items():
@@ -463,8 +463,12 @@ class GuideONBot(commands.Bot):
             try:
                 with open(avatar_path, "rb") as f:
                     image_data = f.read()
+
                 await guild.me.edit(avatar=image_data)
                 log.info(f"🖼️ [GUILD AVATAR] Avatar défini pour {guild.name} ({guild_id})")
+
+                await asyncio.sleep(3)
+
             except FileNotFoundError:
                 log.error(f"❌ [GUILD AVATAR] Fichier introuvable : {avatar_path}")
             except Exception as e:
