@@ -70,33 +70,26 @@ class LockBuilderView(BaseLayoutView):
         ))
         container.add_item(Separator())
 
-        # ── Action ───────────────────────────────────────
+        # ── Actions ──────────────────────────────────────
+        # Le bouton reflète l'état : disabled si pas de salon ou déjà verrouillé.
         if self.channel is None:
-            state_display = "`Sélectionnez un salon`"
             btn_lock = Button(
                 label="Verrouiller", style=ButtonStyle.danger,
                 emoji=ICON_VALIDER, disabled=True,
             )
         elif is_locked(self.channel):
-            state_display = "🔴 Ce salon est **déjà verrouillé**"
             btn_lock = Button(
                 label="Déjà verrouillé", style=ButtonStyle.secondary,
                 emoji="🔒", disabled=True,
             )
         else:
-            state_display = "🟢 Le salon est actuellement **ouvert**"
             btn_lock = Button(
                 label="Verrouiller", style=ButtonStyle.danger, emoji=ICON_VALIDER,
             )
         btn_lock.callback = self._on_lock
-        container.add_item(Section(
-            TextDisplay(f"**🔘 Statut actuel**\n-# {state_display}"),
-            accessory=btn_lock,
-        ))
 
-        container.add_item(Separator())
         btn_doc = Button(label="Documentation", style=ButtonStyle.link, url=settings.doc_url, emoji="📚")
-        container.add_item(ActionRow(btn_doc))
+        container.add_item(ActionRow(btn_lock, btn_doc))
 
         container.add_item(Separator())
         container.add_item(TextDisplay("-# GuideOn Studio"))

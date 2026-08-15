@@ -71,33 +71,26 @@ class UnlockBuilderView(BaseLayoutView):
         ))
         container.add_item(Separator())
 
-        # ── Action ───────────────────────────────────────
+        # ── Actions ──────────────────────────────────────
+        # Le bouton reflète l'état : disabled si pas de salon ou déjà déverrouillé.
         if self.channel is None:
-            state_display = "`Sélectionnez un salon`"
             btn_unlock = Button(
                 label="Déverrouiller", style=ButtonStyle.success,
                 emoji=ICON_VALIDER, disabled=True,
             )
         elif not is_locked(self.channel):
-            state_display = "🟢 Ce salon n'est **pas verrouillé**"
             btn_unlock = Button(
                 label="Non verrouillé", style=ButtonStyle.secondary,
                 emoji="🔓", disabled=True,
             )
         else:
-            state_display = "🔴 Le salon est actuellement **verrouillé**"
             btn_unlock = Button(
                 label="Déverrouiller", style=ButtonStyle.success, emoji=ICON_VALIDER,
             )
         btn_unlock.callback = self._on_unlock
-        container.add_item(Section(
-            TextDisplay(f"**🔘 Statut actuel**\n-# {state_display}"),
-            accessory=btn_unlock,
-        ))
 
-        container.add_item(Separator())
         btn_doc = Button(label="Documentation", style=ButtonStyle.link, url=settings.doc_url, emoji="📚")
-        container.add_item(ActionRow(btn_doc))
+        container.add_item(ActionRow(btn_unlock, btn_doc))
 
         container.add_item(Separator())
         container.add_item(TextDisplay("-# GuideOn Studio"))

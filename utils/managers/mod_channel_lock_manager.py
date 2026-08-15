@@ -12,6 +12,7 @@ modifier la permission send_messages pour @everyone :
 from __future__ import annotations
 
 import discord
+from discord.ui import Container, LayoutView, Separator, TextDisplay
 
 LOCK_EMOJI = "🔒"
 UNLOCK_EMOJI = "🔓"
@@ -24,6 +25,44 @@ class LockError(Exception):
         super().__init__(message)
         self.message = message
         self.warning = warning
+
+
+# ============================================================
+# 🎨 Annonces stylisées (Components V2)
+# ============================================================
+
+def _build_announcement(
+    *, is_lock: bool, moderator: discord.Member, reason: str | None,
+) -> LayoutView:
+    """Container V2 stylisé pour l'annonce publique dans le salon."""
+    view = LayoutView(timeout=None)
+    container = Container()
+
+    if is_lock:
+        title = f"# {LOCK_EMOJI} Salon verrouillé"
+        body = (
+            "Ce salon a été **verrouillé** par un modérateur.\n"
+            "-# Les envois de messages sont désactivés jusqu'à son déverrouillage."
+        )
+    else:
+        title = f"# {UNLOCK_EMOJI} Salon déverrouillé"
+        body = (
+            "Ce salon a été **déverrouillé** par un modérateur.\n"
+            "-# Les échanges peuvent reprendre normalement."
+        )
+
+    container.add_item(TextDisplay(title))
+    container.add_item(Separator())
+    container.add_item(TextDisplay(body))
+    container.add_item(Separator())
+    container.add_item(TextDisplay(f"**👤 Modérateur**\n-# {moderator.mention}"))
+    if reason:
+        container.add_item(TextDisplay(f"**📝 Raison**\n-# « {reason} »"))
+    container.add_item(Separator())
+    container.add_item(TextDisplay("-# GuideOn Studio"))
+
+    view.add_item(container)
+    return view
 
 
 # ============================================================
@@ -96,11 +135,10 @@ async def lock_channel(
     except (discord.Forbidden, discord.HTTPException):
         pass
 
-    # 3. Annonce publique — best-effort.
+    # 3. Annonce publique stylisée — best-effort.
     try:
         await channel.send(
-            f"🔒 **Salon verrouillé** par {moderator.mention}"
-            + (f"\n> {reason}" if reason else ""),
+            view=_build_announcement(is_lock=True, moderator=moderator, reason=reason),
             allowed_mentions=discord.AllowedMentions.none(),
         )
     except (discord.Forbidden, discord.HTTPException):
@@ -146,8 +184,7 @@ async def unlock_channel(
 
     try:
         await channel.send(
-            f"🔓 **Salon déverrouillé** par {moderator.mention}"
-            + (f"\n> {reason}" if reason else ""),
+            view=_build_announcement(is_lock=False, moderator=moderator, reason=reason),
             allowed_mentions=discord.AllowedMentions.none(),
         )
     except (discord.Forbidden, discord.HTTPException):
