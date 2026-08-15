@@ -251,7 +251,10 @@ class SanctionBuilderView(BaseLayoutView):
                 return
             if duration_seconds < min_s or duration_seconds > max_s:
                 await inter.response.send_message(
-                    view=warning_container(f"La durée doit être entre **{min_s}s** et **{max_s}s**."),
+                    view=warning_container(
+                        f"La durée doit être comprise entre **{format_duration(timedelta(seconds=min_s))}** "
+                        f"et **{format_duration(timedelta(seconds=max_s))}**."
+                    ),
                     ephemeral=True,
                 )
                 return

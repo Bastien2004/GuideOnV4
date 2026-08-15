@@ -31,6 +31,23 @@ def _duration_label(delta) -> str:
     return f"{max(delta.seconds // 60, 1)} minute(s)"
 
 
+def _format_user_name(u) -> str:
+    """
+    Affichage propre du nom d'un user pour les logs de rename.
+
+    Discord distingue :
+      - u.name         : le username unique (ex: '0x_daemon')
+      - u.global_name  : le nom d'affichage global optionnel (ex: '0x_DAEMON 🇫🇷')
+
+    `str(user)` ne renvoie que `u.name`, donc si seul le global_name change
+    (le username restant identique), le log affichait deux fois la même valeur.
+    On force ici l'affichage combiné pour lever toute ambiguïté.
+    """
+    if u.global_name and u.global_name != u.name:
+        return f"{u.global_name} (`@{u.name}`)"
+    return f"`@{u.name}`"
+
+
 class ModLogMembers(commands.Cog):
     """Logs des évènements liés aux membres et aux utilisateurs."""
 
@@ -135,8 +152,8 @@ class ModLogMembers(commands.Cog):
                     guild.id, "user_rename",
                     [
                         ("Utilisateur", f"{after.mention} (`{after.id}`)", True),
-                        ("Avant", str(before), True),
-                        ("Après", str(after), True),
+                        ("Avant", _format_user_name(before), True),
+                        ("Après", _format_user_name(after), True),
                     ],
                     thumbnail_url=after.display_avatar.url,
                 )

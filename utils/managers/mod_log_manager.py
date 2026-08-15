@@ -20,6 +20,7 @@ une fois au demarrage du bot (cf. cogs/events/mod_log_guild.py).
 from __future__ import annotations
 
 import logging
+from zoneinfo import ZoneInfo
 
 import discord
 
@@ -28,6 +29,12 @@ from utils.db.models.mod_log import LogConfig
 from utils.db.session import get_session
 
 log = logging.getLogger(__name__)
+
+# Fuseau horaire d'affichage des logs (footer). Fixe pour l'instant — la
+# quasi-totalité des serveurs cibles (NationsGlory) sont francophones et
+# vivent à l'heure de Paris. Passage à un fuseau par-guilde possible plus
+# tard si besoin (colonne timezone sur LogConfig).
+DISPLAY_TZ = ZoneInfo("Europe/Paris")
 
 
 class LogConfigError(Exception):
@@ -284,7 +291,7 @@ async def send_log(
     if image_url:
         embed.set_image(url=image_url)
 
-    now = discord.utils.utcnow()
+    now = discord.utils.utcnow().astimezone(DISPLAY_TZ)
     guild_name = guild.name if guild is not None else "Serveur"
     footer_text = f"{guild_name} • {now:%d/%m/%Y à %Hh%M}"
     footer_icon = guild.icon.url if guild is not None and guild.icon is not None else None

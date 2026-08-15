@@ -1,8 +1,9 @@
 """
-views/mod/lock_builder_view.py — Panneau interactif pour /mod lock.
+views/mod/unlock_builder_view.py — Panneau interactif pour /mod unlock.
 
-Verrouillage uniquement. Le déverrouillage est traité par /mod unlock
-(views/mod/unlock_builder_view.py).
+Déverrouillage uniquement. Le verrouillage est traité par /mod lock
+(views/mod/lock_builder_view.py). Même pattern que LockBuilderView pour
+rester cohérent (Section, ChannelSelect, raison optionnelle).
 """
 from __future__ import annotations
 
@@ -13,7 +14,7 @@ from discord import ButtonStyle
 from discord.ui import ActionRow, Button, Container, Section, Separator, TextDisplay
 
 from utils.container_universel import error_container, warning_container
-from utils.managers.mod_channel_lock_manager import LockError, is_locked, lock_channel
+from utils.managers.mod_channel_lock_manager import LockError, is_locked, unlock_channel
 from utils.managers.mod_log_manager import log_channel_action
 from utils.settings import settings
 from views._components.base_view import BaseLayoutView
@@ -30,8 +31,8 @@ ICON_VALIDER = "<:valider:1495444292867723284>"
 CHANNEL_TYPES = [discord.ChannelType.text, discord.ChannelType.news]
 
 
-class LockBuilderView(BaseLayoutView):
-    """Panneau /mod lock : salon + raison + bouton de verrouillage."""
+class UnlockBuilderView(BaseLayoutView):
+    """Panneau /mod unlock : salon + raison + bouton de déverrouillage."""
 
     def __init__(self, *, guild: discord.Guild, moderator: discord.Member):
         super().__init__(owner_id=moderator.id, timeout=300)
@@ -47,7 +48,7 @@ class LockBuilderView(BaseLayoutView):
         self.clear_items()
 
         container = Container()
-        container.add_item(TextDisplay("# 🔒 Verrouillage de salon"))
+        container.add_item(TextDisplay("# 🔓 Déverrouillage de salon"))
         container.add_item(Separator())
 
         # ── Salon ─────────────────────────────────────────
@@ -73,25 +74,25 @@ class LockBuilderView(BaseLayoutView):
         # ── Action ───────────────────────────────────────
         if self.channel is None:
             state_display = "`Sélectionnez un salon`"
-            btn_lock = Button(
-                label="Verrouiller", style=ButtonStyle.danger,
+            btn_unlock = Button(
+                label="Déverrouiller", style=ButtonStyle.success,
                 emoji=ICON_VALIDER, disabled=True,
             )
-        elif is_locked(self.channel):
-            state_display = "🔴 Ce salon est **déjà verrouillé**"
-            btn_lock = Button(
-                label="Déjà verrouillé", style=ButtonStyle.secondary,
-                emoji="🔒", disabled=True,
+        elif not is_locked(self.channel):
+            state_display = "🟢 Ce salon n'est **pas verrouillé**"
+            btn_unlock = Button(
+                label="Non verrouillé", style=ButtonStyle.secondary,
+                emoji="🔓", disabled=True,
             )
         else:
-            state_display = "🟢 Le salon est actuellement **ouvert**"
-            btn_lock = Button(
-                label="Verrouiller", style=ButtonStyle.danger, emoji=ICON_VALIDER,
+            state_display = "🔴 Le salon est actuellement **verrouillé**"
+            btn_unlock = Button(
+                label="Déverrouiller", style=ButtonStyle.success, emoji=ICON_VALIDER,
             )
-        btn_lock.callback = self._on_lock
+        btn_unlock.callback = self._on_unlock
         container.add_item(Section(
             TextDisplay(f"**🔘 Statut actuel**\n-# {state_display}"),
-            accessory=btn_lock,
+            accessory=btn_unlock,
         ))
 
         container.add_item(Separator())
@@ -133,7 +134,7 @@ class LockBuilderView(BaseLayoutView):
             await self._refresh(inter)
 
         modal = TextModal(
-            title="Raison du verrouillage",
+            title="Raison du déverrouillage",
             label="Raison (optionnelle)",
             placeholder="Explique la raison de cette action...",
             default=self.reason or "",
@@ -144,7 +145,7 @@ class LockBuilderView(BaseLayoutView):
         )
         await interaction.response.send_modal(modal)
 
-    async def _on_lock(self, interaction: discord.Interaction) -> None:
+    async def _on_unlock(self, interaction: discord.Interaction) -> None:
         if self.channel is None:
             await interaction.response.send_message(
                 view=warning_container("Veuillez sélectionner un salon avant de continuer."),
@@ -153,23 +154,23 @@ class LockBuilderView(BaseLayoutView):
             return
 
         try:
-            await lock_channel(self.channel, self.moderator, reason=self.reason)
+            await unlock_channel(self.channel, self.moderator, reason=self.reason)
         except LockError as e:
             view = warning_container(e.message) if e.warning else error_container(e.message)
             await interaction.response.send_message(view=view, ephemeral=True)
             return
         except Exception:
             log.exception(
-                "[LOCK_BUILDER] Échec inattendu guild=%s channel=%s",
+                "[UNLOCK_BUILDER] Échec inattendu guild=%s channel=%s",
                 self.guild.id, self.channel.id,
             )
             await interaction.response.send_message(
-                view=error_container("Une erreur inattendue est survenue lors du **verrouillage**."),
+                view=error_container("Une erreur inattendue est survenue lors du **déverrouillage**."),
                 ephemeral=True,
             )
             return
 
         await log_channel_action(
-            self.guild.id, "Verrouillage", self.moderator.id, self.channel, reason=self.reason,
+            self.guild.id, "Déverrouillage", self.moderator.id, self.channel, reason=self.reason,
         )
         await self._refresh(interaction)

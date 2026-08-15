@@ -1,9 +1,9 @@
 """
-cogs/mod/mod_lock.py — Verrouille un salon textuel.
+cogs/mod/mod_unlock.py — Déverrouille un salon textuel.
 
-Le déverrouillage est traité par /mod unlock (cogs/mod/mod_unlock.py).
-Une même clé de permission `mod_lock` couvre les deux commandes : quelqu'un
-qui peut verrouiller doit pouvoir déverrouiller.
+Le verrouillage est traité par /mod lock (cogs/mod/mod_lock.py).
+Partage la même clé de permission `mod_lock` : quelqu'un qui peut verrouiller
+peut déverrouiller (une seule config pour les deux).
 """
 from __future__ import annotations
 
@@ -17,23 +17,23 @@ from utils.error_handler import handle_app_command_error
 from utils.perm_mod import check_mod_permission
 from utils.track_commande import tracker_commande
 
-from views.mod.lock_builder_view import LockBuilderView
+from views.mod.unlock_builder_view import UnlockBuilderView
 
 
 # ============================================================
-# 🧭 Commande : /mod lock
+# 🧭 Commande : /mod unlock
 # ============================================================
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="lock", description="🔒 Verrouille un salon textuel")
-async def mod_lock(interaction: discord.Interaction) -> None:
+@app_commands.command(name="unlock", description="🔓 Déverrouille un salon textuel")
+async def mod_unlock(interaction: discord.Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.
     if not await verifier_ban_utilisateur(interaction):
         return
 
-    # 🔐 Vérification permission /mod.
+    # 🔐 Vérification permission /mod (même clé que /mod lock).
     if not await check_mod_permission(interaction, "mod_lock"):
         return
 
@@ -44,14 +44,14 @@ async def mod_lock(interaction: discord.Interaction) -> None:
         return
 
     # ⚙️ Vérification maintenance.
-    if not await verifier_commande(interaction, "mod_lock"):
+    if not await verifier_commande(interaction, "mod_unlock"):
         return
 
     # 📊 Tracking.
-    await tracker_commande(interaction, "mod_lock")
+    await tracker_commande(interaction, "mod_unlock")
 
     # 💻 Envoi de l'interface.
-    view = LockBuilderView(guild=interaction.guild, moderator=interaction.user)
+    view = UnlockBuilderView(guild=interaction.guild, moderator=interaction.user)
     await interaction.followup.send(view=view, ephemeral=True)
 
 
@@ -59,6 +59,6 @@ async def mod_lock(interaction: discord.Interaction) -> None:
 # ❌ Gestion des erreurs
 # ============================================================
 
-@mod_lock.error
-async def mod_lock_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
+@mod_unlock.error
+async def mod_unlock_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
     await handle_app_command_error(interaction, error)
