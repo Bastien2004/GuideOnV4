@@ -1,16 +1,17 @@
 """
-utils/derank_logic.py — Logique métier du derank staff Alpha.
+utils/ng_derank_logic.py — Logique métier du derank staff NG.
 
-Extrait de cogs/alpha/derank.py (fichier devenu trop lourd : commande +
-view de confirmation + construction d'annonces + exécution, tout au même
-endroit). Découpage :
+Extrait de cogs/alpha/derank.py (fichier devenu trop lourd). Découpage :
 
-- cogs/alpha/derank.py       : seulement la commande /alpha derank (permissions,
-                               defer, tracking, ouverture de la confirmation).
-- views/alpha/derank_view.py : la view de confirmation (DerankConfirmView),
-                               qui appelle ce module une fois l'utilisateur confirmé.
-- utils/derank_logic.py (ici): calcul de l'état cible, garde-fous, persistance DB,
-                               rôles Discord, pseudo, annonces, refresh stafflist.
+- cogs/alpha/derank.py       : seulement la commande /alpha derank
+- views/alpha/derank_view.py : la view de confirmation (DerankConfirmView)
+- utils/ng_derank_logic.py   : calcul de l'état cible, garde-fous, persistance
+                               DB, rôles Discord, pseudo, annonces, refresh
+                               stafflist
+
+Multi-serveurs depuis la refonte phase 12 : execute_derank accepte le kwarg
+`server` (défaut "alpha"). Renommé alpha_derank_logic.py → ng_derank_logic.py
+pour clarifier sa nature réelle.
 """
 from __future__ import annotations
 
@@ -19,7 +20,7 @@ import logging
 import discord
 from discord.ui import Container, LayoutView, Separator, TextDisplay
 
-from utils.alpha_rank_logic import apply_staff_roles, compute_nick_prefix
+from utils.ng_rank_logic import apply_staff_roles, compute_nick_prefix
 from utils.db.models.alpha_staff import GRADE_LABELS, SECONDARY_STATUSES, STATUTS_SECONDAIRES_ORDER
 from utils.managers.ng_staff_manager import remove_staff_member, update_staff_member
 
@@ -27,7 +28,7 @@ log = logging.getLogger(__name__)
 
 # Refonte multi-serveurs phase 12 : execute_derank accepte désormais un
 # paramètre `server` optionnel (kwarg-only, défaut "alpha") — voir la même
-# note dans utils/alpha_rank_logic.py.
+# note dans utils/ng_rank_logic.py.
 
 
 def secondary_dict(member_data: dict) -> dict[str, bool]:
@@ -247,5 +248,5 @@ async def execute_derank(
             build_journaliste_derank_message(member_data["pseudo_jeu"], role, grade, cfg.get("journaliste_ping_id")),
         )
 
-    from cogs.alpha.stafflist import refresh_staff_message
+    from utils.managers.ng_stafflist_manager import refresh_staff_message
     await refresh_staff_message(bot, guild_id, server=server)

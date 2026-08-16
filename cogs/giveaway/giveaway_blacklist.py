@@ -28,11 +28,8 @@ log = logging.getLogger(__name__)
 
 
 @app_commands.guild_only()
-@app_commands.checks.cooldown(1, 5)
-@app_commands.command(
-    name="blacklist",
-    description="🚫 Gère la blacklist du système de giveaway",
-)
+@app_commands.checks.cooldown(1, 10)
+@app_commands.command(name="blacklist", description="🚫 Gère la blacklist du système de giveaway")
 async def giveaway_blacklist(interaction: discord.Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.

@@ -22,9 +22,6 @@ from utils.managers.alpha_message_manager import get_alpha_message, upsert_alpha
 
 from views.alpha.index_view import build_index_view, get_fresh_files
 
-# Refonte multi-serveurs (§7 du prompt) : câblé en dur sur "alpha" en
-# permanence — cette commande fait partie des "systèmes particuliers"
-# Alpha-only, elle n'a jamais d'équivalent /ngstaff (voir PHASE_13.md).
 SERVER = "alpha"
 
 log = logging.getLogger(__name__)
@@ -41,7 +38,7 @@ MESSAGE_KEY = "index"
 @app_commands.command(name="index", description="📋 [OP] Envoie ou met à jour l'interface d'information (index) du serveur Alpha")
 async def index(interaction: Interaction) -> None:
 
-    # 🌐 Vérification "Discord Alpha" (défense en profondeur, phase 13).
+    # 🌐 Vérification "Discord Alpha".
     if not await require_alpha_guild(interaction):
         return
 

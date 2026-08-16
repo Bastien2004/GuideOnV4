@@ -29,7 +29,7 @@ from utils.managers.ng_staff_manager import (
     upsert_staff_member,
 )
 from utils.db.models.alpha_staff import GRADES_ORDER, GRADE_LABELS, GRADE_EMOJIS
-from utils.alpha_staff_display import build_member_badges
+from utils.ng_staff_display import build_member_badges
 from views._components.user_select import UserSelect
 from views._components.text_modal import TextModal
 
@@ -202,7 +202,7 @@ class EditListView(LayoutView):
                 await add_staff_member(self.server, discord_id, pseudo_jeu=pseudo, grade=grade, skin_head_emoji=emoji)
                 msg = f"**{pseudo}** (<@{discord_id}>) ajouté — **{label}**."
             # Refresh stafflist
-            from cogs.alpha.stafflist import refresh_staff_message
+            from utils.managers.ng_stafflist_manager import refresh_staff_message
             await refresh_staff_message(inter.client, self.guild_id, server=self.server)
             members = await list_staff(self.server)
             await inter.response.edit_message(
@@ -428,7 +428,7 @@ class _ModifyOptionsView(LayoutView):
 
     async def _save_pseudo(self, interaction: Interaction, value: str) -> None:
         await update_staff_member(self.server, self.data["discord_id"], pseudo_jeu=value.strip())
-        from cogs.alpha.stafflist import refresh_staff_message
+        from utils.managers.ng_stafflist_manager import refresh_staff_message
         await refresh_staff_message(interaction.client, self.guild_id, server=self.server)
         members = await list_staff(self.server)
         await interaction.response.edit_message(
@@ -451,7 +451,7 @@ class _ModifyOptionsView(LayoutView):
         self, interaction: Interaction, discord_id: int, member_name: str, grade: str | None
     ) -> None:
         await update_staff_member(self.server, discord_id, grade=grade)
-        from cogs.alpha.stafflist import refresh_staff_message
+        from utils.managers.ng_stafflist_manager import refresh_staff_message
         await refresh_staff_message(interaction.client, self.guild_id, server=self.server)
         members = await list_staff(self.server)
         await interaction.response.edit_message(
@@ -472,7 +472,7 @@ class _ModifyOptionsView(LayoutView):
 
     async def _save_emoji(self, interaction: Interaction, value: str) -> None:
         await update_staff_member(self.server, self.data["discord_id"], skin_head_emoji=value.strip())
-        from cogs.alpha.stafflist import refresh_staff_message
+        from utils.managers.ng_stafflist_manager import refresh_staff_message
         await refresh_staff_message(interaction.client, self.guild_id, server=self.server)
         members = await list_staff(self.server)
         await interaction.response.edit_message(
@@ -525,7 +525,7 @@ class _ConfirmRemoveView(LayoutView):
 
     async def _on_confirm(self, interaction: Interaction) -> None:
         await remove_staff_member(self.server, self.data["discord_id"])
-        from cogs.alpha.stafflist import refresh_staff_message
+        from utils.managers.ng_stafflist_manager import refresh_staff_message
         await refresh_staff_message(interaction.client, self.guild_id, server=self.server)
         members = await list_staff(self.server)
         await interaction.response.edit_message(

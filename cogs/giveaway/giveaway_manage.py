@@ -29,15 +29,10 @@ log = logging.getLogger(__name__)
 
 
 @app_commands.guild_only()
-@app_commands.checks.cooldown(1, 5)
-@app_commands.command(
-    name="manage",
-    description="🛠️ Gère un giveaway existant",
-)
-@app_commands.describe(giveaway_id="L'ID du giveaway à gérer (8 caractères)")
-async def giveaway_manage(
-    interaction: discord.Interaction, giveaway_id: str
-) -> None:
+@app_commands.checks.cooldown(1, 10)
+@app_commands.command(name="manage", description="🛠️ Gère un giveaway existant")
+@app_commands.describe(giveaway_id="L'ID du giveaway à gérer")
+async def giveaway_manage(interaction: discord.Interaction, giveaway_id: str) -> None:
 
     # 🛡️ Vérification ban utilisateur.
     if not await verifier_ban_utilisateur(interaction):

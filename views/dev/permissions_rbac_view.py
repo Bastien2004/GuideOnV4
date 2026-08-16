@@ -181,8 +181,13 @@ async def build_category_view(
     author_id: int,
     category_id: int,
     show_slugs: bool = False,
+    reorder_mode: bool = False,
 ) -> BaseLayoutView | None:
-    """Vue de gestion d'une catégorie : ses grades + création + suppression."""
+    """Vue de gestion d'une catégorie : ses grades + création + suppression.
+
+    reorder_mode : si True, chaque grade affiche ⬆️/⬇️ au lieu du bouton
+    Gérer. Sortie du mode via un bouton "Terminer" en bas.
+    """
 
     category = await rbac.get_category(category_id)
     if category is None:
@@ -198,7 +203,10 @@ async def build_category_view(
     if show_slugs:
         header += f"\n-# `{category.slug}`"
     container.add_item(TextDisplay(header))
-    container.add_item(TextDisplay(f"-# {len(grades)} grade(s) dans cette catégorie"))
+    sub = f"-# {len(grades)} grade(s) dans cette catégorie"
+    if reorder_mode:
+        sub += " · 🔀 Mode réordonnancement actif"
+    container.add_item(TextDisplay(sub))
     container.add_item(Separator())
 
     # ── Liste des grades ────────────────────────────────
@@ -206,7 +214,35 @@ async def build_category_view(
         container.add_item(TextDisplay(
             "-# *Aucun grade pour l'instant. Clique sur* **Nouveau grade** *pour en créer un.*"
         ))
+    elif reorder_mode:
+        # Mode réordonnancement : chaque grade a ⬆️ Monter + ⬇️ Descendre.
+        container.add_item(TextDisplay("## 🎖️ Grades"))
+        for idx, grade in enumerate(grades):
+            members = await rbac.list_members(grade.id)
+            full_slug = f"{category.slug}.{grade.slug}"
+            body = _slug_line(
+                f"**{grade.display_name}**\n-# {len(members)} membre(s) direct(s)",
+                full_slug,
+                show_slugs,
+            )
+            container.add_item(TextDisplay(body))
+            btn_up = Button(
+                label="Monter", emoji="⬆️", style=ButtonStyle.secondary,
+                disabled=(idx == 0),
+            )
+            btn_up.callback = _cb_move_grade(
+                bot, author_id, category_id, grade.id, -1, show_slugs,
+            )
+            btn_down = Button(
+                label="Descendre", emoji="⬇️", style=ButtonStyle.secondary,
+                disabled=(idx == len(grades) - 1),
+            )
+            btn_down.callback = _cb_move_grade(
+                bot, author_id, category_id, grade.id, +1, show_slugs,
+            )
+            container.add_item(ActionRow(btn_up, btn_down))
     else:
+        # Mode normal : chaque grade a un bouton Gérer.
         container.add_item(TextDisplay("## 🎖️ Grades"))
         for grade in grades:
             members = await rbac.list_members(grade.id)
@@ -223,18 +259,29 @@ async def build_category_view(
     container.add_item(Separator())
 
     # ── Actions ─────────────────────────────────────────
-    btn_new = Button(label="Nouveau grade", emoji="➕", style=ButtonStyle.success)
-    btn_new.callback = _cb_new_grade(bot, author_id, category_id, show_slugs)
-    btn_delete = Button(label="Supprimer la catégorie", emoji="🗑️", style=ButtonStyle.danger)
-    btn_delete.callback = _cb_delete_category(bot, author_id, category_id, show_slugs)
-    container.add_item(ActionRow(btn_new, btn_delete))
+    if reorder_mode:
+        # Seul bouton dispo : sortir du mode.
+        btn_done = Button(label="Terminer", emoji="✅", style=ButtonStyle.success)
+        btn_done.callback = _cb_toggle_reorder(bot, author_id, category_id, show_slugs, False)
+        container.add_item(ActionRow(btn_done))
+    else:
+        btn_new = Button(label="Nouveau grade", emoji="➕", style=ButtonStyle.success)
+        btn_new.callback = _cb_new_grade(bot, author_id, category_id, show_slugs)
+        btn_delete = Button(label="Supprimer la catégorie", emoji="🗑️", style=ButtonStyle.danger)
+        btn_delete.callback = _cb_delete_category(bot, author_id, category_id, show_slugs)
+        container.add_item(ActionRow(btn_new, btn_delete))
 
-    btn_back = Button(label="Retour", emoji="↩️", style=ButtonStyle.secondary)
-    btn_back.callback = _cb_back_to_home(bot, author_id, show_slugs)
-    btn_toggle = _slug_toggle_button(
-        show_slugs, _cb_toggle_slugs_category(bot, author_id, category_id, show_slugs)
-    )
-    container.add_item(ActionRow(btn_back, btn_toggle))
+        btn_reorder = Button(
+            label="Réordonner", emoji="🔀", style=ButtonStyle.secondary,
+            disabled=(len(grades) < 2),
+        )
+        btn_reorder.callback = _cb_toggle_reorder(bot, author_id, category_id, show_slugs, True)
+        btn_back = Button(label="Retour", emoji="↩️", style=ButtonStyle.secondary)
+        btn_back.callback = _cb_back_to_home(bot, author_id, show_slugs)
+        btn_toggle = _slug_toggle_button(
+            show_slugs, _cb_toggle_slugs_category(bot, author_id, category_id, show_slugs),
+        )
+        container.add_item(ActionRow(btn_reorder, btn_back, btn_toggle))
 
     _footer(container)
     view.add_item(container)
@@ -810,6 +857,56 @@ async def _reload_home(
 
 
 # ============================================================
+# 🔀 Callbacks du mode réordonnancement
+# ============================================================
+
+def _cb_toggle_reorder(
+    bot, author_id: int, category_id: int, show_slugs: bool, enter_reorder: bool,
+):
+    """Entre ou sort du mode réordonnancement pour la vue catégorie."""
+    async def cb(interaction: Interaction) -> None:
+        new_view = await build_category_view(
+            bot, author_id, category_id, show_slugs,
+            reorder_mode=enter_reorder,
+        )
+        if new_view is None:
+            await _reload_home(interaction, bot, author_id, show_slugs,
+                               "Cette catégorie n'existe plus.")
+            return
+        await interaction.response.edit_message(view=new_view)
+    return cb
+
+
+def _cb_move_grade(
+    bot, author_id: int, category_id: int, grade_id: int,
+    direction: int, show_slugs: bool,
+):
+    """Déplace un grade d'un cran (direction -1 = haut, +1 = bas)."""
+    async def cb(interaction: Interaction) -> None:
+        moved = await rbac.move_grade(grade_id, direction)
+        if not moved:
+            # Peut arriver si un autre dev bouge le grade en même temps
+            # (concurrence rare mais possible). Silencieux.
+            log.debug(
+                "[DEV PERMISSIONS] move_grade(%s, %d) sans effet",
+                grade_id, direction,
+            )
+        new_view = await build_category_view(
+            bot, author_id, category_id, show_slugs,
+            reorder_mode=True,  # on reste en mode réordonnancement
+        )
+        if new_view is None:
+            await _reload_home(interaction, bot, author_id, show_slugs,
+                               "Cette catégorie n'existe plus.")
+            return
+        await interaction.response.edit_message(view=new_view)
+    return cb
+
+
+# ============================================================
 # 🔙 Compatibilité — ancien nom d'entrée
 # ============================================================
+
+# Le cog cogs/dev/permission.py appelle build_category_list_view.
+# Alias pour ne pas devoir toucher au cog.
 build_category_list_view = build_home_view

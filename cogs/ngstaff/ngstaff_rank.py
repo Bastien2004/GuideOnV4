@@ -19,7 +19,7 @@ import logging
 import discord
 from discord import Interaction, app_commands
 
-from utils.alpha_rank_logic import RankValidationError, execute_grade_rank, execute_statut_rank
+from utils.ng_rank_logic import RankValidationError, execute_grade_rank, execute_statut_rank
 from utils.container_universel import error_container, success_container, warning_container
 from utils.control_admin import verifier_commande
 from utils.db.models.alpha_staff import (

@@ -35,7 +35,7 @@ async def event_list(interaction: Interaction) -> None:
         return
 
     # 🔐 Vérification des permissions.
-    if not await has_grade_check(interaction, "staff_op"):
+    if not await has_grade_check(interaction, "staff_alpha.moderateur_plus", "voir la liste des **events M+**"):
         return
 
     # 🕒 Defer.
@@ -51,7 +51,7 @@ async def event_list(interaction: Interaction) -> None:
     # 📊 Tracking.
     await tracker_commande(interaction, "alpha_event_list")
 
-    # ✉️ Envoi du menu
+    # ✉️ Envoi du menu.
     await interaction.followup.send(view=EventListView(interaction.user.id), ephemeral=True)
 
 

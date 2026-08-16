@@ -29,11 +29,8 @@ log = logging.getLogger(__name__)
 
 
 @app_commands.guild_only()
-@app_commands.checks.cooldown(1, 5)
-@app_commands.command(
-    name="list",
-    description="📋 Liste les giveaways du serveur (✨ Gold+)",
-)
+@app_commands.checks.cooldown(1, 10)
+@app_commands.command(name="list", description="📋 Liste les giveaways du serveur (✨ Gold+)")
 async def giveaway_list(interaction: discord.Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.

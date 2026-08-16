@@ -1,29 +1,18 @@
 """
-utils/perm_check.py — Vérification des permissions RBAC (ex-perm_alpha.py,
-généralisé multi-serveurs).
+utils/perm_check.py — Vérification des permissions RBAC.
 
-Deux façons d'utiliser :
+# 🔐 Vérification des permissions.
+    if not await has_grade_check(interaction, "permission", "action"):
+        return
 
-1. Décorateur `@requires_grade("staff_alpha.op")` sur une app_command — refuse
-   automatiquement avec un message éphémère si le grade n'est pas résolu au
-   moment du check Discord.
+Exemple : 
 
-2. Helper inline `has_grade_check(interaction, grade_slug)` pour le flow en
-   deux temps recommandé par le prompt de refonte (§5, option a) quand le
-   grade dépend d'un serveur NG détecté à l'exécution :
+# 🔐 Vérification des permissions.
+if not await has_grade_check(interaction, "staff_alpha.op", "envoyer le tutoriel"):
+    return
 
-       async def ngstaff_rank(interaction):
-           server = await require_ng_server(interaction)
-           if not server:
-               return
-           if not await has_grade_check(interaction, f"staff_{server.name}.op"):
-               return  # message déjà envoyé
-           ...
-
-`require_ng_server` vit dans utils.ng_server_check (à créer si besoin lors du
-câblage des commandes /ngstaff — hors scope de ce module, qui ne couvre que
-la brique RBAC générique).
 """
+
 from __future__ import annotations
 
 import discord
@@ -35,33 +24,27 @@ from utils.managers.permission_rbac_manager import has_grade
 __all__ = ["has_grade_check", "requires_grade"]
 
 
-async def has_grade_check(interaction: discord.Interaction, grade_slug: str) -> bool:
-    """
-    Check inline sans décorateur. Retourne True si autorisé, sinon envoie un
-    message d'erreur éphémère et retourne False.
-    """
+# ============================================================
+# 🔩 Fonctions utilitaires
+# ============================================================
+
+def _build_denied_message(grade_slug: str, action: str | None) -> str:
+    """Construit le message d'erreur de permission."""
+
+    if action:
+        head = f"Vous n'avez pas la permission pour **{action}**."
+
+    else:
+        head = "Permission insuffisante."
+    return f"{head}\n-# Grade requis : `{grade_slug}`"
+
+
+async def has_grade_check(interaction: discord.Interaction, grade_slug: str, action: str | None = None) -> bool:
+    """Vérifie que l'utilisateur à la permission suffisante."""
+
     if await has_grade(interaction.user.id, grade_slug):
         return True
-    await send_ephemeral(
-        interaction, error_container(f"Permission insuffisante ({grade_slug}).")
-    )
+    
+    await send_ephemeral(interaction, error_container(_build_denied_message(grade_slug, action)))
+
     return False
-
-
-def requires_grade(grade_slug: str):
-    """
-    Décorateur pour les app_commands à grade fixe (connu à l'écriture du
-    code, pas dépendant d'un serveur NG résolu à l'exécution — dans ce
-    dernier cas, utiliser `has_grade_check` en flow deux temps, voir §5 du
-    prompt de refonte).
-    """
-
-    async def predicate(interaction: discord.Interaction) -> bool:
-        if await has_grade(interaction.user.id, grade_slug):
-            return True
-        await send_ephemeral(
-            interaction, error_container(f"Permission insuffisante ({grade_slug}).")
-        )
-        return False
-
-    return app_commands.check(predicate)

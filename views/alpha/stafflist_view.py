@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from discord.ui import Container, LayoutView, Separator, TextDisplay
 
-from utils.alpha_staff_display import build_member_line
+from utils.ng_staff_display import build_member_line
 from utils.db.models.alpha_staff import GRADE_EMOJIS, GRADE_LABELS, GRADES_ORDER
 
 # ============================================================

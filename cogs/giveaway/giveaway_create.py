@@ -29,10 +29,7 @@ log = logging.getLogger(__name__)
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(
-    name="create",
-    description="🎉 Crée un nouveau giveaway",
-)
+@app_commands.command(name="create", description="🎉 Crée un nouveau giveaway")
 async def giveaway_create(interaction: discord.Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.

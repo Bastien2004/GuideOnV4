@@ -1,7 +1,14 @@
 """
-utils/alpha_staff_display.py — Affichage centralisé d'un membre du staff
-Alpha (badges de statuts secondaires), utilisé par stafflist.py et
+utils/ng_staff_display.py — Affichage centralisé d'un membre du staff NG
+(badges de statuts secondaires), utilisé par stafflist_view.py et
 edit_list_view.py pour rester synchronisés.
+
+Malgré le nommage historique "alpha_*" des symboles internes qu'il
+utilise (SECONDARY_STATUSES, STATUTS_SECONDAIRES_ORDER), ce module est
+100% multi-serveurs : les badges sont identiques quel que soit le
+serveur NG (les grades et statuts sont hard-codés dans la refonte, cf.
+§10 du prompt). Renommé alpha_staff_display.py → ng_staff_display.py
+pour clarifier sa nature réelle.
 """
 from __future__ import annotations
 

@@ -15,7 +15,8 @@ from utils.botbancmd import verifier_ban_utilisateur
 from utils.control_admin import verifier_commande
 from utils.track_commande import tracker_commande
 
-from utils.perm_alpha import check_modo_plus, require_alpha_guild
+from utils.perm_alpha import require_alpha_guild
+from utils.perm_check import has_grade_check
 from utils.container_universel import error_container, success_container
 from utils.error_handler import handle_app_command_error
 
@@ -54,14 +55,15 @@ async def _event_autocomplete(interaction: discord.Interaction, current: str) ->
 @app_commands.autocomplete(event=_event_autocomplete)
 async def event_start(interaction: Interaction, event: str) -> None:
 
-    # 🌐 Vérification "Discord Alpha" (défense en profondeur, phase 13).
+    # 🌐 Vérification "Discord Alpha".
     if not await require_alpha_guild(interaction): return
 
     # 🛡️ Vérification ban utilisateur.
     if not await verifier_ban_utilisateur(interaction): return
 
     # 🔐 Vérification des permissions.
-    if not await check_modo_plus(interaction, "annoncer un event"): return
+    if not await has_grade_check(interaction, "staff_alpha.moderateur_plus", "annoncer le lancement d'un **event M+**"):
+        return
 
     # 🕒 Defer.
     try:

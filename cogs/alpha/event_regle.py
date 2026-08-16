@@ -13,7 +13,8 @@ from utils.botbancmd import verifier_ban_utilisateur
 from utils.track_commande import tracker_commande
 from utils.control_admin import verifier_commande
 
-from utils.perm_alpha import check_modo_plus, require_alpha_guild
+from utils.perm_alpha import require_alpha_guild
+from utils.perm_check import has_grade_check
 from utils.container_universel import error_container, success_container
 from utils.error_handler import handle_app_command_error
 
@@ -32,14 +33,15 @@ log = logging.getLogger(__name__)
 @app_commands.command(name="event_regle", description="⚔️ [M+] Envoie les règles des events Alpha")
 async def event_regle(interaction: Interaction) -> None:
 
-    # 🌐 Vérification "Discord Alpha" (défense en profondeur, phase 13).
+    # 🌐 Vérification "Discord Alpha".
     if not await require_alpha_guild(interaction): return
 
     # 🛡️ Vérification ban utilisateur.
     if not await verifier_ban_utilisateur(interaction): return
 
     # 🔐 Vérification des permissions.
-    if not await check_modo_plus(interaction, "envoyer les **règles** des __events__ M+"): return
+    if not await has_grade_check(interaction, "staff_alpha.moderateur_plus", "afficher le **règlement** des __events M+__"):
+        return
 
     # 🕒 Defer.
     try:

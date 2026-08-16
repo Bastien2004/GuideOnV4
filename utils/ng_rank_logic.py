@@ -1,14 +1,14 @@
 """
-utils/alpha_rank_logic.py — Logique centralisée de la gestion des rôles Discord
-Alpha et orchestration du rank-up (/alpha rank) : DB, rôles, pseudo, annonces.
+utils/ng_rank_logic.py — Logique centralisée de la gestion des rôles Discord
+staff NG et orchestration du rank-up (/alpha rank, /ngstaff rank) : DB,
+rôles, pseudo, annonces.
 
-Fusion de la logique de rôles pré-existante (compute_nick_prefix,
-strip_incompatible_statuses, apply_staff_roles) et de la logique métier
-extraite de cogs/alpha/rank.py (execute_grade_rank / execute_statut_rank) —
-même traitement que utils/derank_logic.py, regroupé ici pour ne garder
-qu'un seul fichier de logique rank au lieu de deux.
-
-Construction des annonces déplacée dans views/alpha/rank_view.py.
+Malgré le nommage historique "alpha_*" des symboles internes qu'elle
+manipule (GRADE_LABELS, SECONDARY_STATUSES, etc.), cette logique est
+100% multi-serveurs depuis la refonte phase 12 : le paramètre `server`
+(kwarg-only, défaut "alpha") sélectionne la source des données NG
+appropriée. Renommé alpha_rank_logic.py → ng_rank_logic.py pour clarifier
+sa nature réelle.
 """
 
 from __future__ import annotations
@@ -283,7 +283,7 @@ async def execute_grade_rank(
         )
 
     # 📋 Mise à jour de la liste staff (import local, évite un import circulaire de cog).
-    from cogs.alpha.stafflist import refresh_staff_message
+    from utils.managers.ng_stafflist_manager import refresh_staff_message
     await refresh_staff_message(bot, guild_id, server=server)
 
     extra = (
@@ -404,7 +404,7 @@ async def execute_statut_rank(
         )
 
     # 📋 Mise à jour de la liste staff (import local, évite un import circulaire de cog).
-    from cogs.alpha.stafflist import refresh_staff_message
+    from utils.managers.ng_stafflist_manager import refresh_staff_message
     await refresh_staff_message(bot, guild_id, server=server)
 
     return RankResult(label=meta["label"], new_nick=new_nick, builder_pseudo=builder_pseudo_clean)

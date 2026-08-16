@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 5)
-@app_commands.command(name="level", description="📊 Affiche le niveau et l'EXP d'un membre (toi par défaut)")
+@app_commands.command(name="level", description="📊 Affiche le niveau et l'EXP d'un membre")
 @app_commands.describe(membre="Le membre dont tu veux voir le niveau (toi par défaut)")
 async def exp_level(interaction: discord.Interaction, membre: Optional[discord.Member] = None) -> None:
 

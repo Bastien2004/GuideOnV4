@@ -21,7 +21,7 @@ from discord.ui import ActionRow, Button, Container, Separator, TextDisplay
 
 from utils.container_universel import success_container, warning_container
 from utils.db.models.alpha_staff import GRADE_LABELS, SECONDARY_STATUSES, STATUTS_SECONDAIRES_ORDER
-from utils.alpha_derank_logic import execute_derank, guard_message, secondary_dict
+from utils.ng_derank_logic import execute_derank, guard_message, secondary_dict
 from views._components.base_view import BaseLayoutView
 
 log = logging.getLogger(__name__)

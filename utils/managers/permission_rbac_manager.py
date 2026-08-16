@@ -190,7 +190,7 @@ async def list_grades(category_id: int) -> list[PermissionGrade]:
                 await session.execute(
                     select(PermissionGrade)
                     .where(PermissionGrade.category_id == category_id)
-                    .order_by(PermissionGrade.position)
+                    .order_by(PermissionGrade.position, PermissionGrade.id)
                 )
             )
             .scalars()
@@ -415,6 +415,59 @@ async def create_grade(
         display_name=grade_display_name,
         position=grade_position,
     )
+
+
+async def move_grade(grade_id: int, direction: int) -> bool:
+    """
+    Déplace un grade d'un cran vers le haut (direction=-1) ou vers le bas
+    (direction=+1) dans sa catégorie.
+
+    À chaque appel, TOUTES les positions de la catégorie sont renumérotées
+    proprement en 10, 20, 30... — ça évite les positions à zéro (défaut à
+    la création) qui rendent l'ordre imprévisible, et garantit qu'un futur
+    swap trouve un adjacent au pas fixe.
+
+    Retourne True si le grade a bougé, False s'il était déjà en bout de
+    liste (ou si le grade n'existe pas / direction invalide).
+    """
+    if direction not in (-1, 1):
+        return False
+
+    async with get_session() as session:
+        grade = await session.get(PermissionGrade, grade_id)
+        if grade is None:
+            return False
+
+        # Charge tous les grades de la catégorie, ordre stable.
+        grades = list(
+            (
+                await session.execute(
+                    select(PermissionGrade)
+                    .where(PermissionGrade.category_id == grade.category_id)
+                    .order_by(PermissionGrade.position, PermissionGrade.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+        idx = next((i for i, g in enumerate(grades) if g.id == grade_id), None)
+        if idx is None:
+            return False
+
+        new_idx = idx + direction
+        if new_idx < 0 or new_idx >= len(grades):
+            return False  # Déjà tout en haut / tout en bas.
+
+        # Swap dans la liste locale.
+        grades[idx], grades[new_idx] = grades[new_idx], grades[idx]
+
+        # Renumérote proprement pour éviter les collisions futures.
+        for i, g in enumerate(grades):
+            g.position = (i + 1) * 10
+
+    await refresh_cache()
+    return True
 
 
 async def delete_grade(grade_id: int) -> bool:
