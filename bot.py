@@ -29,6 +29,7 @@ from utils.groupes import *
 import cogs.api.notation_api_app
 import cogs.api.staff_api
 import cogs.api.stats_bot_api
+import cogs.api.api_servers
 
 
 # ============================================================
@@ -237,7 +238,9 @@ class GuideONBot(commands.Bot):
         from cogs.ngstaff.ngstaff_stafflist import ngstaff_stafflist
 
         # ── IMPORT QR ──
-        # from cogs.qr.xxxx import xxxxx
+        #from cogs.qr.generate import qr_generate
+        #from cogs.qr.list import qr_list
+        #from cogs.qr.scan import qr_scan
 
 
          # 🔩 ── CONFIG ──
@@ -300,9 +303,9 @@ class GuideONBot(commands.Bot):
 
 
         # 🪢 ── QR ──
-            groupQR = groupeQR()
-            for cmd in []: #Ajouter les commandes QR ici (scan, generate, list ...)
-                groupQR.add_command(cmd)
+        groupQR = groupeQR()
+        for cmd in []: #Ajouter les commandes QR ici (qr, generate, list ...)
+            groupQR.add_command(cmd)
 
 
         # 💋 ── ALPHA ──
@@ -317,6 +320,11 @@ class GuideONBot(commands.Bot):
             ngstaff_config, ngstaff_rank, ngstaff_derank, ngstaff_stafflist,
             ngstaff_edit_stafflist, ngstaff_nota_debug]:
             self._groupNGSTAFF.add_command(cmd)
+
+        # 🪢 ── QR ──
+        groupQR = groupeQR()
+        for cmd in [qr_generate, qr_list, qr_scan]:
+            groupQR.add_command(cmd)
 
 
         for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY, groupGIVE, groupEXP, groupMOD, groupQR]:
