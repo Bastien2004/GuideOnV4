@@ -15,17 +15,13 @@ from utils.track_commande import tracker_commande
 
 from utils.container_universel import error_container, success_container
 from utils.error_handler import handle_app_command_error
-from utils.perm_alpha import check_op_alpha, require_alpha_guild
+from utils.perm_alpha import require_alpha_guild
+from utils.perm_check import has_grade_check
 
 from utils.managers.ng_rank_config_manager import load_rank_config
 from utils.managers.alpha_message_manager import get_alpha_message, upsert_alpha_message, clear_alpha_message
 
 from views.alpha.regle_interne_view import build_regle_interne_view
-
-# Refonte multi-serveurs (§7 du prompt) : câblé en dur sur "alpha" en
-# permanence — cette commande fait partie des "systèmes particuliers"
-# Alpha-only, elle n'a jamais d'équivalent /ngstaff (voir PHASE_13.md).
-SERVER = "alpha"
 
 log = logging.getLogger(__name__)
 
@@ -49,8 +45,8 @@ async def regle_interne(interaction: Interaction) -> None:
     if not await verifier_ban_utilisateur(interaction):
         return
 
-    # 🔐 Permission OP Alpha.
-    if not await check_op_alpha(interaction, "**envoyer** les règles internes"):
+    # 🔐 Vérification des permissions.
+    if not await has_grade_check(interaction, "staff_alpha.moderateur"):
         return
 
     # 🕒 Defer.
@@ -67,7 +63,7 @@ async def regle_interne(interaction: Interaction) -> None:
     await tracker_commande(interaction, "alpha_regle_interne")
 
     # 📋 Récupération des données.
-    cfg = await load_rank_config(SERVER)
+    cfg = await load_rank_config("alpha")
     channel_id = cfg.get("content_regle_interne_channel_id")
     emoji_str = cfg.get("content_regle_interne_emoji")
 

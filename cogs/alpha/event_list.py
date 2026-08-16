@@ -11,7 +11,8 @@ from utils.botbancmd import verifier_ban_utilisateur
 from utils.control_admin import verifier_commande
 from utils.track_commande import tracker_commande
 
-from utils.perm_alpha import check_modo_plus, require_alpha_guild
+from utils.perm_alpha import require_alpha_guild
+from utils.perm_check import has_grade_check
 from utils.error_handler import handle_app_command_error
 from views.alpha.event_list_view import EventListView
 
@@ -25,7 +26,7 @@ from views.alpha.event_list_view import EventListView
 @app_commands.command(name="event_list", description="🗂️ [M+] Affiche la liste des events Alpha")
 async def event_list(interaction: Interaction) -> None:
 
-    # 🌐 Vérification "Discord Alpha" (défense en profondeur, phase 13).
+    # 🌐 Vérification "Discord Alpha".
     if not await require_alpha_guild(interaction):
         return
 
@@ -34,7 +35,7 @@ async def event_list(interaction: Interaction) -> None:
         return
 
     # 🔐 Vérification des permissions.
-    if not await check_modo_plus(interaction, "**consulter** la liste des __events__"):
+    if not await has_grade_check(interaction, "staff_op"):
         return
 
     # 🕒 Defer.
