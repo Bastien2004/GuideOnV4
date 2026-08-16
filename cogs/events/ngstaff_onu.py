@@ -10,12 +10,14 @@ from discord.ext import commands, tasks
 import os
 import logging
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from discord.ui import Container, LayoutView, MediaGallery, Section, Separator, TextDisplay
 from discord import MediaGalleryItem
 
 from utils.managers.ng_onu_manager import list_all_onu_configs, get_onu_ping_members
 from utils.managers.ng_server_manager import get_server_by_name
+from utils.ng_server_display import get_server_emoji
 from utils.db.models.ng_onu_config import JOURS_LABELS
 
 log = logging.getLogger(__name__)
@@ -66,10 +68,8 @@ class NGSTAFF_ONUListener(commands.Cog):
                 continue
 
             try:
-                from zoneinfo import ZoneInfo
                 tz = ZoneInfo(cfg.get("timezone") or "Europe/Paris")
             except Exception:
-                from zoneinfo import ZoneInfo
                 tz = ZoneInfo("Europe/Paris")
 
             now = now_utc.astimezone(tz)
@@ -126,9 +126,9 @@ class NGSTAFF_ONUListener(commands.Cog):
                 channel = await self.bot.fetch_channel(cfg["channel_id"])
 
             except (discord.NotFound, discord.HTTPException):
-                log.warning("[ONU] Salon %d introuvable", cfg["channel_id"])
+                log.warning("[NGSTAFF ONU] Salon %d introuvable", cfg["channel_id"])
                 return None
-            
+
         return channel
 
     def _get_image_file(self, cfg: dict) -> discord.File | None:
@@ -141,28 +141,41 @@ class NGSTAFF_ONUListener(commands.Cog):
         if not os.path.exists(path):
             log.warning("[NGSTAFF ONU] Image introuvable : %s", path)
             return None
-        
+
         return discord.File(path, filename=name)
+
+    def _resolve_display(self, cfg: dict) -> tuple[str, str, str]:
+        """Résout les éléments d'affichage propres au serveur NG."""
+
+        server_slug = cfg.get("server", "")
+        ng_server = get_server_by_name(server_slug)
+        display_name = ng_server.display_name if ng_server else server_slug.capitalize()
+        emoji = get_server_emoji(server_slug)
+
+        return server_slug, display_name, emoji
 
     # ============================================================
     # 📢 Pré-annonce
     # ============================================================
 
     async def _send_pre_annonce(self, cfg: dict, guild_id: int) -> None:
+        """Envoie de la pré-annonce ONU."""
+
         channel = await self._get_channel(cfg, guild_id)
         if channel is None:
             return
 
+        server_slug, display_name, emoji = self._resolve_display(cfg)
         ping = f"<@&{cfg['role_id']}> " if cfg.get("role_id") else ""
 
         view = LayoutView(timeout=None)
         c = Container()
-        c.add_item(TextDisplay(f"# 🌐 ONU Alpha | {ping}"))
+        c.add_item(TextDisplay(f"# 🌐 ONU {display_name} | {ping}"))
         c.add_item(Separator())
         c.add_item(TextDisplay(
             "L'**ONU** démarre dans **30 minutes** ! ⏳\n"
             "👉 Rejoignez le [Discord NationsGlory](https://discord.gg/nationsglory) "
-            "et prenez le **rôle** `'Serveur Alpha'`."
+            f"et prenez le **rôle** `'Serveur {display_name}'`."
         ))
         c.add_item(Separator())
 
@@ -171,7 +184,7 @@ class NGSTAFF_ONUListener(commands.Cog):
             c.add_item(MediaGallery(MediaGalleryItem(f"attachment://{img.filename}")))
             c.add_item(Separator())
 
-        c.add_item(TextDisplay("-# <:Alpha:1500414179650048070> Staff Alpha"))
+        c.add_item(TextDisplay(f"-# {emoji} Staff {display_name}"))
         view.add_item(c)
 
         try:
@@ -179,29 +192,33 @@ class NGSTAFF_ONUListener(commands.Cog):
             if img:
                 kwargs["files"] = [img]
             await channel.send(**kwargs)
-            log.info("[ONU] Pré-annonce envoyée | server=%s", cfg.get("server"))
+            log.info("[NGSTAFF ONU] Pré-annonce envoyée | server=%s", server_slug)
+
         except discord.HTTPException:
-            log.exception("[ONU] Erreur envoi pré-annonce | server=%s", cfg.get("server"))
+            log.exception("[NGSTAFF ONU] Erreur envoi pré-annonce | server=%s", server_slug)
             return
 
         # Ping MP
         if cfg.get("ping_mp"):
-            await self._send_mp(cfg, channel.guild)
+            await self._send_mp(cfg, channel.guild, display_name=display_name)
 
-    # ════════════════════════════════════════════════════════
+    # ============================================================
     # 📢 Annonce
-    # ════════════════════════════════════════════════════════
+    # ============================================================
 
     async def _send_annonce(self, cfg: dict, guild_id: int) -> None:
+        """Envoie de l'annonce ONU."""
+
         channel = await self._get_channel(cfg, guild_id)
         if channel is None:
             return
 
+        server_slug, display_name, emoji = self._resolve_display(cfg)
         ping = f"<@&{cfg['role_id']}> " if cfg.get("role_id") else ""
 
         view = LayoutView(timeout=None)
         c = Container()
-        c.add_item(TextDisplay(f"# 🌐 Début de l'ONU Alpha | {ping}"))
+        c.add_item(TextDisplay(f"# 🌐 Début de l'ONU {display_name} | {ping}"))
         c.add_item(Separator())
         c.add_item(TextDisplay(
             "L'**ONU** commence **maintenant** !\n"
@@ -214,7 +231,6 @@ class NGSTAFF_ONUListener(commands.Cog):
             c.add_item(MediaGallery(MediaGalleryItem(f"attachment://{img.filename}")))
             c.add_item(Separator())
 
-        # Bouton rejoindre (optionnel)
         if cfg.get("join_url"):
             join_btn = discord.ui.Button(
                 label="Rejoindre la conférence",
@@ -228,7 +244,7 @@ class NGSTAFF_ONUListener(commands.Cog):
             ))
             c.add_item(Separator())
 
-        c.add_item(TextDisplay("-# <:Alpha:1500414179650048070> Staff Alpha"))
+        c.add_item(TextDisplay(f"-# {emoji} Staff {display_name}"))
         view.add_item(c)
 
         try:
@@ -236,16 +252,18 @@ class NGSTAFF_ONUListener(commands.Cog):
             if img:
                 kwargs["files"] = [img]
             await channel.send(**kwargs)
-            log.info("[ONU] Annonce envoyée | server=%s", cfg.get("server"))
+            log.info("[NGSTAFF ONU] Annonce envoyée | server=%s", server_slug)
+
         except discord.HTTPException:
-            log.exception("[ONU] Erreur envoi annonce | server=%s", cfg.get("server"))
+            log.exception("[NGSTAFF ONU] Erreur envoi annonce | server=%s", server_slug)
 
-    # ════════════════════════════════════════════════════════
+    # ============================================================
     # 🔔 Ping MP
-    # ════════════════════════════════════════════════════════
+    # ============================================================
 
-    async def _send_mp(self, cfg: dict, guild: discord.Guild) -> None:
+    async def _send_mp(self, cfg: dict, guild: discord.Guild, *, display_name: str) -> None:
         """Envoie un DM aux membres de la ping-list."""
+
         member_ids = await get_onu_ping_members(cfg["server"])
         jour_label = JOURS_LABELS[cfg["jour_onu"]] if cfg.get("jour_onu") is not None else "ce soir"
 
@@ -258,14 +276,13 @@ class NGSTAFF_ONUListener(commands.Cog):
                     continue
             try:
                 await member.send(
-                    f"🔔 **Rappel ONU Alpha**\n"
+                    f"🔔 **Rappel ONU {display_name}**\n"
                     f"Salut {member.display_name}, l'ONU commence dans **30 minutes** ({jour_label}) !"
                 )
             except discord.Forbidden:
-                log.warning("[ONU] DM impossible pour %d", uid)
+                log.warning("[NGSTAFF ONU] DM impossible pour %d", uid)
             except discord.HTTPException:
-                log.warning("[ONU] Erreur DM pour %d", uid)
-
+                log.warning("[NGSTAFF ONU] Erreur DM pour %d", uid)
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(NGSTAFF_ONUListener(bot))
