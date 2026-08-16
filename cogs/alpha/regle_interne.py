@@ -46,7 +46,7 @@ async def regle_interne(interaction: Interaction) -> None:
         return
 
     # 🔐 Vérification des permissions.
-    if not await has_grade_check(interaction, "staff_alpha.moderateur"):
+    if not await has_grade_check(interaction, "staff_alpha.moderateur_plus"):
         return
 
     # 🕒 Defer.
