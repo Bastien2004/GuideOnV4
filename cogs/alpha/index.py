@@ -15,7 +15,8 @@ from utils.track_commande import tracker_commande
 
 from utils.container_universel import error_container, success_container
 from utils.error_handler import handle_app_command_error
-from utils.perm_alpha import check_op_alpha, require_alpha_guild
+from utils.ng_check_discord import require_alpha_guild
+from utils.perm_check import has_grade_check
 
 from utils.managers.ng_rank_config_manager import load_rank_config
 from utils.managers.alpha_message_manager import get_alpha_message, upsert_alpha_message, clear_alpha_message
@@ -46,8 +47,8 @@ async def index(interaction: Interaction) -> None:
     if not await verifier_ban_utilisateur(interaction):
         return
 
-    # 🔐 Vérification Opérateur.
-    if not await check_op_alpha(interaction, "gérer l'**index**"):
+    # 🔐 Vérification des permissions.
+    if not await has_grade_check(interaction, "staff_alpha.op", "gèrer l'**index**"):
         return
 
     # 🕒 Defer.

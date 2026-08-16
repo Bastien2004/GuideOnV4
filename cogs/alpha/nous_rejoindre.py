@@ -15,16 +15,14 @@ from utils.track_commande import tracker_commande
 
 from utils.container_universel import error_container, success_container
 from utils.error_handler import handle_app_command_error
-from utils.perm_alpha import check_op_alpha, require_alpha_guild
+from utils.ng_check_discord import require_alpha_guild
+from utils.perm_check import has_grade_check
 
 from utils.managers.ng_rank_config_manager import load_rank_config
 from utils.managers.alpha_message_manager import get_alpha_message, upsert_alpha_message, clear_alpha_message
 
 from views.alpha.nous_rejoindre_view import build_nous_rejoindre_view, get_fresh_files
 
-# Refonte multi-serveurs (§7 du prompt) : câblé en dur sur "alpha" en
-# permanence — cette commande fait partie des "systèmes particuliers"
-# Alpha-only, elle n'a jamais d'équivalent /ngstaff (voir PHASE_13.md).
 SERVER = "alpha"
 
 log = logging.getLogger(__name__)
@@ -41,7 +39,7 @@ MESSAGE_KEY = "nous_rejoindre"
 @app_commands.command(name="nous_rejoindre", description="🚪 [OP] Envoi ou met à jour le tutoriel pour rejoindre le serveur Alpha")
 async def nous_rejoindre(interaction: Interaction) -> None:
 
-    # 🌐 Vérification "Discord Alpha" (défense en profondeur, phase 13).
+    # 🌐 Vérification "Discord Alpha".
     if not await require_alpha_guild(interaction):
         return
 
@@ -49,8 +47,8 @@ async def nous_rejoindre(interaction: Interaction) -> None:
     if not await verifier_ban_utilisateur(interaction):
         return
 
-    # 🔐 Vérification Opérateur.
-    if not await check_op_alpha(interaction, "envoyer le tutoriel"):
+    # 🔐 Vérification des permissions.
+    if not await has_grade_check(interaction, "staff_alpha.op", "gèrer le tutoriel"):
         return
 
     # 🕒 Defer.

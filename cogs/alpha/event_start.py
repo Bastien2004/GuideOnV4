@@ -15,7 +15,7 @@ from utils.botbancmd import verifier_ban_utilisateur
 from utils.control_admin import verifier_commande
 from utils.track_commande import tracker_commande
 
-from utils.perm_alpha import require_alpha_guild
+from utils.ng_check_discord import require_alpha_guild
 from utils.perm_check import has_grade_check
 from utils.container_universel import error_container, success_container
 from utils.error_handler import handle_app_command_error

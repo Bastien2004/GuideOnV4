@@ -13,8 +13,7 @@ from utils.control_admin import verifier_commande
 from utils.track_commande import tracker_commande
 
 from utils.error_handler import handle_app_command_error
-from utils.container_universel import error_container
-from utils.createur import is_creator
+from utils.perm_check import has_grade_check
 
 
 # ============================================================
@@ -48,9 +47,9 @@ async def test_alpha(interaction: Interaction) -> None:
     if not await verifier_ban_utilisateur(interaction):
         return
 
-    # 🔐 Créateurs uniquement.
-    if not is_creator(interaction.user.id):
-        return await interaction.response.send_message(view=error_container("Cette commande est réservée aux **créateurs**."), ephemeral=True)
+    # 🔐 Vérification des permissions.
+    if not await has_grade_check(interaction, "equipe_guideon.dev", "utiliser cette commande de **dev**"):
+        return
     
     # 🕒 Defer.
     try:
