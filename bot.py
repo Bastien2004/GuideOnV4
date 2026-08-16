@@ -322,9 +322,9 @@ class GuideONBot(commands.Bot):
             self._groupNGSTAFF.add_command(cmd)
 
         # 🪢 ── QR ──
-        groupQR = groupeQR()
-        for cmd in [qr_generate, qr_list, qr_scan]:
-            groupQR.add_command(cmd)
+        #groupQR = groupeQR()
+        #for cmd in [qr_generate, qr_list, qr_scan]:
+        #    groupQR.add_command(cmd)
 
 
         for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY, groupGIVE, groupEXP, groupMOD, groupQR]:
