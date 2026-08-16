@@ -1,46 +1,31 @@
 """
-cogs/events/onu_alpha.py — Listener ONU multi-serveurs.
-
-Refonte multi-serveurs phase 8 : bascule complète sur ng_onu_manager /
-NGONUConfig / NGONUPingMember. `list_all_onu_configs()` renvoie désormais des
-configs clées par `server` (nom NGServer) et non plus `guild_id` : la boucle
-résout le guild_id Discord de chaque config via ng_server_manager
-(get_server_by_name) et ignore silencieusement les serveurs inconnus du
-cache ou désactivés (`NGServer.active is False`) — cf. §14 du prompt
-("Task loops : dispatch correct par serveur, gestion des serveurs
-active=false (ignorés)").
-
-Boucle toutes les 30 s. Pour chaque serveur NG configuré + activé (à la fois
-`NGServer.active` et `NGONUConfig.enabled`) :
-  - Si on est le bon jour + bonne heure → envoie la pré-annonce OU l'annonce
-  - Les pré-annonces/annonces sont dé-dupliquées par (server, "YYYY-MM-DD HH:MM")
-
-Chargé automatiquement par _load_cogs_from_directory.
+cogs/events/ngstaff_onu.py — Listener du système d'ONU NGSTAFF.
 """
-from __future__ import annotations
 
-import logging
-import os
-from datetime import datetime, timezone
+from __future__ import annotations
 
 import discord
 from discord.ext import commands, tasks
-from discord.ui import (
-    Container, LayoutView, MediaGallery, Section, Separator, TextDisplay,
-)
+
+import os
+import logging
+from datetime import datetime, timezone
+
+from discord.ui import Container, LayoutView, MediaGallery, Section, Separator, TextDisplay
 from discord import MediaGalleryItem
 
-from utils.managers.ng_onu_manager import (
-    list_all_onu_configs,
-    get_onu_ping_members,
-)
+from utils.managers.ng_onu_manager import list_all_onu_configs, get_onu_ping_members
 from utils.managers.ng_server_manager import get_server_by_name
 from utils.db.models.ng_onu_config import JOURS_LABELS
 
 log = logging.getLogger(__name__)
 
 
-class ONUAlphaListener(commands.Cog):
+# ============================================================
+# 🧩 Class principale
+# ============================================================
+
+class NGSTAFF_ONUListener(commands.Cog):
     """Gère les annonces ONU automatiques pour tous les serveurs NG configurés."""
 
     def __init__(self, bot: commands.Bot) -> None:
@@ -52,16 +37,16 @@ class ONUAlphaListener(commands.Cog):
     def cog_unload(self) -> None:
         self.onu_task.cancel()
 
-    # ════════════════════════════════════════════════════════
+    # ============================================================
     # 🔁 Boucle principale
-    # ════════════════════════════════════════════════════════
+    # ============================================================
 
     @tasks.loop(seconds=30)
     async def onu_task(self) -> None:
         try:
             configs = await list_all_onu_configs()
         except Exception:
-            log.exception("[ONU] Erreur lors du chargement des configs")
+            log.exception("[NGSTAFF ONU] Erreur lors du chargement des configs")
             return
 
         now_utc = datetime.now(timezone.utc)
@@ -75,7 +60,7 @@ class ONUAlphaListener(commands.Cog):
             server_name = cfg["server"]
             ng_server = get_server_by_name(server_name)
             if ng_server is None:
-                log.warning("[ONU] Serveur NG %r introuvable dans le cache", server_name)
+                log.warning("[NGSTAFF ONU] Serveur NG %r introuvable dans le cache", server_name)
                 continue
             if not ng_server.active:
                 continue
@@ -93,7 +78,7 @@ class ONUAlphaListener(commands.Cog):
 
             current_minute = now.strftime("%Y-%m-%d %H:%M")
 
-            # Pré-annonce
+            # 📢 Pré-annonce
             if (
                 cfg.get("pre_heure") is not None
                 and cfg.get("pre_minute") is not None
@@ -104,7 +89,7 @@ class ONUAlphaListener(commands.Cog):
                 self._last_pre[server_name] = current_minute
                 await self._send_pre_annonce(cfg, ng_server.discord_guild_id)
 
-            # Annonce
+            # 📢 Annonce
             if (
                 cfg.get("ann_heure") is not None
                 and cfg.get("ann_minute") is not None
@@ -121,39 +106,47 @@ class ONUAlphaListener(commands.Cog):
 
     @onu_task.error
     async def onu_task_error(self, error: Exception) -> None:
-        log.exception("[ONU] Erreur non gérée dans la boucle : %s", error)
+        log.exception("[NGSTAFF ONU] Erreur non gérée dans la boucle : %s", error)
 
-    # ════════════════════════════════════════════════════════
+    # ============================================================
     # 🔧 Helpers
-    # ════════════════════════════════════════════════════════
+    # ============================================================
 
     async def _get_channel(self, cfg: dict, guild_id: int) -> discord.TextChannel | None:
+        """Récupère le salon Discord à partir de la config."""
+
         guild = self.bot.get_guild(guild_id)
         if guild is None:
-            log.warning("[ONU] Guild %d introuvable (server=%s)", guild_id, cfg.get("server"))
+            log.warning("[NGSTAFF ONU] Guild %d introuvable (server=%s)", guild_id, cfg.get("server"))
             return None
         channel = guild.get_channel(cfg["channel_id"])
+
         if channel is None:
             try:
                 channel = await self.bot.fetch_channel(cfg["channel_id"])
+
             except (discord.NotFound, discord.HTTPException):
                 log.warning("[ONU] Salon %d introuvable", cfg["channel_id"])
                 return None
+            
         return channel
 
     def _get_image_file(self, cfg: dict) -> discord.File | None:
+        """Récupère le fichier image à partir de la config."""
+
         name = cfg.get("image_name")
         if not name:
             return None
         path = f"source/{name}"
         if not os.path.exists(path):
-            log.warning("[ONU] Image introuvable : %s", path)
+            log.warning("[NGSTAFF ONU] Image introuvable : %s", path)
             return None
+        
         return discord.File(path, filename=name)
 
-    # ════════════════════════════════════════════════════════
+    # ============================================================
     # 📢 Pré-annonce
-    # ════════════════════════════════════════════════════════
+    # ============================================================
 
     async def _send_pre_annonce(self, cfg: dict, guild_id: int) -> None:
         channel = await self._get_channel(cfg, guild_id)
@@ -275,4 +268,4 @@ class ONUAlphaListener(commands.Cog):
 
 
 async def setup(bot: commands.Bot) -> None:
-    await bot.add_cog(ONUAlphaListener(bot))
+    await bot.add_cog(NGSTAFF_ONUListener(bot))
