@@ -37,7 +37,7 @@ MESSAGE_KEY = "regle_interne"
 @app_commands.command(name="regle_interne", description="⚖️ [OP] Envoie ou mise à jour des règles internes du Alpha")
 async def regle_interne(interaction: Interaction) -> None:
 
-    # 🌐 Vérification "Discord Alpha" (défense en profondeur, phase 13).
+    # 🌐 Vérification "Discord Alpha".
     if not await require_alpha_guild(interaction):
         return
 

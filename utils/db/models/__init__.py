@@ -3,14 +3,7 @@ Import central de tous les modèles.
 """
 
 from utils.db.base import Base
-# Modèles Alpha encore vivants (refonte multi-serveurs, phase 15 —
-# nettoyage legacy) : AlphaMessageConfig (persistance des messages
-# index/regle_interne/nous_rejoindre/stafflist, guild_id-keyed, déjà
-# multi-serveurs par nature) et AlphaEventConfig (système events,
-# permanent Alpha-only par design, phase 13) — voir PHASE_15.md pour
-# la liste de ce qui a été retiré (AlphaStaffMember, AlphaRankConfig,
-# AlphaONUConfig/AlphaONUPingMember, AlphaRoleReactConfig/Entry,
-# AlphaNota*).
+
 from utils.db.models.alpha import AlphaMessageConfig
 from utils.db.models.alpha_event_config import AlphaEventConfig
 from utils.db.models.autorole import AutoRoleConfig
@@ -27,26 +20,19 @@ from utils.db.models.invite import InviteConfig, InviteLink, InviteStat
 from utils.db.models.mod_log import LogConfig
 from utils.db.models.mod_permission import ModPermissionRole
 from utils.db.models.mod_sanction import ModSanctionConfig, Sanction, SanctionType
-from utils.db.models.ng_nota_config import (
-    NGNotaAvailability,
-    NGNotaConfig,
-    NGNotaHistory,
-    NGNotaWeekState,
-)
+from utils.db.models.ng_nota_config import NGNotaAvailability, NGNotaConfig, NGNotaHistory, NGNotaWeekState
 from utils.db.models.ng_onu_config import NGONUConfig, NGONUPingMember
 from utils.db.models.ng_rank_config import NGRankConfig
 from utils.db.models.ng_role_react import NGRoleReactCouple, NGRoleReaction
 from utils.db.models.ng_server import NGServer
 from utils.db.models.ng_staff import NGStaffMember
-from utils.db.models.permission_rbac import (
-    PermissionCategory,
-    PermissionGrade,
-    PermissionGradeInclude,
-    PermissionGradeMember,
-)
+from utils.db.models.permission_rbac import PermissionCategory, PermissionGrade, PermissionGradeInclude, PermissionGradeMember
 from utils.db.models.reaction_role import ReactionRoleCouple, ReactionRoleMessage
 from utils.db.models.staff import StaffConfig
 from utils.db.models.ticket import Ticket, TicketPanel, TicketPanelStaffRole
+from utils.db.models.mod_automod_general import ModAutomodGeneral
+from utils.db.models.mod_automod_infraction import ModAutomodInfraction
+from utils.db.models.mod_automod_banword import ModAutomodBanwordConfig, ModAutomodBanwordWord
 
 __all__ = [
     "AlphaEventConfig",
@@ -96,4 +82,8 @@ __all__ = [
     "Ticket",
     "TicketPanel",
     "TicketPanelStaffRole",
+    "ModAutomodGeneral",
+    "ModAutomodInfraction",
+    "ModAutomodBanwordConfig",
+    "ModAutomodBanwordWord",
 ]
