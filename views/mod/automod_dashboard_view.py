@@ -91,7 +91,6 @@ async def create_automod_dashboard_view(
     staff_role_id = general.get("staff_role_id")
     staff_role_line = f"<@&{staff_role_id}>" if staff_role_id else "`Non configuré`"
     notify = general.get("notify_in_channel", True)
-    window = general.get("notification_window_seconds", 60)
 
     general_btn = Button(label="Configurer", style=ButtonStyle.primary, emoji="⚙️")
     general_btn.callback = _cb_open_general(guild_id, bot, author_id)
@@ -100,21 +99,14 @@ async def create_automod_dashboard_view(
             "**⚙️ Paramètres généraux**\n"
             f"-# Salon d'alerte : {alert_ch_line}\n"
             f"-# Rôle staff : {staff_role_line}\n"
-            f"-# Fenêtre récidive : **{window}s** · Notifs salon : "
-            f"{'✅' if notify else '❌'}"
+            f"-# Notifs salon : {'✅' if notify else '❌'}"
         ),
         accessory=general_btn,
     ))
     container.add_item(Separator())
 
     # ── Systèmes : Select (menu déroulant) ──
-    active_count = sum(1 for s in _SYSTEMS if s["available"] and statuses.get(s["key"], False))
-    total_available = sum(1 for s in _SYSTEMS if s["available"])
-    container.add_item(TextDisplay(
-        f"## 🎛️ Systèmes d'auto-modération\n"
-        f"-# {active_count}/{total_available} système(s) activé(s). "
-        "Sélectionne un système ci-dessous pour le configurer."
-    ))
+    container.add_item(TextDisplay("## 🎛️ Systèmes d'auto-modération"))
 
     options: list[SelectOption] = []
     for sys in _SYSTEMS:

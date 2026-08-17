@@ -19,11 +19,10 @@ import discord
 from discord import ButtonStyle, Interaction
 from discord.ui import ActionRow, Button, Container, LayoutView, RoleSelect, Section, Separator, TextDisplay
 
-from utils.container_universel import error_container, warning_container
+from utils.container_universel import error_container
 from utils.managers import mod_automod_general_manager as mgr
 from utils.settings import settings
 from views._components.channel_select import ChannelSelect
-from views._components.text_modal import TextModal
 
 log = logging.getLogger(__name__)
 
@@ -98,21 +97,6 @@ async def create_automod_general_view(
             "-# Message envoyé au membre dans le salon d'origine à chaque infraction."
         ),
         accessory=btn_toggle,
-    ))
-    container.add_item(Separator())
-
-    # ── Fenêtre de récidive ──
-    window = cfg.get("notification_window_seconds", 60)
-    btn_window = Button(label="Modifier", style=ButtonStyle.secondary, emoji="✏️")
-    btn_window.callback = _cb_edit_window(guild_id, bot, author_id)
-    container.add_item(Section(
-        TextDisplay(
-            "**⏱️ Fenêtre de récidive**\n"
-            f"-# **{window}s** — si un membre récidive du même système "
-            "dans cette fenêtre, un mute Discord est automatiquement appliqué.\n"
-            "-# Plage autorisée : 10s → 180s (3min)"
-        ),
-        accessory=btn_window,
     ))
     container.add_item(Separator())
 
@@ -218,46 +202,6 @@ def _cb_toggle_notify(guild_id, bot, author_id):
         current = (await mgr.load_general(guild_id)).get("notify_in_channel", True)
         await mgr.save_general(guild_id, notify_in_channel=not current)
         await _rerender(interaction, guild_id, bot, author_id)
-    return cb
-
-
-def _cb_edit_window(guild_id, bot, author_id):
-    check = _guard(author_id)
-    async def cb(interaction: Interaction):
-        if not await check(interaction):
-            return
-
-        async def submit(inter: Interaction, value: str) -> None:
-            try:
-                n = int(value.strip().rstrip("s").strip())
-            except ValueError:
-                await inter.response.send_message(
-                    view=warning_container("La valeur doit être un **nombre entier de secondes**."),
-                    ephemeral=True,
-                )
-                return
-            if n < mgr.WINDOW_MIN or n > mgr.WINDOW_MAX:
-                await inter.response.send_message(
-                    view=warning_container(
-                        f"La fenêtre doit être comprise entre **{mgr.WINDOW_MIN}s** "
-                        f"et **{mgr.WINDOW_MAX}s** (3min max)."
-                    ),
-                    ephemeral=True,
-                )
-                return
-            await mgr.save_general(guild_id, notification_window_seconds=n)
-            await _rerender(inter, guild_id, bot, author_id)
-
-        current_window = (await mgr.load_general(guild_id)).get("notification_window_seconds", 60)
-        await interaction.response.send_modal(TextModal(
-            title="Fenêtre de récidive",
-            label=f"Nombre de secondes ({mgr.WINDOW_MIN} à {mgr.WINDOW_MAX})",
-            placeholder="Ex : 60",
-            default=str(current_window),
-            required=True,
-            max_length=3,
-            on_submit=submit,
-        ))
     return cb
 
 
