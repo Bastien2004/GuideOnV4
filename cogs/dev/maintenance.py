@@ -8,7 +8,7 @@ import discord
 from discord import Interaction, app_commands
 
 from utils.control_admin import verifier_commande
-from utils.perm_dev import check_dev
+from utils.perm_check import has_grade_check
 from utils.track_commande import tracker_commande
 
 from utils.error_handler import handle_app_command_error
@@ -28,9 +28,9 @@ from views.dev.maintenance_view import create_maintenance_view
 async def maintenance(interaction: Interaction) -> None:
 
     # 🔐 Vérification des permissions.
-    if not await check_dev(interaction, "gérer la maintenance du bot"):
+    if not await has_grade_check(interaction, "equipe_guideon.dev", "gérer le **mode maintenance** du bot"):
         return
-
+    
     # 🕒 Defer.
     try:
         await interaction.response.defer(ephemeral=True)

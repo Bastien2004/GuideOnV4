@@ -9,7 +9,7 @@ from discord import app_commands, Interaction
 
 from utils.control_admin import verifier_commande
 from utils.track_commande import tracker_commande
-from utils.perm_dev import check_dev
+from utils.perm_check import has_grade_check
 
 from utils.error_handler import handle_app_command_error
 from utils.health import gather_health_data
@@ -26,7 +26,7 @@ from views.dev.health_view import build_health_view
 async def health(interaction: Interaction) -> None:
 
     # 🔐 Vérification des permissions.
-    if not await check_dev(interaction, "consulter l'**état de santé** du bot"):
+    if not await has_grade_check(interaction, "equipe_guideon.dev", "consulter l'**état de santé** du bot"):
         return
 
     # 🕒 Defer.

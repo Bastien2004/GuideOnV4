@@ -12,7 +12,7 @@ from utils.track_commande import tracker_commande
 
 from utils.container_universel import error_container
 from utils.error_handler import handle_app_command_error
-from utils.perm_dev import check_dev
+from utils.perm_check import has_grade_check
 
 from utils.guild_info import gather_guild_info
 from views.dev.guild_info_view import build_guild_info_view
@@ -29,7 +29,7 @@ from views.dev.guild_info_view import build_guild_info_view
 async def guild_info(interaction: Interaction, id_serveur: str) -> None:
 
     # 🔐 Vérification des permissions.
-    if not await check_dev(interaction, "consulter les **informations** d'un serveur"):
+    if not await has_grade_check(interaction, "equipe_guideon.dev", "consulter les **informations** d'un serveur"):
         return
 
     # 🕒 Defer.

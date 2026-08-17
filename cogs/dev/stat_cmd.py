@@ -13,7 +13,7 @@ from utils.control_admin import verifier_commande
 from utils.track_commande import tracker_commande
 
 from utils.error_handler import handle_app_command_error
-from utils.perm_dev import check_dev
+from utils.perm_check import has_grade_check
 
 from views.dev.stat_cmd_view import build_stat_cmd_view
 
@@ -30,9 +30,9 @@ log = logging.getLogger(__name__)
 async def stat_cmd(interaction: Interaction) -> None:
 
     # 🔐 Vérification des permissions.
-    if not await check_dev(interaction, "consulter les statistiques de commandes"):
+    if not await has_grade_check(interaction, "equipe_guideon.dev", "consulter les **statistiques** des commandes"):
         return
-
+    
     # 🕒 Defer.
     try:
         await interaction.response.defer(ephemeral=True)

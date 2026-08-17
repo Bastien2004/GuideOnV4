@@ -14,7 +14,7 @@ from utils.track_commande import tracker_commande
 
 from utils.container_universel import error_container
 from utils.error_handler import handle_app_command_error
-from utils.perm_dev import check_dev
+from utils.perm_check import has_grade_check
 
 from utils.command_debug import get_command_debug_info
 from views.dev.debug_cmd_view import build_debug_cmd_view
@@ -31,7 +31,7 @@ from views.dev.debug_cmd_view import build_debug_cmd_view
 async def debug_cmd(interaction: Interaction, commande: str) -> None:
 
     # 🔐 Vérification des permissions.
-    if not await check_dev(interaction, "**effectuer** le diagnostic de nos commandes"):
+    if not await has_grade_check(interaction, "equipe_guideon.dev", "**effectuer** le diagnostic de nos commandes"):
         return
 
     # 🕒 Defer.

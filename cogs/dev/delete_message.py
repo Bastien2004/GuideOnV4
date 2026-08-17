@@ -12,7 +12,7 @@ from utils.track_commande import tracker_commande
 
 from utils.container_universel import error_container, success_container, warning_container
 from utils.error_handler import handle_app_command_error
-from utils.perm_dev import check_dev
+from utils.perm_check import has_grade_check
 
 from utils.dev_delete_message import DeleteMessageError, delete_bot_message
 
@@ -27,7 +27,7 @@ from utils.dev_delete_message import DeleteMessageError, delete_bot_message
 async def delete_message(interaction: Interaction, id_salon: str, id_message: str) -> None:
 
     # 🔐 Vérification des permissions.
-    if not await check_dev(interaction, "**supprimer** un message du bot"):
+    if not await has_grade_check(interaction, "equipe_guideon.dev", "**supprimer** un message du bot"):
         return
 
     # 🕒 Defer.

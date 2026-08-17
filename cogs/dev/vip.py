@@ -16,7 +16,7 @@ from utils.container_universel import success_container
 from utils.error_handler import handle_app_command_error
 from utils.managers.boutique_manager import add_entry, remove_entry
 from utils.db.models.boutique import ShopRole
-from utils.perm_dev import check_dev
+from utils.perm_check import has_grade_check
 
 log = logging.getLogger(__name__)
 
@@ -32,9 +32,9 @@ log = logging.getLogger(__name__)
 async def vip(interaction: Interaction, membre: discord.Member) -> None:
 
     # 🔐 Vérification des permissions.
-    if not await check_dev(interaction, "**gérer le statut VIP** d'un utilisateur"):
+    if not await has_grade_check(interaction, "equipe_guideon.dev", "gérer le **statut VIP** d'un utilisateur"):
         return
-
+    
     # 🕒 Defer.
     try:
         await interaction.response.defer(ephemeral=True)

@@ -13,7 +13,7 @@ from utils.control_admin import verifier_commande
 from utils.track_commande import tracker_commande
 
 from utils.error_handler import handle_app_command_error
-from utils.perm_dev import check_dev
+from utils.perm_check import has_grade_check
 
 from views.dev.stat_server_view import build_stat_server_view
 
@@ -37,7 +37,7 @@ GUILDS_PER_PAGE = 10
 async def stat_server(interaction: Interaction) -> None:
 
     # 🔐 Vérification des permissions.
-    if not await check_dev(interaction, "**consulter** les __statistiques__ serveurs"):
+    if not await has_grade_check(interaction, "equipe_guideon.dev", "**consulter** les __statistiques__ de serveurs"):
         return
 
     # 🕒 Defer.

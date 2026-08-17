@@ -13,7 +13,7 @@ from utils.control_admin import verifier_commande
 from utils.track_commande import tracker_commande
 
 from utils.error_handler import handle_app_command_error
-from utils.perm_dev import check_dev
+from utils.perm_check import has_grade_check
 
 from views.dev.botban_view import BotBanView
 
@@ -30,7 +30,7 @@ log = logging.getLogger(__name__)
 async def botban(interaction: Interaction) -> None:
 
     # 🔐 Vérification des permissions.
-    if not await check_dev(interaction, "**gérer les bans** du bot"):
+    if not await has_grade_check(interaction, "equipe_guideon.dev", "gérer les **bannissement* du bot"):
         return
 
     # 🕒 Defer.

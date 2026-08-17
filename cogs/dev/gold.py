@@ -11,7 +11,7 @@ from discord import app_commands, Interaction
 
 from utils.control_admin import verifier_commande
 from utils.track_commande import tracker_commande
-from utils.perm_dev import check_dev
+from utils.perm_check import has_grade_check
 
 from utils.container_universel import error_container, success_container
 from utils.error_handler import handle_app_command_error
@@ -32,7 +32,7 @@ log = logging.getLogger(__name__)
 async def gold(interaction: Interaction, id_serveur: str) -> None:
 
     # 🔐 Vérification des permissions.
-    if not await check_dev(interaction, "**gérer le statut Gold+** d'un serveur"):
+    if not await has_grade_check(interaction, "equipe_guideon.dev", "**gérer le statut Gold+** d'un serveur"):
         return
 
     # 🕒 Defer.

@@ -12,7 +12,7 @@ from utils.track_commande import tracker_commande
 
 from utils.container_universel import error_container
 from utils.error_handler import handle_app_command_error
-from utils.perm_dev import check_dev
+from utils.perm_check import has_grade_check
 
 from utils.join_serv import JoinServError, create_server_invite
 from views.dev.join_serv_view import build_invite_view
@@ -28,7 +28,7 @@ from views.dev.join_serv_view import build_invite_view
 async def join_serv(interaction: Interaction, id_serveur: str) -> None:
 
     # 🔐 Vérification des permissions.
-    if not await check_dev(interaction, "**créer une invitation** sur un serveur"):
+    if not await has_grade_check(interaction, "equipe_guideon.dev", "**créer une invitation** sur un serveur"):
         return
 
     # 🕒 Defer.

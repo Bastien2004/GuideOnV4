@@ -8,7 +8,7 @@ import discord
 from discord import Interaction, app_commands
 
 from utils.control_admin import verifier_commande
-from utils.perm_dev import check_dev
+from utils.perm_check import has_grade_check
 from utils.track_commande import tracker_commande
 
 from utils.container_universel import error_container
@@ -27,9 +27,9 @@ from views.dev.kick_view import build_confirm_kick_view
 async def kick(interaction: Interaction, id_serveur: str) -> None:
 
     # 🔐 Vérification des permissions.
-    if not await check_dev(interaction, "**kick** le bot d'un serveur"):
+    if not await has_grade_check(interaction, "equipe_guideon.dev", "**kick** le bot d'un serveur"):
         return
-
+    
     # 🕒 Defer.
     try:
         await interaction.response.defer(ephemeral=True)
