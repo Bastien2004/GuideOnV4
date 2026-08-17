@@ -16,9 +16,9 @@ from __future__ import annotations
 import discord
 from discord import Interaction, app_commands
 
-from utils.container_universel import error_container
 from utils.control_admin import verifier_commande
-from utils.createur import is_creator
+
+from utils.perm_check import has_grade_check
 from utils.error_handler import handle_app_command_error
 from utils.managers.ng_staff_manager import list_staff
 from utils.ng_server_check import require_ng_server
@@ -40,9 +40,9 @@ async def ngstaff_edit_stafflist(interaction: Interaction) -> None:
     if server is None:
         return
 
-    # 🔐 Vérification des permissions (réservé développeurs, comme /alpha edit_stafflist_alpha).
-    if not is_creator(interaction.user.id):
-        return await interaction.response.send_message(view=error_container("Cette commande est __réservée__ aux **développeurs**."), ephemeral=True)
+    # 🔐 Vérification RBAC dynamique, propre au serveur détecté.
+    if not await has_grade_check(interaction, f"staff_{server.name}.op"):
+        return
 
     # 🕒 Defer.
     try:

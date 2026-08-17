@@ -28,6 +28,7 @@ from utils.ng_server_check import require_ng_server
 from utils.perm_dev import check_dev
 from utils.track_commande import tracker_commande
 from views.alpha.nota_debug_view import build_nota_debug_view
+from utils.perm_check import has_grade_check
 
 # ============================================================
 # 🔩 Paramètre
@@ -62,7 +63,7 @@ async def ngstaff_nota_debug(interaction: Interaction) -> None:
         return
 
     # 🔐 Vérification des permissions.
-    if not await check_dev(interaction, "**consulter** l'état du système de notations."):
+    if not await has_grade_check(interaction, "equipe_guideon.dev", "consulter **l'état des notations**"):
         return
 
     # 🔒 Restriction Ruixi62.

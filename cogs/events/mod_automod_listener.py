@@ -23,8 +23,16 @@ import discord
 from discord.ext import commands
 from discord.ui import Container, LayoutView, Separator, TextDisplay
 
-from utils.automod.detectors import banword as banword_detector
+from utils.automod.detectors import (
+    antifullcaps as antifullcaps_detector,
+    antispam_emoji as antispam_emoji_detector,
+    antispam_mention as antispam_mention_detector,
+    banword as banword_detector,
+)
 from utils.managers import (
+    mod_automod_antifullcaps_manager as antifullcaps_mgr,
+    mod_automod_antispam_emoji_manager as antispam_emoji_mgr,
+    mod_automod_antispam_mention_manager as antispam_mention_mgr,
     mod_automod_banword_manager as banword_mgr,
     mod_automod_general_manager as general_mgr,
     mod_automod_infraction_manager as infr_mgr,
@@ -50,7 +58,19 @@ _SYSTEM_META: dict[str, dict[str, str]] = {
         "display_name": "Ban Word",
         "notify_msg": "🚫 Ton message contenait un **mot interdit**. Il a été supprimé.",
     },
-    # Futures entrées : nolink, antilink, antispam_msg, etc.
+    "antifullcaps": {
+        "display_name": "Anti Full Maj",
+        "notify_msg": "🔠 Ton message était majoritairement en **MAJUSCULES**. Il a été supprimé.",
+    },
+    "antispam_mention": {
+        "display_name": "Anti Spam Mention",
+        "notify_msg": "📣 Ton message contenait **trop de mentions**. Il a été supprimé.",
+    },
+    "antispam_emoji": {
+        "display_name": "Anti Spam Emoji",
+        "notify_msg": "😀 Ton message contenait **trop d'emojis**. Il a été supprimé.",
+    },
+    # Futures entrées : nolink, antilink, antispam_msg, antiflood.
 }
 
 
@@ -103,17 +123,50 @@ class ModAutomodListener(commands.Cog):
         (system_key, matched_term) au premier hit, ou None.
         """
         guild_id = message.guild.id
+        content = message.content or ""
 
         # ── Ban word ──────────────────────────────────────
         bw_cfg = await banword_mgr.load_config(guild_id)
         if bw_cfg.get("enabled"):
             words = await banword_mgr.list_words(guild_id)
             if words:
-                match = banword_detector.detect(message.content or "", words)
+                match = banword_detector.detect(content, words)
                 if match is not None:
                     return ("banword", match)
 
-        # (Futurs systèmes ici : nolink, antilink, antispam_msg, ...)
+        # ── Anti Full Maj ─────────────────────────────────
+        fc_cfg = await antifullcaps_mgr.load_config(guild_id)
+        if fc_cfg.get("enabled"):
+            match = antifullcaps_detector.detect(
+                content,
+                min_length=fc_cfg.get("min_length", 10),
+                ratio_threshold=fc_cfg.get("ratio_threshold", 0.7),
+            )
+            if match is not None:
+                return ("antifullcaps", match)
+
+        # ── Anti Spam Mention ─────────────────────────────
+        # Passe le Message directement au détecteur : Discord fait la
+        # résolution des mentions de manière fiable (ignore les mentions
+        # dans les blocs de code, etc.).
+        m_cfg = await antispam_mention_mgr.load_config(guild_id)
+        if m_cfg.get("enabled"):
+            match = antispam_mention_detector.detect(
+                message, max_mentions=m_cfg.get("max_mentions", 5),
+            )
+            if match is not None:
+                return ("antispam_mention", match)
+
+        # ── Anti Spam Emoji ───────────────────────────────
+        e_cfg = await antispam_emoji_mgr.load_config(guild_id)
+        if e_cfg.get("enabled"):
+            match = antispam_emoji_detector.detect(
+                content, max_emoji=e_cfg.get("max_emoji", 10),
+            )
+            if match is not None:
+                return ("antispam_emoji", match)
+
+        # (Futurs systèmes ici : nolink, antilink, antispam_msg, antiflood.)
 
         return None
 

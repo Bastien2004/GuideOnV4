@@ -17,6 +17,9 @@ from discord import ButtonStyle, Interaction
 from discord.ui import ActionRow, Button, Container, Section, Separator, TextDisplay
 
 from utils.managers import (
+    mod_automod_antifullcaps_manager as antifullcaps_mgr,
+    mod_automod_antispam_emoji_manager as antispam_emoji_mgr,
+    mod_automod_antispam_mention_manager as antispam_mention_mgr,
     mod_automod_banword_manager as banword_mgr,
     mod_automod_general_manager as general_mgr,
 )
@@ -45,16 +48,16 @@ _SYSTEMS: list[dict] = [
      "available": False},
     {"key": "antispam_mention", "emoji": "📣", "name": "Anti Spam Mention",
      "desc": "Limite le nombre de mentions par message.",
-     "available": False},
+     "available": True},
     {"key": "antiflood", "emoji": "🌊", "name": "Anti Flood",
      "desc": "Détecte les messages incohérents (ratio voyelle/consonne).",
      "available": False},
     {"key": "antifullcaps", "emoji": "🔠", "name": "Anti Full Maj",
      "desc": "Détecte les messages entièrement en majuscules.",
-     "available": False},
+     "available": True},
     {"key": "antispam_emoji", "emoji": "😀", "name": "Anti Spam Emoji",
      "desc": "Limite le nombre d'emojis par message.",
-     "available": False},
+     "available": True},
 ]
 
 
@@ -75,7 +78,12 @@ class AutomodDashboardView(BaseLayoutView):
     async def build(cls, *, guild: discord.Guild, owner_id: int) -> "AutomodDashboardView":
         """Factory async : charge les statuts avant de construire la vue."""
         general_cfg = await general_mgr.load_general(guild.id)
-        statuses = {"banword": (await banword_mgr.load_config(guild.id))["enabled"]}
+        statuses = {
+            "banword": (await banword_mgr.load_config(guild.id))["enabled"],
+            "antifullcaps": (await antifullcaps_mgr.load_config(guild.id))["enabled"],
+            "antispam_mention": (await antispam_mention_mgr.load_config(guild.id))["enabled"],
+            "antispam_emoji": (await antispam_emoji_mgr.load_config(guild.id))["enabled"],
+        }
         # (Ajouter ici les autres load_config au fur et à mesure de l'impl.)
         return cls(
             guild=guild, owner_id=owner_id,
@@ -85,9 +93,12 @@ class AutomodDashboardView(BaseLayoutView):
     async def _refresh(self, interaction: Interaction) -> None:
         """Recharge les statuts DB et met à jour la vue in-place."""
         self.general_cfg = await general_mgr.load_general(self.guild.id)
-        self.statuses["banword"] = (
-            await banword_mgr.load_config(self.guild.id)
-        )["enabled"]
+        self.statuses = {
+            "banword": (await banword_mgr.load_config(self.guild.id))["enabled"],
+            "antifullcaps": (await antifullcaps_mgr.load_config(self.guild.id))["enabled"],
+            "antispam_mention": (await antispam_mention_mgr.load_config(self.guild.id))["enabled"],
+            "antispam_emoji": (await antispam_emoji_mgr.load_config(self.guild.id))["enabled"],
+        }
         self.clear_items()
         self._build()
         await self.push_update(interaction)
@@ -170,6 +181,27 @@ class AutomodDashboardView(BaseLayoutView):
             if key == "banword":
                 from views.mod.automod_banword_view import AutomodBanwordView
                 new_view = await AutomodBanwordView.build(
+                    guild=self.guild, owner_id=self.owner_id, parent_dashboard=self,
+                )
+                await interaction.response.edit_message(view=new_view)
+                return
+            if key == "antifullcaps":
+                from views.mod.automod_antifullcaps_view import AutomodAntifullcapsView
+                new_view = await AutomodAntifullcapsView.build(
+                    guild=self.guild, owner_id=self.owner_id, parent_dashboard=self,
+                )
+                await interaction.response.edit_message(view=new_view)
+                return
+            if key == "antispam_mention":
+                from views.mod.automod_antispam_mention_view import AutomodAntispamMentionView
+                new_view = await AutomodAntispamMentionView.build(
+                    guild=self.guild, owner_id=self.owner_id, parent_dashboard=self,
+                )
+                await interaction.response.edit_message(view=new_view)
+                return
+            if key == "antispam_emoji":
+                from views.mod.automod_antispam_emoji_view import AutomodAntispamEmojiView
+                new_view = await AutomodAntispamEmojiView.build(
                     guild=self.guild, owner_id=self.owner_id, parent_dashboard=self,
                 )
                 await interaction.response.edit_message(view=new_view)
