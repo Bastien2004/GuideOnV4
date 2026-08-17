@@ -32,7 +32,7 @@ from views.alpha.edit_list_view import EditListView
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 5)
-@app_commands.command(name="edit_stafflist", description="📋 [DEV] Gestion de la liste staff")
+@app_commands.command(name="edit_stafflist", description="📋 [OP] Gestion de la liste staff")
 async def ngstaff_edit_stafflist(interaction: Interaction) -> None:
 
     # 🌐 Vérification "Discord NG" (résout le serveur, sinon message + return).

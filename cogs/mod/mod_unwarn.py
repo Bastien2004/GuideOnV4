@@ -29,7 +29,7 @@ log = logging.getLogger(__name__)
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="unwarn", description="🚫 Révoque un avertissement via la liste des avertissements actifs")
+@app_commands.command(name="unwarn", description="🚫 Révoque un avertissement")
 async def mod_unwarn(interaction: discord.Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.

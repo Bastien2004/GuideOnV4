@@ -29,7 +29,7 @@ log = logging.getLogger(__name__)
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="unmute", description="🔊 Lève le mute d'un membre via la liste des membres mutés")
+@app_commands.command(name="unmute", description="🔊 enlève le mute d'un membre")
 async def mod_unmute(interaction: discord.Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.

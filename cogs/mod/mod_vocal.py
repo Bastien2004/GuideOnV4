@@ -23,7 +23,7 @@ from views.mod.voice_manage_builder_view import VoiceManageBuilderView
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="vocal", description="🔊 Gestion vocale de masse (mute/déplacer/expulser)")
+@app_commands.command(name="vocal", description="🔊 Gestion vocale de masse")
 async def mod_vocal(interaction: discord.Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.

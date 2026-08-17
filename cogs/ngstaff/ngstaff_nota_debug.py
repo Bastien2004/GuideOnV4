@@ -53,7 +53,7 @@ async def _check_restricted(interaction: Interaction) -> bool:
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="nota_debug", description="🔍 [OP] Affiche l'état du système de notations (debug)")
+@app_commands.command(name="nota_debug", description="🔍 [DEV] Affiche l'état du système de notations (debug)")
 async def ngstaff_nota_debug(interaction: Interaction) -> None:
 
     # 🌐 Vérification "Discord NG" (résout le serveur, sinon message + return).

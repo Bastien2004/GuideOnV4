@@ -23,7 +23,7 @@ from views.mod.sanction_builder_view import SanctionBuilderView
 # ============================================================
 
 @app_commands.guild_only()
-@app_commands.checks.cooldown(1, 10)
+@app_commands.checks.cooldown(1, 5)
 @app_commands.command(name="warn", description="⚠️ Avertit un membre")
 async def mod_warn(interaction: discord.Interaction) -> None:
 

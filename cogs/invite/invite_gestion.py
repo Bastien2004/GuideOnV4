@@ -1,6 +1,7 @@
 """
-cogs/invite/invite_gestion.py — Commande /invite gestion <membre>.
+cogs/invite/invite_gestion.py — Gère les compteurs d'invitations d'un membre.
 """
+
 from __future__ import annotations
 
 import logging
@@ -9,12 +10,12 @@ import discord
 from discord import app_commands
 
 from utils.botbancmd import verifier_ban_utilisateur
-from utils.container_universel import error_container
 from utils.control_admin import verifier_commande
-from utils.error_handler import handle_app_command_error
-from utils.perm_admin import check_admin
 from utils.track_commande import tracker_commande
+from utils.perm_admin import check_admin
 
+from utils.container_universel import error_container
+from utils.error_handler import handle_app_command_error
 from views.invite.gestion_view import InviteGestionView
 
 log = logging.getLogger(__name__)
@@ -71,7 +72,7 @@ async def invite_gestion(interaction: discord.Interaction, membre: discord.Membe
 
     except Exception:
         log.exception(
-            "[INVITE] Ouverture /invite gestion échouée (guild=%s, target=%s)",
+            "[INVITE GESTION] Ouverture /invite gestion échouée (guild=%s, target=%s)",
             interaction.guild.id, membre.id
             )
         await interaction.followup.send(

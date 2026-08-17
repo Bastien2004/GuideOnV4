@@ -1,6 +1,7 @@
 """
 cogs/invite/invite_user.py — Commande /invite user [membre].
 """
+
 from __future__ import annotations
 
 import logging
@@ -26,8 +27,8 @@ log = logging.getLogger(__name__)
 # ============================================================
 
 @app_commands.guild_only()
-@app_commands.checks.cooldown(1, 5)
-@app_commands.command(name="user", description="📨 Affiche les invitations d'un membre (toi par défaut)",)
+@app_commands.checks.cooldown(1, 10)
+@app_commands.command(name="user", description="📨 Affiche les invitations d'un membre",)
 @app_commands.describe(membre="Le membre dont tu veux voir les invitations (toi par défaut)")
 async def invite_user(interaction: discord.Interaction, membre: Optional[discord.Member] = None) -> None:
 

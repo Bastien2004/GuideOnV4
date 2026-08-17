@@ -24,7 +24,7 @@ from views.mod.sanction_builder_view import SanctionBuilderView
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="softban", description="🧹 Bannit un membre et purge ses derniers messages.")
+@app_commands.command(name="softban", description="🧹 Bannit un membre et supprime ses derniers messages")
 async def mod_softban(interaction: discord.Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.

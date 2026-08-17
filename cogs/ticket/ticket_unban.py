@@ -28,7 +28,7 @@ log = logging.getLogger(__name__)
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 15)
-@app_commands.command(name="unban", description="♻️ Lever le ban tickets d'un utilisateur")
+@app_commands.command(name="unban", description="♻️ Révoquer le ban tickets d'un utilisateur")
 @app_commands.describe(utilisateur="Utilisateur à débannir des tickets")
 async def ticket_unban(interaction: discord.Interaction, utilisateur: discord.Member) -> None:
     

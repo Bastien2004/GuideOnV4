@@ -32,7 +32,7 @@ log = logging.getLogger(__name__)
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="unban", description="🔓 Lève un bannissement via la liste des membres bannis")
+@app_commands.command(name="unban", description="🔓 Révoque un bannissement")
 async def mod_unban(interaction: discord.Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.
