@@ -1,136 +1,159 @@
 """
-views/mod/automod_antispam_mention_view.py — Configuration Anti Spam Mention.
-
-2 réglages : toggle + max_mentions (tout confondu : users + rôles + @everyone/@here).
+views/mod/automod_antispam_mention_view.py — Config Anti Spam Mention (v2).
+Style compact autorole. Toggle + max_mentions.
 """
 from __future__ import annotations
 
+import logging
+from typing import Optional
+
 import discord
 from discord import ButtonStyle, Interaction
-from discord.ui import ActionRow, Button, Container, Section, Separator, TextDisplay
+from discord.ui import ActionRow, Button, Container, LayoutView, Section, Separator, TextDisplay
 
-from utils.container_universel import warning_container
+from utils.container_universel import error_container, warning_container
 from utils.managers import mod_automod_antispam_mention_manager as mgr
-from views._components.base_view import BaseLayoutView
+from utils.settings import settings
 from views._components.text_modal import TextModal
 
+log = logging.getLogger(__name__)
 
-MAX_MENTIONS_ABS_MIN = 1
-MAX_MENTIONS_ABS_MAX = 50
+MAX_MIN, MAX_MAX = 1, 50
 
 
-class AutomodAntispamMentionView(BaseLayoutView):
-    """Configuration du système Anti Spam Mention."""
+async def create_automod_antispam_mention_view(
+    guild_id: int, bot, author_id: Optional[int] = None,
+) -> Optional[LayoutView]:
+    guild = bot.get_guild(guild_id)
+    if guild is None:
+        return None
 
-    def __init__(self, *, guild: discord.Guild, owner_id: int, cfg: dict, parent_dashboard):
-        super().__init__(owner_id=owner_id, timeout=300)
-        self.guild = guild
-        self.cfg = cfg
-        self.parent_dashboard = parent_dashboard
-        self._build()
+    cfg = await mgr.load_config(guild_id)
+    enabled = cfg.get("enabled", False)
+    max_mentions = cfg.get("max_mentions", 5)
 
-    @classmethod
-    async def build(cls, *, guild: discord.Guild, owner_id: int, parent_dashboard):
-        cfg = await mgr.load_config(guild.id)
-        return cls(guild=guild, owner_id=owner_id, cfg=cfg, parent_dashboard=parent_dashboard)
+    view = LayoutView(timeout=600)
+    c = Container()
 
-    async def _refresh(self, interaction: Interaction) -> None:
-        self.cfg = await mgr.load_config(self.guild.id)
-        self.clear_items()
-        self._build()
-        await self.push_update(interaction)
+    dot = "🟢" if enabled else "🔴"
+    state = "Activé" if enabled else "Désactivé"
+    c.add_item(TextDisplay(f"# 📣 Anti Spam Mention · {dot} {state}"))
+    c.add_item(Separator())
 
-    def _build(self) -> None:
-        container = Container()
-        enabled = self.cfg.get("enabled", False)
-        max_mentions = self.cfg.get("max_mentions", 5)
+    toggle_btn = Button(
+        label="✅ Activé" if enabled else "❌ Désactivé",
+        style=ButtonStyle.success if enabled else ButtonStyle.danger,
+    )
+    toggle_btn.callback = _cb_toggle(guild_id, bot, author_id)
+    c.add_item(Section(
+        TextDisplay(
+            "**🔘 Statut du système**\n"
+            "-# Limite le nombre de mentions (membres + rôles + everyone/here) par message."
+        ),
+        accessory=toggle_btn,
+    ))
+    c.add_item(Separator())
 
-        state_dot = "🟢" if enabled else "🔴"
-        state_label = "Activé" if enabled else "Désactivé"
-        container.add_item(TextDisplay(f"# 📣 Anti Spam Mention · {state_dot} {state_label}"))
-        container.add_item(TextDisplay(
-            "-# Bloque les messages contenant un nombre excessif de mentions "
-            "(membres + rôles + @everyone/@here confondus)."
-        ))
-        container.add_item(Separator())
+    btn_max = Button(label="Modifier", style=ButtonStyle.secondary, emoji="✏️")
+    btn_max.callback = _cb_edit_max(guild_id, bot, author_id)
+    c.add_item(Section(
+        TextDisplay(
+            "**📊 Seuil de déclenchement**\n"
+            f"-# Un message avec plus de **{max_mentions} mentions** est bloqué.\n"
+            f"-# Plage : {MAX_MIN} → {MAX_MAX}"
+        ),
+        accessory=btn_max,
+    ))
+    c.add_item(Separator())
 
-        # Toggle
-        toggle_label = "Désactiver" if enabled else "Activer"
-        toggle_emoji = "🔴" if enabled else "🟢"
-        toggle_style = ButtonStyle.danger if enabled else ButtonStyle.success
-        btn_toggle = Button(label=toggle_label, emoji=toggle_emoji, style=toggle_style)
-        btn_toggle.callback = self._on_toggle
-        container.add_item(Section(
-            TextDisplay(
-                "**⚡ Activation**\n"
-                "-# Analyse chaque message avant publication."
-            ),
-            accessory=btn_toggle,
-        ))
-        container.add_item(Separator())
+    btn_back = Button(label="Retour", style=ButtonStyle.secondary, emoji="↩️")
+    btn_back.callback = _cb_back(guild_id, bot, author_id)
+    c.add_item(ActionRow(
+        btn_back,
+        Button(label="Documentation", style=ButtonStyle.link, url=settings.doc_url, emoji="📚"),
+    ))
+    c.add_item(Separator())
+    c.add_item(TextDisplay("-# GuideOn Studio"))
+    view.add_item(c)
+    return view
 
-        # Réglage
-        btn_max = Button(label="Modifier", emoji="✏️", style=ButtonStyle.secondary)
-        btn_max.callback = self._on_edit_max
-        container.add_item(Section(
-            TextDisplay(
-                "**📊 Seuil de déclenchement**\n"
-                f"-# Un message avec plus de **{max_mentions} mentions** est bloqué.\n"
-                f"-# Plage autorisée : {MAX_MENTIONS_ABS_MIN} → {MAX_MENTIONS_ABS_MAX}"
-            ),
-            accessory=btn_max,
-        ))
-        container.add_item(Separator())
 
-        # Retour
-        btn_back = Button(label="Retour", emoji="↩️", style=ButtonStyle.secondary)
-        btn_back.callback = self._on_back
-        container.add_item(ActionRow(btn_back))
+def _guard(author_id: Optional[int]):
+    async def check(interaction: Interaction) -> bool:
+        if author_id is not None and interaction.user.id != author_id:
+            await interaction.response.send_message(
+                view=error_container("Seul l'**auteur** peut utiliser ce menu."), ephemeral=True,
+            )
+            return False
+        m = interaction.user
+        if not isinstance(m, discord.Member) or not m.guild_permissions.administrator:
+            await interaction.response.send_message(
+                view=error_container("Vous devez être **Administrateur**."), ephemeral=True,
+            )
+            return False
+        return True
+    return check
 
-        container.add_item(Separator())
-        container.add_item(TextDisplay("-# GuideOn Studio · Auto-modération"))
-        self.add_item(container)
 
-    async def _on_toggle(self, interaction: Interaction) -> None:
-        current = self.cfg.get("enabled", False)
-        await mgr.set_enabled(self.guild.id, not current)
-        await self._refresh(interaction)
+async def _rerender(interaction, guild_id, bot, author_id):
+    new_view = await create_automod_antispam_mention_view(guild_id, bot, author_id)
+    if new_view is None:
+        return
+    if interaction.response.is_done():
+        await interaction.edit_original_response(view=new_view)
+    else:
+        await interaction.response.edit_message(view=new_view)
 
-    async def _on_edit_max(self, interaction: Interaction) -> None:
-        async def submit(inter: Interaction, value: str) -> None:
+
+def _cb_toggle(guild_id, bot, author_id):
+    check = _guard(author_id)
+    async def cb(inter):
+        if not await check(inter):
+            return
+        current = (await mgr.load_config(guild_id)).get("enabled", False)
+        await mgr.set_enabled(guild_id, not current)
+        await _rerender(inter, guild_id, bot, author_id)
+    return cb
+
+
+def _cb_edit_max(guild_id, bot, author_id):
+    check = _guard(author_id)
+    async def cb(inter):
+        if not await check(inter):
+            return
+        async def submit(i, value):
             try:
                 n = int(value.strip())
             except ValueError:
-                await inter.response.send_message(
-                    view=warning_container("La valeur doit être un **nombre entier**."),
+                await i.response.send_message(
+                    view=warning_container("La valeur doit être un **nombre entier**."), ephemeral=True,
+                )
+                return
+            if n < MAX_MIN or n > MAX_MAX:
+                await i.response.send_message(
+                    view=warning_container(f"La valeur doit être entre **{MAX_MIN}** et **{MAX_MAX}**."),
                     ephemeral=True,
                 )
                 return
-            if n < MAX_MENTIONS_ABS_MIN or n > MAX_MENTIONS_ABS_MAX:
-                await inter.response.send_message(
-                    view=warning_container(
-                        f"La valeur doit être comprise entre **{MAX_MENTIONS_ABS_MIN}** "
-                        f"et **{MAX_MENTIONS_ABS_MAX}**."
-                    ),
-                    ephemeral=True,
-                )
-                return
-            await mgr.save_config(self.guild.id, max_mentions=n)
-            await self._refresh(inter)
+            await mgr.save_config(guild_id, max_mentions=n)
+            await _rerender(i, guild_id, bot, author_id)
 
-        await interaction.response.send_modal(TextModal(
-            title="Nombre maximum de mentions",
-            label="Nombre max autorisé par message",
-            placeholder="Ex : 5",
-            default=str(self.cfg.get("max_mentions", 5)),
-            required=True,
-            max_length=3,
-            on_submit=submit,
+        current = (await mgr.load_config(guild_id)).get("max_mentions", 5)
+        await inter.response.send_modal(TextModal(
+            title="Nombre max de mentions", label="Nombre max autorisé", placeholder="Ex : 5",
+            default=str(current), required=True, max_length=3, on_submit=submit,
         ))
+    return cb
 
-    async def _on_back(self, interaction: Interaction) -> None:
-        from views.mod.automod_dashboard_view import AutomodDashboardView
-        new_view = await AutomodDashboardView.build(
-            guild=self.guild, owner_id=self.owner_id,
-        )
-        await interaction.response.edit_message(view=new_view)
+
+def _cb_back(guild_id, bot, author_id):
+    check = _guard(author_id)
+    async def cb(inter):
+        if not await check(inter):
+            return
+        from views.mod.automod_dashboard_view import create_automod_dashboard_view
+        new_view = await create_automod_dashboard_view(guild_id, bot, author_id)
+        if new_view is None:
+            return
+        await inter.response.edit_message(view=new_view)
+    return cb

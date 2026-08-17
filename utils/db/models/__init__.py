@@ -36,6 +36,7 @@ from utils.db.models.mod_automod_banword import ModAutomodBanwordConfig, ModAuto
 from utils.db.models.mod_automod_antifullcaps import ModAutomodAntifullcapsConfig
 from utils.db.models.mod_automod_antispam_mention import ModAutomodAntispamMentionConfig
 from utils.db.models.mod_automod_antispam_emoji import ModAutomodAntispamEmojiConfig
+from utils.db.models.mod_automod_active_alert import ModAutomodActiveAlert
 
 __all__ = [
     "AlphaEventConfig",
@@ -92,4 +93,5 @@ __all__ = [
     "ModAutomodAntifullcapsConfig",
     "ModAutomodAntispamMentionConfig",
     "ModAutomodAntispamEmojiConfig",
+    "ModAutomodActiveAlert",
 ]

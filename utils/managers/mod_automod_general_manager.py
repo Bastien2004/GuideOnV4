@@ -1,23 +1,37 @@
 """
-utils/managers/mod_automod_general_manager.py — CRUD des paramètres généraux
-d'auto-modération.
+utils/managers/mod_automod_general_manager.py — CRUD paramètres généraux automod.
 
-Une ligne par guild. Cache TTL 60s sur load : la config change rarement (une
-poignée de fois par jour au grand max côté admin) alors qu'elle est lue à
-chaque message reçu — sans cache, c'est un round-trip DB par message.
+Cache TTL 60s (lu à chaque message reçu, très fréquent).
 """
 from __future__ import annotations
 
 import time
 
-from sqlalchemy import select
-
 from utils.db.models.mod_automod_general import ModAutomodGeneral
 from utils.db.session import get_session
 
-# ═══ Cache ═════════════════════════════════════════════════════════
-_CACHE_TTL = 60  # secondes
+_TTL = 60
 _cache: dict[int, tuple[dict, float]] = {}
+
+# Bornes de sécurité pour notification_window_seconds (10s → 3min).
+WINDOW_MIN = 10
+WINDOW_MAX = 180
+WINDOW_DEFAULT = 60
+
+_DEFAULTS: dict = {
+    "guild_id": None,
+    "alert_channel_id": None,
+    "staff_role_id": None,
+    "notify_in_channel": True,
+    "notification_window_seconds": WINDOW_DEFAULT,
+}
+
+_ALLOWED_FIELDS = {
+    "alert_channel_id",
+    "staff_role_id",
+    "notify_in_channel",
+    "notification_window_seconds",
+}
 
 
 def _fresh(guild_id: int) -> dict | None:
@@ -25,7 +39,7 @@ def _fresh(guild_id: int) -> dict | None:
     if entry is None:
         return None
     payload, ts = entry
-    if time.monotonic() - ts > _CACHE_TTL:
+    if time.monotonic() - ts > _TTL:
         return None
     return dict(payload)
 
@@ -38,17 +52,8 @@ def _invalidate(guild_id: int) -> None:
     _cache.pop(guild_id, None)
 
 
-_DEFAULTS: dict = {
-    "guild_id": None,
-    "alert_channel_id": None,
-    "notify_in_channel": True,
-}
-
-
-# ═══ Lectures ══════════════════════════════════════════════════════
-
 async def load_general(guild_id: int) -> dict:
-    """Retourne la config générale (defaults si absente en DB)."""
+    """Retourne la config (defaults si absente)."""
     cached = _fresh(guild_id)
     if cached is not None:
         return cached
@@ -61,19 +66,22 @@ async def load_general(guild_id: int) -> dict:
     return dict(payload)
 
 
-# ═══ Écritures ═════════════════════════════════════════════════════
-
 async def save_general(guild_id: int, **fields) -> dict:
     """
-    Upsert des paramètres. Seules les clés `alert_channel_id` et
-    `notify_in_channel` sont acceptées — tout autre kwarg est ignoré
-    silencieusement pour empêcher un caller de setter des colonnes qu'il
-    n'aurait pas identifiées.
+    Upsert. Champs autorisés : alert_channel_id, staff_role_id,
+    notify_in_channel, notification_window_seconds.
+
+    notification_window_seconds est clampé automatiquement à [WINDOW_MIN, WINDOW_MAX]
+    pour éviter les valeurs absurdes.
     """
-    allowed = {"alert_channel_id", "notify_in_channel"}
-    clean = {k: v for k, v in fields.items() if k in allowed}
+    clean = {k: v for k, v in fields.items() if k in _ALLOWED_FIELDS}
     if not clean:
         return await load_general(guild_id)
+
+    if "notification_window_seconds" in clean and clean["notification_window_seconds"] is not None:
+        clean["notification_window_seconds"] = max(
+            WINDOW_MIN, min(WINDOW_MAX, int(clean["notification_window_seconds"])),
+        )
 
     async with get_session() as session:
         row = await session.get(ModAutomodGeneral, guild_id)
@@ -88,12 +96,3 @@ async def save_general(guild_id: int, **fields) -> dict:
 
     _prime(guild_id, payload)
     return dict(payload)
-
-
-async def reset_general(guild_id: int) -> None:
-    """Supprime la ligne : retour aux defaults."""
-    async with get_session() as session:
-        row = await session.get(ModAutomodGeneral, guild_id)
-        if row is not None:
-            await session.delete(row)
-    _invalidate(guild_id)

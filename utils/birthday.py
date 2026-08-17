@@ -1,9 +1,7 @@
 """
-utils/birthday.py — Logique métier du système d'anniversaire (parsing,
-validation, enregistrement), extraite de cogs/birthday/birthday_add.py pour
-alléger le cog — même traitement que utils/alpha_rank_logic.py /
-utils/derank_logic.py.
+utils/birthday.py — Logique métier du système d'anniversaire
 """
+
 from __future__ import annotations
 
 import logging
@@ -15,10 +13,12 @@ from utils.managers.birthday_manager import get_user_birthday, set_user_birthday
 log = logging.getLogger(__name__)
 
 
+# ============================================================
+# 🎉 Enregistrement d'une date d'anniversaire
+# ============================================================
+
 class BirthdayValidationError(Exception):
-    """Erreur métier à afficher à l'utilisateur (pas une exception technique) —
-    levée quand la demande doit être refusée (format invalide, date invalide,
-    date déjà enregistrée, échec technique d'enregistrement)."""
+    """Problèmle de date (format date invalide, date déjà enregistrée ...)."""
 
     def __init__(self, message: str) -> None:
         super().__init__(message)
@@ -27,7 +27,8 @@ class BirthdayValidationError(Exception):
 
 @dataclass
 class BirthdayResult:
-    """Résumé d'un enregistrement réussi, pour construction du message de confirmation par le cog."""
+    """Données pour créer le message d'enregistrement réussit."""
+
     day: int
     month: int
     year: Optional[int]
@@ -39,7 +40,7 @@ class BirthdayResult:
 
 
 # ============================================================
-# 📁 Parsing
+# 🔩 Fonctions utilitaires
 # ============================================================
 
 def parse_date_input(s: str) -> Optional[tuple[int, int, Optional[int]]]:

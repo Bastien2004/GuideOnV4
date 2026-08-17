@@ -1,237 +1,228 @@
 """
-views/mod/automod_banword_view.py — Configuration du système Ban Word.
+views/mod/automod_banword_view.py — Configuration du système Ban Word (v2).
 
-Éléments :
-  - toggle activation
-  - liste des mots (paginée si nombreuse)
-  - ajout d'un mot (modal)
-  - retrait d'un mot (modal — pas de select pour rester cohérent avec le
-    choix général "pas de select" du projet côté /dev permissions)
-  - purge complète (avec confirmation intégrée)
+Style compact autorole. Toggle activation + gestion de la liste de mots
+(add / remove / clear) via modals. Reste "pas de select" — cohérent avec
+le choix général du projet.
 """
 from __future__ import annotations
 
+import logging
+from typing import Optional
+
 import discord
 from discord import ButtonStyle, Interaction
-from discord.ui import ActionRow, Button, Container, Section, Separator, TextDisplay
+from discord.ui import ActionRow, Button, Container, LayoutView, Section, Separator, TextDisplay
 
 from utils.container_universel import error_container, warning_container
-from utils.managers import mod_automod_banword_manager as banword_mgr
-from views._components.base_view import BaseLayoutView
+from utils.managers import mod_automod_banword_manager as mgr
+from utils.settings import settings
 from views._components.text_modal import TextModal
 
+log = logging.getLogger(__name__)
 
 MAX_WORD_LENGTH = 100
-WORDS_PER_PAGE = 30  # affichage inline uniquement
+WORDS_PREVIEW_MAX = 30
 
 
-class AutomodBanwordView(BaseLayoutView):
-    """Configuration du système ban word."""
+async def create_automod_banword_view(
+    guild_id: int, bot, author_id: Optional[int] = None,
+) -> Optional[LayoutView]:
+    guild = bot.get_guild(guild_id)
+    if guild is None:
+        return None
 
-    def __init__(
-        self, *, guild: discord.Guild, owner_id: int, cfg: dict, words: list[str],
-        parent_dashboard,
-    ):
-        super().__init__(owner_id=owner_id, timeout=300)
-        self.guild = guild
-        self.cfg = cfg
-        self.words = words
-        self.parent_dashboard = parent_dashboard
-        self._build()
+    cfg = await mgr.load_config(guild_id)
+    words = await mgr.list_words(guild_id)
+    enabled = cfg.get("enabled", False)
 
-    @classmethod
-    async def build(
-        cls, *, guild: discord.Guild, owner_id: int, parent_dashboard,
-    ) -> "AutomodBanwordView":
-        cfg = await banword_mgr.load_config(guild.id)
-        words = await banword_mgr.list_words(guild.id)
-        return cls(
-            guild=guild, owner_id=owner_id, cfg=cfg, words=words,
-            parent_dashboard=parent_dashboard,
-        )
+    view = LayoutView(timeout=600)
+    container = Container()
 
-    async def _refresh(self, interaction: Interaction) -> None:
-        self.cfg = await banword_mgr.load_config(self.guild.id)
-        self.words = await banword_mgr.list_words(self.guild.id)
-        self.clear_items()
-        self._build()
-        await self.push_update(interaction)
+    dot = "🟢" if enabled else "🔴"
+    state = "Activé" if enabled else "Désactivé"
+    container.add_item(TextDisplay(f"# 🚫 Ban Word · {dot} {state}"))
+    container.add_item(Separator())
 
-    def _build(self) -> None:
-        container = Container()
-        enabled = self.cfg.get("enabled", False)
+    # Toggle
+    toggle_btn = Button(
+        label="✅ Activé" if enabled else "❌ Désactivé",
+        style=ButtonStyle.success if enabled else ButtonStyle.danger,
+    )
+    toggle_btn.callback = _cb_toggle(guild_id, bot, author_id)
+    container.add_item(Section(
+        TextDisplay(
+            "**🔘 Statut du système**\n"
+            "-# Analyse chaque message avant publication. Reconnaît les "
+            "contournements (accents, chiffres, espaces, ponctuation)."
+        ),
+        accessory=toggle_btn,
+    ))
+    container.add_item(Separator())
 
-        # ── Header ────────────────────────────────────────
-        state_dot = "🟢" if enabled else "🔴"
-        state_label = "Activé" if enabled else "Désactivé"
-        container.add_item(TextDisplay(f"# 🚫 Ban Word · {state_dot} {state_label}"))
-        container.add_item(TextDisplay(
-            "-# Bloque tout message contenant un mot de la liste. Le système "
-            "reconnaît les contournements courants (accents, chiffres, "
-            "espaces, caractères spéciaux)."
-        ))
-        container.add_item(Separator())
+    # Liste
+    container.add_item(TextDisplay(f"**📋 Mots bannis** · {len(words)}"))
+    if not words:
+        container.add_item(TextDisplay("-# *Aucun mot dans la liste.*"))
+    else:
+        preview = words[:WORDS_PREVIEW_MAX]
+        body = " · ".join(f"`{w}`" for w in preview)
+        if len(words) > WORDS_PREVIEW_MAX:
+            body += f"\n-# *… et {len(words) - WORDS_PREVIEW_MAX} de plus*"
+        container.add_item(TextDisplay(body))
 
-        # ── Toggle activation ────────────────────────────
-        toggle_label = "Désactiver le système" if enabled else "Activer le système"
-        toggle_emoji = "🔴" if enabled else "🟢"
-        toggle_style = ButtonStyle.danger if enabled else ButtonStyle.success
+    btn_add = Button(label="Ajouter", style=ButtonStyle.success, emoji="➕")
+    btn_add.callback = _cb_add_word(guild_id, bot, author_id)
+    btn_remove = Button(label="Retirer", style=ButtonStyle.danger, emoji="➖", disabled=not words)
+    btn_remove.callback = _cb_remove_word(guild_id, bot, author_id)
+    btn_clear = Button(label="Tout vider", style=ButtonStyle.danger, emoji="🗑️", disabled=not words)
+    btn_clear.callback = _cb_clear_words(guild_id, bot, author_id)
+    container.add_item(ActionRow(btn_add, btn_remove, btn_clear))
+    container.add_item(Separator())
 
-        btn_toggle = Button(label=toggle_label, emoji=toggle_emoji, style=toggle_style)
-        btn_toggle.callback = self._on_toggle
+    # Retour + doc
+    btn_back = Button(label="Retour", style=ButtonStyle.secondary, emoji="↩️")
+    btn_back.callback = _cb_back(guild_id, bot, author_id)
+    container.add_item(ActionRow(
+        btn_back,
+        Button(label="Documentation", style=ButtonStyle.link, url=settings.doc_url, emoji="📚"),
+    ))
+    container.add_item(Separator())
+    container.add_item(TextDisplay("-# GuideOn Studio"))
 
-        container.add_item(Section(
-            TextDisplay(
-                "**⚡ Activation**\n"
-                "-# Une fois activé, chaque message sera analysé avant publication."
-            ),
-            accessory=btn_toggle,
-        ))
-        container.add_item(Separator())
+    view.add_item(container)
+    return view
 
-        # ── Liste des mots ───────────────────────────────
-        container.add_item(TextDisplay(
-            f"**📋 Liste des mots bannis** ({len(self.words)})"
-        ))
-        if not self.words:
-            container.add_item(TextDisplay("-# *Aucun mot dans la liste.*"))
-        else:
-            display = self.words[:WORDS_PER_PAGE]
-            body = " · ".join(f"`{w}`" for w in display)
-            if len(self.words) > WORDS_PER_PAGE:
-                body += f"\n-# *… et {len(self.words) - WORDS_PER_PAGE} mots de plus (non affichés)*"
-            container.add_item(TextDisplay(body))
 
-        # Actions sur la liste
-        btn_add = Button(label="Ajouter un mot", emoji="➕", style=ButtonStyle.success)
-        btn_add.callback = self._on_add_word
+# ============================================================
+# 📑 Guard + rerender
+# ============================================================
 
-        btn_remove = Button(
-            label="Retirer un mot", emoji="➖", style=ButtonStyle.danger,
-            disabled=not self.words,
-        )
-        btn_remove.callback = self._on_remove_word
+def _guard(author_id: Optional[int]):
+    async def check(interaction: Interaction) -> bool:
+        if author_id is not None and interaction.user.id != author_id:
+            await interaction.response.send_message(
+                view=error_container("Seul l'**auteur** peut utiliser ce menu."), ephemeral=True,
+            )
+            return False
+        m = interaction.user
+        if not isinstance(m, discord.Member) or not m.guild_permissions.administrator:
+            await interaction.response.send_message(
+                view=error_container("Vous devez être **Administrateur**."), ephemeral=True,
+            )
+            return False
+        return True
+    return check
 
-        btn_clear = Button(
-            label="Tout vider", emoji="🗑️", style=ButtonStyle.danger,
-            disabled=not self.words,
-        )
-        btn_clear.callback = self._on_clear_words
 
-        container.add_item(ActionRow(btn_add, btn_remove, btn_clear))
-        container.add_item(Separator())
+async def _rerender(interaction: Interaction, guild_id: int, bot, author_id):
+    new_view = await create_automod_banword_view(guild_id, bot, author_id)
+    if new_view is None:
+        return
+    if interaction.response.is_done():
+        await interaction.edit_original_response(view=new_view)
+    else:
+        await interaction.response.edit_message(view=new_view)
 
-        # ── Retour ───────────────────────────────────────
-        btn_back = Button(label="Retour", emoji="↩️", style=ButtonStyle.secondary)
-        btn_back.callback = self._on_back
-        container.add_item(ActionRow(btn_back))
 
-        container.add_item(Separator())
-        container.add_item(TextDisplay("-# GuideOn Studio · Auto-modération"))
-        self.add_item(container)
+# ============================================================
+# 📑 Callbacks
+# ============================================================
 
-    # ────────────────────────────────────────────────────────
-    # Callbacks
-    # ────────────────────────────────────────────────────────
+def _cb_toggle(guild_id, bot, author_id):
+    check = _guard(author_id)
+    async def cb(interaction: Interaction):
+        if not await check(interaction):
+            return
+        current = (await mgr.load_config(guild_id)).get("enabled", False)
+        await mgr.set_enabled(guild_id, not current)
+        await _rerender(interaction, guild_id, bot, author_id)
+    return cb
 
-    async def _on_toggle(self, interaction: Interaction) -> None:
-        current = self.cfg.get("enabled", False)
-        await banword_mgr.set_enabled(self.guild.id, not current)
-        await self._refresh(interaction)
 
-    async def _on_add_word(self, interaction: Interaction) -> None:
+def _cb_add_word(guild_id, bot, author_id):
+    check = _guard(author_id)
+    async def cb(interaction: Interaction):
+        if not await check(interaction):
+            return
         async def submit(inter: Interaction, value: str) -> None:
             value = (value or "").strip()
             if not value:
                 await inter.response.send_message(
-                    view=warning_container("Le mot ne peut pas être vide."),
-                    ephemeral=True,
+                    view=warning_container("Le mot ne peut pas être vide."), ephemeral=True,
                 )
                 return
-            if len(value) > MAX_WORD_LENGTH:
-                await inter.response.send_message(
-                    view=warning_container(
-                        f"Le mot doit contenir au maximum **{MAX_WORD_LENGTH} caractères**."
-                    ),
-                    ephemeral=True,
-                )
-                return
-            added = await banword_mgr.add_word(self.guild.id, value)
+            added = await mgr.add_word(guild_id, value)
             if not added:
                 await inter.response.send_message(
                     view=warning_container(f"Le mot `{value.lower()}` est **déjà** dans la liste."),
                     ephemeral=True,
                 )
                 return
-            await self._refresh(inter)
+            await _rerender(inter, guild_id, bot, author_id)
 
         await interaction.response.send_modal(TextModal(
-            title="Ajouter un mot",
-            label="Mot à bannir",
-            placeholder="Ex : insulte",
-            required=True,
-            max_length=MAX_WORD_LENGTH,
-            on_submit=submit,
+            title="Ajouter un mot", label="Mot à bannir", placeholder="Ex : insulte",
+            required=True, max_length=MAX_WORD_LENGTH, on_submit=submit,
         ))
+    return cb
 
-    async def _on_remove_word(self, interaction: Interaction) -> None:
+
+def _cb_remove_word(guild_id, bot, author_id):
+    check = _guard(author_id)
+    async def cb(interaction: Interaction):
+        if not await check(interaction):
+            return
         async def submit(inter: Interaction, value: str) -> None:
             value = (value or "").strip()
             if not value:
                 await inter.response.send_message(
-                    view=warning_container("Le mot ne peut pas être vide."),
-                    ephemeral=True,
+                    view=warning_container("Le mot ne peut pas être vide."), ephemeral=True,
                 )
                 return
-            removed = await banword_mgr.remove_word(self.guild.id, value)
+            removed = await mgr.remove_word(guild_id, value)
             if not removed:
                 await inter.response.send_message(
                     view=warning_container(f"Le mot `{value.lower()}` n'est **pas** dans la liste."),
                     ephemeral=True,
                 )
                 return
-            await self._refresh(inter)
+            await _rerender(inter, guild_id, bot, author_id)
 
         await interaction.response.send_modal(TextModal(
-            title="Retirer un mot",
-            label="Mot à retirer",
-            placeholder="Ex : insulte",
-            required=True,
-            max_length=MAX_WORD_LENGTH,
-            on_submit=submit,
+            title="Retirer un mot", label="Mot à retirer", placeholder="Ex : insulte",
+            required=True, max_length=MAX_WORD_LENGTH, on_submit=submit,
         ))
+    return cb
 
-    async def _on_clear_words(self, interaction: Interaction) -> None:
-        # Confirmation intégrée (transforme la vue actuelle en confirm).
-        confirm_view = _build_clear_confirm_view(
-            owner_id=self.owner_id, count=len(self.words),
-            on_confirm=self._do_clear, on_cancel=self._back_from_confirm,
-        )
-        await interaction.response.edit_message(view=confirm_view)
 
-    async def _do_clear(self, interaction: Interaction) -> None:
-        await banword_mgr.clear_words(self.guild.id)
-        await self._refresh(interaction)
+def _cb_clear_words(guild_id, bot, author_id):
+    """Confirmation intégrée (edit_message)."""
+    check = _guard(author_id)
+    async def cb(interaction: Interaction):
+        if not await check(interaction):
+            return
+        words = await mgr.list_words(guild_id)
+        confirm = _build_clear_confirm(guild_id, bot, author_id, count=len(words))
+        await interaction.response.edit_message(view=confirm)
+    return cb
 
-    async def _back_from_confirm(self, interaction: Interaction) -> None:
-        await self._refresh(interaction)
 
-    async def _on_back(self, interaction: Interaction) -> None:
-        from views.mod.automod_dashboard_view import AutomodDashboardView
-        new_view = await AutomodDashboardView.build(
-            guild=self.guild, owner_id=self.owner_id,
-        )
+def _cb_back(guild_id, bot, author_id):
+    check = _guard(author_id)
+    async def cb(interaction: Interaction):
+        if not await check(interaction):
+            return
+        from views.mod.automod_dashboard_view import create_automod_dashboard_view
+        new_view = await create_automod_dashboard_view(guild_id, bot, author_id)
+        if new_view is None:
+            return
         await interaction.response.edit_message(view=new_view)
+    return cb
 
 
-# ============================================================
-# Vue de confirmation intégrée pour la purge
-# ============================================================
-
-def _build_clear_confirm_view(
-    *, owner_id: int, count: int, on_confirm, on_cancel,
-) -> BaseLayoutView:
-    view = BaseLayoutView(owner_id=owner_id, timeout=120)
+def _build_clear_confirm(guild_id, bot, author_id, *, count: int) -> LayoutView:
+    view = LayoutView(timeout=120)
     c = Container()
     c.add_item(TextDisplay("# 🗑️ Vider la liste des mots bannis ?"))
     c.add_item(Separator())
@@ -240,12 +231,20 @@ def _build_clear_confirm_view(
         "-# Cette action est irréversible."
     ))
     c.add_item(Separator())
-    btn_confirm = Button(label="Confirmer", emoji="✅", style=ButtonStyle.danger)
-    btn_confirm.callback = on_confirm
-    btn_cancel = Button(label="Annuler", emoji="↩️", style=ButtonStyle.secondary)
-    btn_cancel.callback = on_cancel
+
+    async def do_clear(interaction: Interaction):
+        await mgr.clear_words(guild_id)
+        await _rerender(interaction, guild_id, bot, author_id)
+
+    async def cancel(interaction: Interaction):
+        await _rerender(interaction, guild_id, bot, author_id)
+
+    btn_confirm = Button(label="Confirmer", style=ButtonStyle.danger, emoji="✅")
+    btn_confirm.callback = do_clear
+    btn_cancel = Button(label="Annuler", style=ButtonStyle.secondary, emoji="↩️")
+    btn_cancel.callback = cancel
     c.add_item(ActionRow(btn_confirm, btn_cancel))
     c.add_item(Separator())
-    c.add_item(TextDisplay("-# GuideOn Studio · Auto-modération"))
+    c.add_item(TextDisplay("-# GuideOn Studio"))
     view.add_item(c)
     return view

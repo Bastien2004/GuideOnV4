@@ -114,6 +114,10 @@ class GuideONBot(commands.Bot):
         from views.ticket.persistence import register_persistent_views
         await register_persistent_views(self)
 
+        # ── Chargement des views persistantes (modération) ──
+        from views.mod.automod_alert_view import AutomodAlertView
+        self.add_view(AutomodAlertView())
+
         await self._sync_commands()
 
         # ── API FastAPI ──

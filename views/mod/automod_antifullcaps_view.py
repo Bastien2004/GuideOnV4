@@ -1,192 +1,214 @@
 """
-views/mod/automod_antifullcaps_view.py — Configuration Anti Full Maj.
-
-3 réglages :
-  - toggle activation
-  - min_length (longueur minimale du message pour être analysé)
-  - ratio_threshold (proportion de MAJ à partir de laquelle on déclenche,
-    exprimée en % dans l'UI pour la lisibilité)
+views/mod/automod_antifullcaps_view.py — Config Anti Full Maj (v2).
+Style compact autorole. Toggle + 2 réglages (min_length + ratio).
 """
 from __future__ import annotations
 
+import logging
+from typing import Optional
+
 import discord
 from discord import ButtonStyle, Interaction
-from discord.ui import ActionRow, Button, Container, Section, Separator, TextDisplay
+from discord.ui import ActionRow, Button, Container, LayoutView, Section, Separator, TextDisplay
 
-from utils.container_universel import warning_container
+from utils.container_universel import error_container, warning_container
 from utils.managers import mod_automod_antifullcaps_manager as mgr
-from views._components.base_view import BaseLayoutView
+from utils.settings import settings
 from views._components.text_modal import TextModal
 
+log = logging.getLogger(__name__)
 
-MIN_LENGTH_ABS_MIN = 1
-MIN_LENGTH_ABS_MAX = 500
-RATIO_ABS_MIN = 10   # en pourcents
-RATIO_ABS_MAX = 100
+MIN_LENGTH_MIN, MIN_LENGTH_MAX = 1, 500
+RATIO_MIN_PCT, RATIO_MAX_PCT = 10, 100
 
 
-class AutomodAntifullcapsView(BaseLayoutView):
-    """Configuration du système Anti Full Maj."""
+async def create_automod_antifullcaps_view(
+    guild_id: int, bot, author_id: Optional[int] = None,
+) -> Optional[LayoutView]:
+    guild = bot.get_guild(guild_id)
+    if guild is None:
+        return None
 
-    def __init__(self, *, guild: discord.Guild, owner_id: int, cfg: dict, parent_dashboard):
-        super().__init__(owner_id=owner_id, timeout=300)
-        self.guild = guild
-        self.cfg = cfg
-        self.parent_dashboard = parent_dashboard
-        self._build()
+    cfg = await mgr.load_config(guild_id)
+    enabled = cfg.get("enabled", False)
+    min_length = cfg.get("min_length", 10)
+    ratio_pct = int(round(cfg.get("ratio_threshold", 0.7) * 100))
 
-    @classmethod
-    async def build(cls, *, guild: discord.Guild, owner_id: int, parent_dashboard):
-        cfg = await mgr.load_config(guild.id)
-        return cls(guild=guild, owner_id=owner_id, cfg=cfg, parent_dashboard=parent_dashboard)
+    view = LayoutView(timeout=600)
+    c = Container()
 
-    async def _refresh(self, interaction: Interaction) -> None:
-        self.cfg = await mgr.load_config(self.guild.id)
-        self.clear_items()
-        self._build()
-        await self.push_update(interaction)
+    dot = "🟢" if enabled else "🔴"
+    state = "Activé" if enabled else "Désactivé"
+    c.add_item(TextDisplay(f"# 🔠 Anti Full Maj · {dot} {state}"))
+    c.add_item(Separator())
 
-    def _build(self) -> None:
-        container = Container()
-        enabled = self.cfg.get("enabled", False)
-        min_length = self.cfg.get("min_length", 10)
-        ratio_pct = int(round(self.cfg.get("ratio_threshold", 0.7) * 100))
-
-        # Header
-        state_dot = "🟢" if enabled else "🔴"
-        state_label = "Activé" if enabled else "Désactivé"
-        container.add_item(TextDisplay(f"# 🔠 Anti Full Maj · {state_dot} {state_label}"))
-        container.add_item(TextDisplay(
+    # Toggle
+    toggle_btn = Button(
+        label="✅ Activé" if enabled else "❌ Désactivé",
+        style=ButtonStyle.success if enabled else ButtonStyle.danger,
+    )
+    toggle_btn.callback = _cb_toggle(guild_id, bot, author_id)
+    c.add_item(Section(
+        TextDisplay(
+            "**🔘 Statut du système**\n"
             "-# Bloque les messages majoritairement en MAJUSCULES."
-        ))
-        container.add_item(Separator())
+        ),
+        accessory=toggle_btn,
+    ))
+    c.add_item(Separator())
 
-        # Toggle
-        toggle_label = "Désactiver" if enabled else "Activer"
-        toggle_emoji = "🔴" if enabled else "🟢"
-        toggle_style = ButtonStyle.danger if enabled else ButtonStyle.success
-        btn_toggle = Button(label=toggle_label, emoji=toggle_emoji, style=toggle_style)
-        btn_toggle.callback = self._on_toggle
-        container.add_item(Section(
-            TextDisplay(
-                "**⚡ Activation**\n"
-                "-# Analyse chaque message avant publication."
-            ),
-            accessory=btn_toggle,
-        ))
-        container.add_item(Separator())
+    # Min length
+    btn_min = Button(label="Modifier", style=ButtonStyle.secondary, emoji="✏️")
+    btn_min.callback = _cb_edit_min(guild_id, bot, author_id)
+    c.add_item(Section(
+        TextDisplay(
+            "**📏 Longueur minimale**\n"
+            f"-# Ignore les messages de moins de **{min_length} caractères**.\n"
+            f"-# Plage : {MIN_LENGTH_MIN} → {MIN_LENGTH_MAX}"
+        ),
+        accessory=btn_min,
+    ))
+    c.add_item(Separator())
 
-        # Réglage : longueur minimale
-        btn_min = Button(label="Modifier", emoji="✏️", style=ButtonStyle.secondary)
-        btn_min.callback = self._on_edit_min_length
-        container.add_item(Section(
-            TextDisplay(
-                "**📏 Longueur minimale**\n"
-                f"-# Messages plus courts que **{min_length} caractères** ignorés (protège \"OK\", \"LOL\"…).\n"
-                f"-# Plage autorisée : {MIN_LENGTH_ABS_MIN} → {MIN_LENGTH_ABS_MAX}"
-            ),
-            accessory=btn_min,
-        ))
-        container.add_item(Separator())
+    # Ratio
+    btn_ratio = Button(label="Modifier", style=ButtonStyle.secondary, emoji="✏️")
+    btn_ratio.callback = _cb_edit_ratio(guild_id, bot, author_id)
+    c.add_item(Section(
+        TextDisplay(
+            "**📊 Seuil de déclenchement**\n"
+            f"-# À partir de **{ratio_pct}%** de lettres en MAJUSCULES.\n"
+            f"-# Plage : {RATIO_MIN_PCT}% → {RATIO_MAX_PCT}%"
+        ),
+        accessory=btn_ratio,
+    ))
+    c.add_item(Separator())
 
-        # Réglage : ratio
-        btn_ratio = Button(label="Modifier", emoji="✏️", style=ButtonStyle.secondary)
-        btn_ratio.callback = self._on_edit_ratio
-        container.add_item(Section(
-            TextDisplay(
-                "**📊 Seuil de déclenchement**\n"
-                f"-# À partir de **{ratio_pct}%** de lettres en MAJUSCULES → suppression.\n"
-                f"-# Plage autorisée : {RATIO_ABS_MIN}% → {RATIO_ABS_MAX}%"
-            ),
-            accessory=btn_ratio,
-        ))
-        container.add_item(Separator())
+    # Back + doc
+    btn_back = Button(label="Retour", style=ButtonStyle.secondary, emoji="↩️")
+    btn_back.callback = _cb_back(guild_id, bot, author_id)
+    c.add_item(ActionRow(
+        btn_back,
+        Button(label="Documentation", style=ButtonStyle.link, url=settings.doc_url, emoji="📚"),
+    ))
+    c.add_item(Separator())
+    c.add_item(TextDisplay("-# GuideOn Studio"))
+    view.add_item(c)
+    return view
 
-        # Retour
-        btn_back = Button(label="Retour", emoji="↩️", style=ButtonStyle.secondary)
-        btn_back.callback = self._on_back
-        container.add_item(ActionRow(btn_back))
 
-        container.add_item(Separator())
-        container.add_item(TextDisplay("-# GuideOn Studio · Auto-modération"))
-        self.add_item(container)
+def _guard(author_id: Optional[int]):
+    async def check(interaction: Interaction) -> bool:
+        if author_id is not None and interaction.user.id != author_id:
+            await interaction.response.send_message(
+                view=error_container("Seul l'**auteur** peut utiliser ce menu."), ephemeral=True,
+            )
+            return False
+        m = interaction.user
+        if not isinstance(m, discord.Member) or not m.guild_permissions.administrator:
+            await interaction.response.send_message(
+                view=error_container("Vous devez être **Administrateur**."), ephemeral=True,
+            )
+            return False
+        return True
+    return check
 
-    # ─────────── Callbacks ───────────
 
-    async def _on_toggle(self, interaction: Interaction) -> None:
-        current = self.cfg.get("enabled", False)
-        await mgr.set_enabled(self.guild.id, not current)
-        await self._refresh(interaction)
+async def _rerender(interaction, guild_id, bot, author_id):
+    new_view = await create_automod_antifullcaps_view(guild_id, bot, author_id)
+    if new_view is None:
+        return
+    if interaction.response.is_done():
+        await interaction.edit_original_response(view=new_view)
+    else:
+        await interaction.response.edit_message(view=new_view)
 
-    async def _on_edit_min_length(self, interaction: Interaction) -> None:
-        async def submit(inter: Interaction, value: str) -> None:
+
+def _cb_toggle(guild_id, bot, author_id):
+    check = _guard(author_id)
+    async def cb(inter):
+        if not await check(inter):
+            return
+        current = (await mgr.load_config(guild_id)).get("enabled", False)
+        await mgr.set_enabled(guild_id, not current)
+        await _rerender(inter, guild_id, bot, author_id)
+    return cb
+
+
+def _cb_edit_min(guild_id, bot, author_id):
+    check = _guard(author_id)
+    async def cb(inter):
+        if not await check(inter):
+            return
+        async def submit(i, value):
             try:
                 n = int(value.strip())
             except ValueError:
-                await inter.response.send_message(
+                await i.response.send_message(
                     view=warning_container("La valeur doit être un **nombre entier**."),
                     ephemeral=True,
                 )
                 return
-            if n < MIN_LENGTH_ABS_MIN or n > MIN_LENGTH_ABS_MAX:
-                await inter.response.send_message(
+            if n < MIN_LENGTH_MIN or n > MIN_LENGTH_MAX:
+                await i.response.send_message(
                     view=warning_container(
-                        f"La longueur doit être comprise entre **{MIN_LENGTH_ABS_MIN}** "
-                        f"et **{MIN_LENGTH_ABS_MAX}**."
+                        f"La longueur doit être entre **{MIN_LENGTH_MIN}** et **{MIN_LENGTH_MAX}**."
                     ),
                     ephemeral=True,
                 )
                 return
-            await mgr.save_config(self.guild.id, min_length=n)
-            await self._refresh(inter)
+            await mgr.save_config(guild_id, min_length=n)
+            await _rerender(i, guild_id, bot, author_id)
 
-        await interaction.response.send_modal(TextModal(
-            title="Longueur minimale",
-            label="Nombre de caractères minimum",
-            placeholder="Ex : 10",
-            default=str(self.cfg.get("min_length", 10)),
-            required=True,
-            max_length=4,
-            on_submit=submit,
+        current = (await mgr.load_config(guild_id)).get("min_length", 10)
+        await inter.response.send_modal(TextModal(
+            title="Longueur minimale", label="Nombre de caractères",
+            placeholder="Ex : 10", default=str(current), required=True, max_length=4, on_submit=submit,
         ))
+    return cb
 
-    async def _on_edit_ratio(self, interaction: Interaction) -> None:
-        async def submit(inter: Interaction, value: str) -> None:
+
+def _cb_edit_ratio(guild_id, bot, author_id):
+    check = _guard(author_id)
+    async def cb(inter):
+        if not await check(inter):
+            return
+        async def submit(i, value):
             raw = value.strip().rstrip("%").strip()
             try:
                 pct = int(raw)
             except ValueError:
-                await inter.response.send_message(
+                await i.response.send_message(
                     view=warning_container("La valeur doit être un **nombre entier** (pourcentage)."),
                     ephemeral=True,
                 )
                 return
-            if pct < RATIO_ABS_MIN or pct > RATIO_ABS_MAX:
-                await inter.response.send_message(
+            if pct < RATIO_MIN_PCT or pct > RATIO_MAX_PCT:
+                await i.response.send_message(
                     view=warning_container(
-                        f"Le pourcentage doit être compris entre **{RATIO_ABS_MIN}%** "
-                        f"et **{RATIO_ABS_MAX}%**."
+                        f"Le pourcentage doit être entre **{RATIO_MIN_PCT}%** et **{RATIO_MAX_PCT}%**."
                     ),
                     ephemeral=True,
                 )
                 return
-            await mgr.save_config(self.guild.id, ratio_threshold=pct / 100.0)
-            await self._refresh(inter)
+            await mgr.save_config(guild_id, ratio_threshold=pct / 100.0)
+            await _rerender(i, guild_id, bot, author_id)
 
-        current_pct = int(round(self.cfg.get("ratio_threshold", 0.7) * 100))
-        await interaction.response.send_modal(TextModal(
-            title="Seuil de déclenchement",
-            label="Pourcentage de MAJ (10 à 100)",
-            placeholder="Ex : 70",
-            default=str(current_pct),
-            required=True,
-            max_length=4,
-            on_submit=submit,
+        current_pct = int(round((await mgr.load_config(guild_id)).get("ratio_threshold", 0.7) * 100))
+        await inter.response.send_modal(TextModal(
+            title="Seuil de déclenchement", label=f"Pourcentage ({RATIO_MIN_PCT} à {RATIO_MAX_PCT})",
+            placeholder="Ex : 70", default=str(current_pct), required=True, max_length=4, on_submit=submit,
         ))
+    return cb
 
-    async def _on_back(self, interaction: Interaction) -> None:
-        from views.mod.automod_dashboard_view import AutomodDashboardView
-        new_view = await AutomodDashboardView.build(
-            guild=self.guild, owner_id=self.owner_id,
-        )
-        await interaction.response.edit_message(view=new_view)
+
+def _cb_back(guild_id, bot, author_id):
+    check = _guard(author_id)
+    async def cb(inter):
+        if not await check(inter):
+            return
+        from views.mod.automod_dashboard_view import create_automod_dashboard_view
+        new_view = await create_automod_dashboard_view(guild_id, bot, author_id)
+        if new_view is None:
+            return
+        await inter.response.edit_message(view=new_view)
+    return cb

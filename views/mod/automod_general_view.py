@@ -1,150 +1,274 @@
 """
-views/mod/automod_general_view.py — Configuration des paramètres généraux automod.
+views/mod/automod_general_view.py — Configuration paramètres généraux automod (v2).
 
-Deux réglages :
-  - salon d'alerte staff (ChannelSelect, textuel/annonce uniquement)
-  - notifications dans le salon d'origine (toggle bool)
+4 réglages, style autorole compact :
+  - salon d'alerte staff (channel select via modal ID pour rester cohérent
+    avec le choix "pas de select" du projet côté /dev permissions ; en
+    revanche pour les CHANNELS/ROLES natifs Discord on utilise les select
+    natifs car ce sont des ressources du serveur, pas des users)
+  - rôle staff à ping sur mute auto
+  - notifications dans le salon (toggle)
+  - fenêtre de récidive (10s → 180s)
 """
 from __future__ import annotations
 
+import logging
+from typing import Optional
+
 import discord
 from discord import ButtonStyle, Interaction
-from discord.ui import ActionRow, Button, Container, Section, Separator, TextDisplay
+from discord.ui import ActionRow, Button, Container, LayoutView, RoleSelect, Section, Separator, TextDisplay
 
-from utils.container_universel import error_container
-from utils.managers import mod_automod_general_manager as general_mgr
-from views._components.base_view import BaseLayoutView
+from utils.container_universel import error_container, warning_container
+from utils.managers import mod_automod_general_manager as mgr
+from utils.settings import settings
 from views._components.channel_select import ChannelSelect
+from views._components.text_modal import TextModal
 
+log = logging.getLogger(__name__)
 
 CHANNEL_TYPES = [discord.ChannelType.text, discord.ChannelType.news]
 
 
-class AutomodGeneralView(BaseLayoutView):
-    """Vue de configuration des paramètres généraux d'automod."""
+async def create_automod_general_view(
+    guild_id: int, bot, author_id: Optional[int] = None,
+) -> Optional[LayoutView]:
+    """Construction de la vue paramètres généraux."""
 
-    def __init__(self, *, guild: discord.Guild, owner_id: int, cfg: dict, parent_dashboard):
-        super().__init__(owner_id=owner_id, timeout=300)
-        self.guild = guild
-        self.cfg = cfg
-        self.parent_dashboard = parent_dashboard
-        self._build()
+    guild = bot.get_guild(guild_id)
+    if guild is None:
+        return None
 
-    @classmethod
-    async def build(
-        cls, *, guild: discord.Guild, owner_id: int, parent_dashboard,
-    ) -> "AutomodGeneralView":
-        cfg = await general_mgr.load_general(guild.id)
-        return cls(guild=guild, owner_id=owner_id, cfg=cfg, parent_dashboard=parent_dashboard)
+    cfg = await mgr.load_general(guild_id)
 
-    async def _refresh(self, interaction: Interaction) -> None:
-        self.cfg = await general_mgr.load_general(self.guild.id)
-        self.clear_items()
-        self._build()
-        await self.push_update(interaction)
+    view = LayoutView(timeout=600)
+    container = Container()
 
-    def _build(self) -> None:
-        container = Container()
-        container.add_item(TextDisplay("# ⚙️ Paramètres généraux"))
-        container.add_item(TextDisplay(
-            "-# Réglages transverses à tous les systèmes d'auto-modération."
-        ))
-        container.add_item(Separator())
+    container.add_item(TextDisplay("# ⚙️ Paramètres généraux · Auto-modération"))
+    container.add_item(Separator())
 
-        # ── Salon d'alerte staff ──────────────────────────
-        alert_ch_id = self.cfg.get("alert_channel_id")
-        alert_ch_line = (
-            f"<#{alert_ch_id}>" if alert_ch_id else "`Aucun salon configuré`"
-        )
-        container.add_item(TextDisplay(
-            f"**📥 Salon d'alerte staff**\n"
-            f"-# Chaque infraction y sera loggée avec les détails complets.\n"
-            f"-# Actuel : {alert_ch_line}"
-        ))
-        select = ChannelSelect(
-            placeholder="Choisir un salon d'alerte",
-            on_select=self._on_channel_select,
-            channel_types=CHANNEL_TYPES,
-        )
-        container.add_item(ActionRow(select))
+    # ── Salon d'alerte staff ──
+    alert_ch_id = cfg.get("alert_channel_id")
+    alert_ch_line = f"<#{alert_ch_id}>" if alert_ch_id else "`Non configuré`"
 
-        if alert_ch_id:
-            btn_clear = Button(
-                label="Retirer le salon d'alerte", emoji="🗑️", style=ButtonStyle.danger,
-            )
-            btn_clear.callback = self._on_clear_alert_channel
-            container.add_item(ActionRow(btn_clear))
+    container.add_item(TextDisplay(
+        "**📥 Salon d'alerte staff**\n"
+        "-# Reçoit les logs détaillés à chaque infraction.\n"
+        f"-# Actuel : {alert_ch_line}"
+    ))
+    ch_select = ChannelSelect(
+        placeholder="Choisir un salon d'alerte",
+        on_select=_on_channel_select(guild_id, bot, author_id),
+        channel_types=CHANNEL_TYPES,
+    )
+    container.add_item(ActionRow(ch_select))
+    if alert_ch_id:
+        btn_clear_ch = Button(label="Retirer", style=ButtonStyle.danger, emoji="🗑️")
+        btn_clear_ch.callback = _cb_clear_channel(guild_id, bot, author_id)
+        container.add_item(ActionRow(btn_clear_ch))
+    container.add_item(Separator())
 
-        container.add_item(Separator())
+    # ── Rôle staff à ping ──
+    staff_role_id = cfg.get("staff_role_id")
+    staff_role_line = f"<@&{staff_role_id}>" if staff_role_id else "`Non configuré`"
 
-        # ── Toggle notifications dans le salon ───────────
-        notify = self.cfg.get("notify_in_channel", True)
-        toggle_label = "Désactiver" if notify else "Activer"
-        toggle_emoji = "🔕" if notify else "🔔"
-        toggle_style = ButtonStyle.danger if notify else ButtonStyle.success
-        state_line = "✅ Activées" if notify else "❌ Désactivées"
+    container.add_item(TextDisplay(
+        "**👥 Rôle staff à ping**\n"
+        "-# Mentionné dans les alertes de mute auto.\n"
+        f"-# Actuel : {staff_role_line}"
+    ))
+    role_select = RoleSelect(placeholder="Choisir un rôle staff")
+    role_select.callback = _on_role_select(guild_id, bot, author_id, role_select)
+    container.add_item(ActionRow(role_select))
+    if staff_role_id:
+        btn_clear_role = Button(label="Retirer", style=ButtonStyle.danger, emoji="🗑️")
+        btn_clear_role.callback = _cb_clear_role(guild_id, bot, author_id)
+        container.add_item(ActionRow(btn_clear_role))
+    container.add_item(Separator())
 
-        btn_toggle = Button(label=toggle_label, emoji=toggle_emoji, style=toggle_style)
-        btn_toggle.callback = self._on_toggle_notify
+    # ── Toggle notifs salon ──
+    notify = cfg.get("notify_in_channel", True)
+    toggle_label = "✅ Activées" if notify else "❌ Désactivées"
+    toggle_style = ButtonStyle.success if notify else ButtonStyle.danger
+    btn_toggle = Button(label=toggle_label, style=toggle_style)
+    btn_toggle.callback = _cb_toggle_notify(guild_id, bot, author_id)
+    container.add_item(Section(
+        TextDisplay(
+            "**🔔 Notifications dans le salon**\n"
+            "-# Message envoyé au membre dans le salon d'origine à chaque infraction."
+        ),
+        accessory=btn_toggle,
+    ))
+    container.add_item(Separator())
 
-        container.add_item(Section(
-            TextDisplay(
-                f"**🔔 Notifications dans le salon d'origine**\n"
-                f"-# Court message posté au membre lorsque son message est supprimé.\n"
-                f"-# Actuel : {state_line}"
-            ),
-            accessory=btn_toggle,
-        ))
+    # ── Fenêtre de récidive ──
+    window = cfg.get("notification_window_seconds", 60)
+    btn_window = Button(label="Modifier", style=ButtonStyle.secondary, emoji="✏️")
+    btn_window.callback = _cb_edit_window(guild_id, bot, author_id)
+    container.add_item(Section(
+        TextDisplay(
+            "**⏱️ Fenêtre de récidive**\n"
+            f"-# **{window}s** — si un membre récidive du même système "
+            "dans cette fenêtre, un mute Discord est automatiquement appliqué.\n"
+            "-# Plage autorisée : 10s → 180s (3min)"
+        ),
+        accessory=btn_window,
+    ))
+    container.add_item(Separator())
 
-        container.add_item(Separator())
+    # ── Retour ──
+    btn_back = Button(label="Retour", style=ButtonStyle.secondary, emoji="↩️")
+    btn_back.callback = _cb_back(guild_id, bot, author_id)
+    container.add_item(ActionRow(
+        btn_back,
+        Button(label="Documentation", style=ButtonStyle.link, url=settings.doc_url, emoji="📚"),
+    ))
+    container.add_item(Separator())
+    container.add_item(TextDisplay("-# GuideOn Studio"))
 
-        # ── Retour ────────────────────────────────────────
-        btn_back = Button(label="Retour", emoji="↩️", style=ButtonStyle.secondary)
-        btn_back.callback = self._on_back
-        container.add_item(ActionRow(btn_back))
+    view.add_item(container)
+    return view
 
-        container.add_item(Separator())
-        container.add_item(TextDisplay("-# GuideOn Studio · Auto-modération"))
-        self.add_item(container)
 
-    # ────────────────────────────────────────────────────────
-    # Callbacks
-    # ────────────────────────────────────────────────────────
+# ============================================================
+# 📑 Guard
+# ============================================================
 
-    async def _on_channel_select(self, interaction: Interaction, channel_id: int) -> None:
-        channel = self.guild.get_channel(channel_id)
-        if not isinstance(channel, (discord.TextChannel, discord.abc.GuildChannel)):
+def _guard(author_id: Optional[int]):
+    async def check(interaction: Interaction) -> bool:
+        if author_id is not None and interaction.user.id != author_id:
             await interaction.response.send_message(
-                view=error_container("Salon invalide."), ephemeral=True,
-            )
-            return
-        # Vérifie que le bot peut y envoyer.
-        me = self.guild.me
-        if me is not None and not channel.permissions_for(me).send_messages:
-            await interaction.response.send_message(
-                view=error_container(
-                    f"Le bot n'a pas la permission d'écrire dans {channel.mention}."
-                ),
+                view=error_container("Seul l'**auteur** de la commande peut utiliser ce __menu__."),
                 ephemeral=True,
             )
+            return False
+        member = interaction.user
+        if not isinstance(member, discord.Member) or not member.guild_permissions.administrator:
+            await interaction.response.send_message(
+                view=error_container("Vous devez être **Administrateur** pour réaliser cette action."),
+                ephemeral=True,
+            )
+            return False
+        return True
+    return check
+
+
+async def _rerender(interaction: Interaction, guild_id: int, bot, author_id):
+    new_view = await create_automod_general_view(guild_id, bot, author_id)
+    if new_view is None:
+        return
+    if interaction.response.is_done():
+        await interaction.edit_original_response(view=new_view)
+    else:
+        await interaction.response.edit_message(view=new_view)
+
+
+# ============================================================
+# 📑 Callbacks
+# ============================================================
+
+def _on_channel_select(guild_id, bot, author_id):
+    check = _guard(author_id)
+    async def cb(interaction: Interaction, channel_id: int):
+        if not await check(interaction):
+            return
+        await mgr.save_general(guild_id, alert_channel_id=channel_id)
+        await _rerender(interaction, guild_id, bot, author_id)
+    return cb
+
+
+def _cb_clear_channel(guild_id, bot, author_id):
+    check = _guard(author_id)
+    async def cb(interaction: Interaction):
+        if not await check(interaction):
+            return
+        await mgr.save_general(guild_id, alert_channel_id=None)
+        await _rerender(interaction, guild_id, bot, author_id)
+    return cb
+
+
+def _on_role_select(guild_id, bot, author_id, select_ref: RoleSelect):
+    check = _guard(author_id)
+    async def cb(interaction: Interaction):
+        if not await check(interaction):
+            return
+        if not select_ref.values:
+            return
+        role = select_ref.values[0]
+        await mgr.save_general(guild_id, staff_role_id=role.id)
+        await _rerender(interaction, guild_id, bot, author_id)
+    return cb
+
+
+def _cb_clear_role(guild_id, bot, author_id):
+    check = _guard(author_id)
+    async def cb(interaction: Interaction):
+        if not await check(interaction):
+            return
+        await mgr.save_general(guild_id, staff_role_id=None)
+        await _rerender(interaction, guild_id, bot, author_id)
+    return cb
+
+
+def _cb_toggle_notify(guild_id, bot, author_id):
+    check = _guard(author_id)
+    async def cb(interaction: Interaction):
+        if not await check(interaction):
+            return
+        current = (await mgr.load_general(guild_id)).get("notify_in_channel", True)
+        await mgr.save_general(guild_id, notify_in_channel=not current)
+        await _rerender(interaction, guild_id, bot, author_id)
+    return cb
+
+
+def _cb_edit_window(guild_id, bot, author_id):
+    check = _guard(author_id)
+    async def cb(interaction: Interaction):
+        if not await check(interaction):
             return
 
-        await general_mgr.save_general(self.guild.id, alert_channel_id=channel_id)
-        await self._refresh(interaction)
+        async def submit(inter: Interaction, value: str) -> None:
+            try:
+                n = int(value.strip().rstrip("s").strip())
+            except ValueError:
+                await inter.response.send_message(
+                    view=warning_container("La valeur doit être un **nombre entier de secondes**."),
+                    ephemeral=True,
+                )
+                return
+            if n < mgr.WINDOW_MIN or n > mgr.WINDOW_MAX:
+                await inter.response.send_message(
+                    view=warning_container(
+                        f"La fenêtre doit être comprise entre **{mgr.WINDOW_MIN}s** "
+                        f"et **{mgr.WINDOW_MAX}s** (3min max)."
+                    ),
+                    ephemeral=True,
+                )
+                return
+            await mgr.save_general(guild_id, notification_window_seconds=n)
+            await _rerender(inter, guild_id, bot, author_id)
 
-    async def _on_clear_alert_channel(self, interaction: Interaction) -> None:
-        await general_mgr.save_general(self.guild.id, alert_channel_id=None)
-        await self._refresh(interaction)
+        current_window = (await mgr.load_general(guild_id)).get("notification_window_seconds", 60)
+        await interaction.response.send_modal(TextModal(
+            title="Fenêtre de récidive",
+            label=f"Nombre de secondes ({mgr.WINDOW_MIN} à {mgr.WINDOW_MAX})",
+            placeholder="Ex : 60",
+            default=str(current_window),
+            required=True,
+            max_length=3,
+            on_submit=submit,
+        ))
+    return cb
 
-    async def _on_toggle_notify(self, interaction: Interaction) -> None:
-        current = self.cfg.get("notify_in_channel", True)
-        await general_mgr.save_general(self.guild.id, notify_in_channel=not current)
-        await self._refresh(interaction)
 
-    async def _on_back(self, interaction: Interaction) -> None:
-        # Recharge le dashboard parent pour refléter les nouveaux paramètres.
-        from views.mod.automod_dashboard_view import AutomodDashboardView
-        new_view = await AutomodDashboardView.build(
-            guild=self.guild, owner_id=self.owner_id,
-        )
+def _cb_back(guild_id, bot, author_id):
+    check = _guard(author_id)
+    async def cb(interaction: Interaction):
+        if not await check(interaction):
+            return
+        from views.mod.automod_dashboard_view import create_automod_dashboard_view
+        new_view = await create_automod_dashboard_view(guild_id, bot, author_id)
+        if new_view is None:
+            return
         await interaction.response.edit_message(view=new_view)
+    return cb
