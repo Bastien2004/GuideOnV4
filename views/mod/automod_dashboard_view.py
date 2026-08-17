@@ -1,12 +1,15 @@
 """
-views/mod/automod_dashboard_view.py — Dashboard central /mod config (v3).
+views/mod/automod_dashboard_view.py — Dashboard central /mod config (v4).
 
-Menu compact style config autorole : header + Section paramètres généraux
-+ liste des systèmes en Sections. Chaque Section a un bouton accessoire
-"Configurer" (systèmes disponibles) ou "Bientôt" désactivé (systèmes à venir).
+Menu compact avec vrai Select (menu déroulant) pour choisir un système à
+configurer. Header + Section paramètres généraux + Select systèmes + doc.
 
-Refactoré au factory pattern `create_automod_dashboard_view` (async) pour
-suivre la convention autorole/config_view.
+Bien plus compact que la v3 (qui listait toutes les Sections systèmes) —
+la sélection déclenche l'ouverture de la vue du système choisi.
+
+Les systèmes non encore implémentés apparaissent dans le Select avec un
+préfixe 🚧 et une description "Bientôt disponible" ; les sélectionner
+affiche un message éphémère d'information sans quitter le dashboard.
 """
 from __future__ import annotations
 
@@ -14,10 +17,10 @@ import logging
 from typing import Optional
 
 import discord
-from discord import ButtonStyle, Interaction
-from discord.ui import ActionRow, Button, Container, LayoutView, Section, Separator, TextDisplay
+from discord import ButtonStyle, Interaction, SelectOption
+from discord.ui import ActionRow, Button, Container, LayoutView, Section, Select, Separator, TextDisplay
 
-from utils.container_universel import error_container
+from utils.container_universel import error_container, warning_container
 from utils.managers import (
     mod_automod_antifullcaps_manager as antifullcaps_mgr,
     mod_automod_antispam_emoji_manager as antispam_emoji_mgr,
@@ -32,36 +35,37 @@ log = logging.getLogger(__name__)
 # ============================================================
 # 🔩 Registre des systèmes
 # ============================================================
+#
+# Ordre = ordre d'apparition dans le Select. Systèmes disponibles en tête,
+# systèmes à venir en fin (le user comprend visuellement où est la frontière).
 
 _SYSTEMS: list[dict] = [
     {"key": "banword", "emoji": "🚫", "name": "Ban Word",
-     "desc": "Liste de mots interdits avec anti-contournement.", "available": True},
+     "desc": "Mots interdits avec anti-contournement.", "available": True},
     {"key": "antifullcaps", "emoji": "🔠", "name": "Anti Full Maj",
-     "desc": "Bloque les messages majoritairement en MAJUSCULES.", "available": True},
+     "desc": "Bloque les messages en MAJUSCULES.", "available": True},
     {"key": "antispam_mention", "emoji": "📣", "name": "Anti Spam Mention",
-     "desc": "Limite le nombre de mentions par message.", "available": True},
+     "desc": "Limite les mentions par message.", "available": True},
     {"key": "antispam_emoji", "emoji": "😀", "name": "Anti Spam Emoji",
-     "desc": "Limite le nombre d'emojis par message.", "available": True},
+     "desc": "Limite les emojis par message.", "available": True},
     {"key": "nolink", "emoji": "🔗", "name": "No Link",
-     "desc": "Bloque les liens sauf dans la whitelist de salons.", "available": False},
+     "desc": "Bloque les liens (sauf whitelist).", "available": False},
     {"key": "antilink", "emoji": "☠️", "name": "Anti Link",
-     "desc": "Bloque les extensions dangereuses (.exe, .zip…).", "available": False},
+     "desc": "Bloque les extensions dangereuses.", "available": False},
     {"key": "antispam_msg", "emoji": "💬", "name": "Anti Spam Message",
-     "desc": "Détecte les messages répétés (inter-salons).", "available": False},
+     "desc": "Détecte les messages répétés.", "available": False},
     {"key": "antiflood", "emoji": "🌊", "name": "Anti Flood",
-     "desc": "Détecte les messages incohérents (voyelle/consonne).", "available": False},
+     "desc": "Détecte les messages incohérents.", "available": False},
 ]
 
 
 # ============================================================
-# 🧩 Factory principale
+# 🧩 Factory
 # ============================================================
 
 async def create_automod_dashboard_view(
     guild_id: int, bot, author_id: Optional[int] = None,
 ) -> Optional[LayoutView]:
-    """Construit la vue dashboard automod (style compact autorole)."""
-
     guild = bot.get_guild(guild_id)
     if guild is None:
         return None
@@ -95,34 +99,49 @@ async def create_automod_dashboard_view(
         TextDisplay(
             "**⚙️ Paramètres généraux**\n"
             f"-# Salon d'alerte : {alert_ch_line}\n"
-            f"-# Rôle staff à ping : {staff_role_line}\n"
-            f"-# Fenêtre de récidive : **{window}s** · Notifs salon : "
+            f"-# Rôle staff : {staff_role_line}\n"
+            f"-# Fenêtre récidive : **{window}s** · Notifs salon : "
             f"{'✅' if notify else '❌'}"
         ),
         accessory=general_btn,
     ))
     container.add_item(Separator())
 
-    # ── Systèmes ──
+    # ── Systèmes : Select (menu déroulant) ──
+    active_count = sum(1 for s in _SYSTEMS if s["available"] and statuses.get(s["key"], False))
+    total_available = sum(1 for s in _SYSTEMS if s["available"])
+    container.add_item(TextDisplay(
+        f"## 🎛️ Systèmes d'auto-modération\n"
+        f"-# {active_count}/{total_available} système(s) activé(s). "
+        "Sélectionne un système ci-dessous pour le configurer."
+    ))
+
+    options: list[SelectOption] = []
     for sys in _SYSTEMS:
         if sys["available"]:
             enabled = statuses.get(sys["key"], False)
             dot = "🟢" if enabled else "🔴"
             state = "Activé" if enabled else "Désactivé"
-            btn = Button(label="Configurer", style=ButtonStyle.primary, emoji="⚙️")
-            btn.callback = _cb_open_system(guild_id, bot, author_id, sys["key"])
+            options.append(SelectOption(
+                label=f"{sys['name']} · {state}",
+                description=sys["desc"][:100],
+                emoji=sys["emoji"],
+                value=sys["key"],
+            ))
         else:
-            dot = "⚪"
-            state = "À venir"
-            btn = Button(label="Bientôt", style=ButtonStyle.secondary, emoji="🚧", disabled=True)
+            options.append(SelectOption(
+                label=f"{sys['name']} · Bientôt",
+                description=sys["desc"][:100],
+                emoji="🚧",
+                value=f"__unavailable__{sys['key']}",
+            ))
 
-        container.add_item(Section(
-            TextDisplay(
-                f"**{sys['emoji']} {sys['name']}** · {dot} {state}\n"
-                f"-# {sys['desc']}"
-            ),
-            accessory=btn,
-        ))
+    select = Select(
+        placeholder="Choisir un système à configurer…",
+        options=options, min_values=1, max_values=1,
+    )
+    select.callback = _on_select_system(guild_id, bot, author_id, select)
+    container.add_item(ActionRow(select))
 
     container.add_item(Separator())
     container.add_item(ActionRow(
@@ -159,7 +178,6 @@ def _guard(author_id: Optional[int]):
 
 
 async def rerender_dashboard(interaction: Interaction, guild_id: int, bot, author_id):
-    """Reconstruit + réédite le dashboard (helper exporté aux vues enfants)."""
     new_view = await create_automod_dashboard_view(guild_id, bot, author_id)
     if new_view is None:
         await interaction.response.send_message(
@@ -192,25 +210,47 @@ def _cb_open_general(guild_id, bot, author_id):
     return cb
 
 
-def _cb_open_system(guild_id, bot, author_id, key):
+def _on_select_system(guild_id, bot, author_id, select_ref: Select):
+    """Callback de sélection d'un système dans le menu déroulant."""
     check = _guard(author_id)
+
     async def cb(interaction: Interaction):
         if not await check(interaction):
             return
-        if key == "banword":
+        if not select_ref.values:
+            return
+        value = select_ref.values[0]
+
+        # Système marqué comme "bientôt disponible" : message éphémère + rerender.
+        if value.startswith("__unavailable__"):
+            key = value.removeprefix("__unavailable__")
+            sys_meta = next((s for s in _SYSTEMS if s["key"] == key), None)
+            name = sys_meta["name"] if sys_meta else key
+            await interaction.response.send_message(
+                view=warning_container(
+                    f"Le système **{name}** est en cours de développement et n'est "
+                    "pas encore disponible."
+                ),
+                ephemeral=True,
+            )
+            return
+
+        # Système disponible : ouverture de la vue de config.
+        if value == "banword":
             from views.mod.automod_banword_view import create_automod_banword_view
             new_view = await create_automod_banword_view(guild_id, bot, author_id)
-        elif key == "antifullcaps":
+        elif value == "antifullcaps":
             from views.mod.automod_antifullcaps_view import create_automod_antifullcaps_view
             new_view = await create_automod_antifullcaps_view(guild_id, bot, author_id)
-        elif key == "antispam_mention":
+        elif value == "antispam_mention":
             from views.mod.automod_antispam_mention_view import create_automod_antispam_mention_view
             new_view = await create_automod_antispam_mention_view(guild_id, bot, author_id)
-        elif key == "antispam_emoji":
+        elif value == "antispam_emoji":
             from views.mod.automod_antispam_emoji_view import create_automod_antispam_emoji_view
             new_view = await create_automod_antispam_emoji_view(guild_id, bot, author_id)
         else:
             return
+
         if new_view is None:
             await interaction.response.send_message(
                 view=error_container("Serveur introuvable."), ephemeral=True,
@@ -224,13 +264,8 @@ def _cb_open_system(guild_id, bot, author_id, key):
 # 🔙 Compat : alias pour /mod config
 # ============================================================
 
-# Le cog cogs/mod/mod_config.py appelle AutomodDashboardView.build(guild, owner_id)
-# Alias pour ne pas devoir toucher au cog.
 class AutomodDashboardView:
     @classmethod
     async def build(cls, *, guild: discord.Guild, owner_id: int):
-        # Wrapper : appelle la nouvelle factory. Retourne le LayoutView directement,
-        # ce qui est compatible avec le followup.send(view=...) du cog.
-        # bot est récupéré via guild._state._get_client — hack acceptable en compat.
         bot = guild._state._get_client()
         return await create_automod_dashboard_view(guild.id, bot, owner_id)
