@@ -11,7 +11,7 @@ def detect(message: discord.Message, *, max_mentions: int = 5) -> str | None:
     """Retourne "X mentions" si dépassement, None sinon."""
     
     count = (
-        len(message.user_mentions)
+        len(message.mentions)
         + len(message.role_mentions)
         + (1 if message.mention_everyone else 0)
     )
