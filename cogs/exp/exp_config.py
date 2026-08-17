@@ -1,6 +1,7 @@
 """
-cogs/exp/exp_config.py — Commande /exp config.
+cogs/exp/exp_config.py — Configure le système d'EXP.
 """
+
 from __future__ import annotations
 
 import logging

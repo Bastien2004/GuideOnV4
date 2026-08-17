@@ -1,5 +1,5 @@
 """
-cogs/invite/invite_classement.py — Commande /invite classement.
+cogs/invite/invite_classement.py — Affiche le classement d'invitations.
 """
 
 from __future__ import annotations
@@ -10,12 +10,12 @@ import discord
 from discord import app_commands
 
 from utils.botbancmd import verifier_ban_utilisateur
-from utils.container_universel import error_container, info_container
 from utils.control_admin import verifier_commande
-from utils.error_handler import handle_app_command_error
-from utils.managers.invite_manager import get_leaderboard
 from utils.track_commande import tracker_commande
 
+from utils.container_universel import error_container, info_container
+from utils.error_handler import handle_app_command_error
+from utils.managers.invite_manager import get_leaderboard
 from views.invite.leaderboard_view import InviteLeaderboardView
 
 log = logging.getLogger(__name__)
@@ -55,18 +55,16 @@ async def invite_classement(interaction: discord.Interaction) -> None:
         entries = [(uid, s) for uid, s in entries if s["total"] > 0]
 
         if not entries:
-            await interaction.followup.send(
-                view=info_container("**Aucun membre** n'a encore d'__invitations__ sur ce serveur."),
-            )
+            await interaction.followup.send(view=info_container("**Aucun membre** n'a encore d'__invitations__ sur ce serveur."))
             return
 
         view = InviteLeaderboardView(entries, guild=interaction.guild, owner_id=interaction.user.id, per_page=10)
         await interaction.followup.send(view=view)
 
     except Exception:
-        log.exception("[Invite] Affichage /invite classement échoué (guild=%s)", interaction.guild.id)
+        log.exception("[INVITE CLASSEMENT] Affichage du classement échoué (guild=%s)", interaction.guild.id)
         await interaction.followup.send(
-            view=error_container("Impossible d'afficher le **classement**."))
+            view=error_container("Impossible d'afficher le **classement** d'invitations."))
 
 
 # ============================================================
