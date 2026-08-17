@@ -33,6 +33,9 @@ from utils.db.models.ticket import Ticket, TicketPanel, TicketPanelStaffRole
 from utils.db.models.mod_automod_general import ModAutomodGeneral
 from utils.db.models.mod_automod_infraction import ModAutomodInfraction
 from utils.db.models.mod_automod_banword import ModAutomodBanwordConfig, ModAutomodBanwordWord
+from utils.db.models.mod_automod_antifullcaps import ModAutomodAntifullcapsConfig
+from utils.db.models.mod_automod_antispam_mention import ModAutomodAntispamMentionConfig
+from utils.db.models.mod_automod_antispam_emoji import ModAutomodAntispamEmojiConfig
 
 __all__ = [
     "AlphaEventConfig",
@@ -86,4 +89,7 @@ __all__ = [
     "ModAutomodInfraction",
     "ModAutomodBanwordConfig",
     "ModAutomodBanwordWord",
+    "ModAutomodAntifullcapsConfig",
+    "ModAutomodAntispamMentionConfig",
+    "ModAutomodAntispamEmojiConfig",
 ]
