@@ -1,9 +1,5 @@
 """
-scripts/seed_command_controls.py — Seed/maj de la table command_controls.
-
-Idempotent : utilise ON CONFLICT DO NOTHING, donc relançable sans erreur
-pour ajouter les nouvelles commandes (ex: système Alpha) sans toucher
-aux togglings déjà faits via /dev maintenance.
+scripts/seed_command_controls.py — Mise à jour de la table de maintenance.
 """
 
 import asyncio
@@ -15,16 +11,12 @@ from utils.db.models.control_admin import CommandControl
 
 COMMANDS = {
     # ── ALPHA ──
-    "alpha_derank": True,
     "alpha_event_list": False,
     "alpha_event_regle": False,
     "alpha_event_start": False,
     "alpha_index": True,
     "alpha_nous_rejoindre": True,
-    "alpha_rank": True,
     "alpha_regle_interne": True,
-    "alpha_stafflist": True,
-    "alpha_config_alpha": True,
     "alpha_test": True,
 
     # ── BIRTHDAY ──
@@ -33,6 +25,15 @@ COMMANDS = {
     "birthday_list": True,
     "birthday_next": True,
 
+    # ── UTILITAIRE ──
+    "id_cmd": True,
+    "info_cmd": True,
+    "ping_cmd": True,
+    "report_cmd": True,
+    "timestamp": True,
+    "user_cmd": True,
+    "wiki_cmd": True,
+
     # ── CONFIG ──
     "config_autorole": True,
     "config_bienvenue": True,
@@ -40,91 +41,95 @@ COMMANDS = {
     "config_role_reaction": False,
 
     # ── DEV ──
-    "dev_delete_message": True,
-    "dev_edit_stafflist_alpha" : True,
+    "dev_botban" : True,
+    "dev_debug_cmd" : True,
+    "dev_delete_message" : True,
+    "dev_gold" : True,
+    "dev_guild_info" : True,
+    "dev_health" : True,
+    "dev_join_serv": True,
     "dev_kick" : True,
-    "dev_maintenance" : True,
     "dev_permissions" : True,
+    "dev_stat_cmd" : True,
     "dev_stat_server" : True,
+    "dev_vip" : True,
+
+    # ── EXP ──
+    "exp_config": True,
+    "exp_gestion": True,
+    "exp_leaderboard": True,
+    "exp_level": True,
+
+    # ── GIVEAWAY ──
+    "giveaway_blacklist": True,
+    "giveaway_create": True,
+    "giveaway_list": True,
+    "giveaway_manage": True,
+
+    # ── INVITE ──
+    "invite_classement": True,
+    "invite_config": True,
+    "invite_gestion": True,
+    "invite_user": True,
+
+    # ── MOD ──
+    "mod_ban": True,
+    "mod_clear": False,
+    "mod_config": False,
+    "mod_historique": True,
+    "mod_kick": True,
+    "mod_lock": True,
+    "mod_logs": True,
+    "mod_mute": True,
+    "mod_permissions": True,
+    "mod_rename": True,
+    "mod_softban": True,
+    "mod_tempban": True,
+    "mod_unban": True,
+    "mod_unlock": True,
+    "mod_unmute": True,
+    "mod_unwarn": True,
+    "mod_voice_manage": False,
+    "mod_warn": True,
 
     # ── NG ──
     "ng_autel": True,
     "ng_convert": True,
-    "ng_rd": True,
-    "ng_serveur_stat": True,
-    "ng_skin": True,
+    "ng_dynmaps": True,
     "ng_info": True,
-    "ng_claim": False,
-    "ng_classement": False,
-    "ng_sanction": True,
-    "ng_note_archi": True,
-    "ng_country": True,
-    "ng_mmr": True,
-    "ng_profil": True,
-    "ng_lvl": True,
-    "ng_pillage": True,
     "ng_version": True,
     "ng_onu": True,
-    "ng_dynmaps": True,
-    # ── MOD ──
-    "mod_control": True,
-    "mod_reglement": True,
-    "mod_inspect": True,
-    "mod_registre": True,
-    "mod_clear": True,
+    "ng_rd": True,
+    "ng_sanction": True,
+    "ng_skin": True,
 
-    # ── EXP ──
-    "exp_gestion": True,
-    "exp_level": True,
-    "exp_leaderboard": True,
+    # ── NGSTAFF ──
+    "ngstaff_config": True,
+    "ngstaff_derank": True,
+    "ngstaff_edit_stafflist": True,
+    "ngstaff_nota_debug": True,
+    "ngstaff_rank": True,
+    "ngstaff_stafflist": True,
+
+    # ── QRC ──
+    "qr_generate": True,
+    "qr_list": True,
+    "qr_scan": True,
+    
     # ── TICKET ──
-    "ticket_panel_create": True,
-    "ticket_panel_edit": True,
-    "ticket_panel_delete": True,
-    "ticket_panel_list": True,
-    "ticket_close": True,
-    "ticket_delete": True,
     "ticket_add": True,
     "ticket_ban": True,
-    "ticket_rename": True,
+    "ticket_close": True,
+    "ticket_delete": True,
+    "ticket_panel_create": True,
+    "ticket_panel_delete": True,
+    "ticket_panel_edit": True,
+    "ticket_panel_list": True,
     "ticket_remove": True,
-    # ── INVITE ──
-    "invite_config": True,
-    "invite_gestion": True,
-    "invite_classement": True,
-    "invite_user": True,
-    # ── GIVEAWAY ──
-    "giveaway_create": True,
-    "giveaway_manage": True,
-    "giveaway_list": True,
+    "ticket_rename": True,
+    "ticket_unban": True,
+    "ticket_wakeup": True,
 
-    # ── ANNIV ──
-    "anniv_anniversaire": True,
-    "anniv_kit": True,
-    "anniv_classement": True,
-    "anniv_inventaire": True,
-    "anniv_fouiller": True,
-    "anniv_admin_give": True,
-    "anniv_admin_event": True,
-    "anniv_admin_stats": True,
-    "anniv_admin_points": True,
-    "anniv_admin_dollars": True,
-    "anniv_admin_logs": True,
-    "anniv_admin_reset": True,
-    "anniv_admin_reset_all": True,
-    "anniv_admin_setup": True,
-    # ── GLOBAL ──
-    "boutique": True,
-    "wiki": True,
-    "id_command": True,
-    "ping": True,
-    "info": True,
-    "timestamp": True,
-    "flex": True,
-    "troll": True,
-    "myserver": True,
-    "rappel": True,
-    "report": True,
 }
 
 
