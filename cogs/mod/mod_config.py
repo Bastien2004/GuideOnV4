@@ -31,7 +31,7 @@ log = logging.getLogger(__name__)
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="config", description="🛡️ Configure l'automod du serveur")
+@app_commands.command(name="config", description="🚨 Configure l'automod du serveur")
 async def mod_config(interaction: discord.Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.
