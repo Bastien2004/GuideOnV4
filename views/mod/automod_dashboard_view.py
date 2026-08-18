@@ -70,7 +70,7 @@ async def create_automod_dashboard_view(guild_id: int, bot, author_id: Optional[
     container = Container()
 
     # ── Header ──
-    container.add_item(TextDisplay("# <:bouclier:1539013183577133106> Configuration Automod"))
+    container.add_item(TextDisplay("# <:bouclier2:1539200277851406357> Configuration Automod"))
     container.add_item(Separator())
 
     # ── Paramètres généraux ──
