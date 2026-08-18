@@ -84,7 +84,7 @@ async def create_automod_dashboard_view(guild_id: int, bot, author_id: Optional[
     general_btn.callback = _cb_open_general(guild_id, bot, author_id)
     container.add_item(Section(
         TextDisplay(
-            "__**⚙️ Paramètres :**__\n\n"
+            "⚙️ __**Paramètres**__ :\n"
             f"➥ Salon d'alerte : {alert_ch_line}\n"
             f"➥ Rôle staff : {staff_role_line}\n"
             f"➥ Notifs salon : {'`Activé`' if notify else '`Désactivé`'}"
