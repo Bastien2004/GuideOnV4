@@ -35,13 +35,13 @@ from views.alpha.edit_list_view import EditListView
 @app_commands.command(name="edit_stafflist", description="📋 [OP] Gestion de la liste staff")
 async def ngstaff_edit_stafflist(interaction: Interaction) -> None:
 
-    # 🌐 Vérification "Discord NG" (résout le serveur, sinon message + return).
+    # 🌐 Vérification "Discord NG".
     server = await require_ng_server(interaction)
     if server is None:
         return
 
     # 🔐 Vérification RBAC dynamique, propre au serveur détecté.
-    if not await has_grade_check(interaction, f"staff_{server.name}.op"):
+    if not await has_grade_check(interaction, (f"staff_{server.name}.op" or f"staff_{server.name}.operateur")):
         return
 
     # 🕒 Defer.

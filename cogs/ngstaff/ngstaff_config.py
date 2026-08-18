@@ -39,7 +39,7 @@ async def ngstaff_config(interaction: Interaction) -> None:
         return
 
     # 🔐 Vérification RBAC dynamique, propre au serveur détecté.
-    if not await has_grade_check(interaction, f"staff_{server.name}.op"):
+    if not await has_grade_check(interaction, (f"staff_{server.name}.op" or f"staff_{server.name}.operateur")):
         return
 
     # 🕒 Defer.

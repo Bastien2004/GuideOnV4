@@ -71,13 +71,13 @@ VALEUR_CHOICES = GRADE_CHOICES + STATUT_CHOICES
 @app_commands.choices(type=TYPE_CHOICES, valeur=VALEUR_CHOICES)
 async def ngstaff_rank(interaction: Interaction, membre: discord.Member, pseudo_jeu: str, type: app_commands.Choice[str], valeur: app_commands.Choice[str], pseudo_jeu_builder: str | None = None) -> None:
 
-    # 🌐 Vérification "Discord NG" (résout le serveur, sinon message + return).
+    # 🌐 Vérification "Discord NG".
     server = await require_ng_server(interaction)
     if server is None:
         return
 
     # 🔐 Vérification RBAC dynamique, propre au serveur détecté.
-    if not await has_grade_check(interaction, f"staff_{server.name}.op"):
+    if not await has_grade_check(interaction, (f"staff_{server.name}.op" or f"staff_{server.name}.operateur")):
         return
 
     # 🕒 Defer.
