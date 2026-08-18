@@ -272,7 +272,7 @@ class WikiHomeView(BaseLayoutView):
         partner_btn = Button(
             label="Nous contacter", emoji="📧",
             style=ButtonStyle.link,
-            url=f"mailto:{PARTNERSHIP_EMAIL}",
+            url=PARTNERSHIP_DISCORD,
         )
         c.add_item(Section(
             TextDisplay(
