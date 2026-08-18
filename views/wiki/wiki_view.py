@@ -29,18 +29,18 @@ from views._components.base_view import BaseLayoutView
 
 CATEGORIES: dict[str, dict] = {
     "birthday": {
-        "name": "Birthday", "emoji": "🎂",
+        "name": "Système anniversaire", "emoji": "🎂",
         "description": "Commandes d'anniversaire",
         "available": True,
         "commands": [
-            ("birthday add",    "🎂 Enregistre ta date d'anniversaire"),
-            ("birthday config", "🎂 Configure le système d'anniversaires"),
-            ("birthday list",   "🎂 [VIP] Affiche les anniversaires des 30 prochains jours"),
-            ("birthday next",   "🎂 [VIP] Affiche le prochain anniversaire à venir"),
+            ("/birthday add",    "🎂 Enregistre ta date d'anniversaire"),
+            ("/birthday config", "🎂 Configure le système d'anniversaires"),
+            ("/birthday list",   "🎂 [VIP] Affiche les anniversaires des 30 prochains jours"),
+            ("/birthday next",   "🎂 [VIP] Affiche le prochain anniversaire à venir"),
         ],
     },
     "utility": {
-        "name": "Utilitaire", "emoji": "🔧",
+        "name": "Commandes utilitaires", "emoji": "🔧",
         "description": "Outils pratiques du quotidien",
         "available": True,
         "commands": [
@@ -54,72 +54,72 @@ CATEGORIES: dict[str, dict] = {
         ],
     },
     "config": {
-        "name": "Configuration", "emoji": "⚙️",
+        "name": "Commandes de configuration", "emoji": "⚙️",
         "description": "Personnaliser GuideON sur ton serveur",
         "available": True,
         "commands": [
-            ("autorole",      "🎭 Configure l'attribution automatique de rôles"),
-            ("bienvenue",     "👋 Configure le système de bienvenue"),
-            ("role_all",      "👥 Attribue ou retire un rôle à tous les membres du serveur"),
-            ("role_reaction", "🎭 Configure le système de rôles réaction"),
+            ("/config autorole",      "🎭 Configure l'attribution automatique de rôles"),
+            ("/config bienvenue",     "👋 Configure le système de bienvenue"),
+            ("/config role_all",      "👥 Attribue ou retire un rôle à tous les membres du serveur"),
+            ("/config role_reaction", "🎭 Configure le système de rôles réaction"),
         ],
     },
     "exp": {
-        "name": "EXP", "emoji": "🧩",
+        "name": "Système exp", "emoji": "🧩",
         "description": "Système d'expérience (bientôt)",
-        "available": False,
+        "available": True,
         "commands": [
-            ("config",      "🧮 Configure le système d'EXP"),
-            ("gestion",     "🛠️ Ajuste manuellement l'EXP d'un membre"),
-            ("leaderboard", "🏆 Affiche le classement EXP du serveur"),
-            ("level",       "📊 Affiche le niveau et l'EXP d'un membre"),
+            ("/exp config",      "🧮 Configure le système d'EXP"),
+            ("/exp gestion",     "🛠️ Ajuste manuellement l'EXP d'un membre"),
+            ("/exp leaderboard", "🏆 Affiche le classement EXP du serveur"),
+            ("/exp level",       "📊 Affiche le niveau et l'EXP d'un membre"),
         ],
     },
     "giveaway": {
-        "name": "Giveaways", "emoji": "🎁",
+        "name": "Système giveaways", "emoji": "🎁",
         "description": "Système de giveaways",
         "available": True,
         "commands": [
-            ("blacklist", "🚫 Gère la blacklist du système de giveaway"),
-            ("create",    "🎉 Crée un nouveau giveaway"),
-            ("list",      "📋 Liste les giveaways du serveur (✨ Gold+)"),
-            ("manage",    "🛠️ Gère un giveaway existant"),
+            ("/giveaway blacklist", "🚫 Gère la blacklist du système de giveaway"),
+            ("/giveaway create",    "🎉 Crée un nouveau giveaway"),
+            ("/giveaway list",      "📋 Liste les giveaways du serveur (✨ Gold+)"),
+            ("/giveaway manage",    "🛠️ Gère un giveaway existant"),
         ],
     },
     "invite": {
-        "name": "Invitations", "emoji": "✉️",
+        "name": "Système invitations", "emoji": "✉️",
         "description": "Tracking et récompenses d'invitations",
         "available": True,
         "commands": [
-            ("classement", "🏆 Affiche le classement des invitations du serveur"),
-            ("config",     "📨 Configure le système d'invitations"),
-            ("gestion",    "🛠️ Ajuste manuellement les compteurs d'invitations d'un membre"),
-            ("user",       "📨 Affiche les invitations d'un membre"),
+            ("/invite classement", "🏆 Affiche le classement des invitations du serveur"),
+            ("/invite config",     "📨 Configure le système d'invitations"),
+            ("/invite gestion",    "🛠️ Ajuste manuellement les compteurs d'invitations d'un membre"),
+            ("/invite user",       "📨 Affiche les invitations d'un membre"),
         ],
     },
     "moderation": {
         "name": "Modération", "emoji": "🛡️",
         "description": "Outils de modération (bientôt)",
-        "available": False,
+        "available": True,
         "commands": [
-            ("ban",         "🔨 Bannit un membre du serveur"),
-            ("clear",       "🧹 Supprime des messages en masse dans un salon"),
-            ("config",      "🛡️ Configure l'automod du serveur"),
-            ("historique",  "📁 Affiche l'historique de sanction d'un membre"),
-            ("kick",        "🍃 Expulse un membre du serveur"),
-            ("lock",        "🔒 Verrouille un salon textuel"),
-            ("logs",        "📋 Configure le système de logs du serveur"),
-            ("mute",        "🔇 Rend un membre muet temporairement"),
-            ("permissions", "🔐 Gère les permissions de modération"),
-            ("rename",      "🖊️ Modifie le pseudo d'un membre"),
-            ("softban",     "🧹 Bannit un membre et supprime ses derniers messages"),
-            ("tempban",     "⏳ Bannit un membre pour une durée déterminée"),
-            ("unban",       "🔓 Révoque un bannissement"),
-            ("unlock",      "🔓 Déverrouille un salon textuel"),
-            ("unmute",      "🔊 Enlève le mute d'un membre"),
-            ("unwarn",      "🚫 Révoque un avertissement"),
-            ("vocal",       "🔊 Gestion vocale de masse"),
-            ("warn",        "⚠️ Avertit un membre"),
+            ("/mod ban",         "🔨 Bannit un membre du serveur"),
+            ("/mod clear",       "🧹 Supprime des messages en masse dans un salon"),
+            ("/mod config",      "🛡️ Configure l'automod du serveur"),
+            ("/mod historique",  "📁 Affiche l'historique de sanction d'un membre"),
+            ("/mod kick",        "🍃 Expulse un membre du serveur"),
+            ("/mod lock",        "🔒 Verrouille un salon textuel"),
+            ("/mod logs",        "📋 Configure le système de logs du serveur"),
+            ("/mod mute",        "🔇 Rend un membre muet temporairement"),
+            ("/mod permissions", "🔐 Gère les permissions de modération"),
+            ("/mod rename",      "🖊️ Modifie le pseudo d'un membre"),
+            ("/mod softban",     "🧹 Bannit un membre et supprime ses derniers messages"),
+            ("/mod tempban",     "⏳ Bannit un membre pour une durée déterminée"),
+            ("/mod unban",       "🔓 Révoque un bannissement"),
+            ("/mod unlock",      "🔓 Déverrouille un salon textuel"),
+            ("/mod unmute",      "🔊 Enlève le mute d'un membre"),
+            ("/mod unwarn",      "🚫 Révoque un avertissement"),
+            ("/mod vocal",       "🔊 Gestion vocale de masse"),
+            ("/mod warn",        "⚠️ Avertit un membre"),
         ],
     },
     "ng": {
@@ -127,15 +127,15 @@ CATEGORIES: dict[str, dict] = {
         "description": "Commandes autour de NationsGlory",
         "available": True,
         "commands": [
-            ("autel",    "⛪ Affiche les informations sur les autels NationsGlory"),
-            ("convert",  "🧮 Convertis un nombre d'items en stacks, coffres ou double-coffres"),
-            ("dynmaps",  "🗺️ Lien des dynmaps NationsGlory"),
-            ("info",     "📌 Informations NationsGlory"),
-            ("version",  "🔃 Afficher la version actuelle de NationsGlory Bedrock"),
-            ("onu",      "☕ Informations sur les ONUs NationsGlory"),
-            ("rd",       "📘 Affiche les infos d'un palier de R&D"),
-            ("sanction", "📋 Affiche le tableau des sanctions d'un serveur NationsGlory"),
-            ("skin",     "🧥 Récupère le skin d'un joueur NationsGlory"),
+            ("/ng autel",    "⛪ Affiche les informations sur les autels NationsGlory"),
+            ("/ng convert",  "🧮 Convertis un nombre d'items en stacks, coffres ou double-coffres"),
+            ("/ng dynmaps",  "🗺️ Lien des dynmaps NationsGlory"),
+            ("/ng info",     "📌 Informations NationsGlory"),
+            ("/ng version",  "🔃 Afficher la version actuelle de NationsGlory Bedrock"),
+            ("/ng onu",      "☕ Informations sur les ONUs NationsGlory"),
+            ("/ng rd",       "📘 Affiche les infos d'un palier de R&D"),
+            ("/ng sanction", "📋 Affiche le tableau des sanctions d'un serveur NationsGlory"),
+            ("/ng skin",     "🧥 Récupère le skin d'un joueur NationsGlory"),
         ],
     },
     "qr": {
@@ -143,9 +143,9 @@ CATEGORIES: dict[str, dict] = {
         "description": "Commandes de QR code",
         "available": True,
         "commands": [
-            ("generate", "🖼️ Génère un QR code personnalisé"),
-            ("list",     "📋 Liste tes QR codes enregistrés"),
-            ("scan",     "🔍 Scanne un QR code depuis une image"),
+            ("/qr generate", "🖼️ Génère un QR code personnalisé"),
+            ("/qr list",     "📋 Liste tes QR codes enregistrés"),
+            ("/qr scan",     "🔍 Scanne un QR code depuis une image"),
         ],
     },
     "ticket": {
@@ -153,18 +153,18 @@ CATEGORIES: dict[str, dict] = {
         "description": "Système de support par tickets",
         "available": True,
         "commands": [
-            ("add",          "👤 Ajouter un utilisateur à ce ticket"),
-            ("ban",          "🔨 Bannir un utilisateur des tickets"),
-            ("close",        "🔒 Fermer ce ticket"),
-            ("delete",       "🗑️ Supprimer définitivement ce ticket"),
-            ("panel_create", "🎫 Créer un nouveau panel de tickets"),
-            ("panel_delete", "🗑️ Supprimer un panel de tickets"),
-            ("panel_edit",   "✏️ Modifier un panel de tickets existant"),
-            ("panel_list",   "📋 Lister les panels de tickets du serveur"),
-            ("remove",       "👤 Retirer un utilisateur de ce ticket"),
-            ("rename",       "✏️ Renommer ce ticket"),
-            ("unban",        "♻️ Révoquer le ban tickets d'un utilisateur"),
-            ("wakeup",       "🔔 Relancer le créateur du ticket"),
+            ("/ticket add",          "👤 Ajouter un utilisateur à ce ticket"),
+            ("/ticket ban",          "🔨 Bannir un utilisateur des tickets"),
+            ("/ticket close",        "🔒 Fermer ce ticket"),
+            ("/ticket delete",       "🗑️ Supprimer définitivement ce ticket"),
+            ("/ticket panel_create", "🎫 Créer un nouveau panel de tickets"),
+            ("/ticket panel_delete", "🗑️ Supprimer un panel de tickets"),
+            ("/ticket panel_edit",   "✏️ Modifier un panel de tickets existant"),
+            ("/ticket panel_list",   "📋 Lister les panels de tickets du serveur"),
+            ("/ticket remove",       "👤 Retirer un utilisateur de ce ticket"),
+            ("/ticket rename",       "✏️ Renommer ce ticket"),
+            ("/ticket unban",        "♻️ Révoquer le ban tickets d'un utilisateur"),
+            ("/ticket wakeup",       "🔔 Relancer le créateur du ticket"),
         ],
     },
 }
@@ -257,7 +257,7 @@ class WikiHomeView(BaseLayoutView):
         c.add_item(TextDisplay("# 📖 Wiki GuideON"))
         c.add_item(Separator())
         c.add_item(TextDisplay(
-            "Bienvenue dans le **wiki** de GuideON !\n"
+            "Bienvenue dans le **wiki** du bot GuideON !\n"
             "Retrouve ici toutes nos commandes triées par catégorie."
         ))
         c.add_item(Separator())
@@ -277,15 +277,13 @@ class WikiHomeView(BaseLayoutView):
         c.add_item(Section(
             TextDisplay(
                 "**🤝 Partenariat**\n"
-                "-# Communauté, projet, événement à mettre en avant ? "
-                "GuideON est ouvert aux partenariats — présentations mutuelles, "
-                "intégrations, événements communs. On en discute :"
+                "GuideON est ouvert aux partenariats !"
             ),
             accessory=partner_btn,
         ))
         c.add_item(Separator())
 
-        c.add_item(TextDisplay("Sélectionne une catégorie pour explorer les commandes :"))
+        c.add_item(TextDisplay("Explorer les commandes :"))
 
         _bot, _oid = self.bot, self.owner_id
         async def on_cat(interaction: discord.Interaction) -> None:
