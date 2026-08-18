@@ -1,16 +1,7 @@
 """
-views/mod/automod_dashboard_view.py — Dashboard central /mod config (v4).
-
-Menu compact avec vrai Select (menu déroulant) pour choisir un système à
-configurer. Header + Section paramètres généraux + Select systèmes + doc.
-
-Bien plus compact que la v3 (qui listait toutes les Sections systèmes) —
-la sélection déclenche l'ouverture de la vue du système choisi.
-
-Les systèmes non encore implémentés apparaissent dans le Select avec un
-préfixe 🚧 et une description "Bientôt disponible" ; les sélectionner
-affiche un message éphémère d'information sans quitter le dashboard.
+views/mod/automod_dashboard_view.py — Centre de configuration de l'automod.
 """
+
 from __future__ import annotations
 
 import logging
@@ -35,9 +26,6 @@ log = logging.getLogger(__name__)
 # ============================================================
 # 🔩 Registre des systèmes
 # ============================================================
-#
-# Ordre = ordre d'apparition dans le Select. Systèmes disponibles en tête,
-# systèmes à venir en fin (le user comprend visuellement où est la frontière).
 
 _SYSTEMS: list[dict] = [
     {"key": "banword", "emoji": "🚫", "name": "Ban Word",
@@ -49,7 +37,7 @@ _SYSTEMS: list[dict] = [
     {"key": "antispam_emoji", "emoji": "😀", "name": "Anti Spam Emoji",
      "desc": "Limite les emojis par message.", "available": True},
     {"key": "nolink", "emoji": "🔗", "name": "No Link",
-     "desc": "Bloque les liens (sauf whitelist).", "available": False},
+     "desc": "Bloque les liens (salon whitelist).", "available": False},
     {"key": "antilink", "emoji": "☠️", "name": "Anti Link",
      "desc": "Bloque les extensions dangereuses.", "available": False},
     {"key": "antispam_msg", "emoji": "💬", "name": "Anti Spam Message",
@@ -60,12 +48,12 @@ _SYSTEMS: list[dict] = [
 
 
 # ============================================================
-# 🧩 Factory
+# 🧩 Construction de la view
 # ============================================================
 
-async def create_automod_dashboard_view(
-    guild_id: int, bot, author_id: Optional[int] = None,
-) -> Optional[LayoutView]:
+async def create_automod_dashboard_view(guild_id: int, bot, author_id: Optional[int] = None) -> Optional[LayoutView]:
+    """Construction de la view du centre de configuration."""
+
     guild = bot.get_guild(guild_id)
     if guild is None:
         return None
@@ -82,7 +70,7 @@ async def create_automod_dashboard_view(
     container = Container()
 
     # ── Header ──
-    container.add_item(TextDisplay("# 🛡️ Configuration Auto-modération"))
+    container.add_item(TextDisplay("# <:bouclier:1539013183577133106> Configuration Automod"))
     container.add_item(Separator())
 
     # ── Paramètres généraux ──
@@ -92,46 +80,27 @@ async def create_automod_dashboard_view(
     staff_role_line = f"<@&{staff_role_id}>" if staff_role_id else "`Non configuré`"
     notify = general.get("notify_in_channel", True)
 
-    general_btn = Button(label="Configurer", style=ButtonStyle.primary, emoji="⚙️")
+    general_btn = Button(label="Configurer", style=ButtonStyle.primary, emoji="<:parametre:1495444004328706059>")
     general_btn.callback = _cb_open_general(guild_id, bot, author_id)
     container.add_item(Section(
         TextDisplay(
-            "**⚙️ Paramètres généraux**\n"
-            f"-# Salon d'alerte : {alert_ch_line}\n"
-            f"-# Rôle staff : {staff_role_line}\n"
-            f"-# Notifs salon : {'✅' if notify else '❌'}"
+            "**⚙️ Paramètres :**\n"
+            f"➥ Salon d'alerte : {alert_ch_line}\n"
+            f"➥ Rôle staff : {staff_role_line}\n"
+            f"➥ Notifs salon : {'`Activé`' if notify else '`Désactivé`'}"
         ),
         accessory=general_btn,
     ))
     container.add_item(Separator())
 
-    # ── Systèmes : Select (menu déroulant) ──
-    container.add_item(TextDisplay("## 🎛️ Systèmes d'auto-modération"))
+    # ── Systèmes Select (menu déroulant) ──
 
     options: list[SelectOption] = []
-    for sys in _SYSTEMS:
-        if sys["available"]:
-            enabled = statuses.get(sys["key"], False)
-            dot = "🟢" if enabled else "🔴"
-            state = "Activé" if enabled else "Désactivé"
-            options.append(SelectOption(
-                label=f"{sys['name']} · {state}",
-                description=sys["desc"][:100],
-                emoji=sys["emoji"],
-                value=sys["key"],
-            ))
-        else:
-            options.append(SelectOption(
-                label=f"{sys['name']} · Bientôt",
-                description=sys["desc"][:100],
-                emoji="🚧",
-                value=f"__unavailable__{sys['key']}",
-            ))
-
     select = Select(
         placeholder="Choisir un système à configurer…",
         options=options, min_values=1, max_values=1,
     )
+
     select.callback = _on_select_system(guild_id, bot, author_id, select)
     container.add_item(ActionRow(select))
 
