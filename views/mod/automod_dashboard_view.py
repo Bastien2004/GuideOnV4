@@ -84,7 +84,7 @@ async def create_automod_dashboard_view(guild_id: int, bot, author_id: Optional[
     general_btn.callback = _cb_open_general(guild_id, bot, author_id)
     container.add_item(Section(
         TextDisplay(
-            "**⚙️ Paramètres :**\n"
+            "__**⚙️ Paramètres :__**\n\n"
             f"➥ Salon d'alerte : {alert_ch_line}\n"
             f"➥ Rôle staff : {staff_role_line}\n"
             f"➥ Notifs salon : {'`Activé`' if notify else '`Désactivé`'}"
@@ -114,8 +114,6 @@ async def create_automod_dashboard_view(guild_id: int, bot, author_id: Optional[
                 value=f"__unavailable__{sys['key']}",
             ))
 
-    # Guard : Discord rejette (400 Bad Request) tout Select classique sans
-    # options. Filet de sécurité si le registre _SYSTEMS venait à être vidé.
     if not options:
         options.append(SelectOption(
             label="Aucun système disponible",
@@ -128,7 +126,7 @@ async def create_automod_dashboard_view(guild_id: int, bot, author_id: Optional[
         select_disabled = False
 
     select = Select(
-        placeholder="Choisir un système à configurer…",
+        placeholder="Choisir un système",
         options=options, min_values=1, max_values=1,
         disabled=select_disabled,
     )
