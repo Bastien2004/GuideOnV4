@@ -417,6 +417,109 @@ async def create_grade(
     )
 
 
+async def rename_category(
+    category_id: int, *, new_display_name: str, new_slug: str | None = None,
+) -> tuple[bool, str]:
+    """
+    Renomme une catégorie : display_name toujours, slug optionnellement.
+
+    Retourne (True, "") en cas de succès, sinon (False, "raison lisible").
+
+    Attention : changer le slug casse tous les checks hard-codés dans le
+    code applicatif du type `has_grade_check(interaction, "old_slug.grade", ...)`.
+    C'est un choix conscient de l'appelant — la vue affiche un warning.
+    """
+    new_display_name = (new_display_name or "").strip()
+    if not new_display_name:
+        return False, "Le nom affiché ne peut pas être vide."
+    if len(new_display_name) > 64:
+        return False, "Le nom affiché ne peut pas dépasser 64 caractères."
+
+    normalized_slug = None
+    if new_slug is not None:
+        normalized_slug = slugify(new_slug)  # passe par slugify (safe)
+        if not normalized_slug:
+            return False, "Le slug ne peut pas être vide après normalisation."
+
+    async with get_session() as session:
+        row = await session.get(PermissionCategory, category_id)
+        if row is None:
+            return False, "Cette catégorie n'existe plus."
+
+        # Vérifie l'unicité du nouveau slug (si changé).
+        if normalized_slug is not None and normalized_slug != row.slug:
+            existing = await session.scalar(
+                select(PermissionCategory).where(
+                    PermissionCategory.slug == normalized_slug,
+                    PermissionCategory.id != category_id,
+                )
+            )
+            if existing is not None:
+                return False, f"Le slug `{normalized_slug}` est déjà pris par une autre catégorie."
+
+        row.display_name = new_display_name
+        if normalized_slug is not None:
+            row.slug = normalized_slug
+
+    await refresh_cache()
+    log.info(
+        "RBAC : catégorie renommée id=%s display=%r slug=%r",
+        category_id, new_display_name, normalized_slug or "(inchangé)",
+    )
+    return True, ""
+
+
+async def rename_grade(
+    grade_id: int, *, new_display_name: str, new_slug: str | None = None,
+) -> tuple[bool, str]:
+    """
+    Renomme un grade dans sa catégorie : display_name toujours, slug
+    optionnellement (unique au sein de la catégorie, pas globalement).
+
+    Retourne (True, "") en cas de succès, sinon (False, "raison lisible").
+
+    Voir rename_category pour les implications de changer le slug.
+    """
+    new_display_name = (new_display_name or "").strip()
+    if not new_display_name:
+        return False, "Le nom affiché ne peut pas être vide."
+    if len(new_display_name) > 64:
+        return False, "Le nom affiché ne peut pas dépasser 64 caractères."
+
+    normalized_slug = None
+    if new_slug is not None:
+        normalized_slug = slugify(new_slug)
+        if not normalized_slug:
+            return False, "Le slug ne peut pas être vide après normalisation."
+
+    async with get_session() as session:
+        row = await session.get(PermissionGrade, grade_id)
+        if row is None:
+            return False, "Ce grade n'existe plus."
+
+        if normalized_slug is not None and normalized_slug != row.slug:
+            existing = await session.scalar(
+                select(PermissionGrade).where(
+                    PermissionGrade.category_id == row.category_id,
+                    PermissionGrade.slug == normalized_slug,
+                    PermissionGrade.id != grade_id,
+                )
+            )
+            if existing is not None:
+                return False, f"Le slug `{normalized_slug}` est déjà pris par un autre grade de la même catégorie."
+
+        row.display_name = new_display_name
+        if normalized_slug is not None:
+            row.slug = normalized_slug
+
+    await refresh_cache()
+    log.info(
+        "RBAC : grade renommé id=%s display=%r slug=%r",
+        grade_id, new_display_name, normalized_slug or "(inchangé)",
+    )
+    return True, ""
+
+
 async def move_grade(grade_id: int, direction: int) -> bool:
     """
     Déplace un grade d'un cran vers le haut (direction=-1) ou vers le bas

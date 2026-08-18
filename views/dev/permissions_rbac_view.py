@@ -28,7 +28,7 @@ from discord.ui import (
     TextDisplay,
 )
 
-from utils.container_universel import error_container
+from utils.container_universel import error_container, warning_container
 from utils.managers import permission_rbac_manager as rbac
 from views._components.base_view import BaseLayoutView
 from views._components.text_modal import TextModal
@@ -267,9 +267,11 @@ async def build_category_view(
     else:
         btn_new = Button(label="Nouveau grade", emoji="➕", style=ButtonStyle.success)
         btn_new.callback = _cb_new_grade(bot, author_id, category_id, show_slugs)
+        btn_rename = Button(label="Renommer", emoji="✏️", style=ButtonStyle.secondary)
+        btn_rename.callback = _cb_rename_category(bot, author_id, category_id, show_slugs)
         btn_delete = Button(label="Supprimer la catégorie", emoji="🗑️", style=ButtonStyle.danger)
         btn_delete.callback = _cb_delete_category(bot, author_id, category_id, show_slugs)
-        container.add_item(ActionRow(btn_new, btn_delete))
+        container.add_item(ActionRow(btn_new, btn_rename, btn_delete))
 
         btn_reorder = Button(
             label="Réordonner", emoji="🔀", style=ButtonStyle.secondary,
@@ -493,9 +495,11 @@ async def build_grade_view(
         container.add_item(Separator())
 
     # ── Actions bas ─────────────────────────────────────
+    btn_rename = Button(label="Renommer", emoji="✏️", style=ButtonStyle.secondary)
+    btn_rename.callback = _cb_rename_grade(bot, author_id, grade_id, show_slugs)
     btn_delete = Button(label="Supprimer ce grade", emoji="🗑️", style=ButtonStyle.danger)
     btn_delete.callback = _cb_delete_grade(bot, author_id, grade_id, category.id, show_slugs)
-    container.add_item(ActionRow(btn_delete))
+    container.add_item(ActionRow(btn_rename, btn_delete))
 
     btn_back = Button(label="Retour", emoji="↩️", style=ButtonStyle.secondary)
     btn_back.callback = _cb_back_to_category(bot, author_id, category.id, show_slugs)
@@ -900,6 +904,168 @@ def _cb_move_grade(
                                "Cette catégorie n'existe plus.")
             return
         await interaction.response.edit_message(view=new_view)
+    return cb
+
+
+# ============================================================
+# ✏️ Renommage catégorie / grade
+# ============================================================
+
+class _RenameModal(discord.ui.Modal):
+    """
+    Modal 2 champs (nom affiché + slug) pré-remplis. À la soumission,
+    appelle `on_submit_cb(interaction, new_display_name, new_slug)`.
+    """
+
+    def __init__(
+        self,
+        *,
+        title: str,
+        current_display_name: str,
+        current_slug: str,
+        on_submit_cb,
+    ) -> None:
+        super().__init__(title=title, timeout=180)
+        self._on_submit_cb = on_submit_cb
+
+        self.field_display = discord.ui.TextInput(
+            label="Nom affiché",
+            style=discord.TextStyle.short,
+            default=current_display_name,
+            required=True,
+            max_length=64,
+        )
+        self.field_slug = discord.ui.TextInput(
+            label="Slug (identifiant technique)",
+            style=discord.TextStyle.short,
+            default=current_slug,
+            placeholder="ex: op, super_moderateur — sans point, sans espace",
+            required=True,
+            max_length=64,
+        )
+        self.add_item(self.field_display)
+        self.add_item(self.field_slug)
+
+    async def on_submit(self, interaction: Interaction) -> None:
+        await self._on_submit_cb(
+            interaction,
+            self.field_display.value,
+            self.field_slug.value,
+        )
+
+
+def _cb_rename_category(bot, author_id: int, category_id: int, show_slugs: bool):
+    """Ouvre le modal de renommage d'une catégorie."""
+    async def cb(interaction: Interaction) -> None:
+        category = await rbac.get_category(category_id)
+        if category is None:
+            await _reload_home(
+                interaction, bot, author_id, show_slugs,
+                "Cette catégorie n'existe plus.",
+            )
+            return
+
+        old_slug = category.slug
+
+        async def on_submit(inter: Interaction, new_display: str, new_slug: str) -> None:
+            ok, err = await rbac.rename_category(
+                category_id,
+                new_display_name=new_display,
+                new_slug=new_slug,
+            )
+            if not ok:
+                await inter.response.send_message(
+                    view=warning_container(err), ephemeral=True,
+                )
+                return
+
+            # Recharge la vue catégorie (peut avoir un nouveau slug/display).
+            new_view = await build_category_view(bot, author_id, category_id, show_slugs)
+            if new_view is None:
+                await _reload_home(
+                    inter, bot, author_id, show_slugs,
+                    "Cette catégorie n'existe plus.",
+                )
+                return
+            await inter.response.edit_message(view=new_view)
+
+            # Warning si le slug a changé (implication code).
+            updated = await rbac.get_category(category_id)
+            if updated is not None and updated.slug != old_slug:
+                await inter.followup.send(
+                    view=warning_container(
+                        f"⚠️ **Slug modifié** : `{old_slug}` → `{updated.slug}`.\n"
+                        "-# Vérifie que le nouveau slug est bien utilisé dans le "
+                        "code (`has_grade_check(\"<slug>.<grade>\", ...)`), "
+                        "sinon les checks concernés vont échouer silencieusement."
+                    ),
+                    ephemeral=True,
+                )
+
+        await interaction.response.send_modal(_RenameModal(
+            title="Renommer la catégorie",
+            current_display_name=category.display_name,
+            current_slug=category.slug,
+            on_submit_cb=on_submit,
+        ))
+    return cb
+
+
+def _cb_rename_grade(bot, author_id: int, grade_id: int, show_slugs: bool):
+    """Ouvre le modal de renommage d'un grade."""
+    async def cb(interaction: Interaction) -> None:
+        grade = await rbac.get_grade(grade_id)
+        if grade is None:
+            await _reload_home(
+                interaction, bot, author_id, show_slugs,
+                "Ce grade n'existe plus.",
+            )
+            return
+
+        category = await rbac.get_category(grade.category_id)
+        old_slug = grade.slug
+        old_full_slug = f"{category.slug}.{old_slug}" if category else old_slug
+
+        async def on_submit(inter: Interaction, new_display: str, new_slug: str) -> None:
+            ok, err = await rbac.rename_grade(
+                grade_id,
+                new_display_name=new_display,
+                new_slug=new_slug,
+            )
+            if not ok:
+                await inter.response.send_message(
+                    view=warning_container(err), ephemeral=True,
+                )
+                return
+
+            new_view = await build_grade_view(bot, author_id, grade_id, show_slugs)
+            if new_view is None:
+                await _reload_home(
+                    inter, bot, author_id, show_slugs,
+                    "Ce grade n'existe plus.",
+                )
+                return
+            await inter.response.edit_message(view=new_view)
+
+            updated = await rbac.get_grade(grade_id)
+            if updated is not None and updated.slug != old_slug:
+                new_full_slug = f"{category.slug}.{updated.slug}" if category else updated.slug
+                await inter.followup.send(
+                    view=warning_container(
+                        f"⚠️ **Slug modifié** : `{old_full_slug}` → `{new_full_slug}`.\n"
+                        "-# Vérifie que le nouveau slug est bien utilisé dans le "
+                        "code (`has_grade_check(\"<slug>\", ...)`), sinon les "
+                        "checks concernés vont échouer silencieusement."
+                    ),
+                    ephemeral=True,
+                )
+
+        await interaction.response.send_modal(_RenameModal(
+            title="Renommer le grade",
+            current_display_name=grade.display_name,
+            current_slug=grade.slug,
+            on_submit_cb=on_submit,
+        ))
     return cb
 
 

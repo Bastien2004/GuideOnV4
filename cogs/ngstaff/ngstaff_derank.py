@@ -53,7 +53,7 @@ async def ngstaff_derank(interaction: Interaction, membre: discord.Member, role:
         return
 
     # 🔐 Vérification RBAC dynamique, propre au serveur détecté.
-    if not await has_grade_check(interaction, (f"staff_{server.name}.op" or f"staff_{server.name}.operateur")):
+    if not await has_grade_check(interaction, f"staff_{server.name}.op"):
         return
 
     # 🕒 Defer.
