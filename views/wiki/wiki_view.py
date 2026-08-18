@@ -1,16 +1,7 @@
 """
-views/wiki/wiki_view.py — Interface Components V2 du /wiki GuideON.
-
-Architecture :
-    WikiHomeView      : accueil (stats bot + partenariat + menu catégorie + nav)
-    WikiCategoryView  : liste des commandes d'une catégorie (paginée)
-    WikiSupportView   : infos support (Discord, site, email)
-    WikiLinksView     : liens utiles
-
-Interactions : tous les callbacks sont assignés directement sur les boutons/
-selects de chaque vue — pas de on_interaction global, conforme à la
-convention V4. Sécurité owner-check sur toutes les vues interactives.
+views/wiki/wiki_view.py — Interface interactive du wiki de GuideOn.
 """
+
 from __future__ import annotations
 
 from datetime import timedelta
@@ -23,9 +14,10 @@ from utils.datetime_utils import format_duration
 from utils.uptime import uptime_seconds
 from views._components.base_view import BaseLayoutView
 
-# ═══════════════════════════════════════════════════════════════
+
+# ============================================================
 # 📋 Liste des commandes
-# ═══════════════════════════════════════════════════════════════
+# ============================================================
 
 CATEGORIES: dict[str, dict] = {
     "birthday": {
@@ -170,23 +162,27 @@ CATEGORIES: dict[str, dict] = {
 }
 
 
+# ============================================================
+# 🔩 Paramètres
+# ============================================================
+
 COMMANDS_PER_PAGE = 8
-
-# Contacts partenariat.
-PARTNERSHIP_EMAIL = "gestion.guideon@gmail.com"
-PARTNERSHIP_DISCORD = "https://discord.gg/ZKX3YQdDFT"
+EMAIL_GUIDEON = "gestion.guideon@gmail.com"
+DISCORD_GUIDEON = "https://discord.gg/ZKX3YQdDFT"
 
 
-# ═══════════════════════════════════════════════════════════════
-# 🔧  Helpers internes
-# ═══════════════════════════════════════════════════════════════
+# ============================================================
+# 🔧 Fonctions utilitaires
+# ============================================================
 
 def _uptime() -> str:
+    """Récupère l'uptime du bot."""
     return format_duration(timedelta(seconds=uptime_seconds()))
 
 
 def _make_category_select(owner_id: int, callback) -> Select:
-    """Construit le Select de choix de catégorie avec callback assigné."""
+    """Construit le menu de sélection."""
+
     options = [
         SelectOption(
             label=f"{cat['name']}{'  ⏳' if not cat['available'] else ''}",
@@ -207,12 +203,14 @@ def _make_category_select(owner_id: int, callback) -> Select:
 
 
 def _nav_buttons(owner_id: int, active: str, bot: discord.Client | None = None) -> list[Button]:
-    """3 boutons de navigation avec callbacks assignés. `active` désactive le sien."""
+    """Gestion des boutons de navigation."""
+
     defs = [
-        ("home",    "🏠", "Accueil", ButtonStyle.primary),
-        ("support", "💬", "Support", ButtonStyle.secondary),
-        ("links",   "🔗", "Liens",   ButtonStyle.secondary),
+        ("home",    "🏠", "Accueil",      ButtonStyle.primary),
+        ("support", "💬", "Support",      ButtonStyle.secondary),
+        ("partner", "🤝", "Partenaires",  ButtonStyle.secondary),
     ]
+
     buttons = []
     for key, emoji, label, style in defs:
         btn = Button(
@@ -225,23 +223,25 @@ def _nav_buttons(owner_id: int, active: str, bot: discord.Client | None = None) 
             async def _cb_home(interaction: discord.Interaction, b=_b, oid=_oid):
                 await interaction.response.edit_message(view=WikiHomeView(b, oid))
             btn.callback = _cb_home
+
         elif key == "support":
             _oid, _b = owner_id, bot
             async def _cb_support(interaction: discord.Interaction, oid=_oid, b=_b):
                 await interaction.response.edit_message(view=WikiSupportView(oid, b))
             btn.callback = _cb_support
-        elif key == "links":
+
+        elif key == "partner":
             _oid, _b = owner_id, bot
-            async def _cb_links(interaction: discord.Interaction, oid=_oid, b=_b):
-                await interaction.response.edit_message(view=WikiLinksView(oid, b))
-            btn.callback = _cb_links
+            async def _cb_partner(interaction: discord.Interaction, oid=_oid, b=_b):
+                await interaction.response.edit_message(view=WikipartnerView(oid, b))
+            btn.callback = _cb_partner
         buttons.append(btn)
     return buttons
 
 
-# ═══════════════════════════════════════════════════════════════
-# 🏠  Accueil
-# ═══════════════════════════════════════════════════════════════
+# ============================================================
+# 🏠 Accueil
+# ============================================================
 
 class WikiHomeView(BaseLayoutView):
     def __init__(self, bot: discord.Client, owner_id: int) -> None:
@@ -261,6 +261,7 @@ class WikiHomeView(BaseLayoutView):
             "Retrouve ici toutes nos commandes triées par catégorie."
         ))
         c.add_item(Separator())
+
         c.add_item(TextDisplay(
             f"**Utilisateurs :** `{sum(g.member_count or 0 for g in bot.guilds)}`\n"
             f"**Commandes :** `{total_cmds}`\n"
@@ -272,18 +273,18 @@ class WikiHomeView(BaseLayoutView):
         partner_btn = Button(
             label="Nous contacter", emoji="📧",
             style=ButtonStyle.link,
-            url=PARTNERSHIP_DISCORD,
+            url=DISCORD_GUIDEON,
         )
         c.add_item(Section(
             TextDisplay(
                 "**🤝 Partenariat**\n"
-                "GuideON est ouvert aux partenariats !"
+                "GuideOn est ouvert aux partenariats !"
             ),
             accessory=partner_btn,
         ))
         c.add_item(Separator())
 
-        c.add_item(TextDisplay("Explorer les commandes :"))
+        c.add_item(TextDisplay("➥ **Découvrez nos commandes** :"))
 
         _bot, _oid = self.bot, self.owner_id
         async def on_cat(interaction: discord.Interaction) -> None:
@@ -300,9 +301,9 @@ class WikiHomeView(BaseLayoutView):
         self.add_item(c)
 
 
-# ═══════════════════════════════════════════════════════════════
-# 📂  Catégorie (paginée)
-# ═══════════════════════════════════════════════════════════════
+# ============================================================
+# 💻 Catégories de commande
+# ============================================================
 
 class WikiCategoryView(BaseLayoutView):
     def __init__(self, cat_id: str, page: int, owner_id: int, bot: discord.Client) -> None:
@@ -328,8 +329,8 @@ class WikiCategoryView(BaseLayoutView):
 
         if not cat["available"]:
             c.add_item(TextDisplay(
-                "⏳ Ces commandes sont en cours de développement.\n"
-                "Elles seront disponibles dans une prochaine mise à jour !"
+                "⏳ Commandes en cours de développement ...\n"
+                "Disponibles prochainement !"
             ))
             c.add_item(Separator())
         else:
@@ -342,7 +343,7 @@ class WikiCategoryView(BaseLayoutView):
             _cat_id, _page, _oid, _bot = self.cat_id, page, self.owner_id, self.bot
 
             prev_btn = Button(
-                emoji="⬅️", style=ButtonStyle.secondary,
+                emoji="<:precedent:1515658763913138236>", style=ButtonStyle.secondary,
                 custom_id=f"wiki_prev:{_cat_id}:{page}:{_oid}",
                 disabled=(page == 0),
             )
@@ -353,7 +354,7 @@ class WikiCategoryView(BaseLayoutView):
                 disabled=True,
             )
             next_btn = Button(
-                emoji="➡️", style=ButtonStyle.secondary,
+                emoji="<:suivant:1515658825913339904>", style=ButtonStyle.secondary,
                 custom_id=f"wiki_next:{_cat_id}:{page}:{_oid}",
                 disabled=(page == total_pages - 1),
             )
@@ -384,9 +385,9 @@ class WikiCategoryView(BaseLayoutView):
         self.add_item(c)
 
 
-# ═══════════════════════════════════════════════════════════════
+# ============================================================
 # 💬  Support
-# ═══════════════════════════════════════════════════════════════
+# ============================================================
 
 class WikiSupportView(BaseLayoutView):
     def __init__(self, owner_id: int, bot: discord.Client) -> None:
@@ -398,31 +399,29 @@ class WikiSupportView(BaseLayoutView):
         c = Container()
         c.add_item(TextDisplay("# 💬 Support GuideON"))
         c.add_item(Separator())
+
         c.add_item(TextDisplay(
-            "Notre équipe est disponible pour t'aider !\n\n"
-            f"**📬 Discord :** {PARTNERSHIP_DISCORD}\n"
+            "➤ Notre équipe est **disponible** pour t'aider !\n\n"
+
+            f"**📬 Discord :** {DISCORD_GUIDEON}\n"
             "**🌐 Site web :** https://guideonbot.guideon.dev/\n"
-            f"**📧 Email :** {PARTNERSHIP_EMAIL}"
+            f"**📧 Email :** {EMAIL_GUIDEON}\n"
+            "**💻 TOP GG :** https://top.gg/bot/1184180079069249666"
         ))
         c.add_item(Separator())
-        c.add_item(ActionRow(
-            Button(label="Rejoindre le Discord", emoji="💬",
-                   style=ButtonStyle.link, url=PARTNERSHIP_DISCORD),
-            Button(label="Site web", emoji="🌐",
-                   style=ButtonStyle.link, url="https://guideonbot.guideon.dev/"),
-        ))
-        c.add_item(Separator())
+
         c.add_item(ActionRow(*_nav_buttons(self.owner_id, active="support", bot=self.bot)))
         c.add_item(Separator())
+        
         c.add_item(TextDisplay("-# GuideOn Studio"))
         self.add_item(c)
 
 
-# ═══════════════════════════════════════════════════════════════
-# 🔗  Liens
-# ═══════════════════════════════════════════════════════════════
+# ============================================================
+# 🤝 Partenaires
+# ============================================================
 
-class WikiLinksView(BaseLayoutView):
+class WikipartnerView(BaseLayoutView):
     def __init__(self, owner_id: int, bot: discord.Client) -> None:
         super().__init__(owner_id=owner_id, timeout=300)
         self.bot = bot
@@ -430,25 +429,24 @@ class WikiLinksView(BaseLayoutView):
 
     def _build(self) -> None:
         c = Container()
-        c.add_item(TextDisplay("# 🔗 Liens GuideON"))
+        c.add_item(TextDisplay("# 🤝 Partenaire GuideOn"))
         c.add_item(Separator())
+
         c.add_item(TextDisplay(
-            "Retrouvez GuideON partout :\n\n"
-            "**🌐 Site web :** https://guideonbot.fr/\n"
-            f"**💬 Discord :** {PARTNERSHIP_DISCORD}\n"
-            "**📊 Top.gg :** https://top.gg/bot/1184180079069249666"
+            "➤ Retrouvez la liste des **partenaires GuideOn** :\n\n"
+
+            "- **[NationsGlory Alpha](https://discord.gg/hHvv5paB6j)**\n"
+            "-# Serveur Minecraft semi-rp.\n"
+            "- **[SwiftSky](https://discord.gg/zezkpMrD5e)**\n"
+            "-# Service de graphisme professionnel.\n"
+            "- **[GloryForProgress](https://discord.gg/SvwVJpTBCZ)\n"
+            "-# Bot référent d'aide NationsGlory.\n"
+            "- **[Le Souk's](https://discord.gg/CAWsejVb7C)\n"
+            "-# Serveur d'échange et de vente.\n"
         ))
         c.add_item(Separator())
-        c.add_item(ActionRow(
-            Button(label="Site web", emoji="🌐",
-                   style=ButtonStyle.link, url="https://guideonbot.fr/"),
-            Button(label="Discord",  emoji="💬",
-                   style=ButtonStyle.link, url=PARTNERSHIP_DISCORD),
-            Button(label="Top.gg",   emoji="📊",
-                   style=ButtonStyle.link, url="https://top.gg/bot/1184180079069249666"),
-        ))
-        c.add_item(Separator())
-        c.add_item(ActionRow(*_nav_buttons(self.owner_id, active="links", bot=self.bot)))
+        
+        c.add_item(ActionRow(*_nav_buttons(self.owner_id, active="partner", bot=self.bot)))
         c.add_item(Separator())
         c.add_item(TextDisplay("-# GuideOn Studio"))
         self.add_item(c)
