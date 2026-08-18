@@ -70,7 +70,7 @@ async def create_automod_dashboard_view(guild_id: int, bot, author_id: Optional[
     container = Container()
 
     # ── Header ──
-    container.add_item(TextDisplay("# <:bouclier2:1539200277851406357> Configuration Automod"))
+    container.add_item(TextDisplay("# <:bouclier:1539013183577133106> Configuration Automod"))
     container.add_item(Separator())
 
     # ── Paramètres généraux ──
@@ -84,7 +84,7 @@ async def create_automod_dashboard_view(guild_id: int, bot, author_id: Optional[
     general_btn.callback = _cb_open_general(guild_id, bot, author_id)
     container.add_item(Section(
         TextDisplay(
-            "__**⚙️ Paramètres :__**\n\n"
+            "__**⚙️ Paramètres :**__\n\n"
             f"➥ Salon d'alerte : {alert_ch_line}\n"
             f"➥ Rôle staff : {staff_role_line}\n"
             f"➥ Notifs salon : {'`Activé`' if notify else '`Désactivé`'}"
@@ -126,7 +126,7 @@ async def create_automod_dashboard_view(guild_id: int, bot, author_id: Optional[
         select_disabled = False
 
     select = Select(
-        placeholder="Choisir un système",
+        placeholder="Choisir un système à configurer",
         options=options, min_values=1, max_values=1,
         disabled=select_disabled,
     )
