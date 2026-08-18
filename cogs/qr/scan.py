@@ -44,7 +44,7 @@ async def qr_scan(interaction: discord.Interaction, image: discord.Attachment) -
         return
 
     # ⚙️ Vérification maintenance.
-    if not await verifier_commande(interaction, "qr_scan_cmd"):
+    if not await verifier_commande(interaction, "qr_scan"):
         return
 
     # 📏 Validation basique du fichier envoyé.
@@ -56,34 +56,31 @@ async def qr_scan(interaction: discord.Interaction, image: discord.Attachment) -
         return
 
     # 📊 Tracking.
-    await tracker_commande(interaction, "qr_scan_cmd")
+    await tracker_commande(interaction, "qr_scan")
 
     # 🧩 Décodage.
     try:
         image_bytes = await image.read()
         contenu = decode_qr_image(image_bytes)
+
     except Exception:
-        log.exception("Décodage QR échoué (user=%s)", interaction.user.id)
-        await interaction.followup.send(
-            view=error_container("Impossible de lire cette **image**."),
-            ephemeral=True,
-        )
+        log.exception("[QRC SCAN] Décodage QR échoué (user=%s)", interaction.user.id)
+        await interaction.followup.send(view=error_container("Impossible de lire cette **image**."), ephemeral=True)
         return
 
     if contenu is None:
-        await interaction.followup.send(
-            view=error_container("Aucun **QR code** détecté sur cette image."),
-            ephemeral=True,
-        )
+        await interaction.followup.send(view=error_container("Aucun **QR code** détecté sur cette image."), ephemeral=True)
         return
 
-    # 🔎 Recherche de l'origine (best-effort).
+    # 🔎 Recherche de l'origine.
     origine = None
     try:
         origine = await find_qr_by_content(contenu)
-    except Exception:
-        log.exception("Recherche origine QR échouée")
 
+    except Exception:
+        log.exception("[QRC SCAN] Recherche du lien QRCode échouée")
+
+    # 💻 Envoie de la view.
     view = build_qr_scan_view(contenu, origine)
     await interaction.followup.send(view=view, ephemeral=True)
 

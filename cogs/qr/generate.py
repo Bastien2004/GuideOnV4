@@ -41,44 +41,36 @@ async def qr_generate(interaction: discord.Interaction, lien: str) -> None:
         return
 
     # ⚙️ Vérification maintenance.
-    if not await verifier_commande(interaction, "qr_generate_cmd"):
+    if not await verifier_commande(interaction, "qr_generate"):
         return
 
     # 📏 Validation basique du lien saisi.
     if not lien.strip():
-        await interaction.followup.send(
-            view=error_container("Le **lien** ne peut pas être vide."),
-            ephemeral=True,
-        )
+        await interaction.followup.send(view=error_container("Le **lien** ne peut pas être vide."), ephemeral=True)
         return
 
     if len(lien) > 2000:
-        await interaction.followup.send(
-            view=error_container("Le **lien** est trop long (2000 caractères max)."),
-            ephemeral=True,
-        )
+        await interaction.followup.send(view=error_container("Le **lien** est trop long (2000 caractères max)."), ephemeral=True)
         return
 
     # 📊 Tracking.
-    await tracker_commande(interaction, "qr_generate_cmd")
+    await tracker_commande(interaction, "qr_generate")
 
     # 🧩 Génération et envoi.
     try:
         view, file = build_qr_generate_view(lien)
         await interaction.followup.send(view=view, files=[file], ephemeral=True)
+
     except Exception:
-        log.exception("Ouverture /qr generate échouée (user=%s)", interaction.user.id)
-        await interaction.followup.send(
-            view=error_container("Impossible de générer le **QR code**."),
-            ephemeral=True,
-        )
+        log.exception("[QRC GENERATE] Génération du QRCode échouée (user=%s)", interaction.user.id)
+        await interaction.followup.send(view=error_container("Impossible de générer le **QR code**."), ephemeral=True)
         return
 
-    # 💾 Sauvegarde en base (best-effort : ne bloque pas l'envoi du QR si ça échoue).
+    # 💾 Sauvegarde en base.
     try:
         await save_qr(interaction.user.id, lien)
     except Exception:
-        log.exception("Sauvegarde QR échouée (user=%s)", interaction.user.id)
+        log.exception("[QRC GENERATE] Sauvegarde du QRCode échouée (user=%s)", interaction.user.id)
 
 
 # ============================================================

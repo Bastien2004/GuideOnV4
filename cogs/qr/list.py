@@ -42,11 +42,11 @@ async def qr_list(interaction: discord.Interaction, utilisateur: Optional[discor
         return
 
     # ⚙️ Vérification maintenance.
-    if not await verifier_commande(interaction, "qr_list_cmd"):
+    if not await verifier_commande(interaction, "qr_list"):
         return
 
     # 📊 Tracking.
-    await tracker_commande(interaction, "qr_list_cmd")
+    await tracker_commande(interaction, "qr_list")
 
     cible = utilisateur or interaction.user
 
@@ -54,13 +54,11 @@ async def qr_list(interaction: discord.Interaction, utilisateur: Optional[discor
     try:
         historique = await list_qr_by_user(cible.id)
     except Exception:
-        log.exception("Lecture historique QR échouée (user=%s)", cible.id)
-        await interaction.followup.send(
-            view=error_container("Impossible de récupérer l'**historique**."),
-            ephemeral=True,
-        )
+        log.exception("[QRC LIST] Récupération de la liste des QRCode échouée (user=%s)", cible.id)
+        await interaction.followup.send(view=error_container("Impossible de récupérer la **liste**."), ephemeral=True)
         return
 
+    # 💻 Envoie de la view.
     view = build_qr_list_view(cible, historique)
     await interaction.followup.send(view=view, ephemeral=True)
 
