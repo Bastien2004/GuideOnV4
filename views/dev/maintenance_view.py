@@ -12,7 +12,7 @@ from __future__ import annotations
 import discord
 from discord.ui import ActionRow, Button, Container, LayoutView, Modal, Section, Separator, TextDisplay, TextInput
 
-from utils.managers.command_toggle_manager import get_all_commands, toggle_command
+from utils.managers.command_toggle_manager import delete_command, get_all_commands, toggle_command
 from utils.perm_dev import check_dev
 
 VIEW_TIMEOUT = 300
@@ -31,31 +31,46 @@ async def add_command_section(
     page: int,
     search_query: str | None = None,
 ) -> None:
-    """Ajoute la section d'une commande (statut + bouton toggle) au container."""
+    """Ajoute la ligne d'une commande (statut + toggle + delete) au container."""
 
-    button = Button(
+    status = "🟢" if enabled else "🔴"
+    container.add_item(TextDisplay(f"{status} `{command_name}`"))
+
+    # Bouton toggle ON/OFF
+    toggle_btn = Button(
         label="ON" if enabled else "OFF",
         style=discord.ButtonStyle.success if enabled else discord.ButtonStyle.danger,
     )
 
-    async def callback(interaction: discord.Interaction) -> None:
+    async def toggle_cb(interaction: discord.Interaction) -> None:
         if not await check_dev(interaction):
             return
-
         updated_data = await toggle_command(command_name)
-
         if search_query:
             results = {k: v for k, v in updated_data.items() if search_query.lower() in k.lower()}
             view = await create_search_result_view(search_query, results, page)
         else:
             view = await create_maintenance_view(updated_data, page)
-
         await interaction.response.edit_message(view=view)
 
-    button.callback = callback
+    toggle_btn.callback = toggle_cb
 
-    status = "🟢" if enabled else "🔴"
-    container.add_item(Section(TextDisplay(f"{status} `{command_name}`"), accessory=button))
+    # Bouton delete (avec confirmation intégrée)
+    delete_btn = Button(
+        label="Supprimer", emoji="🗑️", style=discord.ButtonStyle.secondary,
+    )
+
+    async def delete_cb(interaction: discord.Interaction) -> None:
+        if not await check_dev(interaction):
+            return
+        confirm_view = await create_delete_confirm_view(
+            command_name, page, search_query=search_query,
+        )
+        await interaction.response.edit_message(view=confirm_view)
+
+    delete_btn.callback = delete_cb
+
+    container.add_item(ActionRow(toggle_btn, delete_btn))
 
 
 # ============================================================
@@ -169,6 +184,77 @@ async def create_search_result_view(query: str, results: dict[str, bool], origin
     btn_back.callback = back_callback
 
     container.add_item(ActionRow(btn_back))
+    container.add_item(Separator())
+    container.add_item(TextDisplay("-# GuideOn Studio"))
+
+    view.add_item(container)
+    return view
+
+
+# ============================================================
+# 🗑️ Confirmation de suppression
+# ============================================================
+
+async def create_delete_confirm_view(
+    command_name: str, origin_page: int, *, search_query: str | None = None,
+) -> LayoutView:
+    """
+    Vue de confirmation intégrée (edit_message, pas de modal) avant
+    suppression définitive d'une commande. Deux boutons : Confirmer / Annuler.
+    Le retour se fait sur la vue d'origine (maintenance ou résultat de
+    recherche selon d'où on vient).
+    """
+    view = LayoutView(timeout=VIEW_TIMEOUT)
+    container = Container()
+
+    container.add_item(TextDisplay("# 🗑️ Supprimer la commande ?"))
+    container.add_item(Separator())
+    container.add_item(TextDisplay(
+        f"Tu vas supprimer définitivement la ligne `{command_name}` de la table "
+        "`command_controls`.\n"
+        "-# Cette action est **irréversible**. Une commande absente de la "
+        "table est considérée comme **activée par défaut** — donc supprimer "
+        "une commande obsolète est safe."
+    ))
+    container.add_item(Separator())
+
+    # ✅ Confirmer
+    btn_confirm = Button(label="Confirmer", emoji="✅", style=discord.ButtonStyle.danger)
+
+    async def confirm_cb(interaction: discord.Interaction) -> None:
+        if not await check_dev(interaction):
+            return
+        await delete_command(command_name)
+        updated_data = await get_all_commands()
+        if search_query:
+            results = {
+                k: v for k, v in updated_data.items()
+                if search_query.lower() in k.lower()
+            }
+            new_view = await create_search_result_view(search_query, results, origin_page)
+        else:
+            new_view = await create_maintenance_view(updated_data, origin_page)
+        await interaction.response.edit_message(view=new_view)
+
+    btn_confirm.callback = confirm_cb
+
+    # ↩️ Annuler
+    btn_cancel = Button(label="Annuler", emoji="↩️", style=discord.ButtonStyle.secondary)
+
+    async def cancel_cb(interaction: discord.Interaction) -> None:
+        if not await check_dev(interaction):
+            return
+        if search_query:
+            data = await get_all_commands()
+            results = {k: v for k, v in data.items() if search_query.lower() in k.lower()}
+            new_view = await create_search_result_view(search_query, results, origin_page)
+        else:
+            new_view = await create_maintenance_view(await get_all_commands(), origin_page)
+        await interaction.response.edit_message(view=new_view)
+
+    btn_cancel.callback = cancel_cb
+
+    container.add_item(ActionRow(btn_confirm, btn_cancel))
     container.add_item(Separator())
     container.add_item(TextDisplay("-# GuideOn Studio"))
 

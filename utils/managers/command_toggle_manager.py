@@ -12,6 +12,10 @@ API publique :
     await toggle_command(command_name) -> dict[str, bool]
         Inverse l'état (crée la ligne désactivée si absente).
         Retourne le dict complet à jour.
+    await delete_command(command_name) -> bool
+        Supprime définitivement une ligne (typiquement pour retirer une
+        commande qui n'existe plus dans le code). Retourne True si
+        supprimé, False si la ligne n'existait pas.
 """
 from __future__ import annotations
 
@@ -112,3 +116,22 @@ async def toggle_command(command_name: str) -> dict[str, bool]:
 
     log.info("[MAINTENANCE] %s -> %s", command_name, "ON" if new_state else "OFF")
     return await get_all_commands()
+
+
+async def delete_command(command_name: str) -> bool:
+    """
+    Supprime définitivement une ligne de la table CommandControl.
+    """
+    async with _lock:
+        async with get_session() as session:
+            row = await session.scalar(
+                select(CommandControl).where(CommandControl.command_name == command_name)
+            )
+            if row is None:
+                _invalidate()
+                return False
+            await session.delete(row)
+        _invalidate()
+
+    log.info("[MAINTENANCE] %s -> DELETED", command_name)
+    return True
