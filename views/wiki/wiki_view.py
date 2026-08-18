@@ -22,18 +22,18 @@ from views._components.base_view import BaseLayoutView
 CATEGORIES: dict[str, dict] = {
     "birthday": {
         "name": "Système anniversaire", "emoji": "🎂",
-        "description": "Commandes d'anniversaire",
+        "description": "⇝ N'oubli plus aucun anniversaire !",
         "available": True,
         "commands": [
-            ("/birthday add",    "🎂 Enregistre ta date d'anniversaire"),
-            ("/birthday config", "🎂 Configure le système d'anniversaires"),
-            ("/birthday list",   "🎂 [VIP] Affiche les anniversaires des 30 prochains jours"),
-            ("/birthday next",   "🎂 [VIP] Affiche le prochain anniversaire à venir"),
+            ("birthday add",    "🎂 Enregistre ta date d'anniversaire"),
+            ("birthday config", "🎂 Configure le système d'anniversaires"),
+            ("birthday list",   "🎂 [VIP] Affiche les anniversaires des 30 prochains jours"),
+            ("birthday next",   "🎂 [VIP] Affiche le prochain anniversaire à venir"),
         ],
     },
     "utility": {
         "name": "Commandes utilitaires", "emoji": "🔧",
-        "description": "Outils pratiques du quotidien",
+        "description": "⇝ Outils pratiques du quotidien.",
         "available": True,
         "commands": [
             ("id",        "👤 Récupère les informations d'un utilisateur via son ID ou sa mention"),
@@ -47,116 +47,116 @@ CATEGORIES: dict[str, dict] = {
     },
     "config": {
         "name": "Commandes de configuration", "emoji": "⚙️",
-        "description": "Personnaliser GuideON sur ton serveur",
+        "description": "⇝ Automatise ton serveur avec GuideOn !",
         "available": True,
         "commands": [
-            ("/config autorole",      "🎭 Configure l'attribution automatique de rôles"),
-            ("/config bienvenue",     "👋 Configure le système de bienvenue"),
-            ("/config role_all",      "👥 Attribue ou retire un rôle à tous les membres du serveur"),
-            ("/config role_reaction", "🎭 Configure le système de rôles réaction"),
+            ("config autorole",      "🎭 Configure l'attribution automatique de rôles"),
+            ("config bienvenue",     "👋 Configure le système de bienvenue"),
+            ("config role_all",      "👥 Attribue ou retire un rôle à tous les membres du serveur"),
+            ("config role_reaction", "🎭 Configure le système de rôles réaction"),
         ],
     },
     "exp": {
         "name": "Système exp", "emoji": "🧩",
-        "description": "Système d'expérience (bientôt)",
+        "description": "⇝ Valorise les plus actifs du serveur !",
         "available": True,
         "commands": [
-            ("/exp config",      "🧮 Configure le système d'EXP"),
-            ("/exp gestion",     "🛠️ Ajuste manuellement l'EXP d'un membre"),
-            ("/exp leaderboard", "🏆 Affiche le classement EXP du serveur"),
-            ("/exp level",       "📊 Affiche le niveau et l'EXP d'un membre"),
+            ("exp config",      "🧮 Configure le système d'EXP"),
+            ("exp gestion",     "🛠️ Ajuste manuellement l'EXP d'un membre"),
+            ("exp leaderboard", "🏆 Affiche le classement EXP du serveur"),
+            ("exp level",       "📊 Affiche le niveau et l'EXP d'un membre"),
         ],
     },
     "giveaway": {
         "name": "Système giveaways", "emoji": "🎁",
-        "description": "Système de giveaways",
+        "description": "⇝ Fais gagner des cadeaux à tes membres !",
         "available": True,
         "commands": [
-            ("/giveaway blacklist", "🚫 Gère la blacklist du système de giveaway"),
-            ("/giveaway create",    "🎉 Crée un nouveau giveaway"),
-            ("/giveaway list",      "📋 Liste les giveaways du serveur (✨ Gold+)"),
-            ("/giveaway manage",    "🛠️ Gère un giveaway existant"),
+            ("giveaway blacklist", "🚫 Gère la blacklist du système de giveaway"),
+            ("giveaway create",    "🎉 Crée un nouveau giveaway"),
+            ("giveaway list",      "📋 Liste les giveaways du serveur (✨ Gold+)"),
+            ("giveaway manage",    "🛠️ Gère un giveaway existant"),
         ],
     },
     "invite": {
         "name": "Système invitations", "emoji": "✉️",
-        "description": "Tracking et récompenses d'invitations",
+        "description": "⇝ Tracking et récompenses d'invitations",
         "available": True,
         "commands": [
-            ("/invite classement", "🏆 Affiche le classement des invitations du serveur"),
-            ("/invite config",     "📨 Configure le système d'invitations"),
-            ("/invite gestion",    "🛠️ Ajuste manuellement les compteurs d'invitations d'un membre"),
-            ("/invite user",       "📨 Affiche les invitations d'un membre"),
+            ("invite classement", "🏆 Affiche le classement des invitations du serveur"),
+            ("invite config",     "📨 Configure le système d'invitations"),
+            ("invite gestion",    "🛠️ Ajuste manuellement les compteurs d'invitations d'un membre"),
+            ("invite user",       "📨 Affiche les invitations d'un membre"),
         ],
     },
     "moderation": {
-        "name": "Modération", "emoji": "🛡️",
-        "description": "Outils de modération (bientôt)",
+        "name": "Système modération", "emoji": "🛡️",
+        "description": "⇝ Outils de modération & automod.",
         "available": True,
         "commands": [
-            ("/mod ban",         "🔨 Bannit un membre du serveur"),
-            ("/mod clear",       "🧹 Supprime des messages en masse dans un salon"),
-            ("/mod config",      "🛡️ Configure l'automod du serveur"),
-            ("/mod historique",  "📁 Affiche l'historique de sanction d'un membre"),
-            ("/mod kick",        "🍃 Expulse un membre du serveur"),
-            ("/mod lock",        "🔒 Verrouille un salon textuel"),
-            ("/mod logs",        "📋 Configure le système de logs du serveur"),
-            ("/mod mute",        "🔇 Rend un membre muet temporairement"),
-            ("/mod permissions", "🔐 Gère les permissions de modération"),
-            ("/mod rename",      "🖊️ Modifie le pseudo d'un membre"),
-            ("/mod softban",     "🧹 Bannit un membre et supprime ses derniers messages"),
-            ("/mod tempban",     "⏳ Bannit un membre pour une durée déterminée"),
-            ("/mod unban",       "🔓 Révoque un bannissement"),
-            ("/mod unlock",      "🔓 Déverrouille un salon textuel"),
-            ("/mod unmute",      "🔊 Enlève le mute d'un membre"),
-            ("/mod unwarn",      "🚫 Révoque un avertissement"),
-            ("/mod vocal",       "🔊 Gestion vocale de masse"),
-            ("/mod warn",        "⚠️ Avertit un membre"),
+            ("mod ban",         "🔨 Bannit un membre du serveur"),
+            ("mod clear",       "🧹 Supprime des messages en masse dans un salon"),
+            ("mod config",      "🛡️ Configure l'automod du serveur"),
+            ("mod historique",  "📁 Affiche l'historique de sanction d'un membre"),
+            ("mod kick",        "🍃 Expulse un membre du serveur"),
+            ("mod lock",        "🔒 Verrouille un salon textuel"),
+            ("mod logs",        "📋 Configure le système de logs du serveur"),
+            ("mod mute",        "🔇 Rend un membre muet temporairement"),
+            ("mod permissions", "🔐 Gère les permissions de modération"),
+            ("mod rename",      "🖊️ Modifie le pseudo d'un membre"),
+            ("mod softban",     "🧹 Bannit un membre et supprime ses derniers messages"),
+            ("mod tempban",     "⏳ Bannit un membre pour une durée déterminée"),
+            ("mod unban",       "🔓 Révoque un bannissement"),
+            ("mod unlock",      "🔓 Déverrouille un salon textuel"),
+            ("mod unmute",      "🔊 Enlève le mute d'un membre"),
+            ("mod unwarn",      "🚫 Révoque un avertissement"),
+            ("mod vocal",       "🔊 Gestion vocale de masse"),
+            ("mod warn",        "⚠️ Avertit un membre"),
         ],
     },
     "ng": {
         "name": "NationsGlory", "emoji": "🌍",
-        "description": "Commandes autour de NationsGlory",
+        "description": "⇝ Commandes autour de NationsGlory",
         "available": True,
         "commands": [
-            ("/ng autel",    "⛪ Affiche les informations sur les autels NationsGlory"),
-            ("/ng convert",  "🧮 Convertis un nombre d'items en stacks, coffres ou double-coffres"),
-            ("/ng dynmaps",  "🗺️ Lien des dynmaps NationsGlory"),
-            ("/ng info",     "📌 Informations NationsGlory"),
-            ("/ng version",  "🔃 Afficher la version actuelle de NationsGlory Bedrock"),
-            ("/ng onu",      "☕ Informations sur les ONUs NationsGlory"),
-            ("/ng rd",       "📘 Affiche les infos d'un palier de R&D"),
-            ("/ng sanction", "📋 Affiche le tableau des sanctions d'un serveur NationsGlory"),
-            ("/ng skin",     "🧥 Récupère le skin d'un joueur NationsGlory"),
+            ("ng autel",    "⛪ Affiche les informations sur les autels NationsGlory"),
+            ("ng convert",  "🧮 Convertis un nombre d'items en stacks, coffres ou double-coffres"),
+            ("ng dynmaps",  "🗺️ Lien des dynmaps NationsGlory"),
+            ("ng info",     "📌 Informations NationsGlory"),
+            ("ng version",  "🔃 Afficher la version actuelle de NationsGlory Bedrock"),
+            ("ng onu",      "☕ Informations sur les ONUs NationsGlory"),
+            ("ng rd",       "📘 Affiche les infos d'un palier de R&D"),
+            ("ng sanction", "📋 Affiche le tableau des sanctions d'un serveur NationsGlory"),
+            ("ng skin",     "🧥 Récupère le skin d'un joueur NationsGlory"),
         ],
     },
     "qr": {
         "name": "QRCode", "emoji": "🖼️",
-        "description": "Commandes de QR code",
+        "description": "⇝ Partage tes liens facilement via QRCode !",
         "available": True,
         "commands": [
-            ("/qr generate", "🖼️ Génère un QR code personnalisé"),
-            ("/qr list",     "📋 Liste tes QR codes enregistrés"),
-            ("/qr scan",     "🔍 Scanne un QR code depuis une image"),
+            ("qr generate", "🖼️ Génère un QR code personnalisé"),
+            ("qr list",     "📋 Liste tes QR codes enregistrés"),
+            ("qr scan",     "🔍 Scanne un QR code depuis une image"),
         ],
     },
     "ticket": {
         "name": "Tickets", "emoji": "🎫",
-        "description": "Système de support par tickets",
+        "description": "⇝ Construit ton meilleur support !",
         "available": True,
         "commands": [
-            ("/ticket add",          "👤 Ajouter un utilisateur à ce ticket"),
-            ("/ticket ban",          "🔨 Bannir un utilisateur des tickets"),
-            ("/ticket close",        "🔒 Fermer ce ticket"),
-            ("/ticket delete",       "🗑️ Supprimer définitivement ce ticket"),
-            ("/ticket panel_create", "🎫 Créer un nouveau panel de tickets"),
-            ("/ticket panel_delete", "🗑️ Supprimer un panel de tickets"),
-            ("/ticket panel_edit",   "✏️ Modifier un panel de tickets existant"),
-            ("/ticket panel_list",   "📋 Lister les panels de tickets du serveur"),
-            ("/ticket remove",       "👤 Retirer un utilisateur de ce ticket"),
-            ("/ticket rename",       "✏️ Renommer ce ticket"),
-            ("/ticket unban",        "♻️ Révoquer le ban tickets d'un utilisateur"),
-            ("/ticket wakeup",       "🔔 Relancer le créateur du ticket"),
+            ("ticket add",          "👤 Ajouter un utilisateur à ce ticket"),
+            ("ticket ban",          "🔨 Bannir un utilisateur des tickets"),
+            ("ticket close",        "🔒 Fermer ce ticket"),
+            ("ticket delete",       "🗑️ Supprimer définitivement ce ticket"),
+            ("ticket panel_create", "🎫 Créer un nouveau panel de tickets"),
+            ("ticket panel_delete", "🗑️ Supprimer un panel de tickets"),
+            ("ticket panel_edit",   "✏️ Modifier un panel de tickets existant"),
+            ("ticket panel_list",   "📋 Lister les panels de tickets du serveur"),
+            ("ticket remove",       "👤 Retirer un utilisateur de ce ticket"),
+            ("ticket rename",       "✏️ Renommer ce ticket"),
+            ("ticket unban",        "♻️ Révoquer le ban tickets d'un utilisateur"),
+            ("ticket wakeup",       "🔔 Relancer le créateur du ticket"),
         ],
     },
 }
@@ -254,10 +254,10 @@ class WikiHomeView(BaseLayoutView):
         total_cmds = sum(len(c["commands"]) for c in CATEGORIES.values())
 
         c = Container()
-        c.add_item(TextDisplay("# 📖 Wiki GuideON"))
+        c.add_item(TextDisplay("# 📖 Wiki GuideOn"))
         c.add_item(Separator())
         c.add_item(TextDisplay(
-            "Bienvenue dans le **wiki** du bot GuideON !\n"
+            "Bienvenue dans le **wiki** du bot GuideOn !\n"
             "Retrouve ici toutes nos commandes triées par catégorie."
         ))
         c.add_item(Separator())
@@ -405,8 +405,8 @@ class WikiSupportView(BaseLayoutView):
 
             f"**📬 Discord :** {DISCORD_GUIDEON}\n"
             "**🌐 Site web :** https://guideonbot.guideon.dev/\n"
-            f"**📧 Email :** {EMAIL_GUIDEON}\n"
-            "**💻 TOP GG :** https://top.gg/bot/1184180079069249666"
+            "**💻 TOP GG :** https://top.gg/bot/1184180079069249666\n"
+            f"**📧 Email :** `{EMAIL_GUIDEON}`\n"
         ))
         c.add_item(Separator())
 
@@ -439,13 +439,13 @@ class WikipartnerView(BaseLayoutView):
             "-# Serveur Minecraft semi-rp.\n"
             "- **[SwiftSky](https://discord.gg/zezkpMrD5e)**\n"
             "-# Service de graphisme professionnel.\n"
-            "- **[GloryForProgress](https://discord.gg/SvwVJpTBCZ)\n"
+            "- **[GloryForProgress](https://discord.gg/SvwVJpTBCZ)**\n"
             "-# Bot référent d'aide NationsGlory.\n"
-            "- **[Le Souk's](https://discord.gg/CAWsejVb7C)\n"
+            "- **[Le Souk's](https://discord.gg/CAWsejVb7C)**\n"
             "-# Serveur d'échange et de vente.\n"
         ))
         c.add_item(Separator())
-        
+
         c.add_item(ActionRow(*_nav_buttons(self.owner_id, active="partner", bot=self.bot)))
         c.add_item(Separator())
         c.add_item(TextDisplay("-# GuideOn Studio"))
