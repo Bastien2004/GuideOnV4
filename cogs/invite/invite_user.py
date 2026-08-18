@@ -66,13 +66,8 @@ async def invite_user(interaction: discord.Interaction, membre: Optional[discord
         await interaction.followup.send(view=view)
 
     except Exception:
-        log.exception(
-            "Affichage /invite user échoué (guild=%s, target=%s)",
-            interaction.guild.id, target.id,
-        )
-        await interaction.followup.send(
-            view=error_container("Impossible d'afficher les **invitations**.")
-        )
+        log.exception("[INVITE USER] Affichage de l'interface échoué (guild=%s, target=%s)", interaction.guild.id, target.id)
+        await interaction.followup.send(view=error_container("Impossible d'afficher les **invitations** d'un membre."))
 
 
 # ============================================================
@@ -80,7 +75,5 @@ async def invite_user(interaction: discord.Interaction, membre: Optional[discord
 # ============================================================
 
 @invite_user.error
-async def invite_user_error(
-    interaction: discord.Interaction, error: app_commands.AppCommandError
-) -> None:
+async def invite_user_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
     await handle_app_command_error(interaction, error)

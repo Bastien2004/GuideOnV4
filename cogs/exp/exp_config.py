@@ -10,11 +10,12 @@ import discord
 from discord import app_commands
 
 from utils.botbancmd import verifier_ban_utilisateur
-from utils.container_universel import error_container
 from utils.control_admin import verifier_commande
+from utils.track_commande import tracker_commande
+
+from utils.container_universel import error_container
 from utils.error_handler import handle_app_command_error
 from utils.perm_admin import check_admin
-from utils.track_commande import tracker_commande
 
 from views.exp.config_view import ExpConfigView
 
@@ -61,11 +62,8 @@ async def exp_config(interaction: discord.Interaction) -> None:
         await interaction.followup.send(view=view, ephemeral=True)
 
     except Exception:
-        log.exception("[EXP] Ouverture /exp config échouée (guild=%s)", interaction.guild.id)
-        await interaction.followup.send(
-            view=error_container("Impossible d'ouvrir l'interface de **configuration**."),
-            ephemeral=True,
-        )
+        log.exception("[EXP CONFIG] Ouverture de l'interface échouée (guild=%s)", interaction.guild.id)
+        await interaction.followup.send(view=error_container("Impossible d'ouvrir l'interface de **configuration**."), ephemeral=True)
 
 
 # ============================================================

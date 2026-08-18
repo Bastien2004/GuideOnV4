@@ -1,6 +1,7 @@
 """
-cogs/exp/exp_gestion.py — Commande /exp gestion <membre>.
+cogs/exp/exp_gestion.py — Gère la somme d'exp d'un membre.
 """
+
 from __future__ import annotations
 
 import logging
@@ -9,11 +10,12 @@ import discord
 from discord import app_commands
 
 from utils.botbancmd import verifier_ban_utilisateur
-from utils.container_universel import error_container
 from utils.control_admin import verifier_commande
+from utils.track_commande import tracker_commande
+
 from utils.error_handler import handle_app_command_error
 from utils.perm_admin import check_admin
-from utils.track_commande import tracker_commande
+from utils.container_universel import error_container
 
 from views.exp.gestion_view import ExpGestionView
 
@@ -70,13 +72,8 @@ async def exp_gestion(interaction: discord.Interaction, membre: discord.Member) 
         await interaction.followup.send(view=view, ephemeral=True)
 
     except Exception:
-        log.exception(
-            "[EXP] Ouverture /exp gestion échouée (guild=%s, target=%s)",
-            interaction.guild.id, membre.id,
-        )
-        await interaction.followup.send(
-            view=error_container("Impossible d'ouvrir l'interface de **gestion**."), ephemeral=True
-        )
+        log.exception("[EXP GESTION] Ouverture de l'interface échouée (guild=%s, target=%s)", interaction.guild.id, membre.id)
+        await interaction.followup.send(view=error_container("Impossible d'ouvrir l'interface de **gestion**."), ephemeral=True)
 
 
 # ============================================================

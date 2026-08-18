@@ -1,6 +1,7 @@
 """
-cogs/exp/exp_level.py — Commande /exp level [membre].
+cogs/exp/exp_level.py — Affiche la carte d'exp d'un membre.
 """
+
 from __future__ import annotations
 
 import logging
@@ -10,12 +11,13 @@ import discord
 from discord import app_commands
 
 from utils.botbancmd import verifier_ban_utilisateur
-from utils.container_universel import error_container
 from utils.control_admin import verifier_commande
+from utils.track_commande import tracker_commande
+
+from utils.container_universel import error_container
 from utils.error_handler import handle_app_command_error
 from utils.exp_image import ExpImageBuilder
 from utils.managers.exp_manager import get_user_exp
-from utils.track_commande import tracker_commande
 
 log = logging.getLogger(__name__)
 
@@ -66,13 +68,8 @@ async def exp_level(interaction: discord.Interaction, membre: Optional[discord.M
         await interaction.followup.send(file=file)
 
     except Exception:
-        log.exception(
-            "Affichage /exp level échoué (guild=%s, target=%s)",
-            interaction.guild.id, target.id,
-        )
-        await interaction.followup.send(
-            view=error_container("Impossible de générer l'**image de niveau**.")
-        )
+        log.exception("[EXP LEVEL] Affichage de l'image level d'exp échoué (guild=%s, target=%s)", interaction.guild.id, target.id)
+        await interaction.followup.send(view=error_container("Impossible de générer l'**image** de ton level d'exp."))
 
 
 # ============================================================

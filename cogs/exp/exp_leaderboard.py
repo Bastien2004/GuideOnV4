@@ -1,6 +1,7 @@
 """
-cogs/exp/exp_leaderboard.py — Commande /exp leaderboard.
+cogs/exp/exp_leaderboard.py — Affiche le classement d'EXP du serveur.
 """
+
 from __future__ import annotations
 
 import logging
@@ -9,11 +10,12 @@ import discord
 from discord import app_commands
 
 from utils.botbancmd import verifier_ban_utilisateur
-from utils.container_universel import error_container, info_container
 from utils.control_admin import verifier_commande
+from utils.track_commande import tracker_commande
+
+from utils.container_universel import error_container, info_container
 from utils.error_handler import handle_app_command_error
 from utils.managers.exp_manager import get_leaderboard
-from utils.track_commande import tracker_commande
 
 from views.exp.leaderboard_view import ExpLeaderboardView
 
@@ -63,10 +65,8 @@ async def exp_leaderboard(interaction: discord.Interaction) -> None:
         await interaction.followup.send(view=view)
 
     except Exception:
-        log.exception("[EXP] Affichage /exp leaderboard échoué (guild=%s)", interaction.guild.id)
-        await interaction.followup.send(
-            view=error_container("Impossible d'afficher le **classement**.")
-        )
+        log.exception("[EXP LEADERBOARD] Affichage du classement exp échoué (guild=%s)", interaction.guild.id)
+        await interaction.followup.send(view=error_container("Impossible d'afficher le **classement** d'exp."))
 
 
 # ============================================================

@@ -12,10 +12,10 @@ from discord import app_commands
 from utils.botbancmd import verifier_ban_utilisateur
 from utils.control_admin import verifier_commande
 from utils.track_commande import tracker_commande
-from utils.perm_admin import check_admin
 
 from utils.container_universel import error_container
 from utils.error_handler import handle_app_command_error
+from utils.perm_admin import check_admin
 from views.invite.gestion_view import InviteGestionView
 
 log = logging.getLogger(__name__)
@@ -71,13 +71,8 @@ async def invite_gestion(interaction: discord.Interaction, membre: discord.Membe
         await interaction.followup.send(view=view, ephemeral=True)
 
     except Exception:
-        log.exception(
-            "[INVITE GESTION] Ouverture /invite gestion échouée (guild=%s, target=%s)",
-            interaction.guild.id, membre.id
-            )
-        await interaction.followup.send(
-            view=error_container("Impossible d'ouvrir l'interface de **gestion**."), ephemeral=True
-            )
+        log.exception("[INVITE GESTION] Ouverture de l'interface échouée (guild=%s, target=%s)", interaction.guild.id, membre.id)
+        await interaction.followup.send(view=error_container("Impossible d'ouvrir l'interface de **gestion**."), ephemeral=True)
 
 
 # ============================================================
