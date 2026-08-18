@@ -96,9 +96,41 @@ async def create_automod_dashboard_view(guild_id: int, bot, author_id: Optional[
     # ── Systèmes Select (menu déroulant) ──
 
     options: list[SelectOption] = []
+    for sys in _SYSTEMS:
+        if sys["available"]:
+            enabled = statuses.get(sys["key"], False)
+            state = "Activé" if enabled else "Désactivé"
+            options.append(SelectOption(
+                label=f"{sys['name']} · {state}",
+                description=sys["desc"][:100],
+                emoji=sys["emoji"],
+                value=sys["key"],
+            ))
+        else:
+            options.append(SelectOption(
+                label=f"{sys['name']} · Bientôt",
+                description=sys["desc"][:100],
+                emoji="🚧",
+                value=f"__unavailable__{sys['key']}",
+            ))
+
+    # Guard : Discord rejette (400 Bad Request) tout Select classique sans
+    # options. Filet de sécurité si le registre _SYSTEMS venait à être vidé.
+    if not options:
+        options.append(SelectOption(
+            label="Aucun système disponible",
+            value="__none__",
+            emoji="⚠️",
+            default=True,
+        ))
+        select_disabled = True
+    else:
+        select_disabled = False
+
     select = Select(
         placeholder="Choisir un système à configurer…",
         options=options, min_values=1, max_values=1,
+        disabled=select_disabled,
     )
 
     select.callback = _on_select_system(guild_id, bot, author_id, select)
