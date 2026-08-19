@@ -12,13 +12,7 @@ from discord import ButtonStyle, Interaction, SelectOption
 from discord.ui import ActionRow, Button, Container, LayoutView, Section, Select, Separator, TextDisplay
 
 from utils.container_universel import error_container, warning_container
-from utils.managers import (
-    mod_automod_antifullcaps_manager as antifullcaps_mgr,
-    mod_automod_antispam_emoji_manager as antispam_emoji_mgr,
-    mod_automod_antispam_mention_manager as antispam_mention_mgr,
-    mod_automod_banword_manager as banword_mgr,
-    mod_automod_general_manager as general_mgr,
-)
+from utils.managers import mod_automod_general_manager as general_mgr
 from utils.settings import settings
 
 log = logging.getLogger(__name__)
@@ -59,12 +53,6 @@ async def create_automod_dashboard_view(guild_id: int, bot, author_id: Optional[
         return None
 
     general = await general_mgr.load_general(guild_id)
-    statuses = {
-        "banword": (await banword_mgr.load_config(guild_id))["enabled"],
-        "antifullcaps": (await antifullcaps_mgr.load_config(guild_id))["enabled"],
-        "antispam_mention": (await antispam_mention_mgr.load_config(guild_id))["enabled"],
-        "antispam_emoji": (await antispam_emoji_mgr.load_config(guild_id))["enabled"],
-    }
 
     view = LayoutView(timeout=600)
     container = Container()
@@ -94,23 +82,27 @@ async def create_automod_dashboard_view(guild_id: int, bot, author_id: Optional[
     container.add_item(Separator())
 
     # ── Systèmes Select (menu déroulant) ──
+    # Chaque option = nom (label) + description. Aucun emoji, aucun statut
+    # Activé/Désactivé — seul « · Bientôt » est ajouté aux systèmes à venir
+    # pour signaler qu'ils sont en travaux. Les systèmes marqués comme
+    # "à venir" utilisent une value spéciale `__unavailable__<key>` qui est
+    # interceptée par le callback pour renvoyer un message court "Bientôt
+    # disponible" — Discord ne permettant pas de désactiver une option
+    # individuellement dans un Select, c'est le plus proche possible de
+    # "non cliquable".
 
     options: list[SelectOption] = []
     for sys in _SYSTEMS:
         if sys["available"]:
-            enabled = statuses.get(sys["key"], False)
-            state = "Activé" if enabled else "Désactivé"
             options.append(SelectOption(
-                label=f"{sys['name']} · {state}",
+                label=sys["name"],
                 description=sys["desc"][:100],
-                emoji=sys["emoji"],
                 value=sys["key"],
             ))
         else:
             options.append(SelectOption(
-                label=f"{sys['name']} · Bientôt",
-                description=sys["desc"][:100],
-                emoji="🚧",
+                label=sys["name"],
+                description=f"{sys['desc']} · Bientôt"[:100],
                 value=f"__unavailable__{sys['key']}",
             ))
 
@@ -212,16 +204,10 @@ def _on_select_system(guild_id, bot, author_id, select_ref: Select):
             return
         value = select_ref.values[0]
 
-        # Système marqué comme "bientôt disponible" : message éphémère + rerender.
+        # Système marqué "bientôt" : message court, pas de changement de vue.
         if value.startswith("__unavailable__"):
-            key = value.removeprefix("__unavailable__")
-            sys_meta = next((s for s in _SYSTEMS if s["key"] == key), None)
-            name = sys_meta["name"] if sys_meta else key
             await interaction.response.send_message(
-                view=warning_container(
-                    f"Le système **{name}** est en cours de développement et n'est "
-                    "pas encore disponible."
-                ),
+                view=warning_container("🚧 Ce système sera **bientôt disponible**."),
                 ephemeral=True,
             )
             return
