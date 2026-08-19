@@ -1,21 +1,7 @@
 """
-views/mod/automod_banword_view.py — Configuration du système Ban Word (v3).
-
-Refactorée en 2 pages :
-
-  1. `create_automod_banword_view` (page principale)
-       Vue courte : toggle activation + Section "Mots interdits" avec bouton
-       "Gérer" (accessory) qui ouvre la page 2. Le retour de cette page
-       renvoie vers le dashboard automod.
-
-  2. `create_automod_banword_words_view` (page gestion des mots)
-       Liste complète des mots (paginée si nombreuse) + boutons
-       Ajouter / Retirer / Vider. Le retour de cette page renvoie vers la
-       page principale ban word (pas vers le dashboard directement).
-
-Reste "pas de select" — cohérent avec le choix général du projet (les
-ajouts/retraits passent par modal texte).
+views/mod/automod_banword_view.py — Configuration du système Ban Word.
 """
+
 from __future__ import annotations
 
 import logging
@@ -33,17 +19,16 @@ from views._components.text_modal import TextModal
 log = logging.getLogger(__name__)
 
 MAX_WORD_LENGTH = 100
-WORDS_PREVIEW_MAX = 30  # nombre max de mots affichés inline sur la page 2
+WORDS_PREVIEW_MAX = 30
 
 
-# ═══════════════════════════════════════════════════════════════
-# 📄 Page 1 — Vue principale (toggle + accès gestion)
-# ═══════════════════════════════════════════════════════════════
+# ============================================================
+# 🧩 Création de l'interface principale
+# ============================================================
 
-async def create_automod_banword_view(
-    guild_id: int, bot, author_id: Optional[int] = None,
-) -> Optional[LayoutView]:
-    """Vue principale ban word : toggle + accès à la gestion des mots."""
+async def create_automod_banword_view(guild_id: int, bot, author_id: Optional[int] = None) -> Optional[LayoutView]:
+    """Création view principale ban word."""
+
     guild = bot.get_guild(guild_id)
     if guild is None:
         return None
@@ -56,24 +41,16 @@ async def create_automod_banword_view(
     container = Container()
 
     # Header
-    dot = "🟢" if enabled else "🔴"
-    state = "Activé" if enabled else "Désactivé"
-    container.add_item(TextDisplay(f"# 🚫 Ban Word · {dot} {state}"))
-    container.add_item(Separator())
-
-    # Description
-    container.add_item(TextDisplay(
-        "-# Bloque les messages contenant un mot interdit. Reconnaît les "
-        "contournements courants (accents, chiffres, espaces, ponctuation)."
-    ))
+    container.add_item(TextDisplay(f"# <:interdit:1539589224049807430> Système Ban Word"))
     container.add_item(Separator())
 
     # Toggle activation
     toggle_btn = Button(
-        label="✅ Activé" if enabled else "❌ Désactivé",
+        label="<:valider:1495444292867723284> Activé" if enabled else "<:annuler:1495444256754761979> Désactivé",
         style=ButtonStyle.success if enabled else ButtonStyle.danger,
     )
     toggle_btn.callback = _cb_toggle(guild_id, bot, author_id)
+
     container.add_item(Section(
         TextDisplay(
             "**🔘 Statut du système**\n"
@@ -83,20 +60,20 @@ async def create_automod_banword_view(
     ))
     container.add_item(Separator())
 
-    # Section "Mots interdits" → bouton Gérer
-    manage_btn = Button(label="Gérer", emoji="📋", style=ButtonStyle.primary)
+    # Section mots interdits
+    manage_btn = Button(label="Gérer", emoji="<:modifier:1495444144712192003>", style=ButtonStyle.primary)
     manage_btn.callback = _cb_open_manage(guild_id, bot, author_id)
     container.add_item(Section(
         TextDisplay(
-            f"**📋 Mots interdits · {len(words)}**\n"
-            "-# Ajouter, retirer ou vider la liste des mots surveillés."
+            "**📋 Mots interdits**\n"
+            "-# Ajouter, retirer ou vider la liste des mots interdits."
         ),
         accessory=manage_btn,
     ))
     container.add_item(Separator())
 
     # Retour + doc
-    btn_back = Button(label="Retour", style=ButtonStyle.secondary, emoji="↩️")
+    btn_back = Button(label="Retour", style=ButtonStyle.secondary, emoji="<:retour:1515658955190308995>")
     btn_back.callback = _cb_back_to_dashboard(guild_id, bot, author_id)
     container.add_item(ActionRow(
         btn_back,
@@ -109,14 +86,13 @@ async def create_automod_banword_view(
     return view
 
 
-# ═══════════════════════════════════════════════════════════════
-# 📄 Page 2 — Gestion des mots (liste + add/remove/clear)
-# ═══════════════════════════════════════════════════════════════
+# ============================================================
+# ⛔ Création de l'interface de gestion des mots interdits
+# ============================================================
 
-async def create_automod_banword_words_view(
-    guild_id: int, bot, author_id: Optional[int] = None,
-) -> Optional[LayoutView]:
-    """Page dédiée à la liste + gestion des mots interdits."""
+async def create_automod_banword_words_view(guild_id: int, bot, author_id: Optional[int] = None) -> Optional[LayoutView]:
+    """Page dédiée à la gestion des bans words."""
+
     guild = bot.get_guild(guild_id)
     if guild is None:
         return None
@@ -127,7 +103,7 @@ async def create_automod_banword_words_view(
     container = Container()
 
     # Header
-    container.add_item(TextDisplay(f"# 📋 Mots interdits · {len(words)}"))
+    container.add_item(TextDisplay("# 📋 Mots interdits"))
     container.add_item(Separator())
 
     # Liste
@@ -145,17 +121,17 @@ async def create_automod_banword_words_view(
     container.add_item(Separator())
 
     # Actions
-    btn_add = Button(label="Ajouter", style=ButtonStyle.success, emoji="➕")
+    btn_add = Button(label="Ajouter", style=ButtonStyle.success, emoji="<:plus:1495444111505752154>")
     btn_add.callback = _cb_add_word(guild_id, bot, author_id)
-    btn_remove = Button(label="Retirer", style=ButtonStyle.danger, emoji="➖", disabled=not words)
+    btn_remove = Button(label="Retirer", style=ButtonStyle.danger, emoji="<:moins:1508532114465882285>", disabled=not words)
     btn_remove.callback = _cb_remove_word(guild_id, bot, author_id)
-    btn_clear = Button(label="Tout vider", style=ButtonStyle.danger, emoji="🗑️", disabled=not words)
+    btn_clear = Button(label="Tout vider", style=ButtonStyle.danger, emoji="<:supprimer:1495444051623809075>", disabled=not words)
     btn_clear.callback = _cb_clear_words(guild_id, bot, author_id)
     container.add_item(ActionRow(btn_add, btn_remove, btn_clear))
     container.add_item(Separator())
 
-    # Retour vers page 1 (ban word principal, pas le dashboard)
-    btn_back = Button(label="Retour", style=ButtonStyle.secondary, emoji="↩️")
+    # Retour vers page principale
+    btn_back = Button(label="Retour", style=ButtonStyle.secondary, emoji="<:retour:1515658955190308995>")
     btn_back.callback = _cb_back_to_banword(guild_id, bot, author_id)
     container.add_item(ActionRow(
         btn_back,
@@ -168,9 +144,9 @@ async def create_automod_banword_words_view(
     return view
 
 
-# ═══════════════════════════════════════════════════════════════
-# 📑 Guard + rerenders
-# ═══════════════════════════════════════════════════════════════
+# ============================================================
+# 🛡️ Création des protections
+# ============================================================
 
 def _guard(author_id: Optional[int]):
     async def check(interaction: Interaction) -> bool:
@@ -211,9 +187,9 @@ async def _rerender_words(interaction: Interaction, guild_id: int, bot, author_i
         await interaction.response.edit_message(view=new_view)
 
 
-# ═══════════════════════════════════════════════════════════════
-# 📑 Callbacks — page principale
-# ═══════════════════════════════════════════════════════════════
+# ============================================================
+# 📑 Gestion des callbacks
+# ============================================================
 
 def _cb_toggle(guild_id, bot, author_id):
     check = _guard(author_id)
@@ -248,10 +224,6 @@ def _cb_back_to_dashboard(guild_id, bot, author_id):
         await interaction.response.edit_message(view=new_view)
     return cb
 
-
-# ═══════════════════════════════════════════════════════════════
-# 📑 Callbacks — page gestion des mots
-# ═══════════════════════════════════════════════════════════════
 
 def _cb_back_to_banword(guild_id, bot, author_id):
     """Retour de la page 2 vers la page 1 (pas vers le dashboard)."""
