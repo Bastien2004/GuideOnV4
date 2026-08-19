@@ -32,7 +32,7 @@ _SYSTEMS: list[dict] = [
      "desc": "↳ Empêche le spam de mention.", "available": True},
 
     {"key": "antispam_emoji", "name": "Anti Spam Emoji",
-     "desc": "↳ Bloque l'utilisation abusive d'emoji.", "available": False},
+     "desc": "↳ Bloque l'utilisation abusive d'emoji.", "available": True},
 
     {"key": "nolink", "name": "No Link",
      "desc": "↳ Supprime les liens (salon whitelist).", "available": False},

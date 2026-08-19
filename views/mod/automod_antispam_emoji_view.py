@@ -1,7 +1,7 @@
 """
-views/mod/automod_antispam_emoji_view.py — Config Anti Spam Emoji (v2).
-Style compact autorole. Toggle + max_emoji.
+views/mod/automod_antispam_emoji_view.py — Interface de configuration du système Anti Spam Emoji.
 """
+
 from __future__ import annotations
 
 import logging
@@ -18,12 +18,21 @@ from views._components.text_modal import TextModal
 
 log = logging.getLogger(__name__)
 
-MAX_MIN, MAX_MAX = 1, 100
+
+# ============================================================
+# 🔩 Paramètres
+# ============================================================
+
+MAX_MIN, MAX_MAX = 1, 50
 
 
-async def create_automod_antispam_emoji_view(
-    guild_id: int, bot, author_id: Optional[int] = None,
-) -> Optional[LayoutView]:
+# ============================================================
+# 🧩 Construction de la view
+# ============================================================
+
+async def create_automod_antispam_emoji_view(guild_id: int, bot, author_id: Optional[int] = None) -> Optional[LayoutView]:
+    """Construction de la view de configuration Anti Spam Emoji."""
+
     guild = bot.get_guild(guild_id)
     if guild is None:
         return None
@@ -35,38 +44,39 @@ async def create_automod_antispam_emoji_view(
     view = LayoutView(timeout=600)
     c = Container()
 
-    dot = "🟢" if enabled else "🔴"
-    state = "Activé" if enabled else "Désactivé"
-    c.add_item(TextDisplay(f"# 😀 Anti Spam Emoji · {dot} {state}"))
+    c.add_item(TextDisplay(f"# <:protect_config:1539608365704028340> Système anti spam emoji"))
     c.add_item(Separator())
 
+    # Toggle activation
     toggle_btn = Button(
-        label="✅ Activé" if enabled else "❌ Désactivé",
+        label="Activé" if enabled else "Désactivé",
+        emoji="<:valider:1495444292867723284>" if enabled else "<:annuler:1495444256754761979>",
         style=ButtonStyle.success if enabled else ButtonStyle.danger,
+        custom_id=f"toggle_{guild_id}"
     )
     toggle_btn.callback = _cb_toggle(guild_id, bot, author_id)
+
     c.add_item(Section(
         TextDisplay(
             "**🔘 Statut du système**\n"
-            "-# Limite le nombre d'emojis (Unicode + custom Discord) par message."
+            "-# Limite le nombre d'emojis par message."
         ),
         accessory=toggle_btn,
     ))
     c.add_item(Separator())
 
-    btn_max = Button(label="Modifier", style=ButtonStyle.secondary, emoji="✏️")
+    btn_max = Button(label="Modifier", style=ButtonStyle.secondary, emoji="<:modifier:1495444144712192003>")
     btn_max.callback = _cb_edit_max(guild_id, bot, author_id)
     c.add_item(Section(
         TextDisplay(
             "**📊 Seuil de déclenchement**\n"
-            f"-# Un message avec plus de **{max_emoji} emojis** est bloqué.\n"
-            f"-# Plage : {MAX_MIN} → {MAX_MAX}"
+            f"-# Bloque les messages avec plus de `{max_emoji}` emojis."
         ),
         accessory=btn_max,
     ))
     c.add_item(Separator())
 
-    btn_back = Button(label="Retour", style=ButtonStyle.secondary, emoji="↩️")
+    btn_back = Button(label="Retour", style=ButtonStyle.secondary, emoji="<:retour:1515658955190308995>")
     btn_back.callback = _cb_back(guild_id, bot, author_id)
     c.add_item(ActionRow(
         btn_back,

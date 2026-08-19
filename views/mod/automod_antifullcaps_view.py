@@ -1,7 +1,7 @@
 """
-views/mod/automod_antifullcaps_view.py — Config Anti Full Maj (v2).
-Style compact autorole. Toggle + 2 réglages (min_length + ratio).
+views/mod/automod_antifullcaps_view.py — Interface de configuration du système Anti Full Maj.
 """
+
 from __future__ import annotations
 
 import logging
