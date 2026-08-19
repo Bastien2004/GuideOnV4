@@ -46,10 +46,14 @@ async def create_automod_banword_view(guild_id: int, bot, author_id: Optional[in
 
     # Toggle activation
     toggle_btn = Button(
-        label="<:valider:1495444292867723284> Activé" if enabled else "<:annuler:1495444256754761979> Désactivé",
+        label="Activé" if enabled else "Désactivé",
+        emoji="<:valider:1495444292867723284>" if enabled else "<:annuler:1495444256754761979>",
         style=ButtonStyle.success if enabled else ButtonStyle.danger,
+        custom_id=f"toggle_{guild_id}"
     )
+
     toggle_btn.callback = _cb_toggle(guild_id, bot, author_id)
+
 
     container.add_item(Section(
         TextDisplay(
