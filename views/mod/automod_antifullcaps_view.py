@@ -22,9 +22,13 @@ MIN_LENGTH_MIN, MIN_LENGTH_MAX = 1, 500
 RATIO_MIN_PCT, RATIO_MAX_PCT = 10, 100
 
 
-async def create_automod_antifullcaps_view(
-    guild_id: int, bot, author_id: Optional[int] = None,
-) -> Optional[LayoutView]:
+# ============================================================
+# 🧩 Construction de la view
+# ============================================================
+
+async def create_automod_antifullcaps_view(guild_id: int, bot, author_id: Optional[int] = None) -> Optional[LayoutView]:
+    """Construction de la view de configuration Anti Full Maj."""
+
     guild = bot.get_guild(guild_id)
     if guild is None:
         return None
@@ -37,54 +41,53 @@ async def create_automod_antifullcaps_view(
     view = LayoutView(timeout=600)
     c = Container()
 
-    dot = "🟢" if enabled else "🔴"
-    state = "Activé" if enabled else "Désactivé"
-    c.add_item(TextDisplay(f"# 🔠 Anti Full Maj · {dot} {state}"))
+    c.add_item(TextDisplay(f"# <:protect_config:1539608365704028340> Système Anti full maj"))
     c.add_item(Separator())
 
-    # Toggle
+    # Toggle activation
     toggle_btn = Button(
-        label="✅ Activé" if enabled else "❌ Désactivé",
+        label="Activé" if enabled else "Désactivé",
+        emoji="<:valider:1495444292867723284>" if enabled else "<:annuler:1495444256754761979>",
         style=ButtonStyle.success if enabled else ButtonStyle.danger,
+        custom_id=f"toggle_{guild_id}"
     )
     toggle_btn.callback = _cb_toggle(guild_id, bot, author_id)
+
     c.add_item(Section(
         TextDisplay(
             "**🔘 Statut du système**\n"
-            "-# Bloque les messages majoritairement en MAJUSCULES."
+            "-# Bloque l'utilisation abusive de majuscule."
         ),
         accessory=toggle_btn,
     ))
     c.add_item(Separator())
 
-    # Min length
-    btn_min = Button(label="Modifier", style=ButtonStyle.secondary, emoji="✏️")
+    # Taille minimum
+    btn_min = Button(label="Modifier", style=ButtonStyle.secondary, emoji="<:modifier:1495444144712192003>")
     btn_min.callback = _cb_edit_min(guild_id, bot, author_id)
     c.add_item(Section(
         TextDisplay(
             "**📏 Longueur minimale**\n"
-            f"-# Ignore les messages de moins de **{min_length} caractères**.\n"
-            f"-# Plage : {MIN_LENGTH_MIN} → {MIN_LENGTH_MAX}"
+            f"-# Ignore les messages de moins de `{min_length}` caractères**."
         ),
         accessory=btn_min,
     ))
     c.add_item(Separator())
 
     # Ratio
-    btn_ratio = Button(label="Modifier", style=ButtonStyle.secondary, emoji="✏️")
+    btn_ratio = Button(label="Modifier", style=ButtonStyle.secondary, emoji="<:modifier:1495444144712192003>")
     btn_ratio.callback = _cb_edit_ratio(guild_id, bot, author_id)
     c.add_item(Section(
         TextDisplay(
             "**📊 Seuil de déclenchement**\n"
-            f"-# À partir de **{ratio_pct}%** de lettres en MAJUSCULES.\n"
-            f"-# Plage : {RATIO_MIN_PCT}% → {RATIO_MAX_PCT}%"
+            f"-# À partir de **{ratio_pct}%** de lettres en MAJUSCULES."
         ),
         accessory=btn_ratio,
     ))
     c.add_item(Separator())
 
     # Back + doc
-    btn_back = Button(label="Retour", style=ButtonStyle.secondary, emoji="↩️")
+    btn_back = Button(label="Retour", style=ButtonStyle.secondary, emoji="<:retour:1515658955190308995>")
     btn_back.callback = _cb_back(guild_id, bot, author_id)
     c.add_item(ActionRow(
         btn_back,

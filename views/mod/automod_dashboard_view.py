@@ -22,22 +22,29 @@ log = logging.getLogger(__name__)
 # ============================================================
 
 _SYSTEMS: list[dict] = [
-    {"key": "banword", "emoji": "🚫", "name": "Ban Word",
-     "desc": "Mots interdits avec anti-contournement.", "available": True},
-    {"key": "antifullcaps", "emoji": "🔠", "name": "Anti Full Maj",
-     "desc": "Bloque les messages en MAJUSCULES.", "available": True},
-    {"key": "antispam_mention", "emoji": "📣", "name": "Anti Spam Mention",
-     "desc": "Limite les mentions par message.", "available": True},
-    {"key": "antispam_emoji", "emoji": "😀", "name": "Anti Spam Emoji",
-     "desc": "Limite les emojis par message.", "available": True},
-    {"key": "nolink", "emoji": "🔗", "name": "No Link",
-     "desc": "Bloque les liens (salon whitelist).", "available": False},
-    {"key": "antilink", "emoji": "☠️", "name": "Anti Link",
-     "desc": "Bloque les extensions dangereuses.", "available": False},
+    {"key": "banword", "name": "Ban Word",
+     "desc": "↳ Détecte et supprime les mots interdits.", "available": True},
+
+    {"key": "antifullcaps", "name": "Anti Full Maj",
+     "desc": "↳ Bloque les messages en majuscule.", "available": True},
+
+    {"key": "antispam_mention", "name": "Anti Spam Mention",
+     "desc": "↳ Empêche le spam de mention.", "available": False},
+
+    {"key": "antispam_emoji", "name": "Anti Spam Emoji",
+     "desc": "↳ Bloque l'utilisation abusive d'emoji.", "available": False},
+
+    {"key": "nolink", "name": "No Link",
+     "desc": "↳ Supprime les liens (salon whitelist).", "available": False},
+
+    {"key": "antilink", "name": "Anti Link",
+     "desc": "↳ Bloque les extensions dangereuses (ex : .exe).", "available": False},
+
     {"key": "antispam_msg", "emoji": "💬", "name": "Anti Spam Message",
-     "desc": "Détecte les messages répétés.", "available": False},
+     "desc": "↳ Protège du spam de message.", "available": False},
+
     {"key": "antiflood", "emoji": "🌊", "name": "Anti Flood",
-     "desc": "Détecte les messages incohérents.", "available": False},
+     "desc": "↳ Supprime les messages incohérents et parasite.", "available": False},
 ]
 
 
@@ -82,14 +89,6 @@ async def create_automod_dashboard_view(guild_id: int, bot, author_id: Optional[
     container.add_item(Separator())
 
     # ── Systèmes Select (menu déroulant) ──
-    # Chaque option = nom (label) + description. Aucun emoji, aucun statut
-    # Activé/Désactivé — seul « · Bientôt » est ajouté aux systèmes à venir
-    # pour signaler qu'ils sont en travaux. Les systèmes marqués comme
-    # "à venir" utilisent une value spéciale `__unavailable__<key>` qui est
-    # interceptée par le callback pour renvoyer un message court "Bientôt
-    # disponible" — Discord ne permettant pas de désactiver une option
-    # individuellement dans un Select, c'est le plus proche possible de
-    # "non cliquable".
 
     options: list[SelectOption] = []
     for sys in _SYSTEMS:
