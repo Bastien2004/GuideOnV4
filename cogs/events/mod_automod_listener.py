@@ -21,6 +21,15 @@ Flow (v3, refonte avec récidive temporelle) :
           suivants du même user dans la fenêtre)
      g. Sinon (première infraction) : log staff léger dans le salon d'alerte
         (juste info, pas de bouton)
+
+NOTE DEBUG (2026-08-19) : `settings.log_level` vaut `INFO` par défaut (voir
+.env.example) — les `log.debug(...)` des détecteurs sont donc invisibles en
+prod tant que LOG_LEVEL n'est pas passé à DEBUG. Pour éviter de dépendre de
+ça, ce listener logge en **INFO** (visible par défaut) dès qu'un système
+détecte une infraction (`_apply_action`), et log désormais le détail réel
+des exceptions Discord (au lieu de juste l'id du salon) partout où un envoi
+peut être refusé, avec un diagnostic de permissions explicite pour le salon
+d'alerte.
 """
 from __future__ import annotations
 
@@ -37,6 +46,7 @@ from utils.automod.detectors import (
     antispam_emoji as antispam_emoji_detector,
     antispam_mention as antispam_mention_detector,
     banword as banword_detector,
+    nolink as nolink_detector,
 )
 from utils.managers import (
     mod_automod_alert_manager as alert_mgr,
@@ -46,6 +56,7 @@ from utils.managers import (
     mod_automod_banword_manager as banword_mgr,
     mod_automod_general_manager as general_mgr,
     mod_automod_infraction_manager as infr_mgr,
+    mod_automod_nolink_manager as nolink_mgr,
 )
 from views.mod.automod_alert_view import build_alert_container
 
@@ -53,6 +64,14 @@ log = logging.getLogger(__name__)
 
 # Timeout Discord natif : max autorisé par l'API = 28 jours pile.
 _MUTE_DURATION = timedelta(days=28)
+
+# Permissions nécessaires pour poster une alerte Components V2 (Container)
+# dans le salon d'alerte. `embed_links` est celle qu'on oublie le plus souvent :
+# un Container V2 est traité par Discord comme un contenu "riche" au même
+# titre qu'un embed classique côté permissions.
+_REQUIRED_ALERT_PERMS: tuple[str, ...] = (
+    "view_channel", "send_messages", "embed_links", "attach_files",
+)
 
 
 # ============================================================
@@ -80,12 +99,31 @@ _SYSTEM_META: dict[str, dict[str, str]] = {
         "user_msg": "Ton message contenait **trop d'emojis**.",
         "emoji": "😀",
     },
+    "nolink": {
+        "display_name": "No Link",
+        "user_msg": "Les **liens** ne sont pas autorisés dans ce salon.",
+        "emoji": "🔗",
+    },
 }
 
 
 def get_system_display(system_key: str) -> str:
     """Nom affichable pour un system_key. Utilisé par la view d'alerte."""
     return _SYSTEM_META.get(system_key, {}).get("display_name", system_key)
+
+
+def _missing_send_permissions(channel, guild: discord.Guild) -> list[str]:
+    """
+    Diagnostic explicite des permissions manquantes du bot dans `channel`.
+    Utilisé pour transformer un "refusé, malgré all perm" en une réponse
+    concrète (ex : ["embed_links"]) au lieu d'un simple id de salon dans les
+    logs.
+    """
+    me = guild.me
+    if me is None:
+        return ["guild.me introuvable (bot pas dans le cache de la guild ?)"]
+    perms = channel.permissions_for(me)
+    return [name for name in _REQUIRED_ALERT_PERMS if not getattr(perms, name, True)]
 
 
 # ============================================================
@@ -166,12 +204,25 @@ class ModAutomodListener(commands.Cog):
 
         # ── Anti Spam Emoji ──
         e_cfg = await antispam_emoji_mgr.load_config(guild_id)
+        log.debug(
+            "[AUTOMOD] antispam_emoji cfg guild=%s enabled=%s max_emoji=%s",
+            guild_id, e_cfg.get("enabled"), e_cfg.get("max_emoji"),
+        )
         if e_cfg.get("enabled"):
             match = antispam_emoji_detector.detect(
                 content, max_emoji=e_cfg.get("max_emoji", 10),
             )
             if match is not None:
                 return ("antispam_emoji", match)
+
+        # ── No Link ──
+        nl_cfg = await nolink_mgr.load_config(guild_id)
+        if nl_cfg.get("enabled"):
+            # Salon whitelisté → on n'appelle même pas le détecteur.
+            if not await nolink_mgr.is_whitelisted(guild_id, message.channel.id):
+                match = nolink_detector.detect(content)
+                if match is not None:
+                    return ("nolink", match)
 
         return None
 
@@ -190,13 +241,20 @@ class ModAutomodListener(commands.Cog):
         display = meta.get("display_name", system_key)
         emoji = meta.get("emoji", "⚠️")
 
+        # Log visible par défaut (INFO) : confirme qu'une infraction a bien
+        # été détectée et prise en charge, même sans LOG_LEVEL=DEBUG.
+        log.info(
+            "[AUTOMOD] Infraction détectée guild=%s user=%s system=%s terme=%r",
+            guild_id, user_id, system_key, matched_term,
+        )
+
         # 1. Delete du message.
         try:
             await message.delete()
-        except (discord.Forbidden, discord.HTTPException):
+        except (discord.Forbidden, discord.HTTPException) as exc:
             log.warning(
-                "[AUTOMOD] Delete refusé guild=%s channel=%s message=%s",
-                guild_id, message.channel.id, message.id,
+                "[AUTOMOD] Delete refusé guild=%s channel=%s message=%s erreur=%s",
+                guild_id, message.channel.id, message.id, exc,
             )
 
         # 2. Compte les récidives AVANT d'enregistrer la nouvelle (sinon
@@ -238,6 +296,12 @@ class ModAutomodListener(commands.Cog):
         # 6. Escalade selon récidive.
         alert_channel_id = general.get("alert_channel_id")
         alert_channel = guild.get_channel(alert_channel_id) if alert_channel_id else None
+        if alert_channel_id and alert_channel is None:
+            log.warning(
+                "[AUTOMOD] alert_channel_id=%s configuré mais introuvable "
+                "(salon supprimé, ou pas dans le cache ?) guild=%s",
+                alert_channel_id, guild_id,
+            )
 
         if is_recidive:
             # Mute Discord natif + alerte staff avec bouton.
@@ -292,8 +356,11 @@ class ModAutomodListener(commands.Cog):
                 delete_after=10,
                 allowed_mentions=discord.AllowedMentions(users=True),
             )
-        except (discord.Forbidden, discord.HTTPException):
-            pass
+        except (discord.Forbidden, discord.HTTPException) as exc:
+            log.warning(
+                "[AUTOMOD] Notif salon refusée channel=%s erreur=%s",
+                channel.id, exc,
+            )
 
     async def _send_user_dm(
         self, user: discord.User, guild: discord.Guild, *,
@@ -320,7 +387,7 @@ class ModAutomodListener(commands.Cog):
         try:
             await user.send(view=view)
         except (discord.Forbidden, discord.HTTPException):
-            # DM fermés ou bot bloqué : silencieux, c'est normal.
+            # DM fermés ou bot bloqué : silencieux, c'est normal, pas un bug.
             pass
 
     async def _send_light_alert(
@@ -350,8 +417,12 @@ class ModAutomodListener(commands.Cog):
         view.add_item(c)
         try:
             await alert_channel.send(view=view)
-        except (discord.Forbidden, discord.HTTPException):
-            log.warning("[AUTOMOD] Log léger refusé alert_channel=%s", alert_channel.id)
+        except (discord.Forbidden, discord.HTTPException) as exc:
+            missing = _missing_send_permissions(alert_channel, message.guild)
+            log.warning(
+                "[AUTOMOD] Log léger refusé alert_channel=%s erreur=%s permissions_manquantes=%s",
+                alert_channel.id, exc, missing or "aucune détectée",
+            )
 
     async def _send_full_alert(
         self, alert_channel, *, guild: discord.Guild, user: discord.Member,
@@ -377,8 +448,12 @@ class ModAutomodListener(commands.Cog):
             # Ping du rôle staff si configuré : allowed_mentions accepte le ping.
             allowed = discord.AllowedMentions(roles=True) if staff_role_id else discord.AllowedMentions.none()
             sent_msg = await alert_channel.send(view=temp_view, allowed_mentions=allowed)
-        except (discord.Forbidden, discord.HTTPException):
-            log.warning("[AUTOMOD] Envoi alerte staff refusé alert_channel=%s", alert_channel.id)
+        except (discord.Forbidden, discord.HTTPException) as exc:
+            missing = _missing_send_permissions(alert_channel, guild)
+            log.warning(
+                "[AUTOMOD] Envoi alerte staff refusé alert_channel=%s erreur=%s permissions_manquantes=%s",
+                alert_channel.id, exc, missing or "aucune détectée (vérifier Embed Links / rôle @everyone)",
+            )
             return
 
         # 2. Enregistrement DB (récupère l'id).
@@ -410,8 +485,11 @@ class ModAutomodListener(commands.Cog):
         )
         try:
             await sent_msg.edit(view=final_view)
-        except (discord.Forbidden, discord.HTTPException):
-            log.warning("[AUTOMOD] Edit final alerte échoué message=%s", sent_msg.id)
+        except (discord.Forbidden, discord.HTTPException) as exc:
+            log.warning(
+                "[AUTOMOD] Edit final alerte échoué message=%s erreur=%s",
+                sent_msg.id, exc,
+            )
 
     async def _apply_timeout(self, user: discord.Member, system_key: str) -> bool:
         """Applique le timeout Discord natif (28j). Retourne True si appliqué."""
@@ -421,10 +499,10 @@ class ModAutomodListener(commands.Cog):
                 reason=f"Auto-modération : récidive système {system_key}",
             )
             return True
-        except (discord.Forbidden, discord.HTTPException):
+        except (discord.Forbidden, discord.HTTPException) as exc:
             log.warning(
-                "[AUTOMOD] Timeout refusé guild=%s user=%s",
-                user.guild.id, user.id,
+                "[AUTOMOD] Timeout refusé guild=%s user=%s erreur=%s",
+                user.guild.id, user.id, exc,
             )
             return False
 

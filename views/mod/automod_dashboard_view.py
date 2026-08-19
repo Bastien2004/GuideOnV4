@@ -35,7 +35,7 @@ _SYSTEMS: list[dict] = [
      "desc": "↳ Bloque l'utilisation abusive d'emoji.", "available": True},
 
     {"key": "nolink", "name": "No Link",
-     "desc": "↳ Supprime les liens (salon whitelist).", "available": False},
+     "desc": "↳ Supprime les liens (salon whitelist).", "available": True},
 
     {"key": "antilink", "name": "Anti Link",
      "desc": "↳ Bloque les extensions dangereuses (ex : .exe).", "available": False},
@@ -224,6 +224,9 @@ def _on_select_system(guild_id, bot, author_id, select_ref: Select):
         elif value == "antispam_emoji":
             from views.mod.automod_antispam_emoji_view import create_automod_antispam_emoji_view
             new_view = await create_automod_antispam_emoji_view(guild_id, bot, author_id)
+        elif value == "nolink":
+            from views.mod.automod_nolink_view import create_automod_nolink_view
+            new_view = await create_automod_nolink_view(guild_id, bot, author_id)
         else:
             return
 
