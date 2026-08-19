@@ -1,14 +1,7 @@
 """
-cogs/events/role_react_alpha.py — Listener Rôle Réaction Alpha.
-
-Gère les clics sur les boutons de notification via on_interaction.
-custom_id pattern : "role_react_{role_id}"
-
-Cooldown anti-spam : COOLDOWN_SECONDS entre deux clics d'un même
-utilisateur sur un même bouton (évite le spam add_roles/remove_roles).
-
-Fonctionne après restart sans add_view() grâce au pattern on_interaction.
+cogs/events/ngstaff_rolereact.py — Listener du système Rôle réaction NGSTAFF.
 """
+
 from __future__ import annotations
 
 import logging
@@ -22,18 +15,23 @@ from utils.managers.ng_server_manager import get_server_by_guild
 
 log = logging.getLogger(__name__)
 
+
+# ============================================================
+# 🔩 Paramètres
+# ============================================================
+
 CUSTOM_ID_PREFIX = "role_react_"
 COOLDOWN_SECONDS = 5
 
 
-class RoleReactAlphaListener(commands.Cog):
+# ============================================================
+#  🧩 Class principale
+# ============================================================
+
+class NGSTAFF_RoleReactListener(commands.Cog):
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
-        # Cooldown anti-spam : (user_id, role_id) -> monotonic du dernier clic.
-        # Volontairement en mémoire (pas de valeur en cas de restart, c'est
-        # voulu) et sans purge périodique : la cardinalité est bornée par
-        # (membres actifs) × (MAX_ROLES=10), donc négligeable en mémoire.
         self._last_click: dict[tuple[int, int], float] = {}
 
     @commands.Cog.listener("on_interaction")
@@ -57,40 +55,31 @@ class RoleReactAlphaListener(commands.Cog):
 
         ng_server = get_server_by_guild(guild.id)
         if ng_server is None:
-            return  # Discord inconnu du cache ng_servers — rien à faire.
+            return
 
         member = interaction.user
         if not isinstance(member, discord.Member):
             return
 
-        # Cooldown anti-spam (avant tout appel cache/DB, pour un rejet le
-        # moins coûteux possible en cas de spam-clic)
         key = (member.id, role_id)
         now = time.monotonic()
         last = self._last_click.get(key)
+
         if last is not None and (now - last) < COOLDOWN_SECONDS:
             remaining = COOLDOWN_SECONDS - (now - last)
-            return await interaction.response.send_message(
-                f"⏳ Doucement ! Réessaie dans {remaining:.1f}s.",
-                ephemeral=True,
-            )
+            return await interaction.response.send_message(f"⏳ Doucement ! Réessaie dans {remaining:.1f}s.", ephemeral=True)
         self._last_click[key] = now
 
         # Vérifier que ce rôle est bien dans la liste configurée
         entries = await get_rr_entries(ng_server.name)
         entry = next((e for e in entries if e["role_id"] == role_id), None)
         if entry is None:
-            return await interaction.response.send_message(
-                "Ce rôle n'est plus dans la liste de notification.", ephemeral=True
-            )
+            return await interaction.response.send_message("Ce rôle n'est plus dans la liste des rôles disponibles", ephemeral=True)
 
         role = guild.get_role(role_id)
         if role is None:
             try:
-                # Ne devrait pas arriver, mais on est robuste
-                await interaction.response.send_message(
-                    "Rôle introuvable sur le serveur. Contactez un administrateur.", ephemeral=True
-                )
+                await interaction.response.send_message("Rôle introuvable sur le serveur. Contactez un membre du staff.", ephemeral=True)
             except discord.HTTPException:
                 pass
             return
@@ -98,29 +87,31 @@ class RoleReactAlphaListener(commands.Cog):
         # Toggle
         try:
             if role in member.roles:
-                await member.remove_roles(role, reason="Rôle réaction Alpha — retrait volontaire")
+                await member.remove_roles(role, reason="Rôle réaction NGSTAFF — retrait volontaire")
                 emoji_str = f"{entry['emoji']} " if entry.get("emoji") else ""
                 await interaction.response.send_message(
                     f"🔕 Le rôle **{emoji_str}{role.name}** a été **retiré**.",
                     ephemeral=True,
                 )
             else:
-                await member.add_roles(role, reason="Rôle réaction Alpha — ajout volontaire")
+                await member.add_roles(role, reason="Rôle réaction NGSTAFF — ajout volontaire")
                 emoji_str = f"{entry['emoji']} " if entry.get("emoji") else ""
                 await interaction.response.send_message(
-                    f"🔔 Le rôle **{emoji_str}{role.name}** a été **activé** !",
+                    f"🔔 Le rôle **{emoji_str}{role.name}** a été **attribué** !",
                     ephemeral=True,
                 )
-        except discord.Forbidden:
-            await interaction.response.send_message(
-                "Je n'ai pas la permission de modifier vos rôles.", ephemeral=True
-            )
-        except discord.HTTPException as e:
-            log.warning("[ROLE_REACT] Erreur HTTP toggle role_id=%d : %s", role_id, e)
-            await interaction.response.send_message(
-                "Une erreur est survenue. Réessayez dans un instant.", ephemeral=True
-            )
 
+        except discord.Forbidden:
+            await interaction.response.send_message("Je n'ai pas la permission de modifier vos rôles.", ephemeral=True)
+
+        except discord.HTTPException as e:
+            log.warning("[NGSTAFF ROLEREACT] Erreur Discord (HTTP) lors de la gestion du rôle | role_id=%d : %s", role_id, e)
+            await interaction.response.send_message("Une **erreur Discord** est survenue. Réessayez dans un instant.", ephemeral=True)
+
+
+# ============================================================
+#  💻 Setup BOT
+# ============================================================
 
 async def setup(bot: commands.Bot) -> None:
-    await bot.add_cog(RoleReactAlphaListener(bot))
+    await bot.add_cog(NGSTAFF_RoleReactListener(bot))

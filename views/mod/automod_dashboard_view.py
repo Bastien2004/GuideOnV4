@@ -29,7 +29,7 @@ _SYSTEMS: list[dict] = [
      "desc": "↳ Bloque les messages en majuscule.", "available": True},
 
     {"key": "antispam_mention", "name": "Anti Spam Mention",
-     "desc": "↳ Empêche le spam de mention.", "available": False},
+     "desc": "↳ Empêche le spam de mention.", "available": True},
 
     {"key": "antispam_emoji", "name": "Anti Spam Emoji",
      "desc": "↳ Bloque l'utilisation abusive d'emoji.", "available": False},
