@@ -41,7 +41,7 @@ async def create_automod_antifullcaps_view(guild_id: int, bot, author_id: Option
     view = LayoutView(timeout=600)
     c = Container()
 
-    c.add_item(TextDisplay(f"# <:protect_config:1539608365704028340> Système Anti full maj"))
+    c.add_item(TextDisplay(f"# <:protect_config:1539608365704028340> Système anti full maj"))
     c.add_item(Separator())
 
     # Toggle activation
@@ -68,7 +68,7 @@ async def create_automod_antifullcaps_view(guild_id: int, bot, author_id: Option
     c.add_item(Section(
         TextDisplay(
             "**📏 Longueur minimale**\n"
-            f"-# Ignore les messages de moins de `{min_length}` caractères**."
+            f"-# Ignore les messages de moins de `{min_length}` caractères."
         ),
         accessory=btn_min,
     ))
@@ -80,7 +80,7 @@ async def create_automod_antifullcaps_view(guild_id: int, bot, author_id: Option
     c.add_item(Section(
         TextDisplay(
             "**📊 Seuil de déclenchement**\n"
-            f"-# À partir de **{ratio_pct}%** de lettres en MAJUSCULES."
+            f"-# À partir de `{ratio_pct}%` de lettres en MAJUSCULES."
         ),
         accessory=btn_ratio,
     ))
