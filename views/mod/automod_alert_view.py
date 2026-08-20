@@ -25,7 +25,7 @@ from zoneinfo import ZoneInfo
 
 import discord
 from discord import ButtonStyle, Interaction
-from discord.ui import Button, Container, LayoutView, Separator, TextDisplay
+from discord.ui import ActionRow, Button, Container, LayoutView, Separator, TextDisplay
 
 from utils.container_universel import error_container, warning_container
 from utils.managers import mod_automod_alert_manager as alert_mgr
@@ -112,10 +112,14 @@ class AutomodAlertView(LayoutView):
         # du body (voir build_alert_container).
 
     def attach_container(self, container: Container) -> None:
-        # On ajoute le bouton en dernier item du container.
+        # Le bouton doit être encapsulé dans une ActionRow : Components V2
+        # interdit un Button (type 2) en enfant direct d'un Container — seuls
+        # ActionRow/Section/TextDisplay/MediaGallery/File/Separator (types
+        # 1/9/10/12/13/14) sont acceptés directement. C'était la cause réelle
+        # du "400 Invalid Form Body" sur l'alerte staff complète.
         button = _make_button(self._alert_id, self._is_taken)
         button.callback = self._on_click_take
-        container.add_item(button)
+        container.add_item(ActionRow(button))
         self.add_item(container)
 
     async def _on_click_take(self, interaction: Interaction) -> None:
