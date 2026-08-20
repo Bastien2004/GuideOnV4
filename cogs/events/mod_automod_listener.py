@@ -40,19 +40,25 @@ import discord
 from discord.ext import commands
 from discord.ui import Container, LayoutView, Separator, TextDisplay
 
-from utils.automod import recidive_tracker
+from utils.automod import antispam_msg_buffer, recidive_tracker
 from utils.automod.detectors import (
     antifullcaps as antifullcaps_detector,
+    antiflood as antiflood_detector,
+    antilink as antilink_detector,
     antispam_emoji as antispam_emoji_detector,
     antispam_mention as antispam_mention_detector,
+    antispam_msg as antispam_msg_detector,
     banword as banword_detector,
     nolink as nolink_detector,
 )
 from utils.managers import (
     mod_automod_alert_manager as alert_mgr,
     mod_automod_antifullcaps_manager as antifullcaps_mgr,
+    mod_automod_antiflood_manager as antiflood_mgr,
+    mod_automod_antilink_manager as antilink_mgr,
     mod_automod_antispam_emoji_manager as antispam_emoji_mgr,
     mod_automod_antispam_mention_manager as antispam_mention_mgr,
+    mod_automod_antispam_msg_manager as antispam_msg_mgr,
     mod_automod_banword_manager as banword_mgr,
     mod_automod_general_manager as general_mgr,
     mod_automod_infraction_manager as infr_mgr,
@@ -103,6 +109,21 @@ _SYSTEM_META: dict[str, dict[str, str]] = {
         "display_name": "No Link",
         "user_msg": "Les **liens** ne sont pas autorisés dans ce salon.",
         "emoji": "🔗",
+    },
+    "antilink": {
+        "display_name": "Anti Link",
+        "user_msg": "Ton message contenait un fichier/lien vers une **extension bloquée**.",
+        "emoji": "🚫",
+    },
+    "antispam_msg": {
+        "display_name": "Anti Spam Message",
+        "user_msg": "Tu as envoyé **trop de fois le même message**.",
+        "emoji": "🔁",
+    },
+    "antiflood": {
+        "display_name": "Anti Flood",
+        "user_msg": "Ton message était **incohérent** (mashkeyboard détecté).",
+        "emoji": "🌊",
     },
 }
 
@@ -223,6 +244,40 @@ class ModAutomodListener(commands.Cog):
                 match = nolink_detector.detect(content)
                 if match is not None:
                     return ("nolink", match)
+
+        # ── Anti Link ──
+        al_cfg = await antilink_mgr.load_config(guild_id)
+        if al_cfg.get("enabled"):
+            extensions = await antilink_mgr.list_extensions(guild_id)
+            if extensions:
+                filenames = [a.filename for a in message.attachments]
+                match = antilink_detector.detect(content, filenames, extensions)
+                if match is not None:
+                    return ("antilink", match)
+
+        # ── Anti Spam Message ──
+        sm_cfg = await antispam_msg_mgr.load_config(guild_id)
+        if sm_cfg.get("enabled"):
+            occurrences = antispam_msg_buffer.register_and_count(
+                guild_id, message.author.id, content,
+                window_seconds=sm_cfg.get("window_seconds", 10),
+            )
+            match = antispam_msg_detector.detect(
+                occurrences, max_messages=sm_cfg.get("max_messages", 3),
+            )
+            if match is not None:
+                return ("antispam_msg", match)
+
+        # ── Anti Flood ──
+        af_cfg = await antiflood_mgr.load_config(guild_id)
+        if af_cfg.get("enabled"):
+            match = antiflood_detector.detect(
+                content,
+                min_length=af_cfg.get("min_length", 20),
+                min_vowel_ratio=af_cfg.get("min_vowel_ratio", 0.2),
+            )
+            if match is not None:
+                return ("antiflood", match)
 
         return None
 

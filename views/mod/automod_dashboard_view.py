@@ -227,6 +227,15 @@ def _on_select_system(guild_id, bot, author_id, select_ref: Select):
         elif value == "nolink":
             from views.mod.automod_nolink_view import create_automod_nolink_view
             new_view = await create_automod_nolink_view(guild_id, bot, author_id)
+        elif value == "antilink":
+            from views.mod.automod_antilink_view import create_automod_antilink_view
+            new_view = await create_automod_antilink_view(guild_id, bot, author_id)
+        elif value == "antispam_msg":
+            from views.mod.automod_antispam_msg_view import create_automod_antispam_msg_view
+            new_view = await create_automod_antispam_msg_view(guild_id, bot, author_id)
+        elif value == "antiflood":
+            from views.mod.automod_antiflood_view import create_automod_antiflood_view
+            new_view = await create_automod_antiflood_view(guild_id, bot, author_id)
         else:
             return
 
