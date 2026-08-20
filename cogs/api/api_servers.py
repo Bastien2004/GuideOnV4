@@ -52,7 +52,7 @@ class ServerUpdate(BaseModel):
     discord_guild_id: int
     display_name: str | None = None
     edition: str | None = None
-    active: bool | None = None
+    active: bool | None = True
 
 
 # ══════════════════════════════════════════════════════════════════════════
