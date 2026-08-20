@@ -95,6 +95,15 @@ def groupeALPHA():
     return GroupeALPHA()
 
 
+# Groupe Iris
+class GroupeIRIS(app_commands.Group):
+    def __init__(self):
+        super().__init__(name="iris", description="Commandes Discord Iris")
+
+def groupeIRIS():
+    return GroupeIRIS()
+
+
 # Groupe Birthday
 class GroupeBIRTHDAY(app_commands.Group):
     def __init__(self):

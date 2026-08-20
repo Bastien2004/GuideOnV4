@@ -50,7 +50,7 @@ async def create_automod_nolink_view(guild_id: int, bot, author_id: Optional[int
     container = Container()
 
     # Header
-    container.add_item(TextDisplay("# <:protect_config:1539608365704028340> Système No Link"))
+    container.add_item(TextDisplay("# <:protect_doc:1539608530850545735> Système No Link"))
     container.add_item(Separator())
 
     # Toggle activation
@@ -139,9 +139,6 @@ async def create_automod_nolink_whitelist_view(guild_id: int, bot, author_id: Op
     )
     container.add_item(ActionRow(add_select))
 
-    # Retrait (Select manuel construit depuis la DB — fonctionne même si le
-    # salon a été supprimé côté Discord depuis, contrairement à un ChannelSelect
-    # natif qui ne proposerait plus le salon).
     if whitelist:
         remove_options: list[SelectOption] = []
         for cid in whitelist[:REMOVE_SELECT_MAX]:
@@ -342,9 +339,9 @@ def _build_clear_confirm(guild_id, bot, author_id, *, count: int) -> LayoutView:
     async def cancel(interaction: Interaction):
         await _rerender_whitelist(interaction, guild_id, bot, author_id)
 
-    btn_confirm = Button(label="Confirmer", style=ButtonStyle.danger, emoji="✅")
+    btn_confirm = Button(label="Confirmer", style=ButtonStyle.danger, emoji="<:valider:1495444292867723284>")
     btn_confirm.callback = do_clear
-    btn_cancel = Button(label="Annuler", style=ButtonStyle.secondary, emoji="↩️")
+    btn_cancel = Button(label="Annuler", style=ButtonStyle.secondary, emoji="<:retour:1515658955190308995>")
     btn_cancel.callback = cancel
     c.add_item(ActionRow(btn_confirm, btn_cancel))
     c.add_item(Separator())

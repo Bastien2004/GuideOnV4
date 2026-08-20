@@ -234,6 +234,9 @@ class GuideONBot(commands.Bot):
         from cogs.alpha.event_regle import event_regle
         from cogs.alpha.event_start import event_start
 
+        # ── IMPORT ALPHA ──
+        from cogs.iris.test import test_iris
+
         # ── IMPORT NGSTAFF ──
         from cogs.ngstaff.ngstaff_config import ngstaff_config
         from cogs.ngstaff.ngstaff_derank import ngstaff_derank
@@ -243,9 +246,9 @@ class GuideONBot(commands.Bot):
         from cogs.ngstaff.ngstaff_stafflist import ngstaff_stafflist
 
         # ── IMPORT QR ──
-        #from cogs.qr.generate import qr_generate
-        #from cogs.qr.list import qr_list
-        #from cogs.qr.scan import qr_scan
+        from cogs.qr.generate import qr_generate
+        from cogs.qr.list import qr_list
+        from cogs.qr.scan import qr_scan
 
 
          # 🔩 ── CONFIG ──
@@ -309,7 +312,7 @@ class GuideONBot(commands.Bot):
 
         # 🪢 ── QR ──
         groupQR = groupeQR()
-        for cmd in []: #Ajouter les commandes QR ici (qr, generate, list ...)
+        for cmd in [qr_generate, qr_list, qr_scan]:
             groupQR.add_command(cmd)
 
 
@@ -319,6 +322,12 @@ class GuideONBot(commands.Bot):
             self._groupALPHA.add_command(cmd)
 
 
+        # 🪻 ── IRIS ──
+        self._groupIRIS = groupeIRIS()
+        for cmd in [test_iris]:
+            self._groupIRIS.add_command(cmd)
+
+
         # 🚨 ── NGSTAFF ──
         self._groupNGSTAFF = groupeNGSTAFF()
         for cmd in [
@@ -326,10 +335,6 @@ class GuideONBot(commands.Bot):
             ngstaff_edit_stafflist, ngstaff_nota_debug]:
             self._groupNGSTAFF.add_command(cmd)
 
-        # 🪢 ── QR ──
-        #groupQR = groupeQR()
-        #for cmd in [qr_generate, qr_list, qr_scan]:
-        #    groupQR.add_command(cmd)
 
 
         for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY, groupGIVE, groupEXP, groupMOD, groupQR]:
@@ -373,6 +378,30 @@ class GuideONBot(commands.Bot):
 
             except Exception as e:
                 log.error(f"❌ Erreur ALPHA {gid}: {e}")
+
+
+        # Sync commande Alpha
+
+        IRIS_GUILDS = [
+            1499029929029926982,
+            1400451664946794618,
+        ]
+
+        for gid in IRIS_GUILDS:
+            guild = discord.Object(id=gid)
+
+            try:
+                try:
+                    self.tree.add_command(self._groupIRIS, guild=guild)
+                except discord.app_commands.CommandAlreadyRegistered:
+                    pass
+
+                synced = await self.tree.sync(guild=guild)
+
+                log.info(f"🪻 Commandes IRIS synchronisées sur {gid} ({len(synced)} cmd)")
+
+            except Exception as e:
+                log.error(f"❌ Erreur IRIS {gid}: {e}")
 
 
         # Sync commande NGSTAFF

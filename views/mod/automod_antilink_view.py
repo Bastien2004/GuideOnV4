@@ -1,11 +1,5 @@
 """
 views/mod/automod_antilink_view.py — Configuration du système Anti Link.
-
-Même structure à deux pages que automod_banword_view.py : les extensions
-bloquées ne sont pas des ressources Discord natives (contrairement aux
-salons du système No Link), donc l'ajout se fait via TextModal (texte libre,
-comme les mots bannis) et le retrait via un Select classique construit
-depuis la liste en DB (finie, ≤25 pour tenir dans un Select natif).
 """
 
 from __future__ import annotations
@@ -48,7 +42,7 @@ async def create_automod_antilink_view(guild_id: int, bot, author_id: Optional[i
     container = Container()
 
     # Header
-    container.add_item(TextDisplay("# <:interdit:1539589224049807430> Système Anti Link"))
+    container.add_item(TextDisplay("# <:fichier_i:1539608464324567040> Système Anti Link"))
     container.add_item(Separator())
 
     # Toggle activation
@@ -63,8 +57,7 @@ async def create_automod_antilink_view(guild_id: int, bot, author_id: Optional[i
     container.add_item(Section(
         TextDisplay(
             "**🔘 Statut du système**\n"
-            "-# Bloque les fichiers/liens vers une extension dangereuse.\n"
-            "-# *À la première activation, une liste par défaut est pré-remplie.*"
+            "-# Bloque les fichiers/liens vers une extension dangereuse."
         ),
         accessory=toggle_btn,
     ))
@@ -341,9 +334,9 @@ def _build_clear_confirm(guild_id, bot, author_id, *, count: int) -> LayoutView:
     async def cancel(interaction: Interaction):
         await _rerender_extensions(interaction, guild_id, bot, author_id)
 
-    btn_confirm = Button(label="Confirmer", style=ButtonStyle.danger, emoji="✅")
+    btn_confirm = Button(label="Confirmer", style=ButtonStyle.danger, emoji="<:valider:1495444292867723284>")
     btn_confirm.callback = do_clear
-    btn_cancel = Button(label="Annuler", style=ButtonStyle.secondary, emoji="↩️")
+    btn_cancel = Button(label="Annuler", style=ButtonStyle.secondary, emoji="<:retour:1515658955190308995>")
     btn_cancel.callback = cancel
     c.add_item(ActionRow(btn_confirm, btn_cancel))
     c.add_item(Separator())
