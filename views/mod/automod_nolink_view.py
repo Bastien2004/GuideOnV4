@@ -50,7 +50,7 @@ async def create_automod_nolink_view(guild_id: int, bot, author_id: Optional[int
     container = Container()
 
     # Header
-    container.add_item(TextDisplay("# <:protect_doc:1539608530850545735> Système No Link"))
+    container.add_item(TextDisplay("# <:protect_doc:1539608530850545735> Système no link"))
     container.add_item(Separator())
 
     # Toggle activation

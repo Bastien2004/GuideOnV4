@@ -45,7 +45,7 @@ async def create_automod_antiflood_view(guild_id: int, bot, author_id: Optional[
     view = LayoutView(timeout=600)
     c = Container()
 
-    c.add_item(TextDisplay("# <:protect_config:1539608365704028340> Système Anti Flood"))
+    c.add_item(TextDisplay("# <:protect_config:1539608365704028340> Système anti flood"))
     c.add_item(Separator())
 
     # Toggle activation
@@ -60,7 +60,7 @@ async def create_automod_antiflood_view(guild_id: int, bot, author_id: Optional[
     c.add_item(Section(
         TextDisplay(
             "**🔘 Statut du système**\n"
-            "-# Supprime les messages incohérents (mashkeyboard)."
+            "-# Supprime les messages incohérents."
         ),
         accessory=toggle_btn,
     ))

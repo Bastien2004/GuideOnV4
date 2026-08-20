@@ -41,7 +41,7 @@ async def create_automod_banword_view(guild_id: int, bot, author_id: Optional[in
     container = Container()
 
     # Header
-    container.add_item(TextDisplay(f"# <:interdit:1539589224049807430> Système Ban Word"))
+    container.add_item(TextDisplay(f"# <:interdit:1539589224049807430> Système ban word"))
     container.add_item(Separator())
 
     # Toggle activation
