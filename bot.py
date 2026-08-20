@@ -467,6 +467,7 @@ class GuideONBot(commands.Bot):
         GUILD_AVATARS = {
             751903718135431188 : "source/GuideON Staff.webp",
             948880111753625642 : "source/GuideON VIP.webp",
+            1499029929029926982 : "logo_iris.png",
         }
 
         for guild_id, avatar_path in GUILD_AVATARS.items():
