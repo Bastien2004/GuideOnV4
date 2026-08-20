@@ -17,6 +17,7 @@ from utils.db.models.ng_server import NGServer
 from utils.managers.ng_server_manager import (
     dev_create_server,
     dev_update_server,
+    dev_delete_server_by_guild,
     NGServerNameConflictError,
     NGServerGuildConflictError,
     NGServerNotFoundError,
@@ -130,6 +131,28 @@ async def update_server(request: Request, payload: ServerUpdate):
 
     return {
         "message": f"Serveur {server.display_name!r} mis à jour.",
+        "server": ServerOut(
+            name=server.name,
+            display_name=server.display_name,
+            edition=server.edition,
+            discord_guild_id=int(server.discord_guild_id),
+            active=server.active,
+        ).model_dump(),
+    }
+
+
+@app.delete("/servers/{discord_guild_id}", dependencies=[Depends(require_token)])
+async def delete_server(request: Request, discord_guild_id: int):
+    """Supprime un serveur NG (utilisé par le tableau admin Laravel)."""
+    server = await dev_delete_server_by_guild(discord_guild_id)
+    if server is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Aucun serveur NG connu pour guild_id={discord_guild_id}",
+        )
+
+    return {
+        "message": f"Serveur {server.display_name!r} supprimé.",
         "server": ServerOut(
             name=server.name,
             display_name=server.display_name,
