@@ -38,13 +38,13 @@ _SYSTEMS: list[dict] = [
      "desc": "↳ Supprime les liens (salon whitelist).", "available": True},
 
     {"key": "antilink", "name": "Anti Link",
-     "desc": "↳ Bloque les extensions dangereuses (ex : .exe).", "available": False},
+     "desc": "↳ Bloque les extensions dangereuses (ex : .exe).", "available": True},
 
     {"key": "antispam_msg", "emoji": "💬", "name": "Anti Spam Message",
-     "desc": "↳ Protège du spam de message.", "available": False},
+     "desc": "↳ Protège du spam de message.", "available": True},
 
     {"key": "antiflood", "emoji": "🌊", "name": "Anti Flood",
-     "desc": "↳ Supprime les messages incohérents et parasite.", "available": False},
+     "desc": "↳ Supprime les messages incohérents et parasite.", "available": True},
 ]
 
 
