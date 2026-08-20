@@ -3,9 +3,8 @@ utils/managers/ng_server_manager.py — Cache + lookup de la table ng_servers.
 
 La table ng_servers est alimentee par le site (voir utils.db.models.ng_server).
 Ce manager ne fait que LIRE et mettre en cache. Les fonctions d'ecriture
-(dev_create_server / dev_delete_server_by_guild) restent exposees pour usage
-interne (tests, futurs outils d'administration) mais ne sont plus appelees
-par une commande utilisateur.
+(dev_create_server / dev_update_server / dev_delete_server_by_guild) restent
+exposees pour usage interne (tests, outils d'administration).
 
 Pattern de cache calque sur utils.managers.permission_manager :
 - chargement complet en memoire au demarrage
@@ -106,8 +105,9 @@ def list_all_servers() -> list[NGServer]:
 # ══════════════════════════════════════════════════════════════════════════
 #
 # Toute écriture dans ng_servers doit normalement passer par l'interface site
-# (source de vérité, voir utils.db.models.ng_server). Ces deux fonctions sont
-# conservées pour les tests et les besoins d'administration ponctuels.
+# (source de vérité, voir utils.db.models.ng_server). Ces fonctions sont
+# conservées pour les tests et les besoins d'administration (ex: tableau
+# admin Laravel via POST /servers/add et /servers/update).
 
 
 class NGServerNameConflictError(Exception):
@@ -116,6 +116,10 @@ class NGServerNameConflictError(Exception):
 
 class NGServerGuildConflictError(Exception):
     """Ce discord_guild_id est déjà associé à un autre serveur NG."""
+
+
+class NGServerNotFoundError(Exception):
+    """Aucun serveur NG ne correspond à ce discord_guild_id."""
 
 
 async def dev_create_server(
@@ -169,6 +173,54 @@ async def dev_create_server(
     await reload_cache()
     log.info("ng_servers (dev) : serveur créé name=%s guild_id=%s", name, discord_guild_id)
     return created
+
+
+async def dev_update_server(
+    *,
+    discord_guild_id: int,
+    display_name: str | None = None,
+    edition: str | None = None,
+    active: bool | None = None,
+) -> NGServer:
+    """
+    Met à jour display_name / edition / active d'un serveur NG existant
+    (identifié par discord_guild_id). `name` n'est volontairement PAS
+    modifiable ici : c'est la clé technique utilisée partout ailleurs
+    (ng_staff, ng_onu_config, ng_nota_config...), la changer casserait
+    les jointures existantes.
+
+    Lève NGServerNotFoundError si aucun serveur ne correspond.
+    """
+    async with get_session() as session:
+        server = await session.scalar(
+            select(NGServer).where(NGServer.discord_guild_id == discord_guild_id)
+        )
+        if server is None:
+            raise NGServerNotFoundError(
+                f"Aucun serveur NG connu pour guild_id={discord_guild_id}"
+            )
+
+        if display_name is not None:
+            server.display_name = display_name
+        if edition is not None:
+            server.edition = edition
+        if active is not None:
+            server.active = active
+
+        await session.flush()
+        await session.refresh(server)
+        updated = NGServer(
+            id=server.id,
+            name=server.name,
+            display_name=server.display_name,
+            edition=server.edition,
+            discord_guild_id=server.discord_guild_id,
+            active=server.active,
+        )
+
+    await reload_cache()
+    log.info("ng_servers (dev) : serveur mis à jour guild_id=%s", discord_guild_id)
+    return updated
 
 
 async def dev_delete_server_by_guild(discord_guild_id: int) -> NGServer | None:
