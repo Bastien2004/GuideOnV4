@@ -17,6 +17,7 @@ from utils.db.models.control_admin import CommandControl
 from utils.db.models.exp import ExpConfig, ExpUser
 from utils.db.models.giveaway import Giveaway, GiveawayBlacklist, GiveawayParticipant
 from utils.db.models.invite import InviteConfig, InviteLink, InviteStat
+from utils.db.models.join_to_create import JoinToCreateChannel, JoinToCreateConfig
 from utils.db.models.mod_logs import LogConfig
 from utils.db.models.mod_permission import ModPermissionRole
 from utils.db.models.mod_sanction import ModSanctionConfig, Sanction, SanctionType
@@ -41,6 +42,7 @@ from utils.db.models.mod_automod_nolink import ModAutomodNolinkConfig, ModAutomo
 from utils.db.models.mod_automod_antilink import ModAutomodAntilinkConfig, ModAutomodAntilinkExtension
 from utils.db.models.mod_automod_antispam_msg import ModAutomodAntispamMsgConfig
 from utils.db.models.mod_automod_antiflood import ModAutomodAntifloodConfig
+from utils.db.models.mod_channel_lock_exemption import ModChannelLockExemption
 
 __all__ = [
     "AlphaEventConfig",
@@ -62,6 +64,8 @@ __all__ = [
     "InviteConfig",
     "InviteLink",
     "InviteStat",
+    "JoinToCreateChannel",
+    "JoinToCreateConfig",
     "LogConfig",
     "ModPermissionRole",
     "ModSanctionConfig",
@@ -104,4 +108,5 @@ __all__ = [
     "ModAutomodAntilinkExtension",
     "ModAutomodAntispamMsgConfig",
     "ModAutomodAntifloodConfig",
+    "ModChannelLockExemption",
 ]

@@ -54,6 +54,7 @@ CATEGORIES: dict[str, dict] = {
             ("config bienvenue",     "👋 Configure le système de bienvenue"),
             ("config role_all",      "👥 Attribue ou retire un rôle à tous les membres du serveur"),
             ("config role_reaction", "🎭 Configure le système de rôles réaction"),
+            ("config join_to_create", "🔊 Configure le système join to create"),
         ],
     },
     "exp": {
