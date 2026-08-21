@@ -1,22 +1,7 @@
 """
 utils/managers/mod_sanction_manager.py — Sanctions de modération.
-
-Gère à la fois la mutation Discord (timeout/kick/ban/unban) et la
-persistance DB (table mod_sanctions) pour warn/mute/kick/ban/tempban/
-softban. Les cogs délèguent ici, puis mappent SanctionError vers
-error_container/warning_container.
-
-Historique 100% consultatif : get_user_history/get_user_stats ne font
-que lire, jamais déclencher d'action.
-
-Mute : timeout natif Discord (member.timeout), borné par la limite dure
-de Discord (28 jours). Ban : bannissement permanent, sans purge par
-défaut. Softban : bannissement permanent AVEC purge des messages
-récents à la création — contrairement à un "vrai" softban classique, il
-n'y a PAS de débannissement automatique ensuite (débanni uniquement via
-/mod unban, comme un ban normal). Tempban : ban temporaire, expiration
-traitée par cogs/events/mod_tempban_scheduler.py (boucle périodique).
 """
+
 from __future__ import annotations
 
 import logging
@@ -25,12 +10,7 @@ from datetime import datetime, timedelta, timezone
 import discord
 from sqlalchemy import select
 
-from utils.db.models.mod_sanction import (
-    DEFAULT_SOFTBAN_PURGE_SECONDS,
-    ModSanctionConfig,
-    Sanction,
-    SanctionType,
-)
+from utils.db.models.mod_sanction import DEFAULT_SOFTBAN_PURGE_SECONDS, ModSanctionConfig, Sanction, SanctionType
 from utils.db.session import get_session
 from utils.id_sanction import sanction_id
 from utils.managers.mod_log_manager import log_mod_action
@@ -45,13 +25,13 @@ MIN_REASON_LENGTH = 3
 MAX_REASON_LENGTH = 500
 
 MIN_MUTE_SECONDS = 60
-MAX_MUTE_SECONDS = 2_419_200  # 28 jours — limite dure de Discord
+MAX_MUTE_SECONDS = 2_419_200 # 27 jours
 
 MIN_TEMPBAN_SECONDS = 3_600
 MAX_TEMPBAN_SECONDS = 31_536_000
 
 MIN_SOFTBAN_PURGE_SECONDS = 0
-MAX_SOFTBAN_PURGE_SECONDS = 604_800  # 7 jours — limite dure de l'API Discord
+MAX_SOFTBAN_PURGE_SECONDS = 604_800  # 7 jours
 
 
 SANCTION_LABELS: dict[SanctionType, tuple[str, str]] = {
@@ -114,18 +94,9 @@ def _validate_tempban_duration(duration_seconds: int) -> int:
 # 💾 Persistance
 # ============================================================
 
-async def _persist_sanction(
-    *,
-    guild_id: int,
-    user_id: int,
-    moderator_id: int,
-    type_: SanctionType,
-    reason: str,
-    duration_seconds: int | None = None,
-    expires_at: datetime | None = None,
-    dm_sent: bool = False,
-) -> dict:
+async def _persist_sanction(*, guild_id: int, user_id: int, moderator_id: int, type_: SanctionType, reason: str, duration_seconds: int | None = None, expires_at: datetime | None = None, dm_sent: bool = False) -> dict:
     """Insère une nouvelle sanction en DB avec un id court unique."""
+
     async with get_session() as session:
         new_id = sanction_id()
         for _ in range(5):
@@ -151,10 +122,7 @@ async def _persist_sanction(
         await session.flush()
         result = row.to_dict()
 
-    log.info(
-        "[MOD_SANCTION] %s créée id=%s guild=%s user=%s moderator=%s",
-        type_.value, result["id"], guild_id, user_id, moderator_id,
-    )
+    log.info("[MOD_SANCTION] %s créée id=%s guild=%s user=%s moderator=%s", type_.value, result["id"], guild_id, user_id, moderator_id)
 
     _, action_label = SANCTION_LABELS[type_]
     await log_mod_action(
@@ -190,6 +158,55 @@ async def revoke_sanction(sanction_id_: str, revoked_by: int, revoked_reason: st
     return result
 
 
+async def purge_sanction(sanction_id_: str, moderator_id: int, reason: str | None = None, *, guild: discord.Guild | None = None) -> dict:
+    """Supprime DÉFINITIVEMENT une sanction de l'historique."""
+
+    existing = await get_sanction(sanction_id_)
+    if existing is None:
+        raise SanctionError("Sanction introuvable.", warning=True)
+
+    type_ = SanctionType(existing["type"])
+
+    if guild is not None and existing["active"] and existing["revoked_at"] is None:
+        if type_ == SanctionType.MUTE:
+            member = guild.get_member(existing["user_id"])
+            if member is not None:
+                try:
+                    await member.timeout(None, reason=reason or "Sanction supprimée de l'historique")
+                except (discord.Forbidden, discord.HTTPException):
+                    log.warning("[MOD_SANCTION] purge: levée du mute échouée id=%s guild=%s user=%s", sanction_id_, guild.id, existing["user_id"])
+
+        elif type_ in (SanctionType.BAN, SanctionType.TEMPBAN, SanctionType.SOFTBAN):
+            try:
+                await guild.unban(
+                    discord.Object(id=existing["user_id"]),
+                    reason=reason or "Sanction supprimée de l'historique",
+                )
+            except discord.NotFound:
+                pass
+            except (discord.Forbidden, discord.HTTPException):
+                log.warning(
+                    "[MOD_SANCTION] purge: levée du ban échouée id=%s guild=%s user=%s",
+                    sanction_id_, guild.id, existing["user_id"],
+                )
+
+    async with get_session() as session:
+        row = await session.get(Sanction, sanction_id_)
+        if row is None:
+            raise SanctionError("Sanction introuvable.", warning=True)
+        await session.delete(row)
+
+    log.info("[MOD_SANCTION] Supprimée id=%s par=%s", sanction_id_, moderator_id)
+
+    _, type_label = SANCTION_LABELS[type_]
+    await log_mod_action(
+        existing["guild_id"], f"Suppression historique — {type_label}", moderator_id,
+        existing["user_id"], reason or "Non précisée",
+        extra=f"Sanction #{sanction_id_} retirée définitivement de l'historique",
+    )
+    return existing
+
+
 # ============================================================
 # ⚖️ Sanctions
 # ============================================================
@@ -203,18 +220,7 @@ async def warn(guild_id: int, user_id: int, moderator_id: int, reason: str, *, d
     )
 
 
-async def unwarn(sanction_id_: str, moderator_id: int, reason: str | None = None) -> dict:
-    """Révoque un warn précis par son ID (un membre peut avoir plusieurs warns)."""
-    existing = await get_sanction(sanction_id_)
-    if existing is None or existing["type"] != SanctionType.WARN.value:
-        raise SanctionError("Aucun **warn** ne correspond à cet identifiant.", warning=True)
-    return await revoke_sanction(sanction_id_, moderator_id, reason)
-
-
-async def mute(
-    guild_id: int, member: discord.Member, moderator_id: int, reason: str, duration_seconds: int,
-    *, dm_sent: bool = False,
-) -> dict:
+async def mute(guild_id: int, member: discord.Member, moderator_id: int, reason: str, duration_seconds: int, *, dm_sent: bool = False) -> dict:
     """Mute via timeout natif Discord (max 28 jours)."""
     reason = _validate_reason(reason)
     duration_seconds = _validate_mute_duration(duration_seconds)

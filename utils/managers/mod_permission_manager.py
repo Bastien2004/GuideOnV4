@@ -1,15 +1,7 @@
 """
-utils/managers/mod_permission_manager.py — Permissions granulaires /mod.
-
-Chaque commande ou panneau de configuration de moderation est identifie par
-une cle de permission (PERMISSION_KEYS ci-dessous). Un serveur assigne un ou
-plusieurs roles Discord a chaque cle via /mod permissions. Tant qu'aucun role
-n'est assigne a une cle, seul un Administrateur Discord peut l'utiliser
-(deny-by-default — verifie par utils.perm_mod.check_mod_permission, pas ici).
-
-La liste PERMISSION_KEYS s'enrichit au fil des vagues de construction du
-systeme de moderation : chaque nouvelle commande /mod ajoute sa propre cle.
+utils/managers/mod_permission_manager.py — Gestion des permissions des commandes /mod.
 """
+
 from __future__ import annotations
 
 import logging
@@ -28,44 +20,39 @@ CACHE_TTL_SECONDS = 60
 
 @dataclass(frozen=True)
 class PermissionKey:
-    """Une clé de permission /mod : une commande ou un panneau de config."""
+    """Gestion des permissions."""
 
     key: str
     label: str
     description: str
-    category: str  # "action" | "config"
+    category: str
 
 
 # ============================================================
 # 🔑 Registre des clés de permission
 # ============================================================
-# Vague 1a (permissions + sanctions + historique + outils ponctuels).
-# D'autres clés seront ajoutées au fil des vagues suivantes.
 
 PERMISSION_KEYS: list[PermissionKey] = [
     # ---- Actions : sanctions ----
-    PermissionKey("mod_warn", "Avertir (warn)", "Donner un avertissement à un membre.", "action"),
-    PermissionKey("mod_unwarn", "Annuler un avertissement", "Révoquer un warn précis par son ID.", "action"),
-    PermissionKey("mod_mute", "Rendre muet (mute)", "Rendre un membre muet temporairement (timeout Discord).", "action"),
-    PermissionKey("mod_unmute", "Démute", "Lever le mute (timeout) d'un membre avant son expiration.", "action"),
-    PermissionKey("mod_kick", "Expulser (kick)", "Expulser un membre du serveur.", "action"),
-    PermissionKey("mod_ban", "Bannir (ban)", "Bannir définitivement un membre du serveur.", "action"),
-    PermissionKey("mod_tempban", "Bannir temporairement (tempban)", "Bannir un membre pour une durée déterminée.", "action"),
-    PermissionKey("mod_unban", "Débannir (unban)", "Lever un ban (définitif ou temporaire) avant son expiration.", "action"),
-    PermissionKey("mod_softban", "Softban", "Bannir définitivement un membre en purgeant ses derniers messages.", "action"),
-    PermissionKey("mod_historique", "Voir l'historique", "Consulter le casier judiciaire d'un membre.", "action"),
-    PermissionKey("mod_rename", "Renommer", "Modifier le pseudo d'un membre.", "action"),
+    PermissionKey("mod_warn", "Warn", "Donner un avertissement à un membre.", "action"),
+    PermissionKey("mod_mute", "Mute", "Rendre un membre muet temporairement.", "action"),
+    PermissionKey("mod_unmute", "Unmute", "Lever le mute d'un membre avant son expiration.", "action"),
+    PermissionKey("mod_kick", "Kick", "Expulser un membre du serveur.", "action"),
+    PermissionKey("mod_ban", "Ban)", "Bannir définitivement un membre du serveur.", "action"),
+    PermissionKey("mod_tempban", "Tempban", "Bannir un membre pour une durée déterminée.", "action"),
+    PermissionKey("mod_unban", "Unban", "Révoquer un bannissement.", "action"),
+    PermissionKey("mod_softban", "Softban", "Bannir un membre en supprimant ses derniers messages.", "action"),
+    PermissionKey("mod_historique", "Historique", "Consulter l'historique des sanctions d'un membre.", "action"),
+    PermissionKey("mod_rename", "Rename", "Modifier le pseudo d'un membre.", "action"),
+
     # ---- Actions : outils ponctuels ----
     PermissionKey("mod_clear", "Clear", "Supprimer des messages en masse dans un salon.", "action"),
-    PermissionKey("mod_lock", "Lock / Unlock salon", "Verrouiller ou déverrouiller un salon textuel.", "action"),
-    PermissionKey("mod_voice_manage", "Gestion vocale de masse", "Mute/déplacer/expulser tous les membres d'un vocal.", "action"),
+    PermissionKey("mod_lock", "Lock / Unlock", "Verrouiller ou déverrouiller un salon textuel.", "action"),
+    PermissionKey("mod_voice_manage", "Gestion vocale", "Mute/déplacer/expulser tous les membres d'un vocal.", "action"),
+
     # ---- Config : panneaux ----
-    # NB : /mod permissions (ce panneau lui-même) N'A PAS de clé ici — il reste
-    # verrouillé sur Administrateur Discord en dur (utils.perm_admin.check_admin),
-    # jamais délégable via lui-même. Sinon un rôle non-admin pourrait s'auto-
-    # accorder n'importe quelle autre permission (escalade de privilège).
-    PermissionKey("config_sanctions", "Config. sanctions", "Réglages généraux du système de sanctions.", "config"),
-    PermissionKey("config_logs", "Config. logs", "Réglages du système de logs (stagiaire/chercheur/espion).", "config"),
+    PermissionKey("config_sanctions", "Config. sanctions", "Réglages du système de sanctions.", "config"),
+    PermissionKey("config_logs", "Config. logs", "Configuration du système de logs.", "config"),
 ]
 
 _KEYS_BY_ID: dict[str, PermissionKey] = {pk.key: pk for pk in PERMISSION_KEYS}
@@ -133,7 +120,7 @@ async def get_all_for_guild(guild_id: int) -> dict[str, list[int]]:
 
 async def set_roles(guild_id: int, key: str, role_ids: list[int]) -> list[int]:
     """Remplace l'ensemble des rôles autorisés pour une (guild_id, clé) donnée."""
-    deduped = list(dict.fromkeys(role_ids))  # dédoublonne en préservant l'ordre
+    deduped = list(dict.fromkeys(role_ids))
 
     async with get_session() as session:
         await session.execute(

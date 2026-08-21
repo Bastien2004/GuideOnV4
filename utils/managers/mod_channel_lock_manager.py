@@ -1,18 +1,14 @@
 """
 utils/managers/mod_channel_lock_manager.py — Verrouillage/déverrouillage d'un salon textuel.
-
-Action de modération ponctuelle (comme mod_clear/mod_voice_manage) : pas de
-sanction enregistrée, seulement un log via utils.managers.mod_log_manager.log_channel_action.
-
-Fournit deux opérations distinctes (/mod lock et /mod unlock) qui, en plus de
-modifier la permission send_messages pour @everyone :
-  - préfixent (lock) / retirent (unlock) un emoji cadenas dans le nom du salon
-  - postent un message d'annonce dans le salon lui-même
 """
+
 from __future__ import annotations
 
 import discord
 from discord.ui import Container, LayoutView, Separator, TextDisplay
+
+from utils.managers import mod_channel_lock_exemption_manager as exemption_mgr
+from utils.managers import mod_permission_manager
 
 LOCK_EMOJI = "🔒"
 UNLOCK_EMOJI = "🔓"
@@ -28,26 +24,25 @@ class LockError(Exception):
 
 
 # ============================================================
-# 🎨 Annonces stylisées (Components V2)
+# 📢 Annonces de verouillage
 # ============================================================
 
-def _build_announcement(
-    *, is_lock: bool, moderator: discord.Member, reason: str | None,
-) -> LayoutView:
+def _build_announcement(*, is_lock: bool, moderator: discord.Member, reason: str | None) -> LayoutView:
     """Container V2 stylisé pour l'annonce publique dans le salon."""
+
     view = LayoutView(timeout=None)
     container = Container()
 
     if is_lock:
         title = f"# {LOCK_EMOJI} Salon verrouillé"
         body = (
-            "Ce salon a été **verrouillé** par un modérateur.\n"
+            "Ce salon vient d'être **verrouillé** par le staff.\n"
             "-# Les envois de messages sont désactivés jusqu'à son déverrouillage."
         )
     else:
         title = f"# {UNLOCK_EMOJI} Salon déverrouillé"
         body = (
-            "Ce salon a été **déverrouillé** par un modérateur.\n"
+            "Ce salon vient d'être **déverrouillé** par le staff.\n"
             "-# Les échanges peuvent reprendre normalement."
         )
 
@@ -94,22 +89,52 @@ def _remove_lock_prefix(name: str) -> str:
 
 
 # ============================================================
+# 🛡️ Exemption des rôles autorisés à /mod lock
+# ============================================================
+
+async def _grant_role_exemptions(channel: discord.TextChannel, guild_id: int, *, audit_reason: str) -> None:
+    role_ids = await mod_permission_manager.get_roles(guild_id, "mod_lock")
+    for role_id in role_ids:
+        role = channel.guild.get_role(role_id)
+        if role is None:
+            continue
+        existing = channel.overwrites_for(role)
+        if existing.send_messages is not None:
+            continue
+        existing.send_messages = True
+        try:
+            await channel.set_permissions(role, overwrite=existing, reason=audit_reason)
+            await exemption_mgr.record_exemption(guild_id, channel.id, role_id)
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+
+
+async def _revoke_role_exemptions(channel: discord.TextChannel, *, audit_reason: str) -> None:
+    role_ids = await exemption_mgr.clear_exemptions(channel.id)
+    for role_id in role_ids:
+        role = channel.guild.get_role(role_id)
+        if role is None:
+            continue
+        overwrite = channel.overwrites_for(role)
+        if overwrite.send_messages is not True:
+            continue
+        overwrite.send_messages = None
+        try:
+            if overwrite.is_empty():
+                await channel.set_permissions(role, overwrite=None, reason=audit_reason)
+            else:
+                await channel.set_permissions(role, overwrite=overwrite, reason=audit_reason)
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+
+
+# ============================================================
 # 🔒 Lock
 # ============================================================
 
-async def lock_channel(
-    channel: discord.TextChannel,
-    moderator: discord.Member,
-    *,
-    reason: str | None = None,
-) -> None:
-    """
-    Verrouille le salon pour @everyone, préfixe son nom avec 🔒 et poste
-    un message d'annonce dans le salon.
+async def lock_channel(channel: discord.TextChannel, moderator: discord.Member, *, reason: str | None = None) -> None:
+    """Exécution d'un vérouillage."""
 
-    Chaque étape est isolée : un échec sur le rename ou l'annonce n'annule pas
-    le verrouillage effectif (source de vérité = permission send_messages).
-    """
     if is_locked(channel):
         raise LockError("Ce salon est déjà **verrouillé**.", warning=True)
 
@@ -126,6 +151,11 @@ async def lock_channel(
         raise LockError("Le bot n'a pas la permission de modifier ce salon.") from exc
     except discord.HTTPException as exc:
         raise LockError("Une erreur Discord est survenue pendant le verrouillage.") from exc
+
+    try:
+        await _grant_role_exemptions(channel, channel.guild.id, audit_reason=audit_reason)
+    except Exception:
+        pass
 
     # 2. Rename cosmétique — best-effort.
     try:
@@ -149,22 +179,15 @@ async def lock_channel(
 # 🔓 Unlock
 # ============================================================
 
-async def unlock_channel(
-    channel: discord.TextChannel,
-    moderator: discord.Member,
-    *,
-    reason: str | None = None,
-) -> None:
-    """
-    Déverrouille le salon pour @everyone, retire le 🔒 du nom et poste un
-    message d'annonce.
-    """
+async def unlock_channel(channel: discord.TextChannel, moderator: discord.Member, *, reason: str | None = None) -> None:
+    """Dévérouillage d'un salon."""
+
     if not is_locked(channel):
         raise LockError("Ce salon n'est pas **verrouillé**.", warning=True)
 
     everyone = channel.guild.default_role
     overwrite = channel.overwrites_for(everyone)
-    overwrite.send_messages = None  # reset : hérite de la catégorie/serveur
+    overwrite.send_messages = None
 
     audit_reason = f"/mod unlock par {moderator} — {reason}" if reason else f"/mod unlock par {moderator}"
 
@@ -174,6 +197,12 @@ async def unlock_channel(
         raise LockError("Le bot n'a pas la permission de modifier ce salon.") from exc
     except discord.HTTPException as exc:
         raise LockError("Une erreur Discord est survenue pendant le déverrouillage.") from exc
+
+    # 1bis. Retire les exemptions de rôle posées par le /mod lock correspondant.
+    try:
+        await _revoke_role_exemptions(channel, audit_reason=audit_reason)
+    except Exception:
+        pass
 
     try:
         new_name = _remove_lock_prefix(channel.name)
