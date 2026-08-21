@@ -122,10 +122,7 @@ async def onu(interaction: Interaction, serveur: str):
     horaire = ONU_HORAIRES.get(serveur)
 
     if horaire is None:
-        await interaction.followup.send(
-            view=error_container("Serveur inconnu."),
-            ephemeral=True,
-        )
+        await interaction.followup.send(view=error_container("Serveur inconnu."), ephemeral=True)
         return
 
     view, file = build_onu_view(serveur, horaire)

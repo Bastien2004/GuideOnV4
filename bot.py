@@ -169,6 +169,7 @@ class GuideONBot(commands.Bot):
         from cogs.dev.botban import botban
         from cogs.dev.gold import gold
         from cogs.dev.vip import vip
+        from cogs.dev.setngversion import setngversion
 
         # ── IMPORT NG ──
         from cogs.ng.autel import autel
@@ -272,7 +273,7 @@ class GuideONBot(commands.Bot):
         # 💻 ── DEV ──
         self._groupDEV = groupeDEV()
         for cmd in [maintenance, permissions, delete_message, kick, stat_server, stat_cmd,
-                    join_serv, health, guild_info, debug_cmd, botban, gold, vip]:
+                    join_serv, health, guild_info, debug_cmd, botban, gold, vip, setngversion]:
             self._groupDEV.add_command(cmd)
 
         
@@ -495,7 +496,7 @@ class GuideONBot(commands.Bot):
         GUILD_AVATARS = {
             751903718135431188 : "source/GuideON Staff.webp",
             948880111753625642 : "source/GuideON VIP.webp",
-            1499029929029926982 : "source/logo_iris.png",
+            1499029929029926982 : "source/logo_iris.webp",
         }
 
         for guild_id, avatar_path in GUILD_AVATARS.items():

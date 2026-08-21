@@ -43,20 +43,14 @@ CATEGORIES = {
 
             "**💻 __Java__**\n"
             "- 🫧 Blue : https://discord.gg/wQgpfTzAwp\n"
-            "- 🍊 Orange : https://discord.gg/HtET56bBQs\n"
-            "- 🦺 Yellow : https://discord.gg/z8bBMnwTCW\n"
             "- ❄️ White : https://discord.gg/bf6bNkt2SM\n"
             "- ✒️ Black : https://discord.gg/Ck9s96FDCe\n"
             "- 🌀 Cyan : https://discord.gg/RxAjxtuE2U\n"
             "- 🥬 Lime : https://discord.gg/h54m7VqmWY\n"
             "- 🪸 Coral : https://discord.gg/mZx4CdqngA\n"
-            "- 🦩 Pink : https://discord.gg/WXhRE2AN2Y **(fermé)**\n"
-            "- 🫐 Purple : https://discord.gg/bbgqmJjQSB **(fermé)**\n"
-            "- 🍋‍🟩 Green : https://discord.gg/kQHABDCF3W **(fermé)**\n"
-            "- 🍎 Red : https://discord.gg/rYGPtgKkpt\n"
             "- 🍄 Mocha : https://discord.gg/zbTkjGFMZB\n"
             "- 🍀 Jade : https://discord.gg/fphbKQSrH9\n"
-            "- ☎️ Ruby : https://discord.gg/W2qyJ8WNSs **(fermé)**"
+            "- ☎️ Ruby : https://discord.gg/B469Zjc4GF"
         ),
     },
     "liens": {
@@ -227,7 +221,7 @@ async def ng_info(interaction: Interaction):
 
     # 🕒 Defer
     try:
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
     except (discord.NotFound, discord.HTTPException):
         return
 

@@ -144,7 +144,7 @@ async def convert(interaction: Interaction, quantite: int, type_conversion: str)
 
     # 🕒 Defer.
     try:
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
     except (discord.NotFound, discord.HTTPException):
         return
 
@@ -179,10 +179,7 @@ async def convert(interaction: Interaction, quantite: int, type_conversion: str)
     except Exception:
         log.exception("Erreur commande /ng convert")
 
-        await interaction.followup.send(
-            view=error_container("Une erreur est survenue."),
-            ephemeral=True,
-        )
+        await interaction.followup.send(view=error_container("Une erreur est survenue."), ephemeral=True)
 
 
 # ============================================================

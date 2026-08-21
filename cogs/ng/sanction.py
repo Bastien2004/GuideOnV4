@@ -38,7 +38,7 @@ SERVEURS_SANS_TABLEAU = {"jade"}
 
 def load_sanction_file(serveur: str) -> tuple[str, str]:
     """Vérifie et retourne le chemin + nom du fichier image. Lève ValueError si invalide."""
-    filename = f"tableau_sanction_{serveur}.png"
+    filename = f"tableau_sanction_{serveur}.webp"
     chemin   = os.path.join(IMAGES_DIR, filename)
 
     if not os.path.exists(chemin):

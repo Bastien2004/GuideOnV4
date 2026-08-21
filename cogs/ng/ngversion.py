@@ -61,7 +61,7 @@ async def version(interaction: Interaction):
 
     # 🕒 Defer
     try:
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
     except (discord.NotFound, discord.HTTPException):
         return
 

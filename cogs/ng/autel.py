@@ -128,7 +128,7 @@ async def autel(interaction: Interaction, version: str):
     
     # 🕒 Defer.
     try:
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
     except (discord.NotFound, discord.HTTPException):
         return
 
