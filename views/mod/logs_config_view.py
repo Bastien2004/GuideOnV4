@@ -19,8 +19,10 @@ from utils.managers.mod_log_manager import (
     PACK_KEYS,
     PACK_LABELS,
     LogConfigError,
+    clear_mod_action_channel,
     load_log_config,
     set_channel,
+    set_mod_action_channel,
     set_pack,
 )
 from utils.settings import settings
@@ -40,7 +42,8 @@ PACK_DESCRIPTIONS: dict[str, str] = {
     ),
     "chercheur": (
         "Logs Stagiaire + ajout, suppression et modification de salon et rôle, "
-        "connexion et déconnexion vocale, modification du serveur, renommage."
+        "connexion et déconnexion vocale, mise en sourdine et déplacement vocal "
+        "par un modérateur, modification du serveur, renommage."
     ),
     "espion": (
         "Logs Chercheur + création, suppression et modification des emojis et "
@@ -56,7 +59,7 @@ class LogsConfigView(BaseLayoutView):
         super().__init__(owner_id=moderator_id, timeout=300)
         self.guild = guild
         self.moderator_id = moderator_id
-        self.cfg = cfg or {"log_channel_id": None, "selected_pack": None}
+        self.cfg = cfg or {"log_channel_id": None, "selected_pack": None, "mod_action_channel_id": None}
         self._build()
 
     @classmethod
@@ -85,6 +88,31 @@ class LogsConfigView(BaseLayoutView):
         )
         container.add_item(TextDisplay(f"**📍 Salon de logs**\n-# {channel_display}"))
         container.add_item(ActionRow(select))
+        container.add_item(Separator())
+
+        # ── Salon dédié : actions de modération uniquement ──
+        mod_action_channel_id = self.cfg.get("mod_action_channel_id")
+        mod_action_display = f"<#{mod_action_channel_id}>" if mod_action_channel_id else "`Non configuré`"
+        mod_action_select = ChannelSelect(
+            placeholder="Choisir le salon dédié aux actions de modération",
+            on_select=self._on_select_mod_action_channel,
+            channel_types=[discord.ChannelType.text, discord.ChannelType.news],
+        )
+        container.add_item(TextDisplay(
+            "**🛡️ Salon dédié — Actions de modération**\n"
+            f"-# {mod_action_display}\n"
+            "-# Optionnel. Une fois configuré, les actions de modération "
+            "(warn/mute/kick/ban/lock/…) y sont envoyées EN EXCLUSIVITÉ, "
+            "indépendamment du pack ci-dessous (même sans pack actif)."
+        ))
+        container.add_item(ActionRow(mod_action_select))
+        if mod_action_channel_id:
+            btn_clear_mod_action = Button(
+                label="Retirer le salon dédié", style=ButtonStyle.danger,
+                emoji="<:supprimer:1495444051623809075>",
+            )
+            btn_clear_mod_action.callback = self._on_clear_mod_action_channel
+            container.add_item(ActionRow(btn_clear_mod_action))
         container.add_item(Separator())
 
         # ── Packs ─────────────────────────────────────────
@@ -145,6 +173,24 @@ class LogsConfigView(BaseLayoutView):
                 return
 
         await set_channel(self.guild.id, channel_id)
+        await self._refresh(interaction)
+
+    async def _on_select_mod_action_channel(self, interaction: discord.Interaction, channel_id: int) -> None:
+        channel = self.guild.get_channel(channel_id)
+        if channel is not None and self.guild.me is not None:
+            perms = channel.permissions_for(self.guild.me)
+            if not (perms.send_messages and perms.view_channel):
+                await interaction.response.send_message(
+                    view=error_container(f"Je n'ai pas la permission d'écrire dans {channel.mention}."),
+                    ephemeral=True,
+                )
+                return
+
+        await set_mod_action_channel(self.guild.id, channel_id)
+        await self._refresh(interaction)
+
+    async def _on_clear_mod_action_channel(self, interaction: discord.Interaction) -> None:
+        await clear_mod_action_channel(self.guild.id)
         await self._refresh(interaction)
 
     def _make_toggle_callback(self, pack_key: str):

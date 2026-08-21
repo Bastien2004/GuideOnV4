@@ -17,7 +17,7 @@ from utils.db.models.control_admin import CommandControl
 from utils.db.models.exp import ExpConfig, ExpUser
 from utils.db.models.giveaway import Giveaway, GiveawayBlacklist, GiveawayParticipant
 from utils.db.models.invite import InviteConfig, InviteLink, InviteStat
-from utils.db.models.mod_log import LogConfig
+from utils.db.models.mod_logs import LogConfig
 from utils.db.models.mod_permission import ModPermissionRole
 from utils.db.models.mod_sanction import ModSanctionConfig, Sanction, SanctionType
 from utils.db.models.ng_nota_config import NGNotaAvailability, NGNotaConfig, NGNotaHistory, NGNotaWeekState

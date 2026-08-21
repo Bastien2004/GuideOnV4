@@ -15,7 +15,7 @@ GuideOn Studio.
 bind_bot() permet de resoudre un guild_id en discord.Guild depuis les
 managers (utils.managers.mod_sanction_manager, mod_rename_manager) sans
 leur faire porter une dependance directe sur le client Discord — appele
-une fois au demarrage du bot (cf. cogs/events/mod_log_guild.py).
+une fois au demarrage du bot, dans GuideONBot.setup_hook (bot.py).
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ from zoneinfo import ZoneInfo
 import discord
 
 from utils.boutique.gold_manager import is_gold
-from utils.db.models.mod_log import LogConfig
+from utils.db.models.mod_logs import LogConfig
 from utils.db.session import get_session
 
 log = logging.getLogger(__name__)
@@ -79,6 +79,8 @@ EVENT_CATALOG: dict[str, tuple[str, str]] = {
     "role_update": ("🎭", "Rôle modifié"),
     "voice_join": ("🔊", "Connexion vocal"),
     "voice_leave": ("🔇", "Déconnexion vocal"),
+    "voice_mute": ("🔕", "Sourdine vocale (mod)"),
+    "voice_move": ("↔️", "Déplacement vocal (mod)"),
     "guild_update": ("⚙️", "Serveur modifié"),
     "member_rename": ("🖊️", "Pseudo modifié"),
     # ---- Espion (Gold+) ----
@@ -101,7 +103,8 @@ _STAGIAIRE_EVENTS = (
 _CHERCHEUR_EVENTS = _STAGIAIRE_EVENTS + (
     "channel_create", "channel_delete", "channel_update",
     "role_create", "role_delete", "role_update",
-    "voice_join", "voice_leave", "guild_update", "member_rename",
+    "voice_join", "voice_leave", "voice_mute", "voice_move",
+    "guild_update", "member_rename",
 )
 _ESPION_EVENTS = _CHERCHEUR_EVENTS + (
     "emoji_create", "emoji_delete", "emoji_update",
@@ -143,6 +146,8 @@ EVENT_COLORS: dict[str, discord.Color] = {
     "role_update": _COLOR_UPDATE,
     "voice_join": _COLOR_VOICE,
     "voice_leave": _COLOR_VOICE,
+    "voice_mute": _COLOR_VOICE,
+    "voice_move": _COLOR_VOICE,
     "guild_update": _COLOR_UPDATE,
     "member_rename": _COLOR_UPDATE,
     "emoji_create": _COLOR_CREATE,
@@ -175,7 +180,9 @@ def bind_bot(bot: discord.Client) -> None:
 # ⚙️ Config (par serveur, cache simple invalidé à l'écriture)
 # ============================================================
 
-DEFAULT_LOG_CONFIG: dict = {"log_channel_id": None, "selected_pack": None}
+DEFAULT_LOG_CONFIG: dict = {
+    "log_channel_id": None, "selected_pack": None, "mod_action_channel_id": None,
+}
 
 _config_cache: dict[int, dict] = {}
 
@@ -216,6 +223,21 @@ async def set_channel(guild_id: int, channel_id: int) -> dict:
     return await save_log_config(guild_id, {"log_channel_id": channel_id})
 
 
+async def set_mod_action_channel(guild_id: int, channel_id: int) -> dict:
+    """
+    Configure le salon dédié aux actions de modération uniquement. Une fois
+    configuré, ce salon prend le pas sur le pack pour l'évènement mod_action
+    (cf. send_log) — plus aucune action de modération n'atterrit dans le
+    salon de logs "pack", même si un pack est actif.
+    """
+    return await save_log_config(guild_id, {"mod_action_channel_id": channel_id})
+
+
+async def clear_mod_action_channel(guild_id: int) -> dict:
+    """Retire le salon dédié — mod_action retombe sur le comportement pack historique."""
+    return await save_log_config(guild_id, {"mod_action_channel_id": None})
+
+
 async def set_pack(guild_id: int, pack_key: str | None) -> dict:
     """Active un pack (désactivation si pack_key is None). Un seul pack actif à la fois."""
     if pack_key is not None and pack_key not in PACK_KEYS:
@@ -254,29 +276,34 @@ async def _resolve_log_channel(guild_id: int) -> tuple[discord.abc.Messageable |
     return guild.get_channel(channel_id), guild
 
 
-async def send_log(
-    guild_id: int,
-    event_key: str,
-    fields: list[tuple[str, str, bool]],
-    *,
-    description: str | None = None,
-    thumbnail_url: str | None = None,
-    image_url: str | None = None,
-) -> None:
+async def _resolve_mod_action_channel(guild_id: int) -> tuple[discord.abc.Messageable | None, discord.Guild | None] | None:
     """
-    Envoie un log en embed décoré si l'évènement est activé pour ce serveur.
-
-    `fields` : liste de (nom, valeur, inline). `description` : texte libre
-    affiché sous le titre (ex. contenu d'un message). `thumbnail_url` :
-    avatar du membre concerné, icône du serveur, ou rendu de l'emoji/sticker.
+    Retourne (channel, guild) si un salon dédié aux actions de modération est
+    configuré pour ce serveur, None si aucun n'est configuré (→ le comportement
+    pack historique s'applique). Distinct de _resolve_log_channel : pas de
+    dépendance à is_event_enabled/selected_pack, ce salon fonctionne même
+    sans aucun pack actif.
     """
-    if not await is_event_enabled(guild_id, event_key):
-        return
-
-    channel, guild = await _resolve_log_channel(guild_id)
+    if _bot_ref is None:
+        return None
+    guild = _bot_ref.get_guild(guild_id)
+    if guild is None:
+        return None
+    cfg = await load_log_config(guild_id)
+    channel_id = cfg.get("mod_action_channel_id")
+    if channel_id is None:
+        return None
+    channel = guild.get_channel(channel_id)
     if channel is None:
-        return
+        return None
+    return channel, guild
 
+
+def _build_embed(
+    event_key: str, fields: list[tuple[str, str, bool]], *,
+    description: str | None, thumbnail_url: str | None, image_url: str | None,
+    guild: discord.Guild | None,
+) -> discord.Embed:
     emoji, label = EVENT_CATALOG[event_key]
     embed = discord.Embed(
         title=f"{emoji} {label}",
@@ -296,6 +323,55 @@ async def send_log(
     footer_text = f"{guild_name} • {now:%d/%m/%Y à %Hh%M}"
     footer_icon = guild.icon.url if guild is not None and guild.icon is not None else None
     embed.set_footer(text=footer_text, icon_url=footer_icon)
+    return embed
+
+
+async def send_log(
+    guild_id: int,
+    event_key: str,
+    fields: list[tuple[str, str, bool]],
+    *,
+    description: str | None = None,
+    thumbnail_url: str | None = None,
+    image_url: str | None = None,
+) -> None:
+    """
+    Envoie un log en embed décoré.
+
+    Cas particulier `event_key == "mod_action"` : si un salon dédié
+    (mod_action_channel_id) est configuré, le log y est envoyé EN EXCLUSIVITÉ
+    — indépendamment du pack actif, voire même sans aucun pack actif. Sinon,
+    comportement historique : envoyé dans le salon de logs "pack" si
+    l'évènement est activé par le pack sélectionné (is_event_enabled).
+    """
+    if event_key == "mod_action":
+        dedicated = await _resolve_mod_action_channel(guild_id)
+        if dedicated is not None:
+            channel, guild = dedicated
+            embed = _build_embed(
+                event_key, fields, description=description,
+                thumbnail_url=thumbnail_url, image_url=image_url, guild=guild,
+            )
+            try:
+                await channel.send(embed=embed)
+            except (discord.Forbidden, discord.HTTPException):
+                log.warning(
+                    "[MOD_LOG] Envoi impossible (salon dédié) guild=%s event=%s",
+                    guild_id, event_key,
+                )
+            return
+
+    if not await is_event_enabled(guild_id, event_key):
+        return
+
+    channel, guild = await _resolve_log_channel(guild_id)
+    if channel is None:
+        return
+
+    embed = _build_embed(
+        event_key, fields, description=description,
+        thumbnail_url=thumbnail_url, image_url=image_url, guild=guild,
+    )
 
     try:
         await channel.send(embed=embed)
