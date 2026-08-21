@@ -109,7 +109,6 @@ CATEGORIES: dict[str, dict] = {
             ("mod unban",       "🔓 Révoque un bannissement"),
             ("mod unlock",      "🔓 Déverrouille un salon textuel"),
             ("mod unmute",      "🔊 Enlève le mute d'un membre"),
-            ("mod unwarn",      "🚫 Révoque un avertissement"),
             ("mod vocal",       "🔊 Gestion vocale de masse"),
             ("mod warn",        "⚠️ Avertit un membre"),
         ],

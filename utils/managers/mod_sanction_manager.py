@@ -459,7 +459,7 @@ async def get_active_ban_sanction(guild_id: int, user_id: int) -> dict | None:
 
 
 # ============================================================
-# 📋 Listes serveur — sélection dans les interfaces (unmute/unwarn)
+# 📋 Listes serveur — sélection dans l'interface unmute
 # ============================================================
 
 async def get_active_mutes(guild_id: int) -> list[dict]:
@@ -480,7 +480,7 @@ async def get_active_mutes(guild_id: int) -> list[dict]:
 
 
 async def get_active_warns(guild_id: int) -> list[dict]:
-    """Warns actifs (non révoqués) de tout le serveur (liste pour /mod unwarn)."""
+    """Liste des warns actifs."""
     async with get_session() as session:
         rows = (
             await session.execute(
