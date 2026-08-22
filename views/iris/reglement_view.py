@@ -12,35 +12,44 @@ IMAGE_FILENAME = "reglement_iris.webp"
 
 
 _RULES: list[tuple[str, str, str]] = [
+
     ("🤝", "Respect",
-     "Le respect entre les membres est primordial. Les insultes, provocations, "
-     "moqueries répétées, harcèlement ou comportements visant à créer des "
-     "conflits ne sont pas autorisés."),
+     "Le **respect** entre les membres est primordial. Les __insultes__, __provocations__, "
+     "__moqueries répétées__, __harcèlement__ ou comportements visant à créer des "
+     "__conflits__ ne sont **pas autorisés**."),
+
     ("💬", "Salons",
-     "Merci d'utiliser les salons prévus pour chaque sujet et de respecter leur "
-     "utilisation. Évitez également le spam, le flood et les messages répétitifs."),
+     "Afin de garder un **cadre d'échange** __agréable__ : Le **spam** de __message__, de __mention__ ou d'__émoji_ est **interdit**."
+     "Tout comme l'**utilisation abusive** de __majuscules__ et le **flood**. De plus, la **seule langue** __autorisé__ est le **français** pour la bonne __compréhension__ de tous. "
+     "Veillez également à **respecter** l'__utilisation__ prévue des **salons**."),
+
     ("🎙️", "Vocal",
      "L'enregistrement d'une conversation vocale sans le consentement des "
      "personnes présentes est strictement interdit.\n"
      "La diffusion de musique, de cris, de screamers ou de sons volontairement "
      "dérangeants dans le but de troller ou de perturber les autres membres est "
      "également sanctionnable."),
+
     ("🚫", "Contenu interdit",
      "Tout contenu illégal, pornographique, violent, choquant ou inapproprié "
      "est interdit sur le serveur."),
+
     ("📢", "Publicité",
      "La publicité, l'auto-promotion, le démarchage ou l'envoi de liens vers "
      "d'autres serveurs hors NationsGlory sans autorisation du staff sont "
      "interdits."),
+
     ("🔐", "Vie privée (dox)",
      "Le partage d'informations personnelles, que ce soit les vôtres ou celles "
      "d'un autre membre, sans autorisation est interdit."),
     ("🛡️", "Staff",
+     
      "Les membres du staff peuvent choisir et appliquer les sanctions qu'ils "
      "jugent appropriées, en fonction de la situation et des circonstances.\n"
      "Merci de respecter les décisions prises par le staff.\n"
      "En cas de désaccord avec une sanction ou une décision, vous pouvez "
      "contacter un membre du staff en privé afin d'en discuter calmement."),
+
     ("⚠️", "Sanctions",
      "Tout non-respect du règlement peut entraîner une sanction. Celle-ci peut "
      "aller d'un simple avertissement jusqu'au bannissement, selon la gravité "
@@ -90,7 +99,7 @@ def build_reglement_view(fresh_files: list[discord.File]) -> LayoutView:
     c.add_item(Separator())
 
     for i, (emoji, title, body) in enumerate(_RULES, start=1):
-        c.add_item(TextDisplay(f"**{i}. {emoji}・{title}** : {body}\n\n"))
+        c.add_item(TextDisplay(f"**{i}. {emoji}・{title}** {body}\n\n"))
 
     c.add_item(Separator())
 
