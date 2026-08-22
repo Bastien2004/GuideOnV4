@@ -9,6 +9,14 @@ sans toucher au code. Généralise aussi le besoin spécifique de Builder
 (pseudo_jeu_builder) en un flag `requires_second_pseudo` réutilisable par
 n'importe quel statut (Paul, 2026-08-22).
 
+`has_stafflist_category` (Paul, 2026-08-22, retour utilisateur) : indépendant
+de `requires_second_pseudo` — permet à N'IMPORTE QUEL statut (builder, com,
+affilié, journaliste, avocat...) d'avoir sa propre section dans
+/ngstaff stafflist, pas seulement ceux qui exigent un pseudo secondaire.
+Un statut avec l'un OU l'autre flag obtient une section dédiée (voir
+views/ngstaff/stafflist_view.py) — ça préserve le comportement existant de
+Builder sans rien casser.
+
 Deux niveaux :
   - "Définitions" (ng_statut_defs) : la liste des statuts possibles pour un
     serveur donné, avec leur rôle Discord, emoji, etc. Cache TTL 60s par
@@ -120,6 +128,7 @@ async def create_statut_def(
     emoji: str | None = None,
     role_id: int | None = None,
     requires_second_pseudo: bool = False,
+    has_stafflist_category: bool = False,
 ) -> dict:
     """
     Crée un nouveau statut pour ce serveur. `key` auto-dérivée de `label`
@@ -148,6 +157,7 @@ async def create_statut_def(
             row = NGStatutDef(
                 server=server, key=final_key, label=label, emoji=emoji or None,
                 role_id=role_id, requires_second_pseudo=requires_second_pseudo,
+                has_stafflist_category=has_stafflist_category,
                 position=next_position,
             )
             session.add(row)
@@ -162,7 +172,7 @@ async def create_statut_def(
 
 async def update_statut_def(server: str, key: str, **fields: object) -> dict:
     """Upsert partiel sur un statut existant. Lève NGStatutError si introuvable."""
-    allowed = {"label", "emoji", "role_id", "requires_second_pseudo", "position"}
+    allowed = {"label", "emoji", "role_id", "requires_second_pseudo", "has_stafflist_category", "position"}
     clean = {k: v for k, v in fields.items() if k in allowed}
 
     async with _lock:
@@ -242,6 +252,7 @@ async def list_member_statuts_bulk(server: str) -> dict[int, list[dict]]:
             "emoji": statut_def.emoji,
             "role_id": statut_def.role_id,
             "requires_second_pseudo": statut_def.requires_second_pseudo,
+            "has_stafflist_category": statut_def.has_stafflist_category,
             "second_pseudo": staff_statut.second_pseudo,
         })
     return by_member

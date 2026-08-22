@@ -82,7 +82,10 @@ class NGStatutsConfigView(LayoutView):
             for d in self.statut_defs:
                 emoji = d["emoji"] or "•"
                 pseudo_flag = " · 🔁 second pseudo requis" if d["requires_second_pseudo"] else ""
-                lines.append(f"{emoji} **{d['label']}** (`{d['key']}`) — {_role(d['role_id'])}{pseudo_flag}")
+                category_flag = " · 🗂️ catégorie stafflist" if d.get("has_stafflist_category") else ""
+                lines.append(
+                    f"{emoji} **{d['label']}** (`{d['key']}`) — {_role(d['role_id'])}{pseudo_flag}{category_flag}"
+                )
             c.add_item(TextDisplay("\n".join(lines)))
 
         c.add_item(Separator())
@@ -200,7 +203,9 @@ class _StatutDetailView(LayoutView):
             f"• Clé technique : `{d['key']}`\n"
             f"• Rôle Discord attribué : {_role(d['role_id'])}\n"
             f"• Nécessite un second pseudo (ex: compte builder dédié) : "
-            f"{'✅ Oui' if d['requires_second_pseudo'] else '❌ Non'}"
+            f"{'✅ Oui' if d['requires_second_pseudo'] else '❌ Non'}\n"
+            f"• Catégorie dédiée dans `/ngstaff stafflist` : "
+            f"{'✅ Oui' if d.get('has_stafflist_category') else '❌ Non'}"
         ))
         c.add_item(ActionRow(RoleSelect(
             placeholder="Choisir le rôle Discord associé à ce statut",
@@ -213,14 +218,24 @@ class _StatutDetailView(LayoutView):
             label="🔁 Second pseudo : désactiver" if d["requires_second_pseudo"] else "🔁 Second pseudo : activer",
             style=ButtonStyle.secondary, custom_id="statut_toggle_pseudo",
         )
+        btn_category = Button(
+            label="🗂️ Catégorie stafflist : désactiver" if d.get("has_stafflist_category") else "🗂️ Catégorie stafflist : activer",
+            style=ButtonStyle.secondary, custom_id="statut_toggle_category",
+        )
         btn_delete = Button(label="🗑️ Supprimer", style=ButtonStyle.danger, custom_id="statut_delete")
         btn_back = Button(label="↩️ Retour", style=ButtonStyle.secondary, custom_id="statut_detail_back")
         btn_label.callback = self._on_label
         btn_toggle.callback = self._on_toggle
+        btn_category.callback = self._on_toggle_category
         btn_delete.callback = self._on_delete
         btn_back.callback = self._on_back
 
-        c.add_item(ActionRow(btn_label, btn_toggle, btn_delete, btn_back))
+        c.add_item(ActionRow(btn_label, btn_toggle, btn_category))
+        c.add_item(ActionRow(btn_delete, btn_back))
+        c.add_item(TextDisplay(
+            "-# 🗂️ Catégorie stafflist : ce statut obtient sa propre section dans "
+            "`/ngstaff stafflist` (comme les grades), même sans grade ni second pseudo."
+        ))
         c.add_item(TextDisplay("-# GuideOn Studio"))
         self.add_item(c)
 
@@ -256,6 +271,15 @@ class _StatutDetailView(LayoutView):
         d = await update_statut_def(
             self.server, self.statut_def["key"],
             requires_second_pseudo=not self.statut_def["requires_second_pseudo"],
+        )
+        await interaction.response.edit_message(
+            view=_StatutDetailView(self.guild_id, self.server, d, self.owner_id, dashboard=self.dashboard)
+        )
+
+    async def _on_toggle_category(self, interaction: Interaction) -> None:
+        d = await update_statut_def(
+            self.server, self.statut_def["key"],
+            has_stafflist_category=not self.statut_def.get("has_stafflist_category", False),
         )
         await interaction.response.edit_message(
             view=_StatutDetailView(self.guild_id, self.server, d, self.owner_id, dashboard=self.dashboard)

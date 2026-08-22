@@ -9,7 +9,12 @@ Deux tables :
   - NGStatutDef   : la définition d'un statut pour un serveur donné (clé,
                     libellé, emoji, rôle Discord, "pseudo secondaire requis"
                     ou non — généralisation du besoin spécifique à Builder
-                    aujourd'hui —, position d'affichage).
+                    aujourd'hui —, position d'affichage, et désormais
+                    "catégorie dédiée dans la stafflist" — has_stafflist_category,
+                    ajouté Paul 2026-08-22 : n'importe quel statut (builder,
+                    com, affilié, journaliste, avocat...) peut avoir sa
+                    propre section dans /ngstaff stafflist, indépendamment
+                    de requires_second_pseudo — voir views/ngstaff/stafflist_view.py).
   - NGStaffStatut : qui détient quel statut (table de liaison), remplace les
                     colonnes is_journaliste/is_affilie/is_builder de
                     NGStaffMember. Ces colonnes legacy sont CONSERVÉES en DB
@@ -41,6 +46,9 @@ class NGStatutDef(Base, TimestampMixin):
     requires_second_pseudo: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
+    has_stafflist_category: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
 
     __table_args__ = (
@@ -56,6 +64,7 @@ class NGStatutDef(Base, TimestampMixin):
             "emoji": self.emoji,
             "role_id": self.role_id,
             "requires_second_pseudo": self.requires_second_pseudo,
+            "has_stafflist_category": self.has_stafflist_category,
             "position": self.position,
         }
 

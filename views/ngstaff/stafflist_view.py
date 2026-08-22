@@ -25,16 +25,21 @@ from utils.db.models.staff_grades import GRADE_EMOJIS, GRADE_LABELS, GRADES_ORDE
 def build_stafflist_view(members: list[dict], *, server: str) -> LayoutView:
     """
     Affiche les 6 grades de la hiérarchie staff (administrateur → guide) en
-    sections, plus une section dédiée par statut ayant `requires_second_pseudo`
-    (ex : Builder sur Alpha — pseudo secondaire affiché à la place du pseudo
-    staff, pas de badge inline puisque déjà listé dans sa propre section).
+    sections, plus une section dédiée par statut ayant `has_stafflist_category`
+    et/ou `requires_second_pseudo` (ex : Builder — pseudo secondaire affiché
+    à la place du pseudo staff ; Journaliste/Affilié/Avocat/Com... — pseudo
+    staff normal). Un statut avec l'un OU l'autre flag obtient sa section.
 
     Statuts (Paul, 2026-08-22) : auparavant une section "🧱 Builders" codée
     en dur (is_builder=True) — remplacée par une boucle générique sur les
-    statuts du serveur (member["statuts"], enrichi par ng_staff_manager)
-    ayant `requires_second_pseudo=True`, pour rester valable quel que soit
-    le nom du statut défini par le serveur NG. Un membre purement statut
-    (grade=None) sans statut à second pseudo n'apparaît dans AUCUNE section
+    statuts du serveur (member["statuts"], enrichi par ng_staff_manager).
+    D'abord limitée aux statuts `requires_second_pseudo=True` (seul Builder
+    en avait besoin) ; généralisée (retour utilisateur, même date) avec le
+    flag indépendant `has_stafflist_category`, pour que N'IMPORTE QUEL statut
+    (com, affilié, journaliste, avocat...) puisse avoir sa propre catégorie
+    dans la stafflist, configurable via /ngstaff config → Rank/Derank →
+    Statuts, sans avoir besoin d'un pseudo secondaire. Un membre purement
+    statut (grade=None) sans catégorie dédiée n'apparaît dans AUCUNE section
     — invisible dans la stafflist, comme voulu.
 
     `server` : sélectionne le titre affiché (nom du serveur NG). Auparavant
@@ -69,19 +74,24 @@ def build_stafflist_view(members: list[dict], *, server: str) -> LayoutView:
         c.add_item(Separator())
         view.add_item(c)
 
-    # ── Une section dédiée par statut "second pseudo" (ex: Builder) ──────
-    # Un membre peut apparaître dans plusieurs de ces sections s'il cumule
-    # plusieurs statuts à second pseudo (cas rare mais pas interdit).
-    seen_second_pseudo_statuts: dict[str, dict] = {}
+    # ── Une section dédiée par statut "catégorie stafflist" ──────────────
+    # Déclenchée par `has_stafflist_category` OU `requires_second_pseudo`
+    # (généralisation, Paul 2026-08-22 — voir docstring). Un membre peut
+    # apparaître dans plusieurs de ces sections s'il cumule plusieurs
+    # statuts à catégorie dédiée (cas rare mais pas interdit).
+    def _has_own_category(s: dict) -> bool:
+        return bool(s.get("has_stafflist_category") or s.get("requires_second_pseudo"))
+
+    seen_category_statuts: dict[str, dict] = {}
     for m in members:
         for s in m.get("statuts", []):
-            if s.get("requires_second_pseudo"):
-                seen_second_pseudo_statuts.setdefault(s["key"], s)
+            if _has_own_category(s):
+                seen_category_statuts.setdefault(s["key"], s)
 
-    for key, statut_meta in seen_second_pseudo_statuts.items():
+    for key, statut_meta in seen_category_statuts.items():
         holders = [
             (m, s) for m in members for s in m.get("statuts", [])
-            if s["key"] == key and s.get("requires_second_pseudo")
+            if s["key"] == key and _has_own_category(s)
         ]
         if not holders:
             continue
