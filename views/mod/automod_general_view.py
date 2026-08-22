@@ -43,7 +43,7 @@ async def create_automod_general_view(
     view = LayoutView(timeout=600)
     container = Container()
 
-    container.add_item(TextDisplay("# ⚙️ Paramètres généraux · Auto-modération"))
+    container.add_item(TextDisplay("# <:parametre:1495444004328706059> Paramètres Automod"))
     container.add_item(Separator())
 
     # ── Salon d'alerte staff ──
@@ -62,7 +62,7 @@ async def create_automod_general_view(
     )
     container.add_item(ActionRow(ch_select))
     if alert_ch_id:
-        btn_clear_ch = Button(label="Retirer", style=ButtonStyle.danger, emoji="🗑️")
+        btn_clear_ch = Button(label="Retirer", style=ButtonStyle.danger, emoji="<:supprimer:1495444051623809075>")
         btn_clear_ch.callback = _cb_clear_channel(guild_id, bot, author_id)
         container.add_item(ActionRow(btn_clear_ch))
     container.add_item(Separator())
@@ -80,14 +80,14 @@ async def create_automod_general_view(
     role_select.callback = _on_role_select(guild_id, bot, author_id, role_select)
     container.add_item(ActionRow(role_select))
     if staff_role_id:
-        btn_clear_role = Button(label="Retirer", style=ButtonStyle.danger, emoji="🗑️")
+        btn_clear_role = Button(label="Retirer", style=ButtonStyle.danger, emoji="<:supprimer:1495444051623809075>")
         btn_clear_role.callback = _cb_clear_role(guild_id, bot, author_id)
         container.add_item(ActionRow(btn_clear_role))
     container.add_item(Separator())
 
     # ── Toggle notifs salon ──
     notify = cfg.get("notify_in_channel", True)
-    toggle_label = "✅ Activées" if notify else "❌ Désactivées"
+    toggle_label = "<:valider:1495444292867723284> Activées" if notify else "<:annuler:1495444256754761979> Désactivées"
     toggle_style = ButtonStyle.success if notify else ButtonStyle.danger
     btn_toggle = Button(label=toggle_label, style=toggle_style)
     btn_toggle.callback = _cb_toggle_notify(guild_id, bot, author_id)
@@ -101,7 +101,7 @@ async def create_automod_general_view(
     container.add_item(Separator())
 
     # ── Retour ──
-    btn_back = Button(label="Retour", style=ButtonStyle.secondary, emoji="↩️")
+    btn_back = Button(label="Retour", style=ButtonStyle.secondary, emoji="<:retour:1515658955190308995>")
     btn_back.callback = _cb_back(guild_id, bot, author_id)
     container.add_item(ActionRow(
         btn_back,

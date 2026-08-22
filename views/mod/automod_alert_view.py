@@ -1,22 +1,7 @@
 """
-views/mod/automod_alert_view.py — Alerte staff avec bouton "Je m'en occupe".
-
-Container V2 STYLISÉ posté dans le salon d'alerte quand un mute auto se
-déclenche (récidive dans la fenêtre configurée). Contient un bouton
-persistant qui :
-  - vérifie que celui qui clique a la permission Discord native
-    `moderate_members` (celui qui peut timeout un user)
-  - lève le timeout Discord sur le user muté
-  - marque l'alerte comme prise en charge dans la DB (mod_automod_active_alerts)
-  - reconstruit le message pour afficher "Pris en charge par X à HH:MM"
-  - désactive le bouton
-
-VIEW PERSISTANTE : `timeout=None` + `custom_id` fixe → survit aux redémarrages
-du bot. bot.py doit ajouter `bot.add_view(AutomodAlertView())` dans setup_hook.
-
-Format custom_id : `automod_alert:{alert_id}` — l'alert_id est extrait par
-un split côté callback (pas par regex : Discord n'accepte pas les patterns).
+views/mod/automod_alert_view.py — Système d'alerte staff automod.
 """
+
 from __future__ import annotations
 
 import logging
@@ -38,33 +23,21 @@ DISPLAY_TZ = ZoneInfo("Europe/Paris")
 # 🎨 Construction du message d'alerte
 # ============================================================
 
-def build_alert_container(
-    *,
-    system_display: str,
-    user_id: int,
-    channel_id: int,
-    matched_term: str | None,
-    message_excerpt: str | None,
-    alert_id: int,
-    taken_by_user_id: int | None = None,
-    taken_at: datetime | None = None,
-    staff_role_id: int | None = None,
-) -> LayoutView:
-    """
-    Construit la vue complète (container + bouton). Utilisée à la fois pour
-    l'envoi initial et pour l'update après clic "Je m'en occupe" — le même
-    template, avec taken_by/taken_at renseignés dans le second cas.
-    """
+def build_alert_container(*, system_display: str, user_id: int, channel_id: int, matched_term: str | None, message_excerpt: str | None,
+    alert_id: int, taken_by_user_id: int | None = None, taken_at: datetime | None = None, staff_role_id: int | None = None) -> LayoutView:
+    """Construction du message d'alerte."""
+
     view = AutomodAlertView(alert_id=alert_id, is_taken=taken_by_user_id is not None)
 
     c = Container()
-    c.add_item(TextDisplay(f"# 🚨 Mute automatique · {system_display}"))
+    c.add_item(TextDisplay(f"# <:sanctionner:1495444382587949086> Alerte automod · {system_display}\n"))
+    c.add_item(TextDisplay("-# L'utilisateur est mute en attendant un membre du staff."))
     c.add_item(Separator())
 
     body = (
         f"**Membre** : <@{user_id}> (`{user_id}`)\n"
         f"**Salon** : <#{channel_id}>\n"
-        f"**Motif** : récidive du système **{system_display}** dans la fenêtre configurée"
+        f"**Motif** : récidive malgré avertissement (**{system_display}**)"
     )
     if matched_term:
         body += f"\n**Terme détecté** : `{matched_term}`"
@@ -79,19 +52,18 @@ def build_alert_container(
         taken_local = taken_at.astimezone(DISPLAY_TZ)
         c.add_item(TextDisplay(
             f"✅ **Pris en charge** par <@{taken_by_user_id}> "
-            f"le {taken_local:%d/%m/%Y à %Hh%M}\n"
-            "-# Le mute Discord a été levé."
+            f"le {taken_local:%d/%m/%Y à %Hh%M}"
         ))
+
     else:
         c.add_item(TextDisplay(
-            "🔒 **Membre muté** (timeout Discord natif — max 28 jours).\n"
-            "-# Un modérateur doit prendre en charge en cliquant ci-dessous."
+            "-# En attente d'une prise en charge par un staff."
         ))
         if staff_role_id is not None:
             c.add_item(TextDisplay(f"-# <@&{staff_role_id}>"))
 
     c.add_item(Separator())
-    c.add_item(TextDisplay("-# GuideOn Studio · Auto-modération"))
+    c.add_item(TextDisplay("-# GuideOn Studio"))
 
     view.attach_container(c)
     return view
@@ -108,15 +80,8 @@ class AutomodAlertView(LayoutView):
         super().__init__(timeout=None)
         self._alert_id = alert_id
         self._is_taken = is_taken
-        # Le container est ajouté par attach_container() après construction
-        # du body (voir build_alert_container).
 
     def attach_container(self, container: Container) -> None:
-        # Le bouton doit être encapsulé dans une ActionRow : Components V2
-        # interdit un Button (type 2) en enfant direct d'un Container — seuls
-        # ActionRow/Section/TextDisplay/MediaGallery/File/Separator (types
-        # 1/9/10/12/13/14) sont acceptés directement. C'était la cause réelle
-        # du "400 Invalid Form Body" sur l'alerte staff complète.
         button = _make_button(self._alert_id, self._is_taken)
         button.callback = self._on_click_take
         container.add_item(ActionRow(button))
@@ -127,37 +92,15 @@ class AutomodAlertView(LayoutView):
 
 
 def _make_button(alert_id: int | None, is_taken: bool) -> Button:
-    """
-    Bouton "Je m'en occupe". custom_id encode l'alert_id pour survivre au
-    restart (le bot recharge la view via bot.add_view() qui la matche par
-    custom_id — l'alert_id est ensuite extrait dans le handler).
+    """Gestion du bouton."""
 
-    Pour l'enregistrement au démarrage (bot.add_view sans alert_id connu),
-    on utilise un placeholder `pending`. Le vrai id est envoyé par les
-    messages persistants et récupéré par split côté handler.
-    """
     if alert_id is None:
-        # Cas enregistrement au démarrage (bot.add_view(AutomodAlertView())).
-        return Button(
-            label="Je m'en occupe",
-            style=ButtonStyle.primary,
-            emoji="🛠️",
-            custom_id="automod_alert:pending",
-        )
+        return Button(label="Prendre en charge", style=ButtonStyle.primary, emoji="🤚", custom_id="automod_alert:pending")
+    
     if is_taken:
-        return Button(
-            label="Pris en charge",
-            style=ButtonStyle.secondary,
-            emoji="✅",
-            disabled=True,
-            custom_id=f"automod_alert:{alert_id}",
-        )
-    return Button(
-        label="Je m'en occupe",
-        style=ButtonStyle.primary,
-        emoji="🛠️",
-        custom_id=f"automod_alert:{alert_id}",
-    )
+        return Button(label="Pris en charge", style=ButtonStyle.secondary, emoji="✅", disabled=True, custom_id=f"automod_alert:{alert_id}")
+    
+    return Button(label="Prendre en charge", style=ButtonStyle.primary, emoji="🤚", custom_id=f"automod_alert:{alert_id}")
 
 
 # ============================================================
@@ -165,7 +108,7 @@ def _make_button(alert_id: int | None, is_taken: bool) -> Button:
 # ============================================================
 
 async def _handle_take_click(interaction: Interaction) -> None:
-    # 1. Extraire l'alert_id du custom_id du bouton cliqué.
+
     custom_id = getattr(interaction.data, "custom_id", None) if interaction.data else None
     if not custom_id and isinstance(interaction.data, dict):
         custom_id = interaction.data.get("custom_id")
@@ -176,62 +119,51 @@ async def _handle_take_click(interaction: Interaction) -> None:
     if len(parts) != 2 or parts[0] != "automod_alert":
         return
 
-    # Placeholder = message trop vieux, retrouvé via alert_message_id.
     if parts[1] == "pending":
         alert = await alert_mgr.get_alert_by_message(interaction.message.id)
         if alert is None:
             await interaction.response.send_message(
-                view=error_container("Cette alerte n'existe plus."),
+                view=error_container("Cette alerte est **obsolète**."),
                 ephemeral=True,
             )
             return
         alert_id = alert["id"]
+
     else:
         try:
             alert_id = int(parts[1])
         except ValueError:
             return
         alert = await alert_mgr.get_alert_by_message(interaction.message.id)
-        # Fallback si le message ne correspond plus (dev/prod switch, edit manuel).
+
         if alert is None:
             await interaction.response.send_message(
-                view=error_container("Cette alerte n'existe plus en base."),
+                view=error_container("Cette alerte n'existe plus dans la base de donnée."),
                 ephemeral=True,
             )
             return
 
-    # 2. Vérif permission Discord native (celui qui peut timeout un user).
     if not isinstance(interaction.user, discord.Member):
         return
     if not interaction.user.guild_permissions.moderate_members:
         await interaction.response.send_message(
-            view=error_container(
-                "Vous n'avez pas la permission de **prendre en charge** cette alerte.\n"
-                "-# Requis : permission Discord **Modérer les membres**."
-            ),
-            ephemeral=True,
-        )
+            view=error_container("Vous n'avez pas la permission de **prendre en charge** cette alerte."), ephemeral=True)
         return
 
-    # 3. Marquer comme prise (idempotent : si déjà prise, on affiche par qui).
     updated = await alert_mgr.mark_taken(alert_id, interaction.user.id)
     if updated is None:
         await interaction.response.send_message(
-            view=error_container("Cette alerte n'existe plus."), ephemeral=True,
+            view=error_container("Cette alerte a déjà été **prise en charge**."), ephemeral=True,
         )
         return
 
     if updated["taken_by_user_id"] != interaction.user.id:
-        # Course : quelqu'un d'autre a cliqué juste avant.
         await interaction.response.send_message(
-            view=warning_container(
-                f"Alerte déjà prise en charge par <@{updated['taken_by_user_id']}>."
-            ),
+            view=warning_container(f"Alerte déjà prise en charge par <@{updated['taken_by_user_id']}>."),
             ephemeral=True,
         )
         return
 
-    # 4. Lever le timeout Discord sur le user (best-effort).
     guild = interaction.guild
     if guild is not None:
         member = guild.get_member(updated["user_id"])
@@ -243,15 +175,11 @@ async def _handle_take_click(interaction: Interaction) -> None:
         if member is not None:
             try:
                 await member.timeout(None, reason=f"Alerte automod prise en charge par {interaction.user}")
-            except (discord.Forbidden, discord.HTTPException):
-                log.warning(
-                    "[AUTOMOD] Levée du timeout échouée guild=%s user=%s",
-                    updated["guild_id"], updated["user_id"],
-                )
 
-    # 5. Reconstruire la vue pour afficher "Pris en charge".
-    # On a besoin du display_name du système + du staff_role_id pour cohérence
-    # visuelle. Ces infos sont chargées ici pour éviter les imports circulaires.
+            except (discord.Forbidden, discord.HTTPException):
+                log.warning("[AUTOMOD] Levée du timeout échouée guild=%s user=%s", updated["guild_id"], updated["user_id"])
+
+
     from cogs.events.mod_automod_listener import get_system_display
     from utils.managers import mod_automod_general_manager as general_mgr
 
