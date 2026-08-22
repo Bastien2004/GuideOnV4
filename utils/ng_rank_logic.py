@@ -18,6 +18,7 @@ from dataclasses import dataclass
 
 import discord
 
+from utils.settings import settings
 from utils.db.models.alpha_staff import (
     GRADE_LABELS,
     GRADE_PREFIXES,
@@ -267,7 +268,7 @@ async def execute_grade_rank(
 
     await _send_with_reaction(
         bot, cfg.get("rank_channel_id"),
-        build_grade_announcement(membre, new_grade, is_promotion, old_grade),
+        build_grade_announcement(membre, new_grade, is_promotion, old_grade, emoji=cfg.get("rank_emoji")),
         cfg.get("rank_emoji"),
     )
 
@@ -277,9 +278,11 @@ async def execute_grade_rank(
     )
 
     if not is_promotion:
+        # 🛠️ Ping dev centralisé sur le serveur dev (settings), plus par-serveur
+        # NG — cf. utils/settings.py (Paul, 2026-08-22).
         await _send_to_channel(
-            bot, cfg.get("dev_channel_id"),
-            build_dev_message(pseudo, cfg.get("dev_ping_id")),
+            bot, settings.dev_ping_channel_id,
+            build_dev_message(pseudo, settings.dev_ping_role_id),
         )
 
     # 📋 Mise à jour de la liste staff (import local, évite un import circulaire de cog).
@@ -387,7 +390,7 @@ async def execute_statut_rank(
 
     await _send_with_reaction(
         bot, cfg.get("rank_channel_id"),
-        build_statut_announcement(membre, statut),
+        build_statut_announcement(membre, statut, emoji=cfg.get("rank_emoji")),
         cfg.get("rank_emoji"),
     )
 
@@ -399,8 +402,8 @@ async def execute_statut_rank(
 
     if not existing:
         await _send_to_channel(
-            bot, cfg.get("dev_channel_id"),
-            build_dev_message(pseudo, cfg.get("dev_ping_id")),
+            bot, settings.dev_ping_channel_id,
+            build_dev_message(pseudo, settings.dev_ping_role_id),
         )
 
     # 📋 Mise à jour de la liste staff (import local, évite un import circulaire de cog).

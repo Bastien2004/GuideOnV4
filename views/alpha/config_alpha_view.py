@@ -67,15 +67,15 @@ class ConfigRankView(LayoutView):
         c.add_item(TextDisplay(
             f"__**<:salons:1508535670333902999> Salons**__\n"
             f"➢ **Rank/Derank** : {_ch(cfg.get('rank_channel_id'))}\n"
-            f"➢ **Journalistes** : {_ch(cfg.get('journaliste_channel_id'))}\n"
-            f"➢ **Développeurs** : {_ch(cfg.get('dev_channel_id'))}\n\n"
+            f"➢ **Journalistes** : {_ch(cfg.get('journaliste_channel_id'))}\n\n"
+            f"-# Salon développeurs : centralisé sur le serveur dev, plus ici."
         ))
         c.add_item(Separator())
 
         c.add_item(TextDisplay(
             f"__**<:notifier:1495444487206604833> Pings**__\n"
-            f"➢ **Journaliste** : {_role(cfg.get('journaliste_ping_id'))}\n"
-            f"➢ **Développeur** : {_role(cfg.get('dev_ping_id'))}\n\n"
+            f"➢ **Journaliste** : {_role(cfg.get('journaliste_ping_id'))}\n\n"
+            f"-# Ping développeur : centralisé sur le serveur dev, plus ici."
         ))
         c.add_item(Separator())
 
@@ -87,7 +87,7 @@ class ConfigRankView(LayoutView):
             f"• Modo+ : {_role(cfg.get('role_moderateur_plus_id'))}\n"
             f"• Super-Modo : {_role(cfg.get('role_super_moderateur_id'))}\n"
             f"• Admin : {_role(cfg.get('role_administrateur_id'))}\n"
-            f"• 🔰 Staff Alpha (rôle équipe) : {_role(cfg.get('role_equipe_id'))}\n\n"
+            f"• 🔰 Rôle équipe (Guide → Modo+) : {_role(cfg.get('role_equipe_id'))}\n\n"
         ))
         c.add_item(Separator())
 
@@ -214,12 +214,10 @@ class _SalonsView(LayoutView):
             channel_types=[discord.ChannelType.text, discord.ChannelType.news],
         )))
 
-        c.add_item(TextDisplay(f"**Salon développeurs :** {_ch(cfg.get('dev_channel_id'))}"))
-        c.add_item(ActionRow(ChannelSelect(
-            placeholder="Choisir le salon développeurs",
-            on_select=lambda i, ch: self._save(i, "dev_channel_id", ch),
-            channel_types=[discord.ChannelType.text, discord.ChannelType.news],
-        )))
+        c.add_item(TextDisplay(
+            "-# Salon développeurs : centralisé sur le serveur dev de Paul "
+            "pour tous les serveurs NG, ne se configure plus ici."
+        ))
 
         c.add_item(Separator())
         btn_back = Button(label="↩️ Retour", style=ButtonStyle.secondary, custom_id="salons_back")
@@ -277,13 +275,9 @@ class _PingsView(LayoutView):
 
         c.add_item(Separator())
         c.add_item(TextDisplay(
-            f"**Ping développeur :** {_role(cfg.get('dev_ping_id'))}\n"
-            f"-# Rôle @mentionné pour demander l'ajout d'un emoji skin"
+            "-# Ping développeur : centralisé sur le serveur dev de Paul "
+            "pour tous les serveurs NG, ne se configure plus ici."
         ))
-        c.add_item(ActionRow(RoleSelect(
-            placeholder="Choisir le rôle @Développeur",
-            on_select=lambda i, ids: self._save(i, "dev_ping_id", ids[0]),
-        )))
 
         c.add_item(Separator())
         btn_back = Button(label="↩️ Retour", style=ButtonStyle.secondary, custom_id="pings_back")
@@ -321,7 +315,7 @@ _ROLES_PAGES: list[list[tuple[str, str]]] = [
     [
         ("role_super_moderateur_id",  "Super Modérateur"),
         ("role_administrateur_id",    "Administrateur"),
-        ("role_equipe_id",            "🔰 Staff Alpha (rôle équipe — tous grades)"),
+        ("role_equipe_id",            "🔰 Rôle équipe (Guide, Modo test/confirmé/+)"),
     ],
     # page 3 : statuts secondaires (cumulables, hors hiérarchie)
     [

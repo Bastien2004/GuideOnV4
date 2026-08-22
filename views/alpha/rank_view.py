@@ -21,38 +21,51 @@ from utils.db.models.alpha_staff import GRADE_LABELS, SECONDARY_STATUSES
 # ============================================================
 
 def build_grade_announcement(
-    membre: discord.Member, grade: str, is_promotion: bool, old_grade: str | None
+    membre: discord.Member, grade: str, is_promotion: bool, old_grade: str | None,
+    *, emoji: str | None = None,
 ) -> LayoutView:
-    """Annonce publique pour un changement de grade (staff)."""
+    """Annonce publique pour un changement de grade (staff).
+
+    `emoji` : emoji d'annonce configuré par serveur (NGRankConfig.rank_emoji,
+    cf. /ngstaff config → Rank/Derank → Emoji annonce). Auparavant codé en
+    dur sur l'emoji custom d'Alpha (<:Alpha:1500414179650048070>) pour tous
+    les serveurs NG — corrigé (Paul, 2026-08-22). Absent/vide = pas de préfixe.
+    """
     label = GRADE_LABELS.get(grade, grade)
     old_label = GRADE_LABELS.get(old_grade, old_grade) if old_grade else None
+    prefix = f"{emoji} " if emoji else ""
 
     view = LayoutView(timeout=None)
     c = Container()
 
     if is_promotion and old_label:
         c.add_item(TextDisplay(
-            f"<:Alpha:1500414179650048070> Félicitations à <@{membre.id}> qui passe de **{old_label}** à **{label}** !"
+            f"{prefix}Félicitations à <@{membre.id}> qui passe de **{old_label}** à **{label}** !"
         ))
     else:
         c.add_item(TextDisplay(
-            f"<:Alpha:1500414179650048070> Bienvenue à <@{membre.id}> qui rejoint l'équipe en tant que **{label}** !"
+            f"{prefix}Bienvenue à <@{membre.id}> qui rejoint l'équipe en tant que **{label}** !"
         ))
 
     view.add_item(c)
     return view
 
 
-def build_statut_announcement(membre: discord.Member, statut: str) -> LayoutView:
-    """Annonce publique pour l'attribution d'un statut secondaire (journaliste/affilié/builder)."""
+def build_statut_announcement(membre: discord.Member, statut: str, *, emoji: str | None = None) -> LayoutView:
+    """Annonce publique pour l'attribution d'un statut secondaire (journaliste/affilié/builder).
+
+    `emoji` : voir build_grade_announcement — même correction (emoji configuré
+    par serveur au lieu du logo Alpha en dur).
+    """
     meta = SECONDARY_STATUSES[statut]
     label = meta["label"]
     badge = meta["badge"] or ""
+    prefix = f"{emoji} " if emoji else ""
 
     view = LayoutView(timeout=None)
     c = Container()
     c.add_item(TextDisplay(
-        f"<:Alpha:1500414179650048070> <@{membre.id}> rejoint l'équipe des **{label}** ! {badge}".rstrip()
+        f"{prefix}<@{membre.id}> rejoint l'équipe des **{label}** ! {badge}".rstrip()
     ))
     view.add_item(c)
     return view

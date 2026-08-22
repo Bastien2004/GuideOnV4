@@ -20,7 +20,7 @@ from discord import ButtonStyle, Interaction
 from discord.ui import ActionRow, Button, Container, Separator, TextDisplay
 
 from utils.container_universel import success_container, warning_container
-from utils.db.models.alpha_staff import GRADE_LABELS, SECONDARY_STATUSES, STATUTS_SECONDAIRES_ORDER
+from utils.db.models.alpha_staff import GRADE_LABELS
 from utils.ng_derank_logic import execute_derank, guard_message, secondary_dict
 from views._components.base_view import BaseLayoutView
 
@@ -32,9 +32,15 @@ class DerankConfirmView(BaseLayoutView):
 
     def __init__(
         self, membre: discord.Member, member_data: dict, cfg: dict, guild_id: int, role: str,
-        *, owner_id: int, server: str = "alpha",
+        *, owner_id: int, server: str = "alpha", statut_defs: list[dict] | None = None,
     ) -> None:
-        """Création de l'interface de confirmation du derank."""
+        """Création de l'interface de confirmation du derank.
+
+        `statut_defs` : définitions des statuts du serveur (ng_statut_manager.
+        list_statut_defs), résolues par l'appelant AVANT construction — cette
+        view est construite de façon synchrone (__init__ -> _build), elle ne
+        peut pas faire l'appel DB async elle-même (Paul, 2026-08-22).
+        """
         super().__init__(owner_id=owner_id, timeout=120)
         self.membre = membre
         self.data = member_data
@@ -42,6 +48,7 @@ class DerankConfirmView(BaseLayoutView):
         self.guild_id = guild_id
         self.role = role
         self.server = server
+        self.statut_defs = statut_defs or []
         self._build()
 
     def _build(self) -> None:
@@ -49,8 +56,8 @@ class DerankConfirmView(BaseLayoutView):
         role = self.role
         grade = d["grade"]
         label = GRADE_LABELS.get(grade, grade) if grade else None
-        secondary = secondary_dict(d)
-        active_statuses = [SECONDARY_STATUSES[k]["label"] for k in STATUTS_SECONDAIRES_ORDER if secondary[k]]
+        secondary = secondary_dict(d, self.statut_defs)
+        active_statuses = [sd["label"] for sd in self.statut_defs if secondary[sd["key"]]]
 
         if role == "complet":
             extras = f" + {' + '.join(active_statuses)}" if active_statuses else ""
@@ -72,18 +79,19 @@ class DerankConfirmView(BaseLayoutView):
                     + "-# Rôle Discord retiré, pseudo et stafflist mis à jour."
                 )
 
-        else:  # journaliste / affilie / builder
-            meta = SECONDARY_STATUSES[role]
-            if not secondary[role]:
-                desc = f"**{d['pseudo_jeu']}** n'est pas **{meta['label']}**."
+        else:  # statut secondaire (clé dynamique, ex : journaliste/affilie/builder sur Alpha)
+            meta = next((sd for sd in self.statut_defs if sd["key"] == role), None)
+            meta_label = meta["label"] if meta else role
+            if not secondary.get(role, False):
+                desc = f"**{d['pseudo_jeu']}** n'est pas **{meta_label}**."
             else:
                 remaining_parts = []
                 if grade:
                     remaining_parts.append(label)
-                remaining_parts += [SECONDARY_STATUSES[k]["label"] for k in STATUTS_SECONDAIRES_ORDER if k != role and secondary[k]]
+                remaining_parts += [sd["label"] for sd in self.statut_defs if sd["key"] != role and secondary[sd["key"]]]
                 remaining = ", ".join(remaining_parts) if remaining_parts else None
                 desc = (
-                    f"Confirmer le retrait du statut **{meta['label']}** de **{d['pseudo_jeu']}** (<@{d['discord_id']}>) ?\n"
+                    f"Confirmer le retrait du statut **{meta_label}** de **{d['pseudo_jeu']}** (<@{d['discord_id']}>) ?\n"
                     + (f"(Conservera : {remaining}.)\n" if remaining else "")
                     + "-# Rôle Discord retiré, pseudo et stafflist mis à jour."
                 )
@@ -118,10 +126,10 @@ class DerankConfirmView(BaseLayoutView):
 
         d = self.data
         role = self.role
-        secondary = secondary_dict(d)
+        secondary = secondary_dict(d, self.statut_defs)
 
         # ── Garde-fous : rien à faire ────────────────────────
-        warning = guard_message(role, d["pseudo_jeu"], d["grade"], secondary)
+        warning = guard_message(role, d["pseudo_jeu"], d["grade"], secondary, self.statut_defs)
         if warning:
             await interaction.edit_original_response(view=warning_container(warning))
             self.stop()

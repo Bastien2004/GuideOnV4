@@ -65,25 +65,31 @@ def guard_message(role: str, pseudo_jeu: str, grade: str | None, secondary: dict
 # 📁 Construction des annonces
 # ============================================================
 
-def build_derank_announcement(membre: discord.Member, role: str, old_grade: str | None) -> LayoutView:
-    """Annonce publique de derank."""
+def build_derank_announcement(
+    membre: discord.Member, role: str, old_grade: str | None, *, emoji: str | None = None,
+) -> LayoutView:
+    """Annonce publique de derank.
 
+    `emoji` : emoji d'annonce configuré par serveur (NGRankConfig.rank_emoji),
+    remplace l'ancien logo Alpha codé en dur (Paul, 2026-08-22).
+    """
+    prefix = f"{emoji} " if emoji else ""
     view = LayoutView(timeout=None)
     c = Container()
 
     if role == "complet":
         label = GRADE_LABELS.get(old_grade, old_grade) if old_grade else "l'équipe"
-        c.add_item(TextDisplay(f"<:Alpha:1500414179650048070> Merci à <@{membre.id}> pour son travail en tant que **{label}** !"))
+        c.add_item(TextDisplay(f"{prefix}Merci à <@{membre.id}> pour son travail en tant que **{label}** !"))
 
     elif role == "staff":
         label = GRADE_LABELS.get(old_grade, old_grade) if old_grade else "Staff"
-        c.add_item(TextDisplay(f"<:Alpha:1500414179650048070> **Merci** à <@{membre.id}> pour son travail chez les **{label}** !"))
+        c.add_item(TextDisplay(f"{prefix}**Merci** à <@{membre.id}> pour son travail chez les **{label}** !"))
 
     else:
         statut_label = SECONDARY_STATUSES[role]["label"]
         badge = SECONDARY_STATUSES[role]["badge"] or ""
         c.add_item(TextDisplay(
-            f"<:Alpha:1500414179650048070> **Merci** à <@{membre.id}> pour son travail chez les **{statut_label}** ! {badge}".rstrip()
+            f"{prefix}**Merci** à <@{membre.id}> pour son travail chez les **{statut_label}** ! {badge}".rstrip()
         ))
 
     view.add_item(c)
@@ -237,7 +243,7 @@ async def execute_derank(
     await send_with_reaction(
         bot,
         cfg.get("rank_channel_id"),
-        build_derank_announcement(membre, role, grade),
+        build_derank_announcement(membre, role, grade, emoji=cfg.get("rank_emoji")),
         cfg.get("rank_emoji"),
     )
 

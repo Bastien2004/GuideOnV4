@@ -27,6 +27,7 @@ from utils.db.models.ng_rank_config import NGRankConfig
 from utils.db.models.ng_role_react import NGRoleReactCouple, NGRoleReaction
 from utils.db.models.ng_server import NGServer
 from utils.db.models.ng_staff import NGStaffMember
+from utils.db.models.ng_statut import NGStaffStatut, NGStatutDef
 from utils.db.models.permission_rbac import PermissionCategory, PermissionGrade, PermissionGradeInclude, PermissionGradeMember
 from utils.db.models.reaction_role import ReactionRoleCouple, ReactionRoleMessage
 from utils.db.models.staff import StaffConfig
@@ -80,6 +81,8 @@ __all__ = [
     "NGRoleReaction",
     "NGServer",
     "NGStaffMember",
+    "NGStaffStatut",
+    "NGStatutDef",
     "PermissionCategory",
     "PermissionGrade",
     "PermissionGradeInclude",

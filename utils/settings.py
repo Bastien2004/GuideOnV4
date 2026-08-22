@@ -28,6 +28,10 @@ class Settings(BaseSettings):
 
     report_channel_id: int = 1488233511277297976
 
+    # Ping développeur (demande d'emoji "tête" pour un nouveau staff) —
+    dev_ping_channel_id: int = 1540659694807552051
+    dev_ping_role_id: int = 1400451664971960410
+
     # Database
     database_url: str = "postgresql+asyncpg://guideon:guideon@localhost:5432/guideon"
     database_echo: bool = False

@@ -70,7 +70,7 @@ async def refresh_staff_message(
             return
 
     members = await list_staff(server)
-    view = build_stafflist_view(members)
+    view = build_stafflist_view(members, server=server)
 
     msg_cfg = await get_alpha_message(guild_id, MESSAGE_KEY)
     existing: discord.Message | None = None

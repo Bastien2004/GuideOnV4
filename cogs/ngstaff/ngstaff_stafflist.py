@@ -94,7 +94,7 @@ async def ngstaff_stafflist(interaction: Interaction) -> None:
 
     guild_id = interaction.guild_id
     members = await list_staff(server.name)
-    view = build_stafflist_view(members)
+    view = build_stafflist_view(members, server=server.name)
 
     # 🔍 Récupération message existant
     msg_cfg = await get_alpha_message(guild_id, MESSAGE_KEY)

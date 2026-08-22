@@ -29,6 +29,7 @@ from utils.managers.ng_staff_manager import (
     upsert_staff_member,
 )
 from utils.db.models.alpha_staff import GRADES_ORDER, GRADE_LABELS, GRADE_EMOJIS
+from utils.ng_server_display import get_server_display_name
 from utils.ng_staff_display import build_member_badges
 from views._components.user_select import UserSelect
 from views._components.text_modal import TextModal
@@ -102,7 +103,7 @@ class EditListView(LayoutView):
             summary_lines.append(f"• 🧱 Builders (cumul) : **{builder_count}**")
 
         c = Container()
-        c.add_item(TextDisplay("# 📋 Dashboard — Liste Staff Alpha"))
+        c.add_item(TextDisplay(f"# 📋 Dashboard — Liste Staff {get_server_display_name(self.server)}"))
         c.add_item(Separator())
         c.add_item(TextDisplay(
             f"**{total} membre(s) au total**\n\n"
@@ -552,7 +553,7 @@ class _NotFoundView(LayoutView):
         c.add_item(TextDisplay("## ❌ Membre introuvable"))
         c.add_item(Separator())
         c.add_item(TextDisplay(
-            f"**{member_name}** n'est pas dans la liste du staff Alpha."
+            f"**{member_name}** n'est pas dans la liste du staff {get_server_display_name(server)}."
         ))
         c.add_item(Separator())
         btn = Button(label="↩️ Retour", style=ButtonStyle.secondary, custom_id="nf_back")

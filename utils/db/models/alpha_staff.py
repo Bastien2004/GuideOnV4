@@ -1,17 +1,6 @@
 """
 utils/db/models/alpha_staff.py — Constantes partagées du système de grades
 staff (labels, emojis, ordre, statuts secondaires).
-
-Refonte multi-serveurs, phase 15 (nettoyage legacy) : la classe
-AlphaStaffMember (modèle ORM de l'ancienne table alpha_staff, gelée
-depuis la bascule de phase 6) a été retirée — elle n'était plus
-instanciée nulle part (utils/managers/alpha_staff_manager.py, son seul
-utilisateur, a été supprimé dans cette même phase). Les constantes
-ci-dessous (GRADES_ORDER, GRADE_LABELS, etc.) restent en revanche vivantes
-et largement utilisées (ré-exportées par utils/db/models/ng_staff.py,
-importées directement par de nombreux cogs/views/managers) — ce fichier
-reste donc leur emplacement canonique, seul le modèle ORM mort a été
-retiré.
 """
 
 from __future__ import annotations
@@ -61,10 +50,10 @@ GRADE_TO_ROLE_ATTR: dict[str, str] = {
     "guide":               "role_guide_id",
 }
 
-STAFF_GENERAL_GRADES: set[str] = set(GRADES_ORDER)
+# 🔰 Grades couverts par le rôle "équipe" transverse (role_equipe_id).
 
+STAFF_GENERAL_GRADES: set[str] = {"guide", "moderateur_test", "moderateur_confirme", "moderateur_plus"}
 STATUTS_SECONDAIRES_ORDER: list[str] = ["journaliste", "affilie", "builder"]
-
 STATUT_INCOMPATIBLE_GRADES: set[str] = {"administrateur", "super_moderateur"}
 
 SECONDARY_STATUSES: dict[str, dict] = {
@@ -87,4 +76,3 @@ SECONDARY_STATUSES: dict[str, dict] = {
         "has_second_pseudo": True,
     },
 }
-

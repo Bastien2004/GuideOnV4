@@ -15,13 +15,14 @@ from __future__ import annotations
 from discord.ui import Container, LayoutView, Separator, TextDisplay
 
 from utils.ng_staff_display import build_member_line
+from utils.ng_server_display import get_server_display_name, get_server_emoji
 from utils.db.models.alpha_staff import GRADE_EMOJIS, GRADE_LABELS, GRADES_ORDER
 
 # ============================================================
 # 🧩 Construction de la view
 # ============================================================
 
-def build_stafflist_view(members: list[dict]) -> LayoutView:
+def build_stafflist_view(members: list[dict], *, server: str = "alpha") -> LayoutView:
     """
     Affiche UNIQUEMENT les 6 grades de la hiérarchie staff (administrateur
     → guide) en sections, plus une section Builders dédiée (tous les
@@ -31,12 +32,18 @@ def build_stafflist_view(members: list[dict]) -> LayoutView:
     Un membre purement Journaliste/Affilié (grade=None, aucun is_builder)
     n'apparaît dans AUCUNE section — invisible dans la stafflist, comme
     voulu (seuls les 6 grades + Builders y figurent).
+
+    `server` : sélectionne le titre affiché (nom du serveur NG). Auparavant
+    codé en dur "Effectif Staff Alpha" avec l'emoji <:AlphaStaff:...> pour
+    tous les serveurs NG — corrigé (Paul, 2026-08-22).
     """
     view = LayoutView(timeout=None)
 
     # ── Header ────────────────────────────────────────────────
+    display_name = get_server_display_name(server)
+    emoji = get_server_emoji(server)
     header = Container()
-    header.add_item(TextDisplay("# <:AlphaStaff:1493512964337307698> Effectif Staff Alpha"))
+    header.add_item(TextDisplay(f"# {emoji} Effectif Staff {display_name}"))
     view.add_item(header)
 
     # ── Un Container par grade présent (administrateur → guide) ──

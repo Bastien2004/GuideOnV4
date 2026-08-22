@@ -1,34 +1,13 @@
 """
-utils/ng_staff_display.py — Affichage centralisé d'un membre du staff NG
-(badges de statuts secondaires), utilisé par stafflist_view.py et
-edit_list_view.py pour rester synchronisés.
-
-Malgré le nommage historique "alpha_*" des symboles internes qu'il
-utilise (SECONDARY_STATUSES, STATUTS_SECONDAIRES_ORDER), ce module est
-100% multi-serveurs : les badges sont identiques quel que soit le
-serveur NG (les grades et statuts sont hard-codés dans la refonte, cf.
-§10 du prompt). Renommé alpha_staff_display.py → ng_staff_display.py
-pour clarifier sa nature réelle.
+utils/ng_staff_display.py — Affichage centralisé des grades secondaire stafflist.
 """
-from __future__ import annotations
 
-from utils.db.models.alpha_staff import SECONDARY_STATUSES, STATUTS_SECONDAIRES_ORDER
+from __future__ import annotations
 
 
 def build_member_badges(member: dict) -> str:
-    """
-    Construit la chaîne de badges (ex: " 📰 🎥") pour un membre, à partir des
-    statuts secondaires actifs ayant un badge défini (Builder n'en a pas —
-    il a sa propre section dédiée dans la stafflist, pas de badge inline).
-
-    Retourne une chaîne commençant par un espace si au moins un badge est
-    présent, sinon une chaîne vide (directement concaténable après le pseudo).
-    """
-    badges = [
-        SECONDARY_STATUSES[key]["badge"]
-        for key in STATUTS_SECONDAIRES_ORDER
-        if member.get(f"is_{key}") and SECONDARY_STATUSES[key]["badge"]
-    ]
+    """Gestion des badges stafflist."""
+    badges = [s["emoji"] for s in member.get("statuts", []) if s.get("emoji")]
     return (" " + " ".join(badges)) if badges else ""
 
 
