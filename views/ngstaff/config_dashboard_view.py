@@ -5,9 +5,15 @@ Refonte multi-serveurs phase 11 : équivalent de views/alpha/config_dashboard_vi
 mais générique à tout serveur NG (le `server` est résolu dynamiquement à
 l'exécution par la commande /ngstaff config via utils.ng_server_check, pas
 câblé en dur). Volontairement limité aux systèmes déjà généralisés :
-Rank/Derank, ONU, Notations, Role Réaction, Statuts (Paul, 2026-08-22).
+Rank/Derank, ONU, Notations, Role Réaction (Paul, 2026-08-22).
 Les autres sections du hub Alpha (Contenu, Events) sont spécifiques au
 Discord Alpha historique et ne sont pas exposées ici.
+
+Statuts (Paul, 2026-08-22) : n'est PAS une entrée séparée ici — les statuts
+secondaires sont un sous-réglage du système Rank/Derank (rôles + pseudo,
+même famille que les grades), accessible uniquement via Système Rank/Derank
+→ 🎖️ Statuts (views/ngstaff/config_rank_view.py). Une entrée de menu dédiée
+existait par erreur ici et a été retirée.
 """
 
 from __future__ import annotations
@@ -42,12 +48,6 @@ _OPTIONS = [
         value="role_react",
         description="Boutons de notification auto-assignés par les membres",
         emoji="🔔",
-    ),
-    discord.SelectOption(
-        label="🎖️ Statuts",
-        value="statuts",
-        description="Statuts secondaires (builder, journaliste, avocat...) propres à ce serveur",
-        emoji="🎖️",
     ),
 ]
 
@@ -132,15 +132,6 @@ class NGStaffConfigDashboardView(LayoutView):
             await interaction.response.edit_message(
                 view=RoleReactConfigView(
                     self.guild_id, self.server, rr_cfg, entries, self.owner_id, dashboard="ngstaff"
-                )
-            )
-        elif value == "statuts":
-            from utils.managers.ng_statut_manager import list_statut_defs
-            from views.ngstaff.config_statuts_view import NGStatutsConfigView
-            statut_defs = await list_statut_defs(self.server)
-            await interaction.response.edit_message(
-                view=NGStatutsConfigView(
-                    self.guild_id, self.server, statut_defs, self.owner_id, dashboard="ngstaff"
                 )
             )
         else:

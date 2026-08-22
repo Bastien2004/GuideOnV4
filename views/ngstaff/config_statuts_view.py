@@ -1,11 +1,17 @@
 """
-views/ngstaff/config_statuts_view.py — /ngstaff config → Statuts.
+views/ngstaff/config_statuts_view.py — /ngstaff config → Système Rank/Derank
+→ 🎖️ Statuts.
 
 CRUD des statuts secondaires (badges non hiérarchiques, ex: builder,
 journaliste, avocat, équipe com...) librement définis par serveur NG.
 Remplace le système figé à 3 entrées (SECONDARY_STATUSES, utils/db/models/
-alpha_staff.py) qui ne permettait ni d'ajouter, ni de renommer, ni de
+staff_grades.py) qui ne permettait ni d'ajouter, ni de renommer, ni de
 retirer un statut sans toucher au code (Paul, 2026-08-22).
+
+Sous-réglage de ConfigRankView (views/ngstaff/config_rank_view.py), pas une
+entrée séparée du tableau de bord /ngstaff config — les statuts sont, au
+même titre que les grades, une composante du système Rank/Derank (Paul,
+2026-08-22, retour utilisateur).
 
 Voir utils/managers/ng_statut_manager.py pour la logique CRUD sous-jacente.
 """
@@ -17,6 +23,7 @@ from discord import ButtonStyle, Interaction
 from discord.ui import ActionRow, Button, Container, LayoutView, Separator, TextDisplay
 
 from utils.container_universel import error_container, warning_container
+from utils.managers.ng_rank_config_manager import load_rank_config
 from utils.managers.ng_statut_manager import (
     NGStatutError,
     create_statut_def,
@@ -24,6 +31,7 @@ from utils.managers.ng_statut_manager import (
     list_statut_defs,
     update_statut_def,
 )
+from utils.ng_server_display import get_server_display_name
 from views._components.role_select import RoleSelect
 
 
@@ -59,7 +67,7 @@ class NGStatutsConfigView(LayoutView):
 
     def _build(self) -> None:
         c = Container()
-        c.add_item(TextDisplay(f"# 🎖️ Configuration — Statuts `{self.server}`"))
+        c.add_item(TextDisplay(f"## 🎖️ Config {get_server_display_name(self.server)} — Statuts"))
         c.add_item(Separator())
         c.add_item(TextDisplay(
             "Statuts secondaires (non hiérarchiques, cumulables avec un grade ou seuls) : "
@@ -89,7 +97,7 @@ class NGStatutsConfigView(LayoutView):
             c.add_item(ActionRow(select))
 
         btn_add = Button(label="➕ Ajouter un statut", style=ButtonStyle.success, custom_id="statut_add")
-        btn_back = Button(label="↩️ Tableau de bord", style=ButtonStyle.secondary, custom_id="statut_back")
+        btn_back = Button(label="↩️ Retour", style=ButtonStyle.secondary, custom_id="statut_back")
         btn_add.callback = self._on_add
         btn_back.callback = self._on_back
         c.add_item(ActionRow(btn_add, btn_back))
@@ -124,16 +132,14 @@ class NGStatutsConfigView(LayoutView):
         await interaction.response.send_modal(modal)
 
     async def _on_back(self, interaction: Interaction) -> None:
-        if self.dashboard == "ngstaff":
-            from views.ngstaff.config_dashboard_view import NGStaffConfigDashboardView
-            await interaction.response.edit_message(
-                view=NGStaffConfigDashboardView(self.guild_id, self.server, self.owner_id)
-            )
-        else:
-            from views.alpha.config_dashboard_view import ConfigDashboardView
-            await interaction.response.edit_message(
-                view=ConfigDashboardView(self.guild_id, self.owner_id)
-            )
+        # Les statuts sont un sous-réglage du système Rank/Derank : "Retour"
+        # revient toujours à ConfigRankView, jamais au tableau de bord racine
+        # (Paul, 2026-08-22 — plus d'entrée "Statuts" séparée dans le menu).
+        from views.ngstaff.config_rank_view import ConfigRankView
+        cfg = await load_rank_config(self.server)
+        await interaction.response.edit_message(
+            view=ConfigRankView(self.guild_id, self.server, cfg, self.owner_id, dashboard=self.dashboard)
+        )
 
 
 # ════════════════════════════════════════════════════════════

@@ -1,6 +1,15 @@
 """
 views/ngstaff/config_rank_view.py — Dashboard de configuration du système de
 rank/derank, multi-serveurs (ex-views/alpha/config_alpha_view.py).
+
+Réorganisation (Paul, 2026-08-22, retour utilisateur) : le salon "Stafflist"
+(content_stafflist_channel_id) existait déjà dans NGRankConfig mais n'avait
+JAMAIS de contrôle dans cette interface — impossible à configurer, ce qui
+faisait échouer /ngstaff stafflist ("système non configuré") même quand tout
+le reste (salons rank/journaliste, rôles, emoji) était bien réglé. Ajouté
+dans _SalonsView. Le bouton "🎖️ Statuts" est intégré ici (et non plus comme
+entrée séparée du tableau de bord /ngstaff config) : les statuts secondaires
+sont un sous-réglage du système Rank/Derank, au même titre que les grades.
 """
 
 from __future__ import annotations
@@ -72,14 +81,15 @@ class ConfigRankView(LayoutView):
         c.add_item(TextDisplay(
             f"__**<:salons:1508535670333902999> Salons**__\n"
             f"➢ **Rank/Derank** : {_ch(cfg.get('rank_channel_id'))}\n"
-            f"➢ **Journalistes** : {_ch(cfg.get('journaliste_channel_id'))}\n\n"
+            f"➢ **Stafflist** : {_ch(cfg.get('content_stafflist_channel_id'))}\n"
+            f"➢ **Journalistes** *(optionnel)* : {_ch(cfg.get('journaliste_channel_id'))}\n\n"
             f"-# Salon développeurs : centralisé sur le serveur dev, plus ici."
         ))
         c.add_item(Separator())
 
         c.add_item(TextDisplay(
             f"__**<:notifier:1495444487206604833> Pings**__\n"
-            f"➢ **Journaliste** : {_role(cfg.get('journaliste_ping_id'))}\n\n"
+            f"➢ **Journaliste** *(optionnel)* : {_role(cfg.get('journaliste_ping_id'))}\n\n"
             f"-# Ping développeur : centralisé sur le serveur dev, plus ici."
         ))
         c.add_item(Separator())
@@ -97,35 +107,33 @@ class ConfigRankView(LayoutView):
         c.add_item(Separator())
 
         c.add_item(TextDisplay(
-            "**🎖️ Statuts secondaires**\n"
+            "**🎖️ Statuts secondaires** *(optionnel)*\n"
             "-# Journaliste/Affilié/Builder ou tout autre statut : librement "
-            "définissables via le bouton « 🎖️ Statuts » du tableau de bord "
-            "`/ngstaff config` — plus configurés ici (Paul, 2026-08-22)."
+            "définissables via le bouton « 🎖️ Statuts » ci-dessous."
         ))
         c.add_item(Separator())
 
         c.add_item(TextDisplay(
-            f"**🎭 Emoji annonce**\n"
+            f"**🎭 Emoji annonce** *(optionnel)*\n"
             f"• Réaction rank/derank : {cfg.get('rank_emoji') or '`Non configuré`'}"
         ))
         c.add_item(Separator())
 
-        btn_salons = Button(label="📡 Salons", style=ButtonStyle.primary, custom_id="cfg_salons")
-        btn_pings  = Button(label="🔔 Pings",  style=ButtonStyle.primary, custom_id="cfg_pings")
-        btn_roles1 = Button(label="🎭 Rôles",  style=ButtonStyle.primary, custom_id="cfg_roles1")
-        btn_emoji  = Button(label="🎭 Emoji annonce", style=ButtonStyle.secondary, custom_id="cfg_emoji")
-        btn_back   = Button(label="↩️ Tableau de bord", style=ButtonStyle.secondary, custom_id="cfg_back_dash")
-        btn_salons.callback = self._on_salons
-        btn_pings.callback  = self._on_pings
-        btn_roles1.callback = self._on_roles1
-        btn_emoji.callback  = self._on_emoji
-        btn_back.callback   = self._on_back_dash
+        btn_salons  = Button(label="📡 Salons",  style=ButtonStyle.primary,   custom_id="cfg_salons")
+        btn_pings   = Button(label="🔔 Pings",   style=ButtonStyle.primary,   custom_id="cfg_pings")
+        btn_roles1  = Button(label="🎭 Rôles",   style=ButtonStyle.primary,   custom_id="cfg_roles1")
+        btn_statuts = Button(label="🎖️ Statuts", style=ButtonStyle.primary,   custom_id="cfg_statuts")
+        btn_emoji   = Button(label="🎭 Emoji annonce", style=ButtonStyle.secondary, custom_id="cfg_emoji")
+        btn_back    = Button(label="↩️ Tableau de bord", style=ButtonStyle.secondary, custom_id="cfg_back_dash")
+        btn_salons.callback  = self._on_salons
+        btn_pings.callback   = self._on_pings
+        btn_roles1.callback  = self._on_roles1
+        btn_statuts.callback = self._on_statuts
+        btn_emoji.callback   = self._on_emoji
+        btn_back.callback    = self._on_back_dash
 
         c.add_item(ActionRow(btn_salons, btn_pings, btn_roles1))
-        c.add_item(ActionRow(btn_emoji, btn_back))
-        c.add_item(TextDisplay(
-            "-# 🎖️ Statuts (builder, journaliste, avocat...) : voir /ngstaff config → Statuts."
-        ))
+        c.add_item(ActionRow(btn_statuts, btn_emoji, btn_back))
         c.add_item(TextDisplay("-# GuideOn Studio"))
         self.add_item(c)
 
@@ -159,6 +167,16 @@ class ConfigRankView(LayoutView):
         cfg = await load_rank_config(self.server)
         await interaction.response.edit_message(
             view=_RolesView(self.guild_id, self.server, cfg, self.owner_id, page=1, dashboard=self.dashboard)
+        )
+
+    async def _on_statuts(self, interaction: Interaction) -> None:
+        from utils.managers.ng_statut_manager import list_statut_defs
+        from views.ngstaff.config_statuts_view import NGStatutsConfigView
+        statut_defs = await list_statut_defs(self.server)
+        await interaction.response.edit_message(
+            view=NGStatutsConfigView(
+                self.guild_id, self.server, statut_defs, self.owner_id, dashboard=self.dashboard
+            )
         )
 
     async def _on_emoji(self, interaction: Interaction) -> None:
@@ -215,9 +233,20 @@ class _SalonsView(LayoutView):
             channel_types=[discord.ChannelType.text, discord.ChannelType.news],
         )))
 
-        c.add_item(TextDisplay(f"**Salon journalistes :** {_ch(cfg.get('journaliste_channel_id'))}"))
+        c.add_item(TextDisplay(
+            f"**Salon stafflist :** {_ch(cfg.get('content_stafflist_channel_id'))}\n"
+            f"-# Requis pour `/ngstaff stafflist` — sans ce salon, la commande "
+            f"répond « système non configuré »."
+        ))
         c.add_item(ActionRow(ChannelSelect(
-            placeholder="Choisir le salon journalistes",
+            placeholder="Choisir le salon stafflist",
+            on_select=lambda i, ch: self._save(i, "content_stafflist_channel_id", ch),
+            channel_types=[discord.ChannelType.text, discord.ChannelType.news],
+        )))
+
+        c.add_item(TextDisplay(f"**Salon journalistes** *(optionnel)* : {_ch(cfg.get('journaliste_channel_id'))}"))
+        c.add_item(ActionRow(ChannelSelect(
+            placeholder="Choisir le salon journalistes (optionnel)",
             on_select=lambda i, ch: self._save(i, "journaliste_channel_id", ch),
             channel_types=[discord.ChannelType.text, discord.ChannelType.news],
         )))
@@ -273,11 +302,11 @@ class _PingsView(LayoutView):
         c.add_item(Separator())
 
         c.add_item(TextDisplay(
-            f"**Ping journaliste :** {_role(cfg.get('journaliste_ping_id'))}\n"
+            f"**Ping journaliste** *(optionnel)* : {_role(cfg.get('journaliste_ping_id'))}\n"
             f"-# Rôle @mentionné dans le message d'affiche de rank/derank"
         ))
         c.add_item(ActionRow(RoleSelect(
-            placeholder="Choisir le rôle @Journaliste",
+            placeholder="Choisir le rôle @Journaliste (optionnel)",
             on_select=lambda i, ids: self._save(i, "journaliste_ping_id", ids[0]),
         )))
 
@@ -327,8 +356,8 @@ _ROLES_PAGES: list[list[tuple[str, str]]] = [
     ],
     # Statuts secondaires (journaliste/affilié/builder ou tout autre statut
     # défini pour ce serveur) : plus une page de rôles ici — chaque statut
-    # porte désormais son propre role_id (NGStatutDef), configurable via
-    # /ngstaff config → Statuts (Paul, 2026-08-22).
+    # porte désormais son propre role_id (NGStatutDef), configurable via le
+    # bouton « 🎖️ Statuts » du tableau de bord Rank/Derank (Paul, 2026-08-22).
 ]
 _TOTAL_PAGES = len(_ROLES_PAGES)
 
