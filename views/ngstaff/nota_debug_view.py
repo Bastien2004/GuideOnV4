@@ -1,5 +1,6 @@
 """
-views/dev/nota_debug_view.py — Vue de debug du système de notations Alpha.
+views/ngstaff/nota_debug_view.py — Vue de debug du système de notations,
+généralisée multi-serveurs (ex-views/alpha/nota_debug_view.py).
 """
 
 from __future__ import annotations
@@ -8,6 +9,7 @@ from discord.ui import Container, LayoutView, Separator, TextDisplay
 
 
 def build_nota_debug_view(
+    server_label: str,
     now,
     cfg: dict,
     state: dict,
@@ -15,11 +17,12 @@ def build_nota_debug_view(
     deadline_trigger: bool,
     public_trigger: bool,
 ) -> LayoutView:
-    """Construction de la view de debug."""
+    """Construction de la view de debug pour le serveur NG `server_label`
+    (display_name, résolu par l'appelant — plus de "Alpha" codé en dur)."""
     view = LayoutView()
     c = Container()
 
-    c.add_item(TextDisplay("# 🔍 Debug Notations Alpha"))
+    c.add_item(TextDisplay(f"# 🔍 Debug Notations — {server_label}"))
     c.add_item(Separator())
 
     c.add_item(TextDisplay(f"### 🕒 Heure actuelle\n⇝ `{now}`"))

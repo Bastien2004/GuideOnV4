@@ -17,6 +17,7 @@ from discord import ButtonStyle, Interaction
 from discord.ui import ActionRow, Button, Container, LayoutView, Separator, TextDisplay
 
 from utils.managers.ng_nota_manager import load_nota_config, save_nota_config
+from utils.ng_server_display import get_server_display_name
 from views._components.channel_select import ChannelSelect
 from views._components.role_select import RoleSelect
 from views._components.text_modal import TextModal
@@ -70,7 +71,7 @@ class NotaConfigView(LayoutView):
     def _build(self) -> None:
         cfg = self.cfg
         c = Container()
-        c.add_item(TextDisplay("## 📋 Config Alpha — Système Notations"))
+        c.add_item(TextDisplay(f"## 📋 Config {get_server_display_name(self.server)} — Système Notations"))
         c.add_item(Separator())
         c.add_item(TextDisplay(
             f"**📡 Salon staff :** {_ch(cfg.get('channel_staff_id'))}\n"

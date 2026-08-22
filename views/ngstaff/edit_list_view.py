@@ -194,7 +194,7 @@ class EditListView(LayoutView):
                     member_name=member_name,
                     on_grade=self._after_grade_add,
                     error_message="« Aucun grade » n'a pas de sens pour un **ajout** — "
-                                  "choisissez un grade, ou utilisez `/alpha rank type:statut` "
+                                  "choisissez un grade, ou utilisez `/ngstaff rank type:statut` "
                                   "pour un statut Journaliste/Affilié/Builder seul.",
                     server=self.server,
                 )

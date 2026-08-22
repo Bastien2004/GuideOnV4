@@ -10,8 +10,9 @@ Extrait de cogs/alpha/derank.py (fichier devenu trop lourd). Découpage :
                                stafflist
 
 Multi-serveurs depuis la refonte phase 12 : execute_derank accepte le kwarg
-`server` (défaut "alpha"). Renommé alpha_derank_logic.py → ng_derank_logic.py
-pour clarifier sa nature réelle.
+`server` obligatoire (plus de défaut "alpha" depuis le nettoyage nomenclature).
+Renommé alpha_derank_logic.py → ng_derank_logic.py pour clarifier sa nature
+réelle.
 """
 from __future__ import annotations
 
@@ -24,12 +25,13 @@ from utils.ng_rank_logic import apply_staff_roles, compute_nick_prefix
 from utils.db.models.staff_grades import GRADE_LABELS
 from utils.managers.ng_staff_manager import remove_staff_member, update_staff_member
 from utils.managers.ng_statut_manager import list_statut_defs, revoke_all_statuts, revoke_statut
+from utils.ng_server_display import get_server_display_name
 
 log = logging.getLogger(__name__)
 
 # Refonte multi-serveurs phase 12 : execute_derank accepte désormais un
-# paramètre `server` optionnel (kwarg-only, défaut "alpha") — voir la même
-# note dans utils/ng_rank_logic.py.
+# paramètre `server` obligatoire (kwarg-only, plus de défaut "alpha" depuis
+# le nettoyage nomenclature) — voir la même note dans utils/ng_rank_logic.py.
 #
 # Statuts (Paul, 2026-08-22) : comme dans ng_rank_logic.py, les clés de
 # `secondary` sont désormais les `key` des NGStatutDef du serveur
@@ -54,7 +56,7 @@ def compute_target_state(role: str, grade: str | None, secondary: dict[str, bool
         return None, {key: False for key in secondary}
     if role == "staff":
         return None, dict(secondary)
-    # statut secondaire spécifique (clé dynamique, ex: journaliste/affilie/builder sur Alpha)
+    # statut secondaire spécifique (clé dynamique, ex: journaliste/affilie/builder)
     target_secondary = dict(secondary)
     target_secondary[role] = False
     return grade, target_secondary
@@ -170,7 +172,7 @@ async def send_with_reaction(bot, channel_id, view, emoji) -> None:
                 pass
 
     except discord.HTTPException:
-        log.warning("[DERANK ALPHA] Impossible d'envoyer dans le salon %d", channel_id)
+        log.warning("[NGSTAFF DERANK] Impossible d'envoyer dans le salon %d", channel_id)
 
 
 async def send_to_channel(bot, channel_id, view) -> None:
@@ -186,7 +188,7 @@ async def send_to_channel(bot, channel_id, view) -> None:
         await channel.send(view=view)
 
     except discord.HTTPException:
-        log.warning("[DERANK ALPHA] Impossible d'envoyer dans le salon %d", channel_id)
+        log.warning("[NGSTAFF DERANK] Impossible d'envoyer dans le salon %d", channel_id)
 
 
 # ============================================================
@@ -237,22 +239,22 @@ async def execute_derank(
         grade=target_grade,
         secondary=target_secondary,
         statut_defs=statut_defs,
-        reason=f"Derank Alpha : {role}",
+        reason=f"Derank {get_server_display_name(server)} : {role}",
     )
 
     # ── Pseudo Discord ──────────────────────────────────────
     if role == "complet":
         try:
-            await membre.edit(nick=membre.name, reason="Derank Alpha complet")
+            await membre.edit(nick=membre.name, reason=f"Derank {get_server_display_name(server)} complet")
         except (discord.Forbidden, discord.HTTPException):
-            log.warning("[DERANK ALPHA] Impossible de renommer %s", membre.id)
+            log.warning("[NGSTAFF DERANK] Impossible de renommer %s", membre.id)
     else:
         prefix = compute_nick_prefix(target_grade, target_secondary, statut_defs)
         new_nick = f"{prefix} | {member_data['pseudo_jeu']}" if prefix else member_data["pseudo_jeu"]
         try:
-            await membre.edit(nick=new_nick, reason=f"Derank Alpha : {role}")
+            await membre.edit(nick=new_nick, reason=f"Derank {get_server_display_name(server)} : {role}")
         except (discord.Forbidden, discord.HTTPException):
-            log.warning("[DERANK ALPHA] Impossible de renommer %s", membre.id)
+            log.warning("[NGSTAFF DERANK] Impossible de renommer %s", membre.id)
 
     # ── Annonces ──────────────────────────────────────────
     await send_with_reaction(

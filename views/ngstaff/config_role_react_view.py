@@ -25,6 +25,7 @@ from views._components.channel_select import ChannelSelect
 from views._components.role_select import RoleSelect
 from views._components.text_modal import TextModal
 from views.ngstaff.role_react_view import build_role_react_view, is_valid_emoji, parse_emoji
+from utils.ng_server_display import get_server_display_name
 
 log = logging.getLogger(__name__)
 
@@ -102,7 +103,7 @@ class RoleReactConfigView(LayoutView):
         )
 
         c = Container()
-        c.add_item(TextDisplay("## 🔔 Config Alpha — Rôle Réaction"))
+        c.add_item(TextDisplay(f"## 🔔 Config {get_server_display_name(self.server)} — Rôle Réaction"))
         c.add_item(Separator())
         c.add_item(TextDisplay(
             f"**📡 Salon :** {msg_status}\n"
@@ -445,10 +446,12 @@ class _EditRoleView(LayoutView):
 # ════════════════════════════════════════════════════════════
 
 class _AddStep1View(LayoutView):
-    def __init__(self, guild_id: int, owner_id: int) -> None:
+    def __init__(self, guild_id: int, server: str, owner_id: int, *, dashboard: str = "alpha") -> None:
         super().__init__(timeout=180)
         self.guild_id = guild_id
+        self.server = server
         self.owner_id = owner_id
+        self.dashboard = dashboard
         self._build()
 
     async def interaction_check(self, i): return i.user.id == self.owner_id
@@ -464,7 +467,7 @@ class _AddStep1View(LayoutView):
         )))
         c.add_item(Separator())
         btn = Button(label="↩️ Annuler", style=ButtonStyle.secondary, custom_id="rr_add_cancel")
-        btn.callback = _back_roles(self.guild_id, self.owner_id)
+        btn.callback = _back_roles(self.guild_id, self.server, self.owner_id, dashboard=self.dashboard)
         c.add_item(ActionRow(btn))
         c.add_item(TextDisplay("-# GuideOn Studio"))
         self.add_item(c)
@@ -489,11 +492,13 @@ class _AddStep1View(LayoutView):
                 max_length=200, required=False,
             )
 
-            def __init__(self_, gid: int, rid: int, oid: int) -> None:
+            def __init__(self_, gid: int, server: str, rid: int, oid: int, *, dashboard: str = "alpha") -> None:
                 super().__init__()
                 self_._gid = gid
+                self_._server = server
                 self_._rid = rid
                 self_._oid = oid
+                self_._dashboard = dashboard
 
             async def on_submit(self_, inter: Interaction) -> None:
                 label = self_.label_input.value.strip()

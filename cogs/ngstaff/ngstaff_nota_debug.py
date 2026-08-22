@@ -109,7 +109,9 @@ async def ngstaff_nota_debug(interaction: Interaction) -> None:
 
     # 🧩 Envoi de l'interface de debug.
     await interaction.followup.send(
-        view=build_nota_debug_view(now, cfg, state, presence_trigger, deadline_trigger, public_trigger),
+        view=build_nota_debug_view(
+            server.display_name, now, cfg, state, presence_trigger, deadline_trigger, public_trigger
+        ),
         ephemeral=True,
     )
 

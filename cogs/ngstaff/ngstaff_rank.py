@@ -2,14 +2,15 @@
 cogs/ngstaff/ngstaff_rank.py — /ngstaff rank : rank-up d'un membre du staff,
 généralisé multi-serveurs (refonte multi-serveurs, phase 12, §13 du prompt).
 
-Réplique de cogs/alpha/rank.py, avec deux différences :
+Héritier de l'ex-cogs/alpha/rank.py (supprimé depuis le passage à
+/ngstaff rank) :
   - la vérification de permission utilise le flow deux temps dynamique
-    (require_ng_server + has_grade_check(f"staff_{server}.op")) au lieu de
-    utils.perm_alpha.check_op_alpha (RBAC legacy, propre à Alpha) ;
-  - server est résolu depuis l'interaction plutôt que câblé en dur, et
-    passé explicitement à execute_grade_rank/execute_statut_rank (kwarg
-    server, ajouté phase 12 — défaut "alpha" pour ne rien casser côté
-    /alpha rank, qui ne le passe jamais).
+    (require_ng_server + has_grade_check(f"staff_{server}.op")), généralisé
+    à tout serveur NG ;
+  - server est résolu dynamiquement depuis l'interaction (require_ng_server)
+    et passé explicitement à execute_grade_rank/execute_statut_rank (kwarg
+    `server` obligatoire, plus de défaut "alpha" depuis le nettoyage
+    nomenclature).
 
 Statuts (Paul, 2026-08-22) : le paramètre `valeur` était auparavant une
 liste FIGÉE (`@app_commands.choices`, GRADE_CHOICES + STATUT_CHOICES) —

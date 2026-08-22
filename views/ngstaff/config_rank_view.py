@@ -12,6 +12,7 @@ from discord import ButtonStyle, Interaction
 from discord.ui import ActionRow, Button, Container, LayoutView, Separator, TextDisplay
 
 from utils.managers.ng_rank_config_manager import load_rank_config, save_rank_config
+from utils.ng_server_display import get_server_display_name
 from views._components.channel_select import ChannelSelect
 from views._components.role_select import RoleSelect
 
@@ -65,7 +66,7 @@ class ConfigRankView(LayoutView):
     def _build(self) -> None:
         cfg = self.cfg
         c = Container()
-        c.add_item(TextDisplay("# <:parametre:1495444004328706059> Config Alpha — Système Rank"))
+        c.add_item(TextDisplay(f"# <:parametre:1495444004328706059> Config {get_server_display_name(self.server)} — Système Rank"))
         c.add_item(Separator())
 
         c.add_item(TextDisplay(
@@ -97,7 +98,7 @@ class ConfigRankView(LayoutView):
 
         c.add_item(TextDisplay(
             "**🎖️ Statuts secondaires**\n"
-            "-# Journaliste/Affilié/Builder (Alpha) ou tout autre statut : librement "
+            "-# Journaliste/Affilié/Builder ou tout autre statut : librement "
             "définissables via le bouton « 🎖️ Statuts » du tableau de bord "
             "`/ngstaff config` — plus configurés ici (Paul, 2026-08-22)."
         ))
@@ -173,7 +174,7 @@ class ConfigRankView(LayoutView):
         modal = TextModal(
             title="Emoji annonce rank/derank",
             label="Emoji (custom ou unicode, vide = désactiver)",
-            placeholder="Ex: <:Alpha:1500414179650048070> ou 🎉",
+            placeholder="Ex: <:MonEmoji:1234567890123456789> ou 🎉",
             default=current,
             min_length=0,
             max_length=100,

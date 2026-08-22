@@ -1,13 +1,14 @@
 """
-views/alpha/rank_view.py — Annonces publiques du système de rank Alpha.
+views/ngstaff/rank_view.py — Annonces publiques du système de rank,
+généralisé multi-serveurs (ex-views/alpha/rank_view.py).
 
-Extrait de cogs/alpha/rank.py, même traitement que event_start, event_regle,
-index et derank : cog + logique métier allégés, construction des views ici.
+Extrait à l'origine de cogs/alpha/rank.py (supprimé depuis, remplacé par
+cogs/ngstaff/ngstaff_rank.py) : cog + logique métier allégés, construction
+des views ici.
 
 Toutes en LayoutView simple, PAS BaseLayoutView : aucun de ces messages n'a
 de composant interactif (aucun bouton, aucun select) — ce sont des annonces
-publiques postées une fois, avec timeout=None. Même cas que
-views/alpha/index_view.py, views/alpha/event_regle_view.py, etc.
+publiques postées une fois, avec timeout=None.
 """
 from __future__ import annotations
 
@@ -55,7 +56,7 @@ def build_statut_announcement(
     membre: discord.Member, label: str, *, badge: str | None = None, emoji: str | None = None,
 ) -> LayoutView:
     """Annonce publique pour l'attribution d'un statut secondaire (statut
-    librement défini par serveur, ex: journaliste/affilié/builder sur Alpha).
+    librement défini par serveur, ex: journaliste/affilié/builder).
 
     `label`/`badge` viennent désormais directement de la définition du
     statut (NGStatutDef, via ng_statut_manager) plutôt que du dict figé

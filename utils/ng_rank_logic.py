@@ -13,6 +13,7 @@ from utils.settings import settings
 from utils.db.models.staff_grades import GRADE_LABELS, GRADE_PREFIXES, GRADE_TO_ROLE_ATTR, STAFF_GENERAL_GRADES, STATUT_INCOMPATIBLE_GRADES
 from utils.managers.ng_staff_manager import update_staff_member, upsert_staff_member
 from utils.managers.ng_statut_manager import get_statut_def, grant_statut, list_statut_defs, revoke_statut
+from utils.ng_server_display import get_server_display_name
 from views.ngstaff.rank_view import (build_dev_message, build_grade_announcement, build_journaliste_message, build_statut_announcement)
 
 log = logging.getLogger(__name__)
@@ -205,15 +206,15 @@ async def execute_grade_rank(bot: discord.Client, guild_id: int, membre: discord
         grade=new_grade,
         secondary=target_secondary,
         statut_defs=statut_defs,
-        reason=f"Rank Alpha : {GRADE_LABELS[new_grade]}",
+        reason=f"Rank {get_server_display_name(server)} : {GRADE_LABELS[new_grade]}",
     )
 
     prefix = compute_nick_prefix(new_grade, target_secondary, statut_defs)
     new_nick = f"{prefix} | {pseudo}" if prefix else pseudo
     try:
-        await membre.edit(nick=new_nick, reason=f"Rank Alpha : {GRADE_LABELS[new_grade]}")
+        await membre.edit(nick=new_nick, reason=f"Rank {get_server_display_name(server)} : {GRADE_LABELS[new_grade]}")
     except (discord.Forbidden, discord.HTTPException):
-        log.warning("[RANK ALPHA] Impossible de renommer %s", membre.id)
+        log.warning("[NGSTAFF RANK] Impossible de renommer %s", membre.id)
         new_nick = None
 
     await _send_with_reaction(
@@ -260,7 +261,7 @@ async def execute_statut_rank(
     server: str,
 ) -> RankResult:
     """Attribue un statut secondaire (librement défini par serveur, ex :
-    journaliste/affilié/builder sur Alpha) cumulable : DB, rôles, annonces,
+    journaliste/affilié/builder) cumulable : DB, rôles, annonces,
     stafflist.
 
     `statut` est la `key` d'un NGStatutDef existant pour ce serveur (résolu
@@ -324,7 +325,7 @@ async def execute_statut_rank(
         grade=current_grade,
         secondary=target_secondary,
         statut_defs=statut_defs,
-        reason=f"Rank Alpha : {statut_def['label']}",
+        reason=f"Rank {get_server_display_name(server)} : {statut_def['label']}",
     )
 
     # Le grade prime toujours sur le pseudo (s'il y en a un, le pseudo n'est
@@ -337,9 +338,9 @@ async def execute_statut_rank(
         prefix = compute_nick_prefix(None, target_secondary, statut_defs)
         new_nick = f"{prefix} | {pseudo}" if prefix else pseudo
         try:
-            await membre.edit(nick=new_nick, reason=f"Rank Alpha : {statut_def['label']}")
+            await membre.edit(nick=new_nick, reason=f"Rank {get_server_display_name(server)} : {statut_def['label']}")
         except (discord.Forbidden, discord.HTTPException):
-            log.warning("[RANK ALPHA] Impossible de renommer %s", membre.id)
+            log.warning("[NGSTAFF RANK] Impossible de renommer %s", membre.id)
             new_nick = None
 
     await _send_with_reaction(

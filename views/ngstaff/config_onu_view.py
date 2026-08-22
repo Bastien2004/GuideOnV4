@@ -21,6 +21,7 @@ from utils.managers.ng_onu_manager import (
     get_onu_ping_members, add_onu_ping_member, remove_onu_ping_member,
 )
 from utils.db.models.ng_onu_config import JOURS_LABELS
+from utils.ng_server_display import get_server_display_name
 from views._components.channel_select import ChannelSelect
 from views._components.role_select import RoleSelect
 from views._components.user_select import UserSelect
@@ -71,7 +72,7 @@ class ONUConfigView(LayoutView):
     def _build(self) -> None:
         cfg = self.cfg
         c = Container()
-        c.add_item(TextDisplay("## 🌐 Config Alpha — Système ONU"))
+        c.add_item(TextDisplay(f"## 🌐 Config {get_server_display_name(self.server)} — Système ONU"))
         c.add_item(Separator())
         c.add_item(TextDisplay(
             f"**📡 Salon :** {_ch(cfg.get('channel_id'))}\n"
@@ -415,7 +416,7 @@ class _ParamsView(LayoutView):
         c.add_item(Separator())
         c.add_item(TextDisplay(
             f"**🖼️ Image :** `{self.cfg.get('image_name') or 'Non configurée'}`\n"
-            f"-# Fichier dans source/ (ex: onu_alpha_1.png)\n\n"
+            f"-# Fichier dans source/ (ex: onu_{self.server}_1.png)\n\n"
             f"**🔗 URL rejoindre :** {'*Configurée*' if self.cfg.get('join_url') else '*Non configurée*'}\n\n"
             f"**Système :** {_bool(self.cfg.get('enabled', True))}"
         ))
@@ -446,7 +447,7 @@ class _ParamsView(LayoutView):
         modal = TextModal(
             title="Image ONU",
             label="Nom du fichier (dans source/)",
-            placeholder="Ex: onu_alpha_1.png",
+            placeholder=f"Ex: onu_{self.server}_1.png",
             default=self.cfg.get("image_name") or "",
             min_length=0, max_length=100,
             on_submit=on_submit,
