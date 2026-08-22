@@ -14,7 +14,7 @@ from __future__ import annotations
 import discord
 from discord.ui import Container, LayoutView, Separator, TextDisplay
 
-from utils.db.models.alpha_staff import GRADE_LABELS, SECONDARY_STATUSES
+from utils.db.models.alpha_staff import GRADE_LABELS
 
 # ============================================================
 # 🧩 Construction des views
@@ -51,15 +51,19 @@ def build_grade_announcement(
     return view
 
 
-def build_statut_announcement(membre: discord.Member, statut: str, *, emoji: str | None = None) -> LayoutView:
-    """Annonce publique pour l'attribution d'un statut secondaire (journaliste/affilié/builder).
+def build_statut_announcement(
+    membre: discord.Member, label: str, *, badge: str | None = None, emoji: str | None = None,
+) -> LayoutView:
+    """Annonce publique pour l'attribution d'un statut secondaire (statut
+    librement défini par serveur, ex: journaliste/affilié/builder sur Alpha).
 
+    `label`/`badge` viennent désormais directement de la définition du
+    statut (NGStatutDef, via ng_statut_manager) plutôt que du dict figé
+    SECONDARY_STATUSES — généralisation multi-serveurs (Paul, 2026-08-22).
     `emoji` : voir build_grade_announcement — même correction (emoji configuré
     par serveur au lieu du logo Alpha en dur).
     """
-    meta = SECONDARY_STATUSES[statut]
-    label = meta["label"]
-    badge = meta["badge"] or ""
+    badge = badge or ""
     prefix = f"{emoji} " if emoji else ""
 
     view = LayoutView(timeout=None)

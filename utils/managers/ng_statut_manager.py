@@ -179,6 +179,12 @@ async def update_statut_def(server: str, key: str, **fields: object) -> dict:
 
         _invalidate(server)
 
+    # 🔄 Les dicts membres mis en cache par ng_staff_manager embarquent une
+    # copie de "statuts" (label/emoji/role_id/requires_second_pseudo) — à
+    # invalider aussi, sinon staleness jusqu'à 60s (Paul, 2026-08-22).
+    from utils.managers.ng_staff_manager import invalidate_cache as _invalidate_staff_cache
+    _invalidate_staff_cache(server)
+
     return result
 
 
@@ -201,6 +207,11 @@ async def delete_statut_def(server: str, key: str) -> bool:
             _invalidate(server)
 
     if deleted:
+        # 🔄 Idem update_statut_def : les membres qui avaient ce statut en
+        # cache (ng_staff_manager) doivent le voir disparaître immédiatement,
+        # pas après expiration du TTL (Paul, 2026-08-22).
+        from utils.managers.ng_staff_manager import invalidate_cache as _invalidate_staff_cache
+        _invalidate_staff_cache(server)
         log.info("[NG STATUT] %s : statut supprimé key=%s", server, key)
     return deleted
 
@@ -285,6 +296,13 @@ async def grant_statut(server: str, discord_id: int, key: str, *, second_pseudo:
             await session.flush()
             result = row.to_dict()
 
+    # 🔄 Voir update_statut_def : ng_staff_manager met en cache une copie de
+    # "statuts" par membre — sans cette invalidation, le statut fraîchement
+    # accordé resterait invisible jusqu'à 60s dans list_staff/get_staff_member
+    # (stafflist, dashboard d'édition, /ngstaff rank suivant...).
+    from utils.managers.ng_staff_manager import invalidate_cache as _invalidate_staff_cache
+    _invalidate_staff_cache(server)
+
     log.info("[NG STATUT] %s : statut %s accordé à discord_id=%s", server, key, discord_id)
     return result
 
@@ -306,6 +324,8 @@ async def revoke_statut(server: str, discord_id: int, key: str) -> bool:
             revoked = result.rowcount > 0
 
     if revoked:
+        from utils.managers.ng_staff_manager import invalidate_cache as _invalidate_staff_cache
+        _invalidate_staff_cache(server)
         log.info("[NG STATUT] %s : statut %s retiré à discord_id=%s", server, key, discord_id)
     return revoked
 
@@ -325,4 +345,8 @@ async def revoke_all_statuts(server: str, discord_id: int) -> int:
                     NGStaffStatut.statut_def_id.in_(def_ids),
                 )
             )
+
+    if result.rowcount:
+        from utils.managers.ng_staff_manager import invalidate_cache as _invalidate_staff_cache
+        _invalidate_staff_cache(server)
     return result.rowcount

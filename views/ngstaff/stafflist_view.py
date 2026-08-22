@@ -24,14 +24,18 @@ from utils.db.models.alpha_staff import GRADE_EMOJIS, GRADE_LABELS, GRADES_ORDER
 
 def build_stafflist_view(members: list[dict], *, server: str = "alpha") -> LayoutView:
     """
-    Affiche UNIQUEMENT les 6 grades de la hiérarchie staff (administrateur
-    → guide) en sections, plus une section Builders dédiée (tous les
-    is_builder=True, avec leur pseudo builder — pas de badge, déjà listés
-    avec leur pseudo dédié).
+    Affiche les 6 grades de la hiérarchie staff (administrateur → guide) en
+    sections, plus une section dédiée par statut ayant `requires_second_pseudo`
+    (ex : Builder sur Alpha — pseudo secondaire affiché à la place du pseudo
+    staff, pas de badge inline puisque déjà listé dans sa propre section).
 
-    Un membre purement Journaliste/Affilié (grade=None, aucun is_builder)
-    n'apparaît dans AUCUNE section — invisible dans la stafflist, comme
-    voulu (seuls les 6 grades + Builders y figurent).
+    Statuts (Paul, 2026-08-22) : auparavant une section "🧱 Builders" codée
+    en dur (is_builder=True) — remplacée par une boucle générique sur les
+    statuts du serveur (member["statuts"], enrichi par ng_staff_manager)
+    ayant `requires_second_pseudo=True`, pour rester valable quel que soit
+    le nom du statut défini par le serveur NG. Un membre purement statut
+    (grade=None) sans statut à second pseudo n'apparaît dans AUCUNE section
+    — invisible dans la stafflist, comme voulu.
 
     `server` : sélectionne le titre affiché (nom du serveur NG). Auparavant
     codé en dur "Effectif Staff Alpha" avec l'emoji <:AlphaStaff:...> pour
@@ -65,16 +69,31 @@ def build_stafflist_view(members: list[dict], *, server: str = "alpha") -> Layou
         c.add_item(Separator())
         view.add_item(c)
 
-    # ── Section Builders dédiée (tous les is_builder=True) ────
-    builders = [m for m in members if m.get("is_builder")]
-    if builders:
+    # ── Une section dédiée par statut "second pseudo" (ex: Builder) ──────
+    # Un membre peut apparaître dans plusieurs de ces sections s'il cumule
+    # plusieurs statuts à second pseudo (cas rare mais pas interdit).
+    seen_second_pseudo_statuts: dict[str, dict] = {}
+    for m in members:
+        for s in m.get("statuts", []):
+            if s.get("requires_second_pseudo"):
+                seen_second_pseudo_statuts.setdefault(s["key"], s)
+
+    for key, statut_meta in seen_second_pseudo_statuts.items():
+        holders = [
+            (m, s) for m in members for s in m.get("statuts", [])
+            if s["key"] == key and s.get("requires_second_pseudo")
+        ]
+        if not holders:
+            continue
+
+        emoji = statut_meta.get("emoji") or "🎖️"
         c = Container()
-        c.add_item(TextDisplay("## 🧱 Builders"))
+        c.add_item(TextDisplay(f"## {emoji} {statut_meta['label']}s"))
         c.add_item(Separator())
 
         block = "\n".join(
-            f"**{m.get('pseudo_jeu_builder') or m['pseudo_jeu']}** — <@{m['discord_id']}> — `{m['discord_id']}`"
-            for m in builders
+            f"**{s.get('second_pseudo') or m['pseudo_jeu']}** — <@{m['discord_id']}> — `{m['discord_id']}`"
+            for m, s in holders
         )
 
         c.add_item(TextDisplay(block))

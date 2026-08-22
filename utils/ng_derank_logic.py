@@ -21,19 +21,27 @@ import discord
 from discord.ui import Container, LayoutView, Separator, TextDisplay
 
 from utils.ng_rank_logic import apply_staff_roles, compute_nick_prefix
-from utils.db.models.alpha_staff import GRADE_LABELS, SECONDARY_STATUSES, STATUTS_SECONDAIRES_ORDER
+from utils.db.models.alpha_staff import GRADE_LABELS
 from utils.managers.ng_staff_manager import remove_staff_member, update_staff_member
+from utils.managers.ng_statut_manager import list_statut_defs, revoke_all_statuts, revoke_statut
 
 log = logging.getLogger(__name__)
 
 # Refonte multi-serveurs phase 12 : execute_derank accepte désormais un
 # paramètre `server` optionnel (kwarg-only, défaut "alpha") — voir la même
 # note dans utils/ng_rank_logic.py.
+#
+# Statuts (Paul, 2026-08-22) : comme dans ng_rank_logic.py, les clés de
+# `secondary` sont désormais les `key` des NGStatutDef du serveur
+# (statut_defs, résolus via ng_statut_manager.list_statut_defs) plutôt que
+# "journaliste"/"affilie"/"builder" en dur.
 
 
-def secondary_dict(member_data: dict) -> dict[str, bool]:
-    """Extrait l'état des 3 statuts secondaires depuis un dict membre."""
-    return {key: member_data.get(f"is_{key}", False) for key in STATUTS_SECONDAIRES_ORDER}
+def secondary_dict(member_data: dict, statut_defs: list[dict]) -> dict[str, bool]:
+    """Extrait l'état des statuts secondaires d'un membre, pour les statuts
+    définis sur ce serveur (statut_defs)."""
+    held = {s["key"] for s in member_data.get("statuts", [])}
+    return {d["key"]: d["key"] in held for d in statut_defs}
 
 
 # ============================================================
@@ -43,21 +51,24 @@ def secondary_dict(member_data: dict) -> dict[str, bool]:
 def compute_target_state(role: str, grade: str | None, secondary: dict[str, bool]) -> tuple[str | None, dict[str, bool]]:
     """Calcule (grade_cible, statuts_cibles) selon le type de derank demandé."""
     if role == "complet":
-        return None, {key: False for key in STATUTS_SECONDAIRES_ORDER}
+        return None, {key: False for key in secondary}
     if role == "staff":
         return None, dict(secondary)
-    # journaliste / affilie / builder
+    # statut secondaire spécifique (clé dynamique, ex: journaliste/affilie/builder sur Alpha)
     target_secondary = dict(secondary)
     target_secondary[role] = False
     return grade, target_secondary
 
 
-def guard_message(role: str, pseudo_jeu: str, grade: str | None, secondary: dict[str, bool]) -> str | None:
+def guard_message(
+    role: str, pseudo_jeu: str, grade: str | None, secondary: dict[str, bool], statut_defs: list[dict],
+) -> str | None:
     """Renvoie un message d'avertissement si le derank demandé n'a rien à faire, sinon None."""
     if role == "staff" and not grade:
         return f"**{pseudo_jeu}** n'a aucun grade staff à retirer."
-    if role in SECONDARY_STATUSES and not secondary.get(role, False):
-        return f"**{pseudo_jeu}** n'est pas **{SECONDARY_STATUSES[role]['label']}**."
+    statut_def = next((d for d in statut_defs if d["key"] == role), None)
+    if statut_def is not None and not secondary.get(role, False):
+        return f"**{pseudo_jeu}** n'est pas **{statut_def['label']}**."
     return None
 
 
@@ -66,12 +77,16 @@ def guard_message(role: str, pseudo_jeu: str, grade: str | None, secondary: dict
 # ============================================================
 
 def build_derank_announcement(
-    membre: discord.Member, role: str, old_grade: str | None, *, emoji: str | None = None,
+    membre: discord.Member, role: str, old_grade: str | None, *,
+    emoji: str | None = None, statut_label: str | None = None, statut_badge: str | None = None,
 ) -> LayoutView:
     """Annonce publique de derank.
 
     `emoji` : emoji d'annonce configuré par serveur (NGRankConfig.rank_emoji),
     remplace l'ancien logo Alpha codé en dur (Paul, 2026-08-22).
+    `statut_label`/`statut_badge` : libellé/emoji du NGStatutDef concerné
+    (fournis par l'appelant, résolus via ng_statut_manager) quand `role` est
+    la clé d'un statut secondaire plutôt que "complet"/"staff".
     """
     prefix = f"{emoji} " if emoji else ""
     view = LayoutView(timeout=None)
@@ -86,10 +101,9 @@ def build_derank_announcement(
         c.add_item(TextDisplay(f"{prefix}**Merci** à <@{membre.id}> pour son travail chez les **{label}** !"))
 
     else:
-        statut_label = SECONDARY_STATUSES[role]["label"]
-        badge = SECONDARY_STATUSES[role]["badge"] or ""
+        badge = statut_badge or ""
         c.add_item(TextDisplay(
-            f"{prefix}**Merci** à <@{membre.id}> pour son travail chez les **{statut_label}** ! {badge}".rstrip()
+            f"{prefix}**Merci** à <@{membre.id}> pour son travail chez les **{statut_label or role}** ! {badge}".rstrip()
         ))
 
     view.add_item(c)
@@ -197,31 +211,32 @@ async def execute_derank(
     avoir été faites par l'appelant avant d'invoquer cette fonction.
     """
     grade = member_data["grade"]
-    secondary = secondary_dict(member_data)
+    discord_id = member_data["discord_id"]
+    statut_defs = await list_statut_defs(server)
+    secondary = secondary_dict(member_data, statut_defs)
     target_grade, target_secondary = compute_target_state(role, grade, secondary)
+    statut_def = next((d for d in statut_defs if d["key"] == role), None)
 
     # ── Persistance DB ────────────────────────────────────
     has_remaining_state = target_grade is not None or any(target_secondary.values())
 
     if not has_remaining_state:
-        # Plus rien à conserver -> ligne supprimée entièrement.
-        await remove_staff_member(server, member_data["discord_id"])
+        # Plus rien à conserver -> statuts + ligne staff supprimés entièrement.
+        await revoke_all_statuts(server, discord_id)
+        await remove_staff_member(server, discord_id)
     else:
-        update_kwargs: dict = {
-            "grade": target_grade,
-            "is_journaliste": target_secondary["journaliste"],
-            "is_affilie": target_secondary["affilie"],
-            "is_builder": target_secondary["builder"],
-        }
-        if role == "builder" or role == "complet":
-            update_kwargs["pseudo_jeu_builder"] = None
-        await update_staff_member(server, member_data["discord_id"], **update_kwargs)
+        # Retire uniquement les statuts qui doivent disparaître (secondary -> target_secondary).
+        for key, was_held in secondary.items():
+            if was_held and not target_secondary.get(key, False):
+                await revoke_statut(server, discord_id, key)
+        await update_staff_member(server, discord_id, grade=target_grade)
 
     # ── Rôles Discord ──────────────────────────────────────
     await apply_staff_roles(
         membre, cfg,
         grade=target_grade,
         secondary=target_secondary,
+        statut_defs=statut_defs,
         reason=f"Derank Alpha : {role}",
     )
 
@@ -232,7 +247,7 @@ async def execute_derank(
         except (discord.Forbidden, discord.HTTPException):
             log.warning("[DERANK ALPHA] Impossible de renommer %s", membre.id)
     else:
-        prefix = compute_nick_prefix(target_grade, target_secondary)
+        prefix = compute_nick_prefix(target_grade, target_secondary, statut_defs)
         new_nick = f"{prefix} | {member_data['pseudo_jeu']}" if prefix else member_data["pseudo_jeu"]
         try:
             await membre.edit(nick=new_nick, reason=f"Derank Alpha : {role}")
@@ -243,7 +258,11 @@ async def execute_derank(
     await send_with_reaction(
         bot,
         cfg.get("rank_channel_id"),
-        build_derank_announcement(membre, role, grade, emoji=cfg.get("rank_emoji")),
+        build_derank_announcement(
+            membre, role, grade, emoji=cfg.get("rank_emoji"),
+            statut_label=statut_def["label"] if statut_def else None,
+            statut_badge=statut_def.get("emoji") if statut_def else None,
+        ),
         cfg.get("rank_emoji"),
     )
 

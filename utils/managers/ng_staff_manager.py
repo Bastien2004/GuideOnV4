@@ -32,6 +32,7 @@ from sqlalchemy import delete, select
 from utils.db.models.alpha_staff import GRADES_ORDER
 from utils.db.models.ng_staff import NGStaffMember
 from utils.db.session import get_session
+from utils.managers.ng_statut_manager import list_member_statuts_bulk
 
 log = logging.getLogger(__name__)
 
@@ -57,6 +58,15 @@ def _invalidate(server: str) -> None:
     _cache.pop(server, None)
 
 
+def invalidate_cache(server: str) -> None:
+    """Invalidation publique — utilisée par ng_statut_manager quand un statut
+    est accordé/retiré/modifié/supprimé, puisque les dicts membres mis en
+    cache ici embarquent une copie de "statuts" (voir _load_from_db) qui
+    doit être rafraîchie, pas seulement le cache des définitions de
+    ng_statut_manager (Paul, 2026-08-22)."""
+    _invalidate(server)
+
+
 def _sort(members: list[dict]) -> list[dict]:
     def key(m: dict) -> tuple:
         grade = m["grade"]
@@ -75,7 +85,16 @@ async def _load_from_db(server: str) -> list[dict]:
         rows = (
             await session.execute(select(NGStaffMember).where(NGStaffMember.server == server))
         ).scalars().all()
-    return _sort([r.to_dict() for r in rows])
+    members = [r.to_dict() for r in rows]
+
+    # 🎖️ Enrichissement "statuts" (système dynamique par serveur, remplace
+    # les booléens is_journaliste/is_affilie/is_builder) : une seule requête
+    # bulk ici plutôt qu'un appel par membre (Paul, 2026-08-22).
+    statuts_by_member = await list_member_statuts_bulk(server)
+    for m in members:
+        m["statuts"] = statuts_by_member.get(m["discord_id"], [])
+
+    return _sort(members)
 
 
 async def _get_cache(server: str) -> list[dict]:
@@ -237,4 +256,3 @@ async def update_staff_member(server: str, discord_id: int, **fields: object) ->
 
     log.info("[NG STAFF] %s : modifié discord_id=%s champs=%s", server, discord_id, list(clean))
     return True
-

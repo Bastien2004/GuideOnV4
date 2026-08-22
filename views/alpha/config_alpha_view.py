@@ -92,10 +92,10 @@ class ConfigRankView(LayoutView):
         c.add_item(Separator())
 
         c.add_item(TextDisplay(
-            f"**🎭 Statuts secondaires**\n"
-            f"• 📰 Journaliste : {_role(cfg.get('role_journaliste_id'))}\n"
-            f"• 🎥 Affilié : {_role(cfg.get('role_affilie_id'))}\n"
-            f"• 🧱 Builder : {_role(cfg.get('role_builder_id'))}\n\n"
+            "**🎖️ Statuts secondaires**\n"
+            "-# Journaliste/Affilié/Builder (Alpha) ou tout autre statut : librement "
+            "définissables via le bouton « 🎖️ Statuts » du tableau de bord "
+            "`/ngstaff config` — plus configurés ici (Paul, 2026-08-22)."
         ))
         c.add_item(Separator())
 
@@ -118,6 +118,9 @@ class ConfigRankView(LayoutView):
 
         c.add_item(ActionRow(btn_salons, btn_pings, btn_roles1))
         c.add_item(ActionRow(btn_emoji, btn_back))
+        c.add_item(TextDisplay(
+            "-# 🎖️ Statuts (builder, journaliste, avocat...) : voir /ngstaff config → Statuts."
+        ))
         c.add_item(TextDisplay("-# GuideOn Studio"))
         self.add_item(c)
 
@@ -300,7 +303,7 @@ class _PingsView(LayoutView):
 
 
 # ════════════════════════════════════════════════════════════
-# 🎭 Sous-vue Rôles par grade (paginée : 3 pages de 3-4 rôles)
+# 🎭 Sous-vue Rôles par grade (paginée)
 # ════════════════════════════════════════════════════════════
 
 _ROLES_PAGES: list[list[tuple[str, str]]] = [
@@ -317,12 +320,10 @@ _ROLES_PAGES: list[list[tuple[str, str]]] = [
         ("role_administrateur_id",    "Administrateur"),
         ("role_equipe_id",            "🔰 Rôle équipe (Guide, Modo test/confirmé/+)"),
     ],
-    # page 3 : statuts secondaires (cumulables, hors hiérarchie)
-    [
-        ("role_journaliste_id", "📰 Journaliste"),
-        ("role_affilie_id",     "🎥 Affilié"),
-        ("role_builder_id",     "🧱 Builder"),
-    ],
+    # Statuts secondaires (journaliste/affilié/builder ou tout autre statut
+    # défini pour ce serveur) : plus une page de rôles ici — chaque statut
+    # porte désormais son propre role_id (NGStatutDef), configurable via
+    # /ngstaff config → Statuts (Paul, 2026-08-22).
 ]
 _TOTAL_PAGES = len(_ROLES_PAGES)
 

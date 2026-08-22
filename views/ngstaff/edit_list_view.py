@@ -98,9 +98,16 @@ class EditListView(LayoutView):
         if grade_counts.get(None):
             summary_lines.append(f"• *Sans grade (statut seul)* : **{grade_counts[None]}**")
 
-        builder_count = sum(1 for m in self.members if m.get("is_builder"))
-        if builder_count:
-            summary_lines.append(f"• 🧱 Builders (cumul) : **{builder_count}**")
+        # Statuts (Paul, 2026-08-22) : décompte générique par statut détenu
+        # (remplace l'ancien comptage figé is_builder uniquement).
+        statut_counts: dict[str, dict] = {}
+        for m in self.members:
+            for s in m.get("statuts", []):
+                entry = statut_counts.setdefault(s["key"], {"label": s["label"], "emoji": s.get("emoji"), "count": 0})
+                entry["count"] += 1
+        for entry in statut_counts.values():
+            badge = f"{entry['emoji']} " if entry["emoji"] else ""
+            summary_lines.append(f"• {badge}{entry['label']} (cumul) : **{entry['count']}**")
 
         c = Container()
         c.add_item(TextDisplay(f"# 📋 Dashboard — Liste Staff {get_server_display_name(self.server)}"))
@@ -388,7 +395,10 @@ class _ModifyOptionsView(LayoutView):
         d = self.data
         label = GRADE_LABELS.get(d["grade"], d["grade"]) if d["grade"] else "*Aucun grade*"
         badges = build_member_badges(d)
-        builder_line = f"\n• Pseudo Builder : **{d['pseudo_jeu_builder']}**" if d.get("pseudo_jeu_builder") else ""
+        second_pseudo_lines = "".join(
+            f"\n• Pseudo {s['label']} : **{s['second_pseudo']}**"
+            for s in d.get("statuts", []) if s.get("second_pseudo")
+        )
 
         c = Container()
         c.add_item(TextDisplay(f"## ✏️ Modifier **{d['pseudo_jeu']}**{badges}"))
@@ -397,7 +407,7 @@ class _ModifyOptionsView(LayoutView):
             f"• Grade : **{label}**\n"
             f"• Skin : {d['skin_head_emoji'] or '*(vide)*'}\n"
             f"• Discord : <@{d['discord_id']}>"
-            f"{builder_line}"
+            f"{second_pseudo_lines}"
         ))
         c.add_item(Separator())
 
