@@ -31,27 +31,22 @@ _RULES: list[tuple[str, str, str]] = [
     ("🚫", "Contenu illégal",
      "Les propos **racistes**, **homophobes**, **grossophobe**, **antisémithes** ou incitant à la **haine**, "
      "ainsi que tout autres propos __interdit__ par la **loi française** sont **formellement interdit** et feront l'objet de **sanction** __très lourde__. " 
-     "De manière générale tout contenus **violent**, **choquant**, **inapproprié** est formellement interdit sur le serveur."),
+     "De manière générale tout contenus **violent**, **choquant**, **inapproprié** est __formellement interdit__ sur le serveur."),
 
     ("📢", "Publicité",
      "Toutes **publicitées** __extérieures__ à NationsGlory sont **strictement interdite** sur le serveur Discord, "
      "quelles concernent **Minecraft®** ou non. Le **démarchage** via les __messages privés__ est aussi **prohibé**."),
 
     ("🔐", "Vie privée (dox)",
-     "Le partage d'informations personnelles, que ce soit les vôtres ou celles "
-     "d'un autre membre, sans autorisation est interdit."),
-    ("🛡️", "Staff",
-     
-     "Les membres du staff peuvent choisir et appliquer les sanctions qu'ils "
-     "jugent appropriées, en fonction de la situation et des circonstances.\n"
-     "Merci de respecter les décisions prises par le staff.\n"
-     "En cas de désaccord avec une sanction ou une décision, vous pouvez "
-     "contacter un membre du staff en privé afin d'en discuter calmement."),
+     "Le **partage d'informations personnelles** permettant l'**identification** d'une personne, qu'elles soient les __vôtres__ ou celles "
+     "d'un __autre membre__, même **consenti** pourra entraîner un __bannissement__ de nos **services**."),
 
-    ("⚠️", "Sanctions",
-     "Tout non-respect du règlement peut entraîner une sanction. Celle-ci peut "
-     "aller d'un simple avertissement jusqu'au bannissement, selon la gravité "
-     "des faits et les antécédents du membre."),
+    ("🛡️", "Staff",
+     "Les __membres du staff__ sont libres de **choisir** et d'**appliquer** les sanctions qu'ils jugent **appropriées**, "
+     "en fonction de la **situation**, des **circonstances** et des **antécédents** du membre."
+     "Merci de __respecter__ toutes les **décisions** prises par le staff. Cependant l'erreur reste humaine. "
+     "En cas de **désaccord** avec une sanction, vous pouvez __contacter__ un membre du staff afin d'en **discuter calmement**."),
+
 ]
 
 
@@ -99,9 +94,8 @@ def build_reglement_view(fresh_files: list[discord.File]) -> LayoutView:
 
     for i, (emoji, title, body) in enumerate(_RULES, start=1):
         c.add_item(TextDisplay(f"**{i}. {emoji}・{title}** {body}\n\n"))
-
-    c.add_item(Separator())
-
+        c.add_item(Separator())
+    
     c.add_item(TextDisplay(
             "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
             "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
