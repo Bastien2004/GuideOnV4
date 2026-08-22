@@ -81,7 +81,7 @@ def build_reglement_view(fresh_files: list[discord.File]) -> LayoutView:
         "le monde, merci de prendre quelques minutes pour **lire** et **respecter** "
         "ce __règlement__.\n\n"
 
-        "<:erreur:1495443907281031359> Tout manquement à celui-ci, vous exposera à **diverses sanctions**."
+        "<:erreur:1495443907281031359> Tout manquement à celui-ci, vous exposera à **diverses sanctions**. "
         "Du __rappel à l'odre__ jusqu'au __bannissement définitif__.\n\n"
 
         "Si vous êtes **victime** ou **témoin** d'une quelconque infraction nuissant à la bonne tenue de ce Discord, "
@@ -90,9 +90,17 @@ def build_reglement_view(fresh_files: list[discord.File]) -> LayoutView:
     c.add_item(Separator())
 
     for i, (emoji, title, body) in enumerate(_RULES, start=1):
-        c.add_item(TextDisplay(f"**{i}. {emoji}・{title}**\n{body}"))
-        c.add_item(Separator())
+        c.add_item(TextDisplay(f"**{i}. {emoji}・{title}** : {body}\n\n"))
 
+    c.add_item(Separator())
+
+    c.add_item(TextDisplay(
+            "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+            "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        ))
+    c.add_item(Separator())
+
+    
     c.add_item(TextDisplay("-# GuideOn Studio"))
     view.add_item(c)
     return view
