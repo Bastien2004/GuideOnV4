@@ -21,7 +21,7 @@ import discord
 from discord.ui import Container, LayoutView, Separator, TextDisplay
 
 from utils.ng_rank_logic import apply_staff_roles, compute_nick_prefix
-from utils.db.models.alpha_staff import GRADE_LABELS
+from utils.db.models.staff_grades import GRADE_LABELS
 from utils.managers.ng_staff_manager import remove_staff_member, update_staff_member
 from utils.managers.ng_statut_manager import list_statut_defs, revoke_all_statuts, revoke_statut
 

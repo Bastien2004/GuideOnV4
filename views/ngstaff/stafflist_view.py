@@ -16,7 +16,7 @@ from discord.ui import Container, LayoutView, Separator, TextDisplay
 
 from utils.ng_staff_display import build_member_line
 from utils.ng_server_display import get_server_display_name, get_server_emoji
-from utils.db.models.alpha_staff import GRADE_EMOJIS, GRADE_LABELS, GRADES_ORDER
+from utils.db.models.staff_grades import GRADE_EMOJIS, GRADE_LABELS, GRADES_ORDER
 
 # ============================================================
 # 🧩 Construction de la view

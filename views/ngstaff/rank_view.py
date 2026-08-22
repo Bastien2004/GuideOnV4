@@ -14,7 +14,7 @@ from __future__ import annotations
 import discord
 from discord.ui import Container, LayoutView, Separator, TextDisplay
 
-from utils.db.models.alpha_staff import GRADE_LABELS
+from utils.db.models.staff_grades import GRADE_LABELS
 
 # ============================================================
 # 🧩 Construction des views

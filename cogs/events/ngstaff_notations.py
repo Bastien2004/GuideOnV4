@@ -27,7 +27,7 @@ from utils.managers.ng_nota_manager import (
 
 from utils.managers.ng_nota_manager import load_nota_config as ng_load_nota_config
 from utils.managers.ng_server_manager import get_server_by_guild, get_server_by_name
-from views.alpha.nota_view import build_presence_view, build_public_nota_view
+from views.ngstaff.nota_view import build_presence_view, build_public_nota_view
 
 log = logging.getLogger(__name__)
 

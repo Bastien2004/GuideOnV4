@@ -23,7 +23,7 @@ from utils.managers.ng_role_react_manager import (
 from views._components.channel_select import ChannelSelect
 from views._components.role_select import RoleSelect
 from views._components.text_modal import TextModal
-from views.alpha.role_react_view import build_role_react_view, is_valid_emoji, parse_emoji
+from views.ngstaff.role_react_view import build_role_react_view, is_valid_emoji, parse_emoji
 
 log = logging.getLogger(__name__)
 

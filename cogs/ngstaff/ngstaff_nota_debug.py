@@ -27,7 +27,7 @@ from utils.managers.ng_nota_manager import (
 from utils.ng_server_check import require_ng_server
 from utils.perm_dev import check_dev
 from utils.track_commande import tracker_commande
-from views.alpha.nota_debug_view import build_nota_debug_view
+from views.ngstaff.nota_debug_view import build_nota_debug_view
 from utils.perm_check import has_grade_check
 
 # ============================================================

@@ -10,10 +10,10 @@ from dataclasses import dataclass
 import discord
 
 from utils.settings import settings
-from utils.db.models.alpha_staff import GRADE_LABELS, GRADE_PREFIXES, GRADE_TO_ROLE_ATTR, STAFF_GENERAL_GRADES, STATUT_INCOMPATIBLE_GRADES
+from utils.db.models.staff_grades import GRADE_LABELS, GRADE_PREFIXES, GRADE_TO_ROLE_ATTR, STAFF_GENERAL_GRADES, STATUT_INCOMPATIBLE_GRADES
 from utils.managers.ng_staff_manager import update_staff_member, upsert_staff_member
 from utils.managers.ng_statut_manager import get_statut_def, grant_statut, list_statut_defs, revoke_statut
-from views.alpha.rank_view import (build_dev_message, build_grade_announcement, build_journaliste_message, build_statut_announcement)
+from views.ngstaff.rank_view import (build_dev_message, build_grade_announcement, build_journaliste_message, build_statut_announcement)
 
 log = logging.getLogger(__name__)
 

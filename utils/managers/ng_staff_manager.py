@@ -29,7 +29,7 @@ import time
 
 from sqlalchemy import delete, select
 
-from utils.db.models.alpha_staff import GRADES_ORDER
+from utils.db.models.staff_grades import GRADES_ORDER
 from utils.db.models.ng_staff import NGStaffMember
 from utils.db.session import get_session
 from utils.managers.ng_statut_manager import list_member_statuts_bulk

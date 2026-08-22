@@ -20,7 +20,7 @@ from discord import ButtonStyle, Interaction
 from discord.ui import ActionRow, Button, Container, Separator, TextDisplay
 
 from utils.container_universel import success_container, warning_container
-from utils.db.models.alpha_staff import GRADE_LABELS
+from utils.db.models.staff_grades import GRADE_LABELS
 from utils.ng_derank_logic import execute_derank, guard_message, secondary_dict
 from views._components.base_view import BaseLayoutView
 

@@ -29,7 +29,7 @@ from utils.managers.ng_statut_manager import list_statut_defs
 from utils.ng_server_check import require_ng_server
 from utils.perm_check import has_grade_check
 from utils.track_commande import tracker_commande
-from views.alpha.derank_view import DerankConfirmView
+from views.ngstaff.derank_view import DerankConfirmView
 
 # ============================================================
 # 📦 Constantes

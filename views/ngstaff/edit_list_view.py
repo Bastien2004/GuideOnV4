@@ -28,7 +28,7 @@ from utils.managers.ng_staff_manager import (
     update_staff_member,
     upsert_staff_member,
 )
-from utils.db.models.alpha_staff import GRADES_ORDER, GRADE_LABELS, GRADE_EMOJIS
+from utils.db.models.staff_grades import GRADES_ORDER, GRADE_LABELS, GRADE_EMOJIS
 from utils.ng_server_display import get_server_display_name
 from utils.ng_staff_display import build_member_badges
 from views._components.user_select import UserSelect

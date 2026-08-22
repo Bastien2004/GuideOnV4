@@ -22,7 +22,7 @@ from sqlalchemy import JSON, BigInteger, Boolean, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from utils.db.base import Base, TimestampMixin
-from utils.db.models.alpha_staff import (  # noqa: F401 — ré-export intentionnel
+from utils.db.models.staff_grades import (  # noqa: F401 — ré-export intentionnel
     GRADE_EMOJIS,
     GRADE_LABELS,
     GRADE_PREFIXES,

@@ -27,7 +27,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import delete, select
 
-from utils.db.models.alpha_staff import GRADE_LABELS
+from utils.db.models.staff_grades import GRADE_LABELS
 from utils.db.models.ng_nota_config import (
     NOTA_OPERATOR_GRADES,
     NGNotaAvailability,

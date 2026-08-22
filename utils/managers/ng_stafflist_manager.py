@@ -25,7 +25,7 @@ from utils.managers.alpha_message_manager import (
 )
 from utils.managers.ng_rank_config_manager import load_rank_config
 from utils.managers.ng_staff_manager import list_staff
-from views.alpha.stafflist_view import build_stafflist_view
+from views.ngstaff.stafflist_view import build_stafflist_view
 
 log = logging.getLogger(__name__)
 

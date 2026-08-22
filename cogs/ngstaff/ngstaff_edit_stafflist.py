@@ -23,7 +23,7 @@ from utils.error_handler import handle_app_command_error
 from utils.managers.ng_staff_manager import list_staff
 from utils.ng_server_check import require_ng_server
 from utils.track_commande import tracker_commande
-from views.alpha.edit_list_view import EditListView
+from views.ngstaff.edit_list_view import EditListView
 
 
 # ============================================================

@@ -31,7 +31,7 @@ from utils.managers.ng_staff_manager import list_staff
 from utils.ng_server_check import require_ng_server
 from utils.perm_check import has_grade_check
 from utils.track_commande import tracker_commande
-from views.alpha.stafflist_view import build_stafflist_view
+from views.ngstaff.stafflist_view import build_stafflist_view
 
 log = logging.getLogger(__name__)
 
