@@ -79,7 +79,13 @@ def build_reglement_view(fresh_files: list[discord.File]) -> LayoutView:
         "# <:Iris:1540303650575097896> Règlement du serveur Iris\n"
         "❝ Afin de garder une **bonne ambiance** et un serveur **agréable** pour tout "
         "le monde, merci de prendre quelques minutes pour **lire** et **respecter** "
-        "ce __règlement__."
+        "ce __règlement__.\n\n"
+
+        "<:erreur:1495443907281031359> Tout manquement à celui-ci, vous exposera à diverses sanctions."
+        "Du rappel à l'odre jusqu'au bannissement définitif.\n\n"
+
+        "Si vous êtes victime ou témoin d'une quelconque infraction nuissant à la bonne tenue de ce Discord, "
+        "nous vous invitons à contacter l'équipe de modération avec le tag suivant : <@&1516427548718792754>.\n"
     ))
     c.add_item(Separator())
 
