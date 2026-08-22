@@ -235,8 +235,9 @@ class GuideONBot(commands.Bot):
         from cogs.alpha.event_regle import event_regle
         from cogs.alpha.event_start import event_start
 
-        # ── IMPORT ALPHA ──
+        # ── IMPORT IRIS ──
         from cogs.iris.test import test_iris
+        from cogs.iris.reglement import reglement
 
         # ── IMPORT NGSTAFF ──
         from cogs.ngstaff.ngstaff_config import ngstaff_config
@@ -325,7 +326,7 @@ class GuideONBot(commands.Bot):
 
         # 🪻 ── IRIS ──
         self._groupIRIS = groupeIRIS()
-        for cmd in [test_iris]:
+        for cmd in [test_iris, reglement]:
             self._groupIRIS.add_command(cmd)
 
 
