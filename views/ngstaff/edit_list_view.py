@@ -1,5 +1,6 @@
 """
-views/alpha/edit_list_view.py — Dashboard CRUD liste staff Alpha.
+views/ngstaff/edit_list_view.py — Dashboard CRUD liste staff, multi-serveurs
+(ex-views/alpha/edit_list_view.py).
 
 Permet d'ajouter / modifier / supprimer des membres de la liste staff
 (DB + rafraîchissement du message stafflist) sans les messages décoratifs
@@ -34,18 +35,21 @@ from utils.ng_staff_display import build_member_badges
 from views._components.user_select import UserSelect
 from views._components.text_modal import TextModal
 
-# Refonte multi-serveurs phase 12 : ce fichier est désormais partagé entre
-# /alpha edit_stafflist_alpha (server="alpha" implicite, param par défaut)
-# et /ngstaff edit_stafflist (server résolu dynamiquement). Toutes les
-# classes acceptent un kwarg `server: str = "alpha"` — défaut choisi pour ne
-# rien casser côté /alpha (qui ne le passe jamais explicitement).
+# Refonte multi-serveurs phase 12 : ce fichier servait à l'origine à la fois
+# /alpha edit_stafflist_alpha (commande legacy, supprimée depuis) et
+# /ngstaff edit_stafflist (server résolu dynamiquement, seul appelant
+# restant). Le défaut `server="alpha"` qui existait pour ne pas casser la
+# commande legacy n'a plus lieu d'être : `server` est désormais obligatoire
+# partout dans ce fichier — tout site d'appel qui l'omettrait doit lever une
+# erreur plutôt que de retomber silencieusement sur Alpha (nomenclature et
+# robustesse, Paul, 2026-08-22).
 
 log = logging.getLogger(__name__)
 
 
 # ── Helper retour main ───────────────────────────────────────
 
-async def _back_to_main(interaction: Interaction, owner_id: int, server: str = "alpha") -> None:
+async def _back_to_main(interaction: Interaction, owner_id: int, server: str) -> None:
     members = await list_staff(server)
     await interaction.response.edit_message(
         view=EditListView(interaction.guild_id, owner_id, members, server=server)
@@ -65,7 +69,7 @@ class EditListView(LayoutView):
         owner_id: int,
         members: list[dict] | None = None,
         *,
-        server: str = "alpha",
+        server: str,
     ) -> None:
         super().__init__(timeout=300)
         self.guild_id = guild_id
@@ -261,7 +265,7 @@ class _UserSelectView(LayoutView):
         title: str, desc: str,
         on_select,
         *,
-        server: str = "alpha",
+        server: str,
     ) -> None:
         super().__init__(timeout=120)
         self.guild_id = guild_id
@@ -307,7 +311,7 @@ class _GradeSelectView(LayoutView):
         on_grade,
         error_message: str | None = None,
         *,
-        server: str = "alpha",
+        server: str,
     ) -> None:
         super().__init__(timeout=120)
         self.guild_id = guild_id
@@ -379,7 +383,7 @@ class _GradeSelectView(LayoutView):
 
 class _ModifyOptionsView(LayoutView):
     def __init__(
-        self, guild_id: int, owner_id: int, member_data: dict, *, server: str = "alpha"
+        self, guild_id: int, owner_id: int, member_data: dict, *, server: str
     ) -> None:
         super().__init__(timeout=120)
         self.guild_id = guild_id
@@ -500,7 +504,7 @@ class _ModifyOptionsView(LayoutView):
 
 class _ConfirmRemoveView(LayoutView):
     def __init__(
-        self, guild_id: int, owner_id: int, member_data: dict, *, server: str = "alpha"
+        self, guild_id: int, owner_id: int, member_data: dict, *, server: str
     ) -> None:
         super().__init__(timeout=60)
         self.guild_id = guild_id
@@ -553,7 +557,7 @@ class _ConfirmRemoveView(LayoutView):
 
 class _NotFoundView(LayoutView):
     def __init__(
-        self, guild_id: int, owner_id: int, member_name: str, *, server: str = "alpha"
+        self, guild_id: int, owner_id: int, member_name: str, *, server: str
     ) -> None:
         super().__init__(timeout=60)
         self.guild_id = guild_id

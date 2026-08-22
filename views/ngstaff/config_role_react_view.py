@@ -1,5 +1,6 @@
 """
-views/alpha/config_role_react_view.py — Dashboard configuration Rôle Réaction Alpha.
+views/ngstaff/config_role_react_view.py — Dashboard configuration Rôle
+Réaction, multi-serveurs (ex-views/alpha/config_role_react_view.py).
 
 Sections :
   Vue principale → aperçu + [📡 Salon | 🎭 Rôles | 📤 Déployer | ↩️ Dashboard]
@@ -27,12 +28,14 @@ from views.ngstaff.role_react_view import build_role_react_view, is_valid_emoji,
 
 log = logging.getLogger(__name__)
 
-# Refonte multi-serveurs phase 11 : ce fichier est désormais partagé entre
+# Refonte multi-serveurs phase 11 : ce fichier servait à l'origine à la fois
 # /alpha config_alpha (dashboard="alpha", toujours server="alpha") et
-# /ngstaff config (dashboard="ngstaff", server résolu dynamiquement). Le
-# marqueur `dashboard` sert uniquement au bouton "Tableau de bord" pour
-# revenir au bon hub parent. guild_id / self.guild_id / self_._gid gardent
-# leur rôle de navigation/identité de vue.
+# /ngstaff config (dashboard="ngstaff", server résolu dynamiquement). La
+# commande /alpha config_alpha a depuis été supprimée — /ngstaff config est
+# le seul appelant restant, `dashboard` vaut donc toujours "ngstaff" en
+# pratique (branche "alpha" désormais morte mais inoffensive, nomenclature
+# nettoyée, Paul, 2026-08-22). guild_id / self.guild_id gardent leur rôle
+# de navigation/identité de vue.
 
 
 def _ch(v): return f"<#{v}>" if v else "*Non configuré*"

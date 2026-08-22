@@ -1,5 +1,6 @@
 """
-views/alpha/config_onu_view.py — Dashboard de configuration du système ONU Alpha.
+views/ngstaff/config_onu_view.py — Dashboard de configuration du système
+ONU, multi-serveurs (ex-views/alpha/config_onu_view.py).
 
 Sections :
   Salon & Rôle → ChannelSelect + RoleSelect
@@ -27,11 +28,13 @@ from views._components.text_modal import TextModal
 
 log = logging.getLogger(__name__)
 
-# Refonte multi-serveurs phase 11 : ce fichier est désormais partagé entre
+# Refonte multi-serveurs phase 11 : ce fichier servait à l'origine à la fois
 # /alpha config_alpha (dashboard="alpha", toujours server="alpha") et
-# /ngstaff config (dashboard="ngstaff", server résolu dynamiquement). Le
-# marqueur `dashboard` sert uniquement au bouton "Tableau de bord" pour
-# revenir au bon hub parent.
+# /ngstaff config (dashboard="ngstaff", server résolu dynamiquement). La
+# commande /alpha config_alpha a depuis été supprimée — /ngstaff config est
+# le seul appelant restant, `dashboard` vaut donc toujours "ngstaff" en
+# pratique (branche "alpha" désormais morte mais inoffensive, nomenclature
+# nettoyée, Paul, 2026-08-22).
 
 
 # ── Helpers ──────────────────────────────────────────────────

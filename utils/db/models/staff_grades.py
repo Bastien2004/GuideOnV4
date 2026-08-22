@@ -1,6 +1,6 @@
 """
-utils/db/models/alpha_staff.py — Constantes partagées du système de grades
-staff (labels, emojis, ordre, statuts secondaires).
+utils/db/models/staff_grades.py — Constantes partagées du système de grades
+staff (labels, emojis, ordre, statuts secondaires). Ex-alpha_staff.py.
 """
 
 from __future__ import annotations
@@ -53,26 +53,9 @@ GRADE_TO_ROLE_ATTR: dict[str, str] = {
 # 🔰 Grades couverts par le rôle "équipe" transverse (role_equipe_id).
 
 STAFF_GENERAL_GRADES: set[str] = {"guide", "moderateur_test", "moderateur_confirme", "moderateur_plus"}
-STATUTS_SECONDAIRES_ORDER: list[str] = ["journaliste", "affilie", "builder"]
 STATUT_INCOMPATIBLE_GRADES: set[str] = {"administrateur", "super_moderateur"}
 
-SECONDARY_STATUSES: dict[str, dict] = {
-    "journaliste": {
-        "label": "Journaliste",
-        "badge": "📰",
-        "role_attr": "role_journaliste_id",
-        "has_second_pseudo": False,
-    },
-    "affilie": {
-        "label": "Affilié",
-        "badge": "🎥",
-        "role_attr": "role_affilie_id",
-        "has_second_pseudo": False,
-    },
-    "builder": {
-        "label": "Builder",
-        "badge": None,
-        "role_attr": "role_builder_id",
-        "has_second_pseudo": True,
-    },
-}
+# NB : le dict figé STATUTS_SECONDAIRES_ORDER/SECONDARY_STATUSES (journaliste/
+# affilié/builder en dur) a été supprimé (Paul, 2026-08-22) — remplacé par le
+# système de statuts libres par serveur, voir utils/managers/ng_statut_manager.py
+# et utils/db/models/ng_statut.py.

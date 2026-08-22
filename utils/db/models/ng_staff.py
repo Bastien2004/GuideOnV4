@@ -2,19 +2,20 @@
 utils/db/models/ng_staff.py — Membres du staff, multi-serveurs (refonte
 multi-serveurs, phase 6, ex-AlphaStaffMember).
 
-Table CRÉÉE EN PARALLÈLE de `alpha_staff` (voir utils.db.models.alpha_staff)
-— PAS un rename. `alpha_staff` reste la source de vérité tant que les
-commandes qui la consomment (cogs/alpha/rank.py, derank.py, stafflist.py,
-edit_stafflist.py, config_alpha.py, cogs/alpha/event_*.py,
-utils/managers/alpha_nota_manager.py — cf grep) n'ont pas été migrées vers
-`utils.managers.ng_staff_manager` (phase 7 du prompt de refonte). Voir
-PHASE_6.md pour le détail de cette décision.
+Table `ng_staff`, seule source de vérité pour les membres du staff sur tous
+les serveurs NG. La migration décrite ici à l'origine (double-écriture avec
+l'ancienne table AlphaStaffMember, le temps de migrer cogs/alpha/rank.py,
+derank.py, stafflist.py, edit_stafflist.py, config_alpha.py) est terminée :
+ces fichiers n'existent plus, tout passe par `utils.managers.ng_staff_manager`
+(nomenclature nettoyée, Paul, 2026-08-22). Voir PHASE_6.md/PHASE_7.md pour
+l'historique de cette décision.
 
 Les constantes de hiérarchie (GRADES_ORDER, GRADE_LABELS, GRADE_EMOJIS,
-GRADE_PREFIXES, GRADE_TO_ROLE_ATTR, SECONDARY_STATUSES, ...) restent
-définies UNE SEULE FOIS dans utils.db.models.alpha_staff et sont ré-
-exportées ici — "Hiérarchie des grades staff [...] inchangée en code"
-(§2 du prompt). Ne pas dupliquer ces constantes.
+GRADE_PREFIXES, GRADE_TO_ROLE_ATTR, STAFF_GENERAL_GRADES,
+STATUT_INCOMPATIBLE_GRADES) restent définies UNE SEULE FOIS dans
+utils.db.models.staff_grades (ex-alpha_staff.py) et sont ré-exportées ici
+— "Hiérarchie des grades staff [...] inchangée en code" (§2 du prompt).
+Ne pas dupliquer ces constantes.
 """
 from __future__ import annotations
 
@@ -28,10 +29,8 @@ from utils.db.models.staff_grades import (  # noqa: F401 — ré-export intentio
     GRADE_PREFIXES,
     GRADE_TO_ROLE_ATTR,
     GRADES_ORDER,
-    SECONDARY_STATUSES,
     STAFF_GENERAL_GRADES,
     STATUT_INCOMPATIBLE_GRADES,
-    STATUTS_SECONDAIRES_ORDER,
 )
 
 

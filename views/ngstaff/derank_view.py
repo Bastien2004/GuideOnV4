@@ -1,9 +1,11 @@
 """
-views/alpha/derank_view.py — Confirmation du derank staff Alpha.
+views/ngstaff/derank_view.py — Confirmation du derank staff, multi-serveurs
+(ex-views/alpha/derank_view.py).
 
-Extrait de cogs/alpha/derank.py : la logique métier (calcul de l'état cible,
-persistance DB, rôles Discord, pseudo, annonces) vit dans utils/derank_logic.py,
-appelé ici une fois l'utilisateur confirmé.
+Extrait à l'origine de cogs/alpha/derank.py (supprimé depuis) : la logique
+métier (calcul de l'état cible, persistance DB, rôles Discord, pseudo,
+annonces) vit dans utils/ng_derank_logic.py, appelé ici une fois
+l'utilisateur confirmé.
 
 Branché sur BaseLayoutView (owner_id=l'auteur de la commande) : c'est une
 confirmation strictement personnelle (envoyée en followup éphémère), donc le
@@ -32,7 +34,7 @@ class DerankConfirmView(BaseLayoutView):
 
     def __init__(
         self, membre: discord.Member, member_data: dict, cfg: dict, guild_id: int, role: str,
-        *, owner_id: int, server: str = "alpha", statut_defs: list[dict] | None = None,
+        *, owner_id: int, server: str, statut_defs: list[dict] | None = None,
     ) -> None:
         """Création de l'interface de confirmation du derank.
 

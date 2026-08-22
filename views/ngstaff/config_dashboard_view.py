@@ -100,7 +100,7 @@ class NGStaffConfigDashboardView(LayoutView):
 
         if value == "rank":
             cfg = await load_rank_config(self.server)
-            from views.alpha.config_alpha_view import ConfigRankView
+            from views.ngstaff.config_rank_view import ConfigRankView
             await interaction.response.edit_message(
                 view=ConfigRankView(
                     self.guild_id, self.server, cfg, self.owner_id, dashboard="ngstaff"
@@ -108,7 +108,7 @@ class NGStaffConfigDashboardView(LayoutView):
             )
         elif value == "onu":
             from utils.managers.ng_onu_manager import load_onu_config
-            from views.alpha.config_onu_view import ONUConfigView
+            from views.ngstaff.config_onu_view import ONUConfigView
             cfg = await load_onu_config(self.server)
             await interaction.response.edit_message(
                 view=ONUConfigView(
@@ -117,7 +117,7 @@ class NGStaffConfigDashboardView(LayoutView):
             )
         elif value == "notations":
             from utils.managers.ng_nota_manager import load_nota_config
-            from views.alpha.config_nota_view import NotaConfigView
+            from views.ngstaff.config_nota_view import NotaConfigView
             cfg = await load_nota_config(self.server)
             await interaction.response.edit_message(
                 view=NotaConfigView(
@@ -126,7 +126,7 @@ class NGStaffConfigDashboardView(LayoutView):
             )
         elif value == "role_react":
             from utils.managers.ng_role_react_manager import get_rr_entries, load_rr_config
-            from views.alpha.config_role_react_view import RoleReactConfigView
+            from views.ngstaff.config_role_react_view import RoleReactConfigView
             rr_cfg = await load_rr_config(self.server)
             entries = await get_rr_entries(self.server)
             await interaction.response.edit_message(

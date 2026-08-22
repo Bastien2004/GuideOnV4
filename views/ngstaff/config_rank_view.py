@@ -1,5 +1,6 @@
 """
-views/alpha/config_alpha_view.py — Dashboard de configuration du système de rank Alpha.
+views/ngstaff/config_rank_view.py — Dashboard de configuration du système de
+rank/derank, multi-serveurs (ex-views/alpha/config_alpha_view.py).
 """
 
 from __future__ import annotations
@@ -14,11 +15,14 @@ from utils.managers.ng_rank_config_manager import load_rank_config, save_rank_co
 from views._components.channel_select import ChannelSelect
 from views._components.role_select import RoleSelect
 
-# Refonte multi-serveurs phase 11 : ce fichier est désormais partagé entre
+# Refonte multi-serveurs phase 11 : ce fichier servait à l'origine à la fois
 # /alpha config_alpha (dashboard="alpha", toujours server="alpha") et
-# /ngstaff config (dashboard="ngstaff", server résolu dynamiquement). Le
-# marqueur `dashboard` sert uniquement au bouton "Tableau de bord" pour
-# revenir au bon hub parent.
+# /ngstaff config (dashboard="ngstaff", server résolu dynamiquement). La
+# commande /alpha config_alpha a depuis été supprimée — /ngstaff config est
+# le seul appelant restant, `dashboard` vaut donc toujours "ngstaff" en
+# pratique. Le marqueur `dashboard` est conservé pour le bouton "Tableau de
+# bord" (branche "alpha" désormais morte mais inoffensive, nomenclature
+# nettoyée, Paul, 2026-08-22).
 
 log = logging.getLogger(__name__)
 

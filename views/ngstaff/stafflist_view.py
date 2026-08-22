@@ -1,9 +1,9 @@
 """
-views/alpha/stafflist_view.py — Effectif staff du serveur Alpha.
+views/ngstaff/stafflist_view.py — Effectif staff, multi-serveurs
+(ex-views/alpha/stafflist_view.py).
 
-Extrait de cogs/alpha/stafflist.py, même traitement que regle_interne,
-nous_rejoindre, index et event_start (cog réduit à la commande, la
-construction de la view vit ici).
+Extrait à l'origine de cogs/alpha/stafflist.py (supprimé depuis, remplacé
+par /ngstaff stafflist).
 
 Reste en LayoutView simple, PAS BaseLayoutView : ce message n'a aucun
 composant interactif (aucun bouton, aucun select) et est posté/édité
@@ -22,7 +22,7 @@ from utils.db.models.staff_grades import GRADE_EMOJIS, GRADE_LABELS, GRADES_ORDE
 # 🧩 Construction de la view
 # ============================================================
 
-def build_stafflist_view(members: list[dict], *, server: str = "alpha") -> LayoutView:
+def build_stafflist_view(members: list[dict], *, server: str) -> LayoutView:
     """
     Affiche les 6 grades de la hiérarchie staff (administrateur → guide) en
     sections, plus une section dédiée par statut ayant `requires_second_pseudo`

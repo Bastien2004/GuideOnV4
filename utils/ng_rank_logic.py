@@ -178,7 +178,7 @@ async def _send_to_channel(bot: discord.Client, channel_id: int | None, view: di
         log.warning("[NGSTAFF RANK] Impossible d'envoyer dans le salon %d", channel_id)
 
 
-async def execute_grade_rank(bot: discord.Client, guild_id: int, membre: discord.Member, pseudo: str, new_grade: str, cfg: dict, existing: dict | None, *, server: str = "alpha") -> RankResult:
+async def execute_grade_rank(bot: discord.Client, guild_id: int, membre: discord.Member, pseudo: str, new_grade: str, cfg: dict, existing: dict | None, *, server: str) -> RankResult:
     """Change le grade (hiérarchie staff) d'un membre : DB, rôles, pseudo, annonces, stafflist."""
 
     old_grade = existing["grade"] if existing else None
@@ -257,7 +257,7 @@ async def execute_statut_rank(
     existing: dict | None,
     second_pseudo: str | None,
     *,
-    server: str = "alpha",
+    server: str,
 ) -> RankResult:
     """Attribue un statut secondaire (librement défini par serveur, ex :
     journaliste/affilié/builder sur Alpha) cumulable : DB, rôles, annonces,

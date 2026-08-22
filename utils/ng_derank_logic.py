@@ -201,7 +201,7 @@ async def execute_derank(
     guild_id: int,
     role: str,
     *,
-    server: str = "alpha",
+    server: str,
 ) -> None:
     """
     Exécute le derank déjà confirmé : persistance DB, rôles Discord, pseudo,

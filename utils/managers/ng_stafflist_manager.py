@@ -36,7 +36,7 @@ async def refresh_staff_message(
     bot: discord.Client,
     guild_id: int,
     *,
-    server: str = "alpha",
+    server: str,
 ) -> None:
     """
     Rafraîchit le message de liste du staff pour un serveur NG.

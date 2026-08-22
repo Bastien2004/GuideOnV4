@@ -2,13 +2,13 @@
 utils/managers/ng_staff_manager.py — Gestion des données du staff, multi-
 serveurs (refonte multi-serveurs, phase 6, ex-alpha_staff_manager.py).
 
-⚠️ Ce manager gère la table `ng_staff`, créée EN PARALLÈLE de `alpha_staff`
-(voir migrations/versions/*_ng_staff.py et utils.db.models.ng_staff pour le
-détail). `alpha_staff` reste la source de vérité utilisée par les commandes
-existantes (rank.py, derank.py, stafflist.py, etc.) jusqu'à leur migration
-en phase 7. Ne PAS câbler ce manager dans une commande de prod avant cette
-phase — pour l'instant il n'est utilisé qu'en dev/tests et par
-`resync_server_from_alpha_staff` (backfill à la demande).
+Gère la table `ng_staff`, seule source de vérité pour les membres du staff
+sur tous les serveurs NG (voir utils.db.models.ng_staff). La double-écriture
+avec l'ancienne table AlphaStaffMember le temps de migrer les commandes
+legacy (rank.py, derank.py, stafflist.py de cogs/alpha/) est terminée : ces
+commandes n'existent plus, ce manager est la voie normale utilisée en prod
+par /ngstaff rank, derank, stafflist, edit_stafflist, etc. (nomenclature et
+doc nettoyées, Paul, 2026-08-22).
 
 API publique :
     await list_staff(server)                                          -> list[dict]
@@ -18,7 +18,7 @@ API publique :
     await remove_staff_member(server, discord_id)                     -> bool (False si absent)
     await update_staff_member(server, discord_id, **fields)           -> bool (False si absent)
     await staff_exists(server, discord_id)                            -> bool
-    await resync_server_from_alpha_staff(server="alpha")              -> dict (compteurs)
+    await invalidate_cache(server)                                    -> None
 """
 
 from __future__ import annotations
