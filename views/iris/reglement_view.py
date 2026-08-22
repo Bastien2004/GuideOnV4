@@ -19,25 +19,23 @@ _RULES: list[tuple[str, str, str]] = [
      "__conflits__ ne sont **pas autorisés**."),
 
     ("💬", "Salons",
-     "Afin de garder un **cadre d'échange** __agréable__ : Le **spam** de __message__, de __mention__ ou d'__émoji_ est **interdit**."
+     "Afin de garder un **cadre d'échange** __agréable__ : Le **spam** de __message__, de __mention__ ou d'__émoji__ est **interdit**."
      "Tout comme l'**utilisation abusive** de __majuscules__ et le **flood**. De plus, la **seule langue** __autorisé__ est le **français** pour la bonne __compréhension__ de tous. "
      "Veillez également à **respecter** l'__utilisation__ prévue des **salons**."),
 
     ("🎙️", "Vocal",
-     "L'enregistrement d'une conversation vocale sans le consentement des "
-     "personnes présentes est strictement interdit.\n"
-     "La diffusion de musique, de cris, de screamers ou de sons volontairement "
-     "dérangeants dans le but de troller ou de perturber les autres membres est "
-     "également sanctionnable."),
+     "L'**enregistrement** d'une __conversation vocale__ est **strictement interdit** et passible de **poursuite judiciaire**."
+     "La **diffusion** de __musique__, de __cris__, de __screamers__ ou de __sons dérangeants__ " 
+     "dans le but de **troller** ou de **perturber** un salon __vocal__ est également sanctionnable."),
 
-    ("🚫", "Contenu interdit",
-     "Tout contenu illégal, pornographique, violent, choquant ou inapproprié "
-     "est interdit sur le serveur."),
+    ("🚫", "Contenu illégal",
+     "Les propos **racistes**, **homophobes**, **grossophobe**, **antisémithes** ou incitant à la **haine**, "
+     "ainsi que tout autres propos __interdit__ par la **loi française** sont **formellement interdit** et feront l'objet de **sanction** __très lourde__. " 
+     "De manière générale tout contenus **violent**, **choquant**, **inapproprié** est formellement interdit sur le serveur."),
 
     ("📢", "Publicité",
-     "La publicité, l'auto-promotion, le démarchage ou l'envoi de liens vers "
-     "d'autres serveurs hors NationsGlory sans autorisation du staff sont "
-     "interdits."),
+     "Toutes **publicitées** __extérieures__ à NationsGlory sont **strictement interdite** sur le serveur Discord, "
+     "quelles concernent **Minecraft®** ou non. Le **démarchage** via les __messages privés__ est aussi **prohibé**."),
 
     ("🔐", "Vie privée (dox)",
      "Le partage d'informations personnelles, que ce soit les vôtres ou celles "
@@ -94,7 +92,8 @@ def build_reglement_view(fresh_files: list[discord.File]) -> LayoutView:
         "Du __rappel à l'odre__ jusqu'au __bannissement définitif__.\n\n"
 
         "Si vous êtes **victime** ou **témoin** d'une quelconque infraction nuissant à la bonne tenue de ce Discord, "
-        "nous vous invitons à **contacter** l'__équipe de modération__ avec le tag suivant : <@&1516427548718792754>.\n"
+        "nous vous invitons à **contacter** l'__équipe de modération__ avec le tag suivant :\n"
+        "➤ <@&1516427548718792754>.\n"
     ))
     c.add_item(Separator())
 
