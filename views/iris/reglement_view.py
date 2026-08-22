@@ -1,12 +1,7 @@
 """
-views/iris/reglement_view.py — Contenu du règlement Iris, posté/édité par
-/iris reglement (cogs/iris/reglement.py).
-
-LayoutView simple, PAS BaseLayoutView : ce message n'a aucun composant
-interactif (aucun bouton, aucun select) et est posté/édité publiquement
-dans un salon pour tout le monde, avec timeout=None (persiste indéfiniment,
-volontairement) — même traitement que views/alpha/nous_rejoindre_view.py.
+views/iris/reglement_view.py — Gère le règlement du serveur iris.
 """
+
 from __future__ import annotations
 
 import discord
@@ -15,7 +10,7 @@ from discord.ui import Container, LayoutView, MediaGallery, Separator, TextDispl
 IMAGE_PATH = "source/reglement_iris.webp"
 IMAGE_FILENAME = "reglement_iris.webp"
 
-# (emoji, titre, texte) — dans l'ordre d'affichage.
+
 _RULES: list[tuple[str, str, str]] = [
     ("🤝", "Respect",
      "Le respect entre les membres est primordial. Les insultes, provocations, "
@@ -58,16 +53,7 @@ _RULES: list[tuple[str, str, str]] = [
 # ============================================================
 
 def get_fresh_files() -> list[discord.File]:
-    """
-    Reconstruit le(s) discord.File à chaque appel de la commande : un objet
-    discord.File est consommé après un seul envoi/edit, il ne doit jamais
-    être mis en cache au niveau module (même principe que
-    views/alpha/nous_rejoindre_view.py).
-
-    Retourne une liste vide si l'image est introuvable sur disque, plutôt
-    que de faire planter toute la commande — le règlement texte reste
-    envoyé/mis à jour sans l'image dans ce cas.
-    """
+    """Gestion de l'image."""
     try:
         return [discord.File(IMAGE_PATH, filename=IMAGE_FILENAME)]
     except FileNotFoundError:
@@ -79,30 +65,26 @@ def get_fresh_files() -> list[discord.File]:
 # ============================================================
 
 def build_reglement_view(fresh_files: list[discord.File]) -> LayoutView:
-    """
-    Construit le règlement Iris. `fresh_files` : sortie de get_fresh_files()
-    pour CET appel — référencée ici via `attachment://{filename}` pour que
-    l'image apparaisse intégrée dans le container (pas comme une pièce
-    jointe séparée sous le message).
-    """
+    """Construit le règlement Iris."""
+
     view = LayoutView(timeout=None)
 
     c = Container()
+
+    if fresh_files:
+        c.add_item(MediaGallery(discord.MediaGalleryItem(media=f"attachment://{IMAGE_FILENAME}")))
+        c.add_item(Separator())
+    
     c.add_item(TextDisplay(
-        "# 📜 Règlement Iris\n"
-        "Bienvenue sur **Iris** !\n"
-        "Afin de garder une bonne ambiance et un serveur agréable pour tout "
-        "le monde, merci de prendre quelques minutes pour lire et respecter "
-        "ce règlement."
+        "# <:Iris:1540303650575097896> Règlement du serveur Iris\n"
+        "❝ Afin de garder une **bonne ambiance** et un serveur **agréable** pour tout "
+        "le monde, merci de prendre quelques minutes pour **lire** et **respecter** "
+        "ce __règlement__."
     ))
     c.add_item(Separator())
 
     for i, (emoji, title, body) in enumerate(_RULES, start=1):
         c.add_item(TextDisplay(f"**{i}. {emoji}・{title}**\n{body}"))
-        c.add_item(Separator())
-
-    if fresh_files:
-        c.add_item(MediaGallery(discord.MediaGalleryItem(media=f"attachment://{IMAGE_FILENAME}")))
         c.add_item(Separator())
 
     c.add_item(TextDisplay("-# GuideOn Studio"))
