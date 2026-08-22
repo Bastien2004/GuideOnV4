@@ -97,11 +97,10 @@ def build_reglement_view(fresh_files: list[discord.File]) -> LayoutView:
         c.add_item(Separator())
     
     c.add_item(TextDisplay(
-            "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-            "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+            "Le staff se réserve le droit de **modifier** ce règlement à **tout moment**."
+            "-# Dernière modification : 22/08/2026"
         ))
     c.add_item(Separator())
-
     
     c.add_item(TextDisplay("-# GuideOn Studio"))
     view.add_item(c)
