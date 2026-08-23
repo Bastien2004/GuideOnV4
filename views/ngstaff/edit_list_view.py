@@ -7,10 +7,21 @@ Permet d'ajouter / modifier / supprimer des membres de la liste staff
 du processus rank/derank.
 
 Flux :
-  MainView → [Ajouter | Modifier | Supprimer]
+  MainView → [Ajouter | Modifier | Supprimer | Statuts]
     Ajouter  → UserSelect → Grade buttons → TextModal(pseudo + emoji) → save
-    Modifier → UserSelect → Options (pseudo|grade|emoji) → TextModal/Grade buttons → save
+    Modifier → UserSelect → Options (pseudo|grade|emoji|statuts) → TextModal/Grade buttons → save
     Supprimer→ UserSelect → Confirmation → delete
+    Statuts  → UserSelect → (TextModal pseudo si membre inexistant) → toggle statuts → save
+
+Statuts (Paul, 2026-08-23, retour utilisateur) : contrairement à "Ajouter"
+(qui exige un grade), l'action "🎖️ Statuts" permet d'attribuer/retirer un
+statut secondaire (builder, com, affilié, journaliste...) à N'IMPORTE QUEL
+membre, y compris un membre "statut seul" sans grade — sans passer par
+`/ngstaff rank`/`derank` (rôle Discord, renommage, annonce publique...),
+inutiles/indésirables pour une simple initialisation de roster. La ligne
+`ng_staff` est créée automatiquement (grade=None) si le membre n'existe pas
+encore. grant_statut/revoke_statut (ng_statut_manager) gèrent déjà
+l'invalidation du cache ng_staff_manager.
 """
 from __future__ import annotations
 
@@ -18,7 +29,7 @@ import logging
 
 import discord
 from discord import ButtonStyle, Interaction
-from discord.ui import ActionRow, Button, Container, LayoutView, Separator, TextDisplay
+from discord.ui import ActionRow, Button, Container, LayoutView, Select, Separator, TextDisplay
 
 from utils.container_universel import error_container, success_container, warning_container
 from utils.managers.ng_staff_manager import (
@@ -29,6 +40,7 @@ from utils.managers.ng_staff_manager import (
     update_staff_member,
     upsert_staff_member,
 )
+from utils.managers.ng_statut_manager import NGStatutError, grant_statut, list_statut_defs, revoke_statut
 from utils.db.models.staff_grades import GRADES_ORDER, GRADE_LABELS, GRADE_EMOJIS
 from utils.ng_server_display import get_server_display_name
 from utils.ng_staff_display import build_member_badges
@@ -125,11 +137,13 @@ class EditListView(LayoutView):
         btn_add = Button(label="➕ Ajouter", style=ButtonStyle.success, custom_id="el_add")
         btn_mod = Button(label="✏️ Modifier", style=ButtonStyle.primary, custom_id="el_mod")
         btn_del = Button(label="➖ Supprimer", style=ButtonStyle.danger, custom_id="el_del")
+        btn_statuts = Button(label="🎖️ Statuts", style=ButtonStyle.secondary, custom_id="el_statuts")
         btn_add.callback = self._on_add
         btn_mod.callback = self._on_modify
         btn_del.callback = self._on_remove
+        btn_statuts.callback = self._on_statuts
 
-        c.add_item(ActionRow(btn_add, btn_mod, btn_del))
+        c.add_item(ActionRow(btn_add, btn_mod, btn_del, btn_statuts))
         c.add_item(TextDisplay("-# GuideOn Studio — modifications sans effets rank/derank"))
         self.add_item(c)
 
@@ -165,6 +179,18 @@ class EditListView(LayoutView):
             server=self.server,
         ))
 
+    async def _on_statuts(self, interaction: Interaction) -> None:
+        await interaction.response.edit_message(view=_UserSelectView(
+            guild_id=self.guild_id,
+            owner_id=self.owner_id,
+            title="## 🎖️ Gérer les statuts",
+            desc="Sélectionnez le membre dont vous voulez activer/désactiver un statut "
+                 "(builder, com, affilié, journaliste...) — fonctionne même sans grade, "
+                 "la fiche staff est créée automatiquement si besoin.",
+            on_select=self._after_select_statuts,
+            server=self.server,
+        ))
+
     # ── Callbacks post-UserSelect ─────────────────────────────
 
     async def _after_select_add(self, interaction: Interaction, user_ids: list[int]) -> None:
@@ -193,9 +219,10 @@ class EditListView(LayoutView):
                     discord_id=discord_id,
                     member_name=member_name,
                     on_grade=self._after_grade_add,
-                    error_message="« Aucun grade » n'a pas de sens pour un **ajout** — "
-                                  "choisissez un grade, ou utilisez `/ngstaff rank type:statut` "
-                                  "pour un statut Journaliste/Affilié/Builder seul.",
+                    error_message="« Aucun grade » n'a pas de sens pour un **ajout** avec grade — "
+                                  "choisissez un grade, ou utilisez le bouton **🎖️ Statuts** du "
+                                  "dashboard pour un membre statut seul (builder, com, affilié, "
+                                  "journaliste...).",
                     server=self.server,
                 )
             )
@@ -253,6 +280,45 @@ class EditListView(LayoutView):
         await interaction.response.edit_message(
             view=_ConfirmRemoveView(self.guild_id, self.owner_id, data, server=self.server)
         )
+
+    async def _after_select_statuts(self, interaction: Interaction, user_ids: list[int]) -> None:
+        uid = user_ids[0]
+        statut_defs = await list_statut_defs(self.server)
+        if not statut_defs:
+            return await interaction.response.edit_message(
+                view=_NoStatutDefinedView(self.guild_id, self.owner_id, server=self.server)
+            )
+
+        data = await get_staff_member(self.server, uid)
+        if data is not None:
+            return await interaction.response.edit_message(
+                view=_StatutManageView(self.guild_id, self.owner_id, data, statut_defs, server=self.server)
+            )
+
+        # Membre absent de la liste staff : statut "pur" (sans grade) — on
+        # crée la ligne de base après avoir demandé le pseudo IG, comme le
+        # fait execute_statut_rank pour /ngstaff rank type:statut, mais SANS
+        # rôle Discord, annonce ni renommage (dashboard "sans effets
+        # rank/derank", Paul, 2026-08-23).
+        member = interaction.guild.get_member(uid)
+        name = member.display_name if member else f"<@{uid}>"
+
+        async def on_submit(inter: Interaction, pseudo: str) -> None:
+            await add_staff_member(self.server, uid, pseudo_jeu=pseudo.strip(), grade=None)
+            new_data = await get_staff_member(self.server, uid)
+            fresh_defs = await list_statut_defs(self.server)
+            await inter.response.edit_message(
+                view=_StatutManageView(self.guild_id, self.owner_id, new_data, fresh_defs, server=self.server)
+            )
+
+        modal = TextModal(
+            title=f"Nouveau membre — {name}"[:45],
+            label="Pseudo Minecraft",
+            placeholder=f"Ex: {name}",
+            min_length=1, max_length=64,
+            on_submit=on_submit,
+        )
+        await interaction.response.send_modal(modal)
 
 
 # ════════════════════════════════════════════════════════════
@@ -415,17 +481,19 @@ class _ModifyOptionsView(LayoutView):
         ))
         c.add_item(Separator())
 
-        btn_pseudo = Button(label="📝 Pseudo", style=ButtonStyle.primary, custom_id="mod_pseudo")
-        btn_grade  = Button(label="🎭 Grade",  style=ButtonStyle.primary, custom_id="mod_grade")
-        btn_emoji  = Button(label="🖼️ Emoji",  style=ButtonStyle.primary, custom_id="mod_emoji")
-        btn_back   = Button(label="↩️ Retour", style=ButtonStyle.secondary, custom_id="mod_back")
+        btn_pseudo   = Button(label="📝 Pseudo",  style=ButtonStyle.primary, custom_id="mod_pseudo")
+        btn_grade    = Button(label="🎭 Grade",   style=ButtonStyle.primary, custom_id="mod_grade")
+        btn_emoji    = Button(label="🖼️ Emoji",   style=ButtonStyle.primary, custom_id="mod_emoji")
+        btn_statuts  = Button(label="🎖️ Statuts", style=ButtonStyle.secondary, custom_id="mod_statuts")
+        btn_back     = Button(label="↩️ Retour",  style=ButtonStyle.secondary, custom_id="mod_back")
 
-        btn_pseudo.callback = self._on_pseudo
-        btn_grade.callback  = self._on_grade
-        btn_emoji.callback  = self._on_emoji
-        btn_back.callback   = self._on_back
+        btn_pseudo.callback   = self._on_pseudo
+        btn_grade.callback    = self._on_grade
+        btn_emoji.callback    = self._on_emoji
+        btn_statuts.callback  = self._on_statuts
+        btn_back.callback     = self._on_back
 
-        c.add_item(ActionRow(btn_pseudo, btn_grade, btn_emoji, btn_back))
+        c.add_item(ActionRow(btn_pseudo, btn_grade, btn_emoji, btn_statuts, btn_back))
         c.add_item(TextDisplay("-# GuideOn Studio"))
         self.add_item(c)
 
@@ -493,6 +561,187 @@ class _ModifyOptionsView(LayoutView):
         await interaction.response.edit_message(
             view=EditListView(self.guild_id, self.owner_id, members, server=self.server)
         )
+
+    async def _on_statuts(self, interaction: Interaction) -> None:
+        statut_defs = await list_statut_defs(self.server)
+        if not statut_defs:
+            return await interaction.response.edit_message(
+                view=_NoStatutDefinedView(self.guild_id, self.owner_id, server=self.server)
+            )
+        await interaction.response.edit_message(
+            view=_StatutManageView(self.guild_id, self.owner_id, self.data, statut_defs, server=self.server)
+        )
+
+    async def _on_back(self, interaction: Interaction) -> None:
+        await _back_to_main(interaction, self.owner_id, self.server)
+
+
+# ════════════════════════════════════════════════════════════
+# 🎖️ Sous-vue : Gestion des statuts (grant/revoke, sans effets Discord)
+# ════════════════════════════════════════════════════════════
+
+class _StatutManageView(LayoutView):
+    """
+    Active/désactive les statuts secondaires (builder, com, affilié,
+    journaliste...) d'un membre. Contrairement à /ngstaff rank type:statut,
+    aucun effet de bord Discord (pas de rôle, pas d'annonce, pas de
+    renommage) — pensé pour l'initialisation/correction de roster (Paul,
+    2026-08-23).
+    """
+
+    def __init__(
+        self, guild_id: int, owner_id: int, member_data: dict, statut_defs: list[dict],
+        *, server: str, error_message: str | None = None,
+    ) -> None:
+        super().__init__(timeout=180)
+        self.guild_id = guild_id
+        self.owner_id = owner_id
+        self.data = member_data
+        self.statut_defs = statut_defs
+        self.server = server
+        self.error_message = error_message
+        self._build()
+
+    async def interaction_check(self, interaction: Interaction) -> bool:
+        return interaction.user.id == self.owner_id
+
+    def _build(self) -> None:
+        d = self.data
+        held = {s["key"]: s for s in d.get("statuts", [])}
+
+        c = Container()
+        c.add_item(TextDisplay(f"## 🎖️ Statuts — **{d['pseudo_jeu']}**"))
+        if self.error_message:
+            c.add_item(TextDisplay(f"⚠️ {self.error_message}"))
+        c.add_item(Separator())
+
+        lines = []
+        for sd in self.statut_defs:
+            emoji = sd["emoji"] or "•"
+            if sd["key"] in held:
+                extra = f" — *{held[sd['key']]['second_pseudo']}*" if held[sd["key"]].get("second_pseudo") else ""
+                lines.append(f"✅ {emoji} **{sd['label']}**{extra}")
+            else:
+                lines.append(f"⬜ {emoji} {sd['label']}")
+        c.add_item(TextDisplay("\n".join(lines)))
+        c.add_item(Separator())
+
+        options = [
+            discord.SelectOption(
+                label=sd["label"],
+                value=sd["key"],
+                emoji=sd["emoji"] or None,
+                description="Retirer ce statut" if sd["key"] in held else "Attribuer ce statut",
+            )
+            for sd in self.statut_defs
+        ][:25]
+        select = Select(placeholder="Activer / désactiver un statut...", options=options)
+        select.callback = self._on_toggle
+        c.add_item(ActionRow(select))
+        c.add_item(Separator())
+
+        btn_back = Button(label="↩️ Retour", style=ButtonStyle.secondary, custom_id="statmg_back")
+        btn_back.callback = self._on_back
+        c.add_item(ActionRow(btn_back))
+        c.add_item(TextDisplay(
+            "-# Activation/désactivation directe, sans rôle Discord ni annonce — "
+            "utilisez `/ngstaff rank`/`derank` pour ces effets."
+        ))
+        c.add_item(TextDisplay("-# GuideOn Studio"))
+        self.add_item(c)
+
+    async def _on_toggle(self, interaction: Interaction) -> None:
+        key = interaction.data["values"][0]
+        statut_def = next((sd for sd in self.statut_defs if sd["key"] == key), None)
+        if statut_def is None:
+            return await interaction.response.edit_message(
+                view=_StatutManageView(
+                    self.guild_id, self.owner_id, self.data, self.statut_defs, server=self.server,
+                    error_message="Ce statut a été supprimé entre-temps.",
+                )
+            )
+
+        held = {s["key"] for s in self.data.get("statuts", [])}
+
+        if key in held:
+            await revoke_statut(self.server, self.data["discord_id"], key)
+            return await self._refresh(interaction)
+
+        if statut_def["requires_second_pseudo"]:
+            async def on_submit(inter: Interaction, value: str) -> None:
+                try:
+                    await grant_statut(self.server, self.data["discord_id"], key, second_pseudo=value.strip())
+                except NGStatutError as e:
+                    fresh_defs = await list_statut_defs(self.server)
+                    fresh_data = await get_staff_member(self.server, self.data["discord_id"])
+                    return await inter.response.edit_message(
+                        view=_StatutManageView(
+                            self.guild_id, self.owner_id, fresh_data, fresh_defs,
+                            server=self.server, error_message=e.message,
+                        )
+                    )
+                await self._refresh(inter)
+
+            modal = TextModal(
+                title=f"Second pseudo — {statut_def['label']}"[:45],
+                label="Pseudo / compte secondaire",
+                min_length=1, max_length=64,
+                on_submit=on_submit,
+            )
+            return await interaction.response.send_modal(modal)
+
+        try:
+            await grant_statut(self.server, self.data["discord_id"], key)
+        except NGStatutError as e:
+            return await interaction.response.edit_message(
+                view=_StatutManageView(
+                    self.guild_id, self.owner_id, self.data, self.statut_defs,
+                    server=self.server, error_message=e.message,
+                )
+            )
+        await self._refresh(interaction)
+
+    async def _refresh(self, interaction: Interaction) -> None:
+        from utils.managers.ng_stafflist_manager import refresh_staff_message
+        await refresh_staff_message(interaction.client, self.guild_id, server=self.server)
+        data = await get_staff_member(self.server, self.data["discord_id"])
+        statut_defs = await list_statut_defs(self.server)
+        await interaction.response.edit_message(
+            view=_StatutManageView(self.guild_id, self.owner_id, data, statut_defs, server=self.server)
+        )
+
+    async def _on_back(self, interaction: Interaction) -> None:
+        await _back_to_main(interaction, self.owner_id, self.server)
+
+
+# ════════════════════════════════════════════════════════════
+# ⚠️ Sous-vue : Aucun statut configuré pour ce serveur
+# ════════════════════════════════════════════════════════════
+
+class _NoStatutDefinedView(LayoutView):
+    def __init__(self, guild_id: int, owner_id: int, *, server: str) -> None:
+        super().__init__(timeout=60)
+        self.guild_id = guild_id
+        self.owner_id = owner_id
+        self.server = server
+        c = Container()
+        c.add_item(TextDisplay("## 🎖️ Aucun statut configuré"))
+        c.add_item(Separator())
+        c.add_item(TextDisplay(
+            f"Aucun statut (builder, com, affilié, journaliste...) n'est configuré pour "
+            f"{get_server_display_name(server)}.\n"
+            "Configurez-en via `/ngstaff config` → Rank/Derank → 🎖️ Statuts avant de pouvoir "
+            "en attribuer ici."
+        ))
+        c.add_item(Separator())
+        btn = Button(label="↩️ Retour", style=ButtonStyle.secondary, custom_id="nostatut_back")
+        btn.callback = self._on_back
+        c.add_item(ActionRow(btn))
+        c.add_item(TextDisplay("-# GuideOn Studio"))
+        self.add_item(c)
+
+    async def interaction_check(self, interaction: Interaction) -> bool:
+        return interaction.user.id == self.owner_id
 
     async def _on_back(self, interaction: Interaction) -> None:
         await _back_to_main(interaction, self.owner_id, self.server)
