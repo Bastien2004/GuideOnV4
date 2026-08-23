@@ -202,7 +202,8 @@ class _StatutDetailView(LayoutView):
         c.add_item(TextDisplay(
             f"• Clé technique : `{d['key']}`\n"
             f"• Rôle Discord attribué : {_role(d['role_id'])}\n"
-            f"• Nécessite un second pseudo (ex: compte builder dédié) : "
+            f"• Nécessite un second pseudo (ex: compte builder dédié), "
+            f"**si le membre a un grade** : "
             f"{'✅ Oui' if d['requires_second_pseudo'] else '❌ Non'}\n"
             f"• Catégorie dédiée dans `/ngstaff stafflist` : "
             f"{'✅ Oui' if d.get('has_stafflist_category') else '❌ Non'}"
@@ -234,7 +235,9 @@ class _StatutDetailView(LayoutView):
         c.add_item(ActionRow(btn_delete, btn_back))
         c.add_item(TextDisplay(
             "-# 🗂️ Catégorie stafflist : ce statut obtient sa propre section dans "
-            "`/ngstaff stafflist` (comme les grades), même sans grade ni second pseudo."
+            "`/ngstaff stafflist` (comme les grades), même sans grade ni second pseudo.\n"
+            "-# 🔁 Second pseudo : uniquement exigé pour un membre du **staff** (qui a "
+            "déjà un grade) — pour un membre sans grade, son pseudo IG habituel suffit."
         ))
         c.add_item(TextDisplay("-# GuideOn Studio"))
         self.add_item(c)

@@ -470,7 +470,13 @@ class _AddOptionsView(LayoutView):
                                   "Choisissez un grade, ou décochez ce(s) statut(s)."
                 ))
 
-        needing_pseudo = [sd for sd in selected_defs if sd["requires_second_pseudo"]]
+        # 🔁 Second pseudo demandé UNIQUEMENT si le membre a un grade (staff
+        # qui est *aussi* builder, avec un compte dédié différent de son
+        # pseudo staff). Sans grade, son pseudo IG habituel (demandé juste
+        # après) fait déjà office de pseudo builder — pas de champ en plus
+        # à imposer (Paul, 2026-08-23, retour utilisateur ; même règle dans
+        # grant_statut, ng_statut_manager.py).
+        needing_pseudo = [sd for sd in selected_defs if sd["requires_second_pseudo"]] if grade is not None else []
         if len(needing_pseudo) > 3:
             return await interaction.response.edit_message(view=self._refresh(
                 error_message="Trop de statuts à second pseudo sélectionnés à la fois (max 3 "
@@ -862,7 +868,11 @@ class _StatutManageView(LayoutView):
                 )
             )
 
-        if statut_def["requires_second_pseudo"]:
+        # 🔁 Second pseudo demandé UNIQUEMENT si le membre a un grade — sans
+        # grade, son pseudo IG habituel fait déjà office de pseudo builder
+        # (Paul, 2026-08-23, retour utilisateur ; même règle dans
+        # grant_statut, ng_statut_manager.py).
+        if statut_def["requires_second_pseudo"] and self.data["grade"] is not None:
             async def on_submit(inter: Interaction, value: str) -> None:
                 try:
                     await grant_statut(self.server, self.data["discord_id"], key, second_pseudo=value.strip())

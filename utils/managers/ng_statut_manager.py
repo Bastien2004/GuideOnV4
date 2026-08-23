@@ -275,18 +275,33 @@ async def has_statut(server: str, discord_id: int, key: str) -> bool:
 async def grant_statut(server: str, discord_id: int, key: str, *, second_pseudo: str | None = None) -> dict:
     """
     Attribue un statut à un membre. Lève NGStatutError si le statut n'existe
-    pas pour ce serveur, s'il est déjà attribué, ou si `requires_second_pseudo`
-    est vrai et qu'aucun `second_pseudo` n'est fourni.
+    pas pour ce serveur ou s'il est déjà attribué.
+
+    `requires_second_pseudo` n'est OBLIGATOIRE que si le membre a déjà un
+    grade (Paul, 2026-08-23, retour utilisateur) : le cas d'usage réel est
+    un membre du STAFF qui est *aussi* builder avec un second compte dédié
+    (pseudo différent de son pseudo staff) — c'est ce second pseudo qui a
+    besoin d'être distingué. Pour un membre SANS grade (builder non-staff),
+    son pseudo IG habituel (`pseudo_jeu`) EST déjà son pseudo builder : lui
+    imposer un second champ en plus n'a pas de sens et n'était qu'une gêne.
+    `second_pseudo`, si fourni quand même, reste enregistré normalement.
     """
     statut_def = await get_statut_def(server, key)
     if statut_def is None:
         raise NGStatutError(f"Le statut `{key}` n'existe pas pour ce serveur.", warning=True)
 
-    if statut_def["requires_second_pseudo"] and not (second_pseudo and second_pseudo.strip()):
-        raise NGStatutError(
-            f"Le statut **{statut_def['label']}** nécessite un pseudo secondaire "
-            "(`pseudo_jeu_builder` / second compte dédié).",
-        )
+    if statut_def["requires_second_pseudo"]:
+        # Import local : évite un cycle avec ng_staff_manager (qui importe
+        # déjà ce module pour enrichir ses membres en "statuts").
+        from utils.managers.ng_staff_manager import get_staff_member as _get_staff_member
+        member = await _get_staff_member(server, discord_id)
+        has_grade = bool(member and member.get("grade"))
+        if has_grade and not (second_pseudo and second_pseudo.strip()):
+            raise NGStatutError(
+                f"Le statut **{statut_def['label']}** nécessite un pseudo secondaire "
+                "(`pseudo_jeu_builder` / second compte dédié) pour un membre du **staff** "
+                "— pas pour un membre sans grade, dont le pseudo IG suffit déjà.",
+            )
 
     async with _lock:
         async with get_session() as session:

@@ -269,7 +269,9 @@ async def execute_statut_rank(
     Paul, 2026-08-22). `second_pseudo` généralise l'ancien paramètre
     `pseudo_jeu_builder` : requis uniquement si le statut a
     `requires_second_pseudo=True` (n'importe quel statut peut désormais
-    porter ce besoin, pas seulement Builder).
+    porter ce besoin, pas seulement Builder) ET que le membre a déjà un
+    grade (Paul, 2026-08-23) — sans grade, son pseudo IG habituel fait déjà
+    office de pseudo builder.
 
     Lève RankValidationError si la demande doit être refusée (statut
     inconnu pour ce serveur, grade incompatible, statut déjà attribué,
@@ -300,14 +302,22 @@ async def execute_statut_rank(
         )
 
     # 🔁 Second pseudo (généralisation de pseudo_jeu_builder) : requis
-    # uniquement si CE statut le demande.
+    # uniquement si CE statut le demande ET que le membre a déjà un grade
+    # (staff qui est *aussi* builder, avec un compte dédié différent de son
+    # pseudo staff). Pour un membre sans grade, son pseudo IG habituel EST
+    # déjà son pseudo builder — pas de second champ à imposer (Paul,
+    # 2026-08-23, retour utilisateur ; même règle dans grant_statut, voir
+    # ng_statut_manager.py, qui reste la vérification faisant foi).
     second_pseudo_clean: str | None = None
-    if statut_def["requires_second_pseudo"]:
+    if statut_def["requires_second_pseudo"] and current_grade is not None:
         if not second_pseudo or not second_pseudo.strip():
             raise RankValidationError(
                 f"Le paramètre `pseudo_jeu_builder` est **obligatoire** pour attribuer le statut "
-                f"**{statut_def['label']}** (second pseudo/compte dédié)."
+                f"**{statut_def['label']}** à un membre du **staff** (second pseudo/compte dédié, "
+                "différent de son pseudo staff)."
             )
+        second_pseudo_clean = second_pseudo.strip()
+    elif second_pseudo and second_pseudo.strip():
         second_pseudo_clean = second_pseudo.strip()
 
     if not existing:
