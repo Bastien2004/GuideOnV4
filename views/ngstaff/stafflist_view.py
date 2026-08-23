@@ -102,7 +102,7 @@ def build_stafflist_view(members: list[dict], *, server: str) -> LayoutView:
         c.add_item(Separator())
 
         block = "\n".join(
-            f"**{s.get('second_pseudo') or m['pseudo_jeu']}** — <@{m['discord_id']}> — `{m['discord_id']}`"
+            build_member_line(m, pseudo_override=s.get("second_pseudo"))
             for m, s in holders
         )
 

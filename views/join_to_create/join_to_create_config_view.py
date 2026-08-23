@@ -1,18 +1,7 @@
 """
-views/join_to_create/join_to_create_config_view.py — Panneau de configuration du
-système "Join to Create" (/config join_to_create).
-
-Deux réglages, dans l'ordre où ils doivent être faits :
-  1. Catégorie destination — salon existant, choisi via un ChannelSelect
-     (channel_types=[category]). Doit être configurée avant le salon
-     déclencheur puisque celui-ci est créé DEDANS.
-  2. Salon déclencheur — l'admin indique juste un NOM (modal) ; c'est le bot
-     qui crée (ou renomme, si déjà configuré) le salon vocal correspondant
-     dans la catégorie — cf. utils.managers.join_to_create_manager.
-
-Style aligné sur views/mod/logs_config_view.py (elle-même alignée sur
-views/bienvenue/config_view.py et views/autorole/config_view.py).
+views/join_to_create/join_to_create_config_view.py — Interface de configuration du système de join to create.
 """
+
 from __future__ import annotations
 
 import discord
@@ -20,11 +9,7 @@ from discord import ButtonStyle
 from discord.ui import ActionRow, Button, Container, Separator, TextDisplay
 
 from utils.container_universel import error_container, send_ephemeral, warning_container
-from utils.managers.join_to_create_manager import (
-    load_config,
-    set_category,
-    set_trigger_channel,
-)
+from utils.managers.join_to_create_manager import load_config, set_category, set_trigger_channel
 from views._components.base_view import BaseLayoutView
 from views._components.channel_select import ChannelSelect
 from views._components.text_modal import TextModal
@@ -56,44 +41,35 @@ class JoinToCreateConfigView(BaseLayoutView):
         self.clear_items()
 
         container = Container()
-        container.add_item(TextDisplay("# 🔊 Configuration Join to Create"))
-        container.add_item(TextDisplay(
-            "-# Un membre qui rejoint le salon déclencheur se voit créer (et "
-            "déplacer dans) un salon vocal personnel, supprimé automatiquement "
-            "dès qu'il se vide."
-        ))
+        container.add_item(TextDisplay("# <:audio:1541185132977983508> Configuration Join to Create"))
+        container.add_item(TextDisplay("➥ Crée un __salon vocal__ **éphémère** automatiquement."))
         container.add_item(Separator())
 
         # ── Catégorie destination ────────────────────────────
         category_id = self.cfg.get("category_id")
         category_display = f"<#{category_id}>" if category_id else "`Non configurée`"
+
         cat_select = ChannelSelect(
-            placeholder="Choisir la catégorie des vocaux générés",
+            placeholder="Choisir la catégorie des salons vocaux",
             on_select=self._on_select_category,
             channel_types=[discord.ChannelType.category],
         )
-        container.add_item(TextDisplay(f"**📂 Catégorie destination**\n-# {category_display}"))
+        container.add_item(TextDisplay(f"**<:fichier:1495446721520730242> Catégorie des salons vocaux**\n-# {category_display}"))
         container.add_item(ActionRow(cat_select))
         container.add_item(Separator())
 
         # ── Salon déclencheur ─────────────────────────────────
         trigger_id = self.cfg.get("trigger_channel_id")
         trigger_display = f"<#{trigger_id}>" if trigger_id else "`Non configuré`"
-        container.add_item(TextDisplay(
-            "**☎️ Salon déclencheur**\n"
-            f"-# {trigger_display}\n"
-            "-# Le bot crée (ou renomme) lui-même ce salon vocal — indiquez "
-            "juste le nom souhaité. Le rejoindre déclenche la création d'un "
-            "vocal personnel."
-        ))
+
+        container.add_item(TextDisplay(f"**☎️ Salon déclencheur** : {trigger_display}"))
 
         category_ready = category_id is not None
         if category_ready:
             btn_trigger = Button(label="Configurer le nom", style=ButtonStyle.primary, emoji=ICON_MODIFIER)
         else:
-            btn_trigger = Button(
-                label="Configurez d'abord la catégorie", style=ButtonStyle.secondary, disabled=True,
-            )
+            btn_trigger = Button(label="Configurez d'abord la catégorie", style=ButtonStyle.secondary, disabled=True)
+            
         btn_trigger.callback = self._on_open_trigger_modal
         container.add_item(ActionRow(btn_trigger))
         container.add_item(Separator())
