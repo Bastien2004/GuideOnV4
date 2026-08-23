@@ -7,21 +7,34 @@ Permet d'ajouter / modifier / supprimer des membres de la liste staff
 du processus rank/derank.
 
 Flux :
-  MainView → [Ajouter | Modifier | Supprimer | Statuts]
-    Ajouter  → UserSelect → Grade buttons → TextModal(pseudo + emoji) → save
-    Modifier → UserSelect → Options (pseudo|grade|emoji|statuts) → TextModal/Grade buttons → save
-    Supprimer→ UserSelect → Confirmation → delete
-    Statuts  → UserSelect → (TextModal pseudo si membre inexistant) → toggle statuts → save
+  MainView → [Ajouter | Modifier | Supprimer]
+    Ajouter  → UserSelect → _AddOptionsView (grade + statuts, une seule
+               étape) → TextModal(pseudo + emoji [+ second pseudo par
+               statut concerné]) → save
+    Modifier → UserSelect → Options (pseudo|grade|emoji|statuts) →
+               TextModal/Grade buttons/_StatutManageView → save
+    Supprimer→ UserSelect → Confirmation (liste les statuts détenus) →
+               delete + retrait de tous ses statuts
 
-Statuts (Paul, 2026-08-23, retour utilisateur) : contrairement à "Ajouter"
-(qui exige un grade), l'action "🎖️ Statuts" permet d'attribuer/retirer un
-statut secondaire (builder, com, affilié, journaliste...) à N'IMPORTE QUEL
-membre, y compris un membre "statut seul" sans grade — sans passer par
-`/ngstaff rank`/`derank` (rôle Discord, renommage, annonce publique...),
-inutiles/indésirables pour une simple initialisation de roster. La ligne
-`ng_staff` est créée automatiquement (grade=None) si le membre n'existe pas
-encore. grant_statut/revoke_statut (ng_statut_manager) gèrent déjà
-l'invalidation du cache ng_staff_manager.
+Statuts (Paul, 2026-08-23, retour utilisateur — 2e itération : fusionner
+grade+statuts dans "Ajouter" au lieu d'une action "🎖️ Statuts" séparée qui
+obligeait à re-sélectionner le membre) :
+  - "Ajouter" liste TOUS les statuts configurés pour le serveur (multi-select)
+    en même temps que les boutons de grade — un ajout peut donc combiner
+    grade + statut(s), ou n'avoir QUE des statuts ("🚫 Aucun grade").
+  - Aucun effet de bord Discord ici (pas de rôle, pas d'annonce, pas de
+    renommage), contrairement à `/ngstaff rank`/`derank` — cf. footer du
+    dashboard.
+  - Règle de visibilité (identique à views/ngstaff/stafflist_view.py,
+    voir `_has_section`) : un statut avec grade → visible via son badge
+    emoji dans la section du grade. Un statut SANS grade doit avoir sa
+    propre catégorie (`has_stafflist_category` ou `requires_second_pseudo`)
+    pour être visible dans `/ngstaff stafflist` — sinon l'attribution est
+    BLOQUÉE (dans "Ajouter" et dans "Modifier → Statuts") plutôt que de
+    créer un membre invisible silencieusement.
+  - "Supprimer" retire aussi toutes les attributions de statuts du membre
+    (NGStaffStatut n'a pas de FK vers ng_staff, donc restaient orphelines
+    en base sinon).
 """
 from __future__ import annotations
 
@@ -40,7 +53,13 @@ from utils.managers.ng_staff_manager import (
     update_staff_member,
     upsert_staff_member,
 )
-from utils.managers.ng_statut_manager import NGStatutError, grant_statut, list_statut_defs, revoke_statut
+from utils.managers.ng_statut_manager import (
+    NGStatutError,
+    grant_statut,
+    list_statut_defs,
+    revoke_all_statuts,
+    revoke_statut,
+)
 from utils.db.models.staff_grades import GRADES_ORDER, GRADE_LABELS, GRADE_EMOJIS
 from utils.ng_server_display import get_server_display_name
 from utils.ng_staff_display import build_member_badges
@@ -57,6 +76,18 @@ from views._components.text_modal import TextModal
 # robustesse, Paul, 2026-08-22).
 
 log = logging.getLogger(__name__)
+
+
+def _has_section(statut_def: dict) -> bool:
+    """
+    Un statut obtient sa propre section dans /ngstaff stafflist s'il a
+    `has_stafflist_category` OU `requires_second_pseudo` — copie exacte du
+    prédicat `_has_own_category` de views/ngstaff/stafflist_view.py (Paul,
+    2026-08-23). Utilisé ici pour BLOQUER l'attribution d'un statut sans
+    section à un membre sans grade : un tel membre serait sinon totalement
+    invisible dans la stafflist publique (retour utilisateur, même date).
+    """
+    return bool(statut_def.get("has_stafflist_category") or statut_def.get("requires_second_pseudo"))
 
 
 # ── Helper retour main ───────────────────────────────────────
@@ -137,13 +168,11 @@ class EditListView(LayoutView):
         btn_add = Button(label="➕ Ajouter", style=ButtonStyle.success, custom_id="el_add")
         btn_mod = Button(label="✏️ Modifier", style=ButtonStyle.primary, custom_id="el_mod")
         btn_del = Button(label="➖ Supprimer", style=ButtonStyle.danger, custom_id="el_del")
-        btn_statuts = Button(label="🎖️ Statuts", style=ButtonStyle.secondary, custom_id="el_statuts")
         btn_add.callback = self._on_add
         btn_mod.callback = self._on_modify
         btn_del.callback = self._on_remove
-        btn_statuts.callback = self._on_statuts
 
-        c.add_item(ActionRow(btn_add, btn_mod, btn_del, btn_statuts))
+        c.add_item(ActionRow(btn_add, btn_mod, btn_del))
         c.add_item(TextDisplay("-# GuideOn Studio — modifications sans effets rank/derank"))
         self.add_item(c)
 
@@ -179,81 +208,55 @@ class EditListView(LayoutView):
             server=self.server,
         ))
 
-    async def _on_statuts(self, interaction: Interaction) -> None:
-        await interaction.response.edit_message(view=_UserSelectView(
-            guild_id=self.guild_id,
-            owner_id=self.owner_id,
-            title="## 🎖️ Gérer les statuts",
-            desc="Sélectionnez le membre dont vous voulez activer/désactiver un statut "
-                 "(builder, com, affilié, journaliste...) — fonctionne même sans grade, "
-                 "la fiche staff est créée automatiquement si besoin.",
-            on_select=self._after_select_statuts,
-            server=self.server,
-        ))
-
     # ── Callbacks post-UserSelect ─────────────────────────────
 
     async def _after_select_add(self, interaction: Interaction, user_ids: list[int]) -> None:
         uid = user_ids[0]
         member = interaction.guild.get_member(uid)
         name = member.display_name if member else f"<@{uid}>"
+        statut_defs = await list_statut_defs(self.server)
         await interaction.response.edit_message(
-            view=_GradeSelectView(
+            view=_AddOptionsView(
                 guild_id=self.guild_id,
                 owner_id=self.owner_id,
                 discord_id=uid,
                 member_name=name,
-                on_grade=self._after_grade_add,
+                statut_defs=statut_defs,
+                on_finalize=self._finalize_add,
                 server=self.server,
             )
         )
 
-    async def _after_grade_add(
-        self, interaction: Interaction, discord_id: int, member_name: str, grade: str | None
+    async def _finalize_add(
+        self, interaction: Interaction, discord_id: int, member_name: str,
+        grade: str | None, pseudo: str, emoji: str,
+        selected_keys: set[str], second_pseudos: dict[str, str],
     ) -> None:
-        if grade is None:
-            return await interaction.response.edit_message(
-                view=_GradeSelectView(
-                    guild_id=self.guild_id,
-                    owner_id=self.owner_id,
-                    discord_id=discord_id,
-                    member_name=member_name,
-                    on_grade=self._after_grade_add,
-                    error_message="« Aucun grade » n'a pas de sens pour un **ajout** avec grade — "
-                                  "choisissez un grade, ou utilisez le bouton **🎖️ Statuts** du "
-                                  "dashboard pour un membre statut seul (builder, com, affilié, "
-                                  "journaliste...).",
-                    server=self.server,
-                )
-            )
+        pseudo = pseudo.strip()
+        already = await get_staff_member(self.server, discord_id)
+        if already:
+            await update_staff_member(self.server, discord_id, pseudo_jeu=pseudo, grade=grade, skin_head_emoji=emoji or None)
+        else:
+            await add_staff_member(self.server, discord_id, pseudo_jeu=pseudo, grade=grade, skin_head_emoji=emoji)
 
-        label = GRADE_LABELS.get(grade, grade)
+        for key in selected_keys:
+            second_pseudo = second_pseudos.get(key)
+            try:
+                await grant_statut(self.server, discord_id, key, second_pseudo=second_pseudo or None)
+            except NGStatutError as e:
+                # Cas rare (course concurrente, statut supprimé entre-temps) —
+                # le membre/grade est déjà enregistré, on log et on continue
+                # plutôt que de bloquer toute la création pour ça.
+                log.warning("[EDIT STAFFLIST] %s : échec attribution statut %s à %s : %s", self.server, key, discord_id, e.message)
 
-        async def on_submit(inter: Interaction, values: tuple[str, str]) -> None:
-            pseudo, emoji = values
-            pseudo = pseudo.strip()
-            emoji = emoji.strip()
-            already = await get_staff_member(self.server, discord_id)
-            if already:
-                await update_staff_member(self.server, discord_id, pseudo_jeu=pseudo, grade=grade, skin_head_emoji=emoji or None)
-                msg = f"**{pseudo}** (<@{discord_id}>) mis à jour — **{label}**."
-            else:
-                await add_staff_member(self.server, discord_id, pseudo_jeu=pseudo, grade=grade, skin_head_emoji=emoji)
-                msg = f"**{pseudo}** (<@{discord_id}>) ajouté — **{label}**."
-            # Refresh stafflist
-            from utils.managers.ng_stafflist_manager import refresh_staff_message
-            await refresh_staff_message(inter.client, self.guild_id, server=self.server)
-            members = await list_staff(self.server)
-            await inter.response.edit_message(
-                view=EditListView(self.guild_id, self.owner_id, members, server=self.server)
-            )
-
-        modal = _AddStaffModal(
-            member_name=member_name,
-            grade_label=label,
-            on_submit=on_submit,
+        label = GRADE_LABELS.get(grade, grade) if grade else "Sans grade (statut seul)"
+        from utils.managers.ng_stafflist_manager import refresh_staff_message
+        await refresh_staff_message(interaction.client, self.guild_id, server=self.server)
+        members = await list_staff(self.server)
+        await interaction.response.edit_message(
+            view=EditListView(self.guild_id, self.owner_id, members, server=self.server)
         )
-        await interaction.response.send_modal(modal)
+        log.info("[EDIT STAFFLIST] %s : %s (%s) ajouté/mis à jour — %s", self.server, pseudo, discord_id, label)
 
     async def _after_select_modify(self, interaction: Interaction, user_ids: list[int]) -> None:
         uid = user_ids[0]
@@ -280,45 +283,6 @@ class EditListView(LayoutView):
         await interaction.response.edit_message(
             view=_ConfirmRemoveView(self.guild_id, self.owner_id, data, server=self.server)
         )
-
-    async def _after_select_statuts(self, interaction: Interaction, user_ids: list[int]) -> None:
-        uid = user_ids[0]
-        statut_defs = await list_statut_defs(self.server)
-        if not statut_defs:
-            return await interaction.response.edit_message(
-                view=_NoStatutDefinedView(self.guild_id, self.owner_id, server=self.server)
-            )
-
-        data = await get_staff_member(self.server, uid)
-        if data is not None:
-            return await interaction.response.edit_message(
-                view=_StatutManageView(self.guild_id, self.owner_id, data, statut_defs, server=self.server)
-            )
-
-        # Membre absent de la liste staff : statut "pur" (sans grade) — on
-        # crée la ligne de base après avoir demandé le pseudo IG, comme le
-        # fait execute_statut_rank pour /ngstaff rank type:statut, mais SANS
-        # rôle Discord, annonce ni renommage (dashboard "sans effets
-        # rank/derank", Paul, 2026-08-23).
-        member = interaction.guild.get_member(uid)
-        name = member.display_name if member else f"<@{uid}>"
-
-        async def on_submit(inter: Interaction, pseudo: str) -> None:
-            await add_staff_member(self.server, uid, pseudo_jeu=pseudo.strip(), grade=None)
-            new_data = await get_staff_member(self.server, uid)
-            fresh_defs = await list_statut_defs(self.server)
-            await inter.response.edit_message(
-                view=_StatutManageView(self.guild_id, self.owner_id, new_data, fresh_defs, server=self.server)
-            )
-
-        modal = TextModal(
-            title=f"Nouveau membre — {name}"[:45],
-            label="Pseudo Minecraft",
-            placeholder=f"Ex: {name}",
-            min_length=1, max_length=64,
-            on_submit=on_submit,
-        )
-        await interaction.response.send_modal(modal)
 
 
 # ════════════════════════════════════════════════════════════
@@ -364,6 +328,221 @@ class _UserSelectView(LayoutView):
 
     async def _on_back(self, interaction: Interaction) -> None:
         await _back_to_main(interaction, self.owner_id, self.server)
+
+
+# ════════════════════════════════════════════════════════════
+# ➕ Sous-vue : Ajout — grade ET statuts en une seule étape
+# ════════════════════════════════════════════════════════════
+
+class _AddOptionsView(LayoutView):
+    """
+    Écran d'ajout unique : grade (boutons) + statuts (multi-select), fusionnés
+    en une seule étape (Paul, 2026-08-23, retour utilisateur — auparavant,
+    les statuts n'étaient accessibles que via un bouton "🎖️ Statuts" séparé
+    du dashboard, obligeant à re-sélectionner le membre une seconde fois).
+
+    Le multi-select accumule une sélection de statuts (`selected_keys`) sans
+    rien écrire en base — un clic sur un bouton de grade (y compris
+    "🚫 Aucun grade") finalise l'ajout : ouvre le modal pseudo/emoji (+ second
+    pseudo par statut concerné) puis crée le membre et attribue les statuts
+    choisis en une fois.
+    """
+
+    def __init__(
+        self, guild_id: int, owner_id: int,
+        discord_id: int, member_name: str, statut_defs: list[dict],
+        on_finalize,
+        *,
+        selected_keys: set[str] | None = None,
+        error_message: str | None = None,
+        server: str,
+    ) -> None:
+        super().__init__(timeout=180)
+        self.guild_id = guild_id
+        self.owner_id = owner_id
+        self.discord_id = discord_id
+        self.member_name = member_name
+        self.statut_defs = statut_defs
+        self._on_finalize = on_finalize
+        self.selected_keys = set(selected_keys) if selected_keys else set()
+        self.error_message = error_message
+        self.server = server
+        self._build()
+
+    async def interaction_check(self, interaction: Interaction) -> bool:
+        return interaction.user.id == self.owner_id
+
+    def _build(self) -> None:
+        c = Container()
+        c.add_item(TextDisplay(f"## ➕ Ajouter **{self.member_name}**"))
+        if self.error_message:
+            c.add_item(TextDisplay(f"⚠️ {self.error_message}"))
+        c.add_item(Separator())
+
+        if self.statut_defs:
+            lines = [
+                f"{'✅' if sd['key'] in self.selected_keys else '⬜'} {sd['emoji'] or '•'} {sd['label']}"
+                for sd in self.statut_defs
+            ]
+            c.add_item(TextDisplay("**Statuts (optionnel, cumulables) :**\n" + "\n".join(lines)))
+            c.add_item(Separator())
+
+            options = [
+                discord.SelectOption(
+                    label=sd["label"], value=sd["key"], emoji=sd["emoji"] or None,
+                    default=sd["key"] in self.selected_keys,
+                )
+                for sd in self.statut_defs
+            ][:25]
+            select = Select(
+                placeholder="Statuts à attribuer...",
+                min_values=0, max_values=len(options), options=options,
+            )
+            select.callback = self._on_select_statuts
+            c.add_item(ActionRow(select))
+            c.add_item(Separator())
+
+        c.add_item(TextDisplay("**Grade :**"))
+
+        # 6 grades de la hiérarchie, répartis sur 2 rangées de 3.
+        row1_grades = GRADES_ORDER[:3]
+        row2_grades = GRADES_ORDER[3:]
+
+        row1_buttons = []
+        for g in row1_grades:
+            b = Button(label=GRADE_LABELS[g], style=ButtonStyle.primary, custom_id=f"addg_{g}")
+            b.callback = self._make_callback(g)
+            row1_buttons.append(b)
+
+        row2_buttons = []
+        for g in row2_grades:
+            b = Button(label=GRADE_LABELS[g], style=ButtonStyle.secondary, custom_id=f"addg_{g}")
+            b.callback = self._make_callback(g)
+            row2_buttons.append(b)
+
+        none_button = Button(label="🚫 Aucun grade (statut seul)", style=ButtonStyle.danger, custom_id="addg_none")
+        none_button.callback = self._make_callback(None)
+
+        c.add_item(ActionRow(*row1_buttons))
+        c.add_item(ActionRow(*row2_buttons))
+        c.add_item(ActionRow(none_button))
+        c.add_item(Separator())
+
+        btn_back = Button(label="↩️ Retour", style=ButtonStyle.secondary, custom_id="addopt_back")
+        btn_back.callback = self._on_back
+        c.add_item(ActionRow(btn_back))
+        c.add_item(TextDisplay("-# GuideOn Studio"))
+        self.add_item(c)
+
+    def _refresh(self, *, error_message: str | None = None) -> "_AddOptionsView":
+        return _AddOptionsView(
+            self.guild_id, self.owner_id, self.discord_id, self.member_name, self.statut_defs,
+            self._on_finalize, selected_keys=self.selected_keys, error_message=error_message,
+            server=self.server,
+        )
+
+    async def _on_select_statuts(self, interaction: Interaction) -> None:
+        self.selected_keys = set(interaction.data.get("values", []))
+        await interaction.response.edit_message(view=self._refresh())
+
+    def _make_callback(self, grade: str | None):
+        async def cb(interaction: Interaction) -> None:
+            await self._on_grade_chosen(interaction, grade)
+        return cb
+
+    async def _on_grade_chosen(self, interaction: Interaction, grade: str | None) -> None:
+        if grade is None and not self.selected_keys:
+            return await interaction.response.edit_message(view=self._refresh(
+                error_message="Choisissez un grade, ou au moins un statut — un ajout "
+                              "totalement vide n'a pas de sens."
+            ))
+
+        selected_defs = [sd for sd in self.statut_defs if sd["key"] in self.selected_keys]
+
+        if grade is None:
+            invisible = [sd for sd in selected_defs if not _has_section(sd)]
+            if invisible:
+                names = ", ".join(f"**{sd['label']}**" for sd in invisible)
+                return await interaction.response.edit_message(view=self._refresh(
+                    error_message=f"Sans grade, {names} n'a pas de catégorie dédiée dans "
+                                  "`/ngstaff stafflist` (à activer via `/ngstaff config` → "
+                                  "Rank/Derank → 🎖️ Statuts) — le membre serait invisible. "
+                                  "Choisissez un grade, ou décochez ce(s) statut(s)."
+                ))
+
+        needing_pseudo = [sd for sd in selected_defs if sd["requires_second_pseudo"]]
+        if len(needing_pseudo) > 3:
+            return await interaction.response.edit_message(view=self._refresh(
+                error_message="Trop de statuts à second pseudo sélectionnés à la fois (max 3 "
+                              "en une étape) — ajoutez-les un par un via Modifier → Statuts "
+                              "une fois le membre créé."
+            ))
+
+        selected_keys = set(self.selected_keys)
+
+        async def on_modal_submit(inter: Interaction, pseudo: str, emoji: str, second_pseudos: dict[str, str]) -> None:
+            await self._on_finalize(inter, self.discord_id, self.member_name, grade, pseudo, emoji, selected_keys, second_pseudos)
+
+        modal = _AddStaffWithStatutsModal(
+            member_name=self.member_name,
+            grade_label=GRADE_LABELS.get(grade, grade) if grade else "Sans grade",
+            statuts_needing_pseudo=needing_pseudo,
+            on_submit=on_modal_submit,
+        )
+        await interaction.response.send_modal(modal)
+
+    async def _on_back(self, interaction: Interaction) -> None:
+        await _back_to_main(interaction, self.owner_id, self.server)
+
+
+# ════════════════════════════════════════════════════════════
+# 📝 Modal d'ajout — pseudo + emoji + second(s) pseudo(s) statut(s)
+# ════════════════════════════════════════════════════════════
+
+class _AddStaffWithStatutsModal(discord.ui.Modal):
+    """
+    Modal dynamique : pseudo + emoji (toujours), + un TextInput second-pseudo
+    par statut sélectionné nécessitant `requires_second_pseudo` (borné à 3
+    par _AddOptionsView, pour rester sous la limite Discord de 5 composants
+    par modal).
+    """
+
+    def __init__(
+        self, *, member_name: str, grade_label: str, statuts_needing_pseudo: list[dict], on_submit,
+    ) -> None:
+        super().__init__(title=f"Ajouter — {grade_label}"[:45])
+        self._on_submit = on_submit
+        self._statut_keys_order = [sd["key"] for sd in statuts_needing_pseudo]
+
+        self.pseudo = discord.ui.TextInput(
+            label="Pseudo Minecraft",
+            placeholder=f"Ex: {member_name}"[:100],
+            min_length=1, max_length=64,
+            required=True,
+        )
+        self.emoji = discord.ui.TextInput(
+            label="Emoji skin head (optionnel)",
+            placeholder="<:Tete_Pseudo:000000000000000000>",
+            min_length=0, max_length=128,
+            required=False,
+        )
+        self.add_item(self.pseudo)
+        self.add_item(self.emoji)
+
+        self._pseudo_inputs: dict[str, discord.ui.TextInput] = {}
+        for sd in statuts_needing_pseudo:
+            field = discord.ui.TextInput(
+                label=f"Second pseudo — {sd['label']}"[:45],
+                placeholder="Pseudo / compte dédié",
+                min_length=1, max_length=64,
+                required=True,
+            )
+            self._pseudo_inputs[sd["key"]] = field
+            self.add_item(field)
+
+    async def on_submit(self, interaction: Interaction) -> None:
+        second_pseudos = {key: field.value for key, field in self._pseudo_inputs.items()}
+        await self._on_submit(interaction, self.pseudo.value, self.emoji.value or "", second_pseudos)
 
 
 # ════════════════════════════════════════════════════════════
@@ -667,6 +846,22 @@ class _StatutManageView(LayoutView):
             await revoke_statut(self.server, self.data["discord_id"], key)
             return await self._refresh(interaction)
 
+        # 🚫 Membre sans grade + statut sans catégorie dédiée = invisible dans
+        # /ngstaff stafflist (voir _has_section / stafflist_view.py) — bloqué
+        # plutôt qu'attribué silencieusement (Paul, 2026-08-23, retour
+        # utilisateur).
+        if self.data["grade"] is None and not _has_section(statut_def):
+            return await interaction.response.edit_message(
+                view=_StatutManageView(
+                    self.guild_id, self.owner_id, self.data, self.statut_defs, server=self.server,
+                    error_message=f"**{statut_def['label']}** n'a pas de catégorie dédiée dans "
+                                  "`/ngstaff stafflist` (à activer via `/ngstaff config` → "
+                                  "Rank/Derank → 🎖️ Statuts) — sans grade, ce membre serait "
+                                  "invisible. Attribuez d'abord un grade, ou activez la "
+                                  "catégorie dédiée pour ce statut.",
+                )
+            )
+
         if statut_def["requires_second_pseudo"]:
             async def on_submit(inter: Interaction, value: str) -> None:
                 try:
@@ -769,13 +964,20 @@ class _ConfirmRemoveView(LayoutView):
         d = self.data
         label = GRADE_LABELS.get(d["grade"], d["grade"]) if d["grade"] else "*Aucun grade*"
         badges = build_member_badges(d)
+        statuts = d.get("statuts", [])
+        statuts_line = (
+            ", ".join(f"{s.get('emoji') or ''} {s['label']}".strip() for s in statuts)
+            if statuts else "*aucun*"
+        )
         c = Container()
         c.add_item(TextDisplay("## ⚠️ Confirmer la suppression"))
         c.add_item(Separator())
         c.add_item(TextDisplay(
             f"Retirer **{d['pseudo_jeu']}**{badges} (<@{d['discord_id']}>) de la liste staff ?\n"
-            f"Grade : **{label}**\n\n"
-            f"*Aucun message ni rôle Discord ne sera modifié.*"
+            f"Grade : **{label}**\n"
+            f"Statuts : {statuts_line}\n\n"
+            f"*Aucun message ni rôle Discord ne sera modifié — les statuts ci-dessus seront "
+            f"également retirés.*"
         ))
         c.add_item(Separator())
 
@@ -789,6 +991,11 @@ class _ConfirmRemoveView(LayoutView):
 
     async def _on_confirm(self, interaction: Interaction) -> None:
         await remove_staff_member(self.server, self.data["discord_id"])
+        # 🧹 NGStaffStatut n'a pas de FK vers ng_staff (seulement vers
+        # ng_statut_defs, cascade sur suppression de statut) — sans cet
+        # appel, les attributions restaient orphelines en base après une
+        # suppression de membre (Paul, 2026-08-23).
+        await revoke_all_statuts(self.server, self.data["discord_id"])
         from utils.managers.ng_stafflist_manager import refresh_staff_message
         await refresh_staff_message(interaction.client, self.guild_id, server=self.server)
         members = await list_staff(self.server)
@@ -829,31 +1036,3 @@ class _NotFoundView(LayoutView):
 
     async def _on_back(self, interaction: Interaction) -> None:
         await _back_to_main(interaction, self.owner_id, self.server)
-
-
-# ════════════════════════════════════════════════════════════
-# 📝 Modal d'ajout (pseudo + emoji)
-# ════════════════════════════════════════════════════════════
-
-class _AddStaffModal(discord.ui.Modal):
-    def __init__(self, member_name: str, grade_label: str, on_submit) -> None:
-        super().__init__(title=f"Ajouter — {grade_label}")
-        self._on_submit = on_submit
-
-        self.pseudo = discord.ui.TextInput(
-            label="Pseudo Minecraft",
-            placeholder=f"Ex: {member_name}",
-            min_length=1, max_length=64,
-            required=True,
-        )
-        self.emoji = discord.ui.TextInput(
-            label="Emoji skin head (optionnel)",
-            placeholder="<:Tete_Pseudo:000000000000000000>",
-            min_length=0, max_length=128,
-            required=False,
-        )
-        self.add_item(self.pseudo)
-        self.add_item(self.emoji)
-
-    async def on_submit(self, interaction: Interaction) -> None:
-        await self._on_submit(interaction, (self.pseudo.value, self.emoji.value or ""))
