@@ -1,36 +1,7 @@
 """
-cogs/events/mod_automod_listener.py — Écoute on_message pour l'auto-modération.
-
-Flow (v3, refonte avec récidive temporelle) :
-
-  1. Message reçu → skip bots/admins/DM
-  2. Interroge chaque sous-système activé pour la guild
-  3. Si un système détecte une infraction :
-     a. Supprime le message (best-effort)
-     b. Compte les récidives dans la fenêtre configurée (in-memory tracker)
-     c. Enregistre l'infraction en DB (mod_automod_infractions)
-     d. Envoie un container V2 dans le salon d'origine (option)
-     e. Envoie un MP au user (container V2, best-effort)
-     f. Si récidive (>=2 infractions même système dans la fenêtre) :
-        - Applique un timeout Discord natif (max 28j)
-        - Envoie une alerte staff DANS le salon d'alerte avec bouton
-          "Je m'en occupe" (view persistante)
-        - Ping le rôle staff configuré
-        - Insère la ligne dans mod_automod_active_alerts
-        - Reset le compteur récidive (évite mute en cascade sur les messages
-          suivants du même user dans la fenêtre)
-     g. Sinon (première infraction) : log staff léger dans le salon d'alerte
-        (juste info, pas de bouton)
-
-NOTE DEBUG (2026-08-19) : `settings.log_level` vaut `INFO` par défaut (voir
-.env.example) — les `log.debug(...)` des détecteurs sont donc invisibles en
-prod tant que LOG_LEVEL n'est pas passé à DEBUG. Pour éviter de dépendre de
-ça, ce listener logge en **INFO** (visible par défaut) dès qu'un système
-détecte une infraction (`_apply_action`), et log désormais le détail réel
-des exceptions Discord (au lieu de juste l'id du salon) partout où un envoi
-peut être refusé, avec un diagnostic de permissions explicite pour le salon
-d'alerte.
+cogs/events/mod_automod_listener.py — Gestion automod.
 """
+
 from __future__ import annotations
 
 import logging
@@ -51,6 +22,7 @@ from utils.automod.detectors import (
     banword as banword_detector,
     nolink as nolink_detector,
 )
+
 from utils.managers import (
     mod_automod_alert_manager as alert_mgr,
     mod_automod_antifullcaps_manager as antifullcaps_mgr,
@@ -68,16 +40,9 @@ from views.mod.automod_alert_view import build_alert_container
 
 log = logging.getLogger(__name__)
 
-# Timeout Discord natif : max autorisé par l'API = 28 jours pile.
 _MUTE_DURATION = timedelta(days=28)
 
-# Permissions nécessaires pour poster une alerte Components V2 (Container)
-# dans le salon d'alerte. `embed_links` est celle qu'on oublie le plus souvent :
-# un Container V2 est traité par Discord comme un contenu "riche" au même
-# titre qu'un embed classique côté permissions.
-_REQUIRED_ALERT_PERMS: tuple[str, ...] = (
-    "view_channel", "send_messages", "embed_links", "attach_files",
-)
+_REQUIRED_ALERT_PERMS: tuple[str, ...] = ("view_channel", "send_messages", "embed_links", "attach_files")
 
 
 # ============================================================
@@ -92,7 +57,7 @@ _SYSTEM_META: dict[str, dict[str, str]] = {
     },
     "antifullcaps": {
         "display_name": "Anti Full Maj",
-        "user_msg": "Ton message était majoritairement en **MAJUSCULES**.",
+        "user_msg": "Ton message contenait trop de **MAJUSCULES**.",
         "emoji": "🔠",
     },
     "antispam_mention": {
@@ -112,7 +77,7 @@ _SYSTEM_META: dict[str, dict[str, str]] = {
     },
     "antilink": {
         "display_name": "Anti Link",
-        "user_msg": "Ton message contenait un fichier/lien vers une **extension bloquée**.",
+        "user_msg": "L'**extension** de ton fichier/lien est **bloquée**.",
         "emoji": "🚫",
     },
     "antispam_msg": {
@@ -122,7 +87,7 @@ _SYSTEM_META: dict[str, dict[str, str]] = {
     },
     "antiflood": {
         "display_name": "Anti Flood",
-        "user_msg": "Ton message était **incohérent** (mashkeyboard détecté).",
+        "user_msg": "Ton message ne veut rien dire.",
         "emoji": "🌊",
     },
 }
@@ -134,12 +99,8 @@ def get_system_display(system_key: str) -> str:
 
 
 def _missing_send_permissions(channel, guild: discord.Guild) -> list[str]:
-    """
-    Diagnostic explicite des permissions manquantes du bot dans `channel`.
-    Utilisé pour transformer un "refusé, malgré all perm" en une réponse
-    concrète (ex : ["embed_links"]) au lieu d'un simple id de salon dans les
-    logs.
-    """
+    """Vérification des permissions."""
+
     me = guild.me
     if me is None:
         return ["guild.me introuvable (bot pas dans le cache de la guild ?)"]
@@ -178,19 +139,15 @@ class ModAutomodListener(commands.Cog):
         system_key, matched_term = hit
         try:
             await self._apply_action(message, system_key, matched_term)
+
         except Exception:
-            log.exception(
-                "[AUTOMOD] Erreur application action guild=%s system=%s",
-                message.guild.id, system_key,
-            )
+            log.exception("[AUTOMOD] Erreur application action guild=%s system=%s", message.guild.id, system_key)
 
     # ────────────────────────────────────────────────────────
     # 🔎 Analyse
     # ────────────────────────────────────────────────────────
 
-    async def _analyze_message(
-        self, message: discord.Message,
-    ) -> tuple[str, str | None] | None:
+    async def _analyze_message(self, message: discord.Message) -> tuple[str, str | None] | None:
         guild_id = message.guild.id
         content = message.content or ""
 
@@ -225,10 +182,6 @@ class ModAutomodListener(commands.Cog):
 
         # ── Anti Spam Emoji ──
         e_cfg = await antispam_emoji_mgr.load_config(guild_id)
-        log.debug(
-            "[AUTOMOD] antispam_emoji cfg guild=%s enabled=%s max_emoji=%s",
-            guild_id, e_cfg.get("enabled"), e_cfg.get("max_emoji"),
-        )
         if e_cfg.get("enabled"):
             match = antispam_emoji_detector.detect(
                 content, max_emoji=e_cfg.get("max_emoji", 10),
@@ -239,7 +192,6 @@ class ModAutomodListener(commands.Cog):
         # ── No Link ──
         nl_cfg = await nolink_mgr.load_config(guild_id)
         if nl_cfg.get("enabled"):
-            # Salon whitelisté → on n'appelle même pas le détecteur.
             if not await nolink_mgr.is_whitelisted(guild_id, message.channel.id):
                 match = nolink_detector.detect(content)
                 if match is not None:
@@ -285,9 +237,7 @@ class ModAutomodListener(commands.Cog):
     # ⚡ Application (delete + tracking + notif + éventuel mute)
     # ────────────────────────────────────────────────────────
 
-    async def _apply_action(
-        self, message: discord.Message, system_key: str, matched_term: str | None,
-    ) -> None:
+    async def _apply_action(self, message: discord.Message, system_key: str, matched_term: str | None) -> None:
         guild = message.guild
         author = message.author
         guild_id = guild.id
@@ -296,32 +246,23 @@ class ModAutomodListener(commands.Cog):
         display = meta.get("display_name", system_key)
         emoji = meta.get("emoji", "⚠️")
 
-        # Log visible par défaut (INFO) : confirme qu'une infraction a bien
-        # été détectée et prise en charge, même sans LOG_LEVEL=DEBUG.
-        log.info(
-            "[AUTOMOD] Infraction détectée guild=%s user=%s system=%s terme=%r",
-            guild_id, user_id, system_key, matched_term,
-        )
 
-        # 1. Delete du message.
+        log.info("[AUTOMOD] Infraction détectée | guild=%s user=%s system=%s terme=%r", guild_id, user_id, system_key, matched_term)
+
         try:
             await message.delete()
-        except (discord.Forbidden, discord.HTTPException) as exc:
-            log.warning(
-                "[AUTOMOD] Delete refusé guild=%s channel=%s message=%s erreur=%s",
-                guild_id, message.channel.id, message.id, exc,
-            )
 
-        # 2. Compte les récidives AVANT d'enregistrer la nouvelle (sinon
-        # la nouvelle serait toujours >=1).
+        except (discord.Forbidden, discord.HTTPException) as exc:
+            log.warning("[AUTOMOD] Suppression de l'infraction échouée | guild=%s channel=%s message=%s erreur=%s", guild_id, message.channel.id, message.id, exc)
+
+
         general = await general_mgr.load_general(guild_id)
         window = general.get("notification_window_seconds", 60)
         recent = recidive_tracker.count_recent(
             guild_id, user_id, system_key, window_seconds=window,
         )
-        is_recidive = recent >= 1  # >=1 précédente dans la fenêtre → celle-ci est la 2e
+        is_recidive = recent >= 1
 
-        # 3. Enregistre en DB + ajoute au tracker mémoire.
         try:
             await infr_mgr.register_infraction(
                 guild_id=guild_id, user_id=user_id,
@@ -330,11 +271,11 @@ class ModAutomodListener(commands.Cog):
                 matched_term=matched_term,
                 message_content=message.content,
             )
+
         except Exception:
-            log.exception("[AUTOMOD] Enregistrement DB échoué guild=%s", guild_id)
+            log.exception("[AUTOMOD] Enregistrement de l'infraction en DB échoué guild=%s", guild_id)
         recidive_tracker.record_infraction(guild_id, user_id, system_key)
 
-        # 4. Notif dans le salon d'origine (container V2).
         if general.get("notify_in_channel"):
             await self._send_channel_notice(
                 message.channel, author, system_display=display,
@@ -342,24 +283,15 @@ class ModAutomodListener(commands.Cog):
                 user_msg=meta.get("user_msg", ""),
             )
 
-        # 5. MP au user (container V2).
-        await self._send_user_dm(
-            author, guild, system_display=display, emoji=emoji,
-            is_recidive=is_recidive, user_msg=meta.get("user_msg", ""),
-        )
+        await self._send_user_dm(author, guild, system_display=display, emoji=emoji, is_recidive=is_recidive, user_msg=meta.get("user_msg", ""))
 
-        # 6. Escalade selon récidive.
         alert_channel_id = general.get("alert_channel_id")
         alert_channel = guild.get_channel(alert_channel_id) if alert_channel_id else None
+
         if alert_channel_id and alert_channel is None:
-            log.warning(
-                "[AUTOMOD] alert_channel_id=%s configuré mais introuvable "
-                "(salon supprimé, ou pas dans le cache ?) guild=%s",
-                alert_channel_id, guild_id,
-            )
+            log.warning("[AUTOMOD] alert_channel_id=%s configuré mais introuvable | guild=%s", alert_channel_id, guild_id)
 
         if is_recidive:
-            # Mute Discord natif + alerte staff avec bouton.
             muted = await self._apply_timeout(author, system_key)
             if alert_channel is not None:
                 await self._send_full_alert(
@@ -369,15 +301,10 @@ class ModAutomodListener(commands.Cog):
                     staff_role_id=general.get("staff_role_id"),
                 )
             else:
-                log.warning(
-                    "[AUTOMOD] Récidive détectée mais aucun alert_channel configuré "
-                    "guild=%s user=%s system=%s", guild_id, user_id, system_key,
-                )
-            # Reset le compteur : les prochains messages du user dans la fenêtre
-            # ne redéclencheront pas de mute en cascade (le staff a la main).
+                log.warning("[AUTOMOD] Récidive détectée mais aucun alert_channel configuré guild=%s user=%s system=%s", guild_id, user_id, system_key)
             recidive_tracker.reset_key(guild_id, user_id, system_key)
+
         else:
-            # 1re infraction : log staff léger dans le salon d'alerte, sans bouton.
             if alert_channel is not None:
                 await self._send_light_alert(
                     alert_channel, user=author, message=message,
@@ -388,29 +315,27 @@ class ModAutomodListener(commands.Cog):
     # 📢 Notifications
     # ────────────────────────────────────────────────────────
 
-    async def _send_channel_notice(
-        self, channel, author: discord.Member, *,
-        system_display: str, emoji: str, is_recidive: bool, user_msg: str,
-    ) -> None:
-        """Container V2 posté dans le salon d'origine, auto-delete 10s."""
+    async def _send_channel_notice(self, channel, author: discord.Member, *, system_display: str, emoji: str, is_recidive: bool, user_msg: str) -> None:
+        """Container V2 posté dans le salon d'origine, auto-delete 8s."""
+
         view = LayoutView(timeout=None)
         c = Container()
-        title = f"# {emoji} {system_display}"
-        c.add_item(TextDisplay(title))
-        c.add_item(Separator())
         body = f"{author.mention}\n{user_msg}"
+
         if is_recidive:
             body += "\n\n🔒 **Récidive détectée** — un mute Discord a été appliqué."
         c.add_item(TextDisplay(body))
+
         c.add_item(Separator())
-        c.add_item(TextDisplay("-# Auto-modération · GuideOn Studio"))
+        c.add_item(TextDisplay("GuideOn Studio"))
         view.add_item(c)
         try:
             await channel.send(
                 view=view,
-                delete_after=10,
+                delete_after=8,
                 allowed_mentions=discord.AllowedMentions(users=True),
             )
+
         except (discord.Forbidden, discord.HTTPException) as exc:
             log.warning(
                 "[AUTOMOD] Notif salon refusée channel=%s erreur=%s",
@@ -437,7 +362,7 @@ class ModAutomodListener(commands.Cog):
             )
         c.add_item(TextDisplay(body))
         c.add_item(Separator())
-        c.add_item(TextDisplay("-# Auto-modération · GuideOn Studio"))
+        c.add_item(TextDisplay("GuideOn Studio"))
         view.add_item(c)
         try:
             await user.send(view=view)
@@ -452,7 +377,7 @@ class ModAutomodListener(commands.Cog):
         """Log staff léger sur 1re infraction (pas de bouton)."""
         view = LayoutView(timeout=None)
         c = Container()
-        c.add_item(TextDisplay(f"# ⚠️ Auto-modération · {system_display}"))
+        c.add_item(TextDisplay(f"# <:sanctionner:1495444382587949086> Alerte automod · {system_display}\n"))
         c.add_item(Separator())
         body = (
             f"**Membre** : {user.mention} (`{user.id}`)\n"
@@ -467,7 +392,7 @@ class ModAutomodListener(commands.Cog):
             c.add_item(TextDisplay(f"**Message** :\n> {excerpt}"))
         c.add_item(Separator())
         c.add_item(TextDisplay(
-            "-# 1re infraction dans la fenêtre. Aucune sanction automatique."
+            "-# 1re infraction. Aucune sanction automatique."
         ))
         view.add_item(c)
         try:
@@ -487,8 +412,6 @@ class ModAutomodListener(commands.Cog):
         """Alerte STAFF complète avec bouton 'Je m'en occupe' (persistante)."""
         excerpt = (message.content or "")[:500]
 
-        # 1. Envoi initial avec un id temporaire (0) pour construire la vue.
-        # On mettra à jour le message avec le vrai alert_id après INSERT DB.
         temp_view = build_alert_container(
             system_display=system_display,
             user_id=user.id,

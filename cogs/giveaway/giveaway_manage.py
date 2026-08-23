@@ -42,6 +42,23 @@ async def giveaway_manage(interaction: discord.Interaction, giveaway_id: str) ->
     except (discord.NotFound, discord.HTTPException):
         return
 
+    # 🔎 Récupération du giveaway (AVANT le contrôle de permission : celui-ci
+    # a besoin de data["host_id"] — bug corrigé ici, l'ordre inverse causait
+    # un UnboundLocalError sur `data` à 100% des appels, Paul 2026-08-23).
+    giveaway_id = giveaway_id.strip().upper()
+    data = await get_giveaway(giveaway_id)
+    if data is None:
+        await interaction.followup.send(
+            view=error_container(f"Aucun giveaway trouvé avec l'ID `{giveaway_id}`."),
+            ephemeral=True,
+        )
+        return
+
+    # 🛡️ Sécurité : appartient bien à ce serveur.
+    if data["guild_id"] != interaction.guild.id:
+        await interaction.followup.send(view=error_container("Il n'existe pas de giveaway avec cet ID sur ce serveur."), ephemeral=True)
+        return
+
     # 🔐 Vérification des permissions (Admin ou Organisateur).
     is_admin = (
         isinstance(interaction.user, discord.Member)
@@ -61,21 +78,6 @@ async def giveaway_manage(interaction: discord.Interaction, giveaway_id: str) ->
 
     # 📊 Tracking.
     await tracker_commande(interaction, "giveaway_manage")
-
-    # 🔎 Récupération du giveaway.
-    giveaway_id = giveaway_id.strip().upper()
-    data = await get_giveaway(giveaway_id)
-    if data is None:
-        await interaction.followup.send(
-            view=error_container(f"Aucun giveaway trouvé avec l'ID `{giveaway_id}`."),
-            ephemeral=True,
-        )
-        return
-
-    # 🛡️ Sécurité : appartient bien à ce serveur.
-    if data["guild_id"] != interaction.guild.id:
-        await interaction.followup.send(view=error_container("Il n'existe pas de giveaway avec cet ID sur ce serveur."), ephemeral=True)
-        return
 
     # 🧩 Ouverture de la vue.
     try:
