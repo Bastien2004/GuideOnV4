@@ -8,7 +8,7 @@ import discord
 from discord import ButtonStyle
 from discord.ui import ActionRow, Button, Container, Separator, TextDisplay
 
-from utils.container_universel import error_container, send_ephemeral, warning_container
+from utils.container_universel import error_container, send_ephemeral, success_container, warning_container
 from utils.managers.join_to_create_manager import load_config, set_category, set_trigger_channel
 from utils.settings import settings
 from views._components.base_view import BaseLayoutView
@@ -19,10 +19,7 @@ ICON_MODIFIER = "<:modifier:1495444144712192003>"
 ICON_PLUS = "<:plus:1495444111505752154>"
 _CATEGORY_CHANNEL_LIMIT = 50
 
-# Nom par défaut utilisé par le bouton de création rapide (bas de panneau) —
-# reprend le placeholder déjà affiché dans le modal "Configurer le nom",
-# pour rester cohérent entre les deux chemins de création (Paul, 2026-08-24).
-DEFAULT_TRIGGER_NAME = "『☎』¦créer ta voc"
+DEFAULT_TRIGGER_NAME = "➕ 𝓒réer ta 𝓥ocal"
 
 
 class JoinToCreateConfigView(BaseLayoutView):
@@ -66,10 +63,6 @@ class JoinToCreateConfigView(BaseLayoutView):
         container.add_item(Separator())
 
         # ── Salon déclencheur ─────────────────────────────────
-        # Format aligné sur les autres panneaux de config (label en gras sur
-        # sa propre ligne, valeur en -# dessous) — auparavant tout sur une
-        # seule ligne "**Label** : valeur", incohérent avec le reste (Paul,
-        # 2026-08-24, retour utilisateur).
         trigger_id = self.cfg.get("trigger_channel_id")
         trigger_display = f"<#{trigger_id}>" if trigger_id else "`Non configuré`"
 
@@ -78,32 +71,20 @@ class JoinToCreateConfigView(BaseLayoutView):
             f"-# {trigger_display}"
         ))
 
-        category_ready = category_id is not None
-        if category_ready:
-            btn_trigger = Button(label="Configurer le nom", style=ButtonStyle.primary, emoji=ICON_MODIFIER)
-        else:
-            btn_trigger = Button(label="Configurez d'abord la catégorie", style=ButtonStyle.secondary, disabled=True)
-
+        btn_trigger = Button(label="Configurer le nom", style=ButtonStyle.primary, emoji=ICON_MODIFIER)
         btn_trigger.callback = self._on_open_trigger_modal
         container.add_item(ActionRow(btn_trigger))
 
         container.add_item(Separator())
 
-        # ── Actions rapides : création directe + documentation ────────
-        # Ajouté (Paul, 2026-08-24) : un raccourci pour créer le salon
-        # déclencheur en un clic (nom par défaut, sans passer par le modal),
-        # grisé une fois le salon déjà créé (ou tant que la catégorie n'est
-        # pas configurée) — et le lien vers la doc, même emplacement/style
-        # que dans les autres panneaux (cf. views/mod/logs_config_view.py).
-        if not category_ready:
-            btn_create = Button(
-                label="Configurez d'abord la catégorie", style=ButtonStyle.secondary, disabled=True,
-            )
-        elif trigger_id is not None:
-            btn_create = Button(label="Salon déjà créé", style=ButtonStyle.secondary, disabled=True)
-        else:
-            btn_create = Button(label="Créer le salon vocal", style=ButtonStyle.success, emoji=ICON_PLUS)
-            btn_create.callback = self._on_quick_create_trigger
+        # ── Création + documentation ────────
+        # Un seul bouton, toujours actif : la vérification "tout est
+        # configuré ?" se fait au clic (voir _on_quick_create_trigger), pas
+        # via trois états de bouton différents à l'affichage — inutile
+        # puisque la vue se ferme d'elle-même après une création réussie
+        # (Paul, 2026-08-24, retour utilisateur).
+        btn_create = Button(label="Créer le salon vocal", style=ButtonStyle.success, emoji=ICON_PLUS)
+        btn_create.callback = self._on_quick_create_trigger
 
         btn_doc = Button(label="Documentation", style=ButtonStyle.link, url=settings.doc_url, emoji="📚")
 
@@ -134,9 +115,7 @@ class JoinToCreateConfigView(BaseLayoutView):
             perms = channel.permissions_for(self.guild.me)
             if not (perms.manage_channels and perms.view_channel):
                 await interaction.response.send_message(
-                    view=error_container(
-                        f"Je n'ai pas la permission de gérer les salons dans **{channel.name}**."
-                    ),
+                    view=error_container("Je n'ai pas la **permission** de gérer les salons."),
                     ephemeral=True,
                 )
                 return
@@ -181,13 +160,13 @@ class JoinToCreateConfigView(BaseLayoutView):
         await self._refresh(interaction)
 
     async def _on_quick_create_trigger(self, interaction: discord.Interaction) -> None:
-        # Raccourci "un clic" : crée directement le salon déclencheur avec le
-        # nom par défaut. Le bouton est déjà grisé dès que trigger_channel_id
-        # est configuré (voir _build) — cette re-vérification protège contre
-        # une double-soumission (deux clics rapprochés avant le refresh de
-        # la vue), Paul 2026-08-24.
-        if self.cfg.get("trigger_channel_id") is not None:
-            await send_ephemeral(interaction, warning_container("Le salon déclencheur existe déjà."))
+        # Tout configuré : good → on crée et la vue se ferme.
+        # Sinon : pas good → message d'avertissement, la vue reste ouverte.
+        if self.cfg.get("category_id") is None:
+            await interaction.response.send_message(
+                view=warning_container("Configurez d'abord la **catégorie** de destination."),
+                ephemeral=True,
+            )
             return
 
         channel = await self._create_or_rename_trigger_channel(interaction, DEFAULT_TRIGGER_NAME)
@@ -195,18 +174,11 @@ class JoinToCreateConfigView(BaseLayoutView):
             return
 
         await set_trigger_channel(self.guild.id, channel.id, DEFAULT_TRIGGER_NAME)
-        await self._refresh(interaction)
+        await self.push_update(interaction, view=success_container(f"Salon vocal {channel.mention} créé !"))
+        self.stop()
 
-    async def _create_or_rename_trigger_channel(
-        self, interaction: discord.Interaction, name: str
-    ) -> discord.VoiceChannel | None:
-        """
-        Logique de création/renommage partagée entre le modal "Configurer le
-        nom" et le bouton de création rapide — factorisée pour ne pas
-        dupliquer la gestion des permissions/erreurs Discord (Paul,
-        2026-08-24). Retourne None (et répond déjà à `interaction`) en cas
-        d'échec.
-        """
+    async def _create_or_rename_trigger_channel(self, interaction: discord.Interaction, name: str) -> discord.VoiceChannel | None:
+        """Logique de création/renommage."""
         category_id = self.cfg.get("category_id")
         category = self.guild.get_channel(category_id) if category_id else None
         if not isinstance(category, discord.CategoryChannel):
