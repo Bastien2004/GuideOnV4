@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import discord
 from discord import ButtonStyle
-from discord.ui import ActionRow, Button, Container, Separator, TextDisplay
+from discord.ui import ActionRow, Button, Container, Section, Separator, TextDisplay
 
 from utils.container_universel import error_container, send_ephemeral, success_container, warning_container
 from utils.managers.join_to_create_manager import load_config, set_category, set_trigger_channel
@@ -66,14 +66,19 @@ class JoinToCreateConfigView(BaseLayoutView):
         trigger_id = self.cfg.get("trigger_channel_id")
         trigger_display = f"<#{trigger_id}>" if trigger_id else "`Non configuré`"
 
-        container.add_item(TextDisplay(
-            "**☎️ Salon déclencheur**\n"
-            f"-# {trigger_display}"
-        ))
-
-        btn_trigger = Button(label="Configurer le nom", style=ButtonStyle.primary, emoji=ICON_MODIFIER)
+        # Section+accessory (comme views/mod/logs_config_view.py) plutôt
+        # qu'un TextDisplay + ActionRow séparés : place le bouton à droite
+        # du texte au lieu d'une ligne bleue à part (Paul, 2026-08-24,
+        # retour utilisateur).
+        btn_trigger = Button(label="Modifier", style=ButtonStyle.secondary, emoji=ICON_MODIFIER)
         btn_trigger.callback = self._on_open_trigger_modal
-        container.add_item(ActionRow(btn_trigger))
+        container.add_item(Section(
+            TextDisplay(
+                "**☎️ Salon déclencheur**\n"
+                f"-# {trigger_display}"
+            ),
+            accessory=btn_trigger,
+        ))
 
         container.add_item(Separator())
 
