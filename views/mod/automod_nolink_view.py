@@ -26,7 +26,7 @@ from views._components.channel_select import ChannelSelect
 
 log = logging.getLogger(__name__)
 
-CHANNEL_TYPES = [discord.ChannelType.text, discord.ChannelType.news]
+CHANNEL_TYPES = [discord.ChannelType.text, discord.ChannelType.news, discord.ChannelType.forum]
 CHANNELS_PREVIEW_MAX = 25
 REMOVE_SELECT_MAX = 25
 
