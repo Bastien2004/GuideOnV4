@@ -192,7 +192,15 @@ class ModAutomodListener(commands.Cog):
         # ── No Link ──
         nl_cfg = await nolink_mgr.load_config(guild_id)
         if nl_cfg.get("enabled"):
-            if not await nolink_mgr.is_whitelisted(guild_id, message.channel.id):
+
+            channel_id = message.channel.id
+
+            # Dans un salon Forum, les posts sont des Threads.
+            # La whitelist contient l'ID du Forum parent, pas celui du Thread.
+            if isinstance(message.channel, discord.Thread):
+                channel_id = message.channel.parent_id
+
+            if not await nolink_mgr.is_whitelisted(guild_id, channel_id):
                 match = nolink_detector.detect(content)
                 if match is not None:
                     return ("nolink", match)
