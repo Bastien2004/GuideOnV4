@@ -67,14 +67,16 @@ def _wl_invalidate(guild_id: int) -> None:
 # ═══ Config (enabled) ═══════════════════════════════════════════════
 
 async def load_config(guild_id: int) -> dict:
-    """Retourne {'guild_id', 'enabled'}. Defaults: enabled=False."""
+    """Retourne {'guild_id', 'enabled', 'bypass_gif'}. Defaults: False/False."""
     cached = _cfg_fresh(guild_id)
     if cached is not None:
         return cached
 
     async with get_session() as session:
         row = await session.get(ModAutomodNolinkConfig, guild_id)
-        payload = row.to_dict() if row else {"guild_id": guild_id, "enabled": False}
+        payload = row.to_dict() if row else {
+            "guild_id": guild_id, "enabled": False, "bypass_gif": False,
+        }
 
     _cfg_prime(guild_id, payload)
     return dict(payload)
@@ -89,6 +91,22 @@ async def set_enabled(guild_id: int, enabled: bool) -> dict:
             session.add(row)
         else:
             row.enabled = enabled
+        await session.flush()
+        payload = row.to_dict()
+
+    _cfg_prime(guild_id, payload)
+    return dict(payload)
+
+
+async def set_bypass_gif(guild_id: int, bypass_gif: bool) -> dict:
+    """Active ou désactive le bypass des liens GIF (Tenor/Giphy/.gif) pour un serveur."""
+    async with get_session() as session:
+        row = await session.get(ModAutomodNolinkConfig, guild_id)
+        if row is None:
+            row = ModAutomodNolinkConfig(guild_id=guild_id, enabled=False, bypass_gif=bypass_gif)
+            session.add(row)
+        else:
+            row.bypass_gif = bypass_gif
         await session.flush()
         payload = row.to_dict()
 

@@ -26,7 +26,7 @@ from views._components.channel_select import ChannelSelect
 
 log = logging.getLogger(__name__)
 
-CHANNEL_TYPES = [discord.ChannelType.text, discord.ChannelType.news, discord.ChannelType.forum]
+CHANNEL_TYPES = [discord.ChannelType.text, discord.ChannelType.news]
 CHANNELS_PREVIEW_MAX = 25
 REMOVE_SELECT_MAX = 25
 
@@ -45,12 +45,13 @@ async def create_automod_nolink_view(guild_id: int, bot, author_id: Optional[int
     cfg = await mgr.load_config(guild_id)
     whitelist = await mgr.list_whitelist(guild_id)
     enabled = cfg.get("enabled", False)
+    bypass_gif = cfg.get("bypass_gif", False)
 
     view = LayoutView(timeout=600)
     container = Container()
 
     # Header
-    container.add_item(TextDisplay("# <:protect_doc:1539608530850545735> Système no link"))
+    container.add_item(TextDisplay("# <:protect_config:1539608365704028340> Système No Link"))
     container.add_item(Separator())
 
     # Toggle activation
@@ -68,6 +69,23 @@ async def create_automod_nolink_view(guild_id: int, bot, author_id: Optional[int
             "-# Supprime tous les liens hors salons whitelistés."
         ),
         accessory=toggle_btn,
+    ))
+    container.add_item(Separator())
+
+    gif_toggle_btn = Button(
+        label="Activé" if bypass_gif else "Désactivé",
+        emoji="<:valider:1495444292867723284>" if bypass_gif else "<:annuler:1495444256754761979>",
+        style=ButtonStyle.success if bypass_gif else ButtonStyle.danger,
+        custom_id=f"toggle_gif_{guild_id}"
+    )
+    gif_toggle_btn.callback = _cb_toggle_gif(guild_id, bot, author_id)
+
+    container.add_item(Section(
+        TextDisplay(
+            "**🖼️ Bypass GIF**\n"
+            "-# Autorise les GIF malgré le système actif."
+        ),
+        accessory=gif_toggle_btn,
     ))
     container.add_item(Separator())
 
@@ -139,6 +157,9 @@ async def create_automod_nolink_whitelist_view(guild_id: int, bot, author_id: Op
     )
     container.add_item(ActionRow(add_select))
 
+    # Retrait (Select manuel construit depuis la DB — fonctionne même si le
+    # salon a été supprimé côté Discord depuis, contrairement à un ChannelSelect
+    # natif qui ne proposerait plus le salon).
     if whitelist:
         remove_options: list[SelectOption] = []
         for cid in whitelist[:REMOVE_SELECT_MAX]:
@@ -230,6 +251,17 @@ def _cb_toggle(guild_id, bot, author_id):
             return
         current = (await mgr.load_config(guild_id)).get("enabled", False)
         await mgr.set_enabled(guild_id, not current)
+        await _rerender_main(interaction, guild_id, bot, author_id)
+    return cb
+
+
+def _cb_toggle_gif(guild_id, bot, author_id):
+    check = _guard(author_id)
+    async def cb(interaction: Interaction):
+        if not await check(interaction):
+            return
+        current = (await mgr.load_config(guild_id)).get("bypass_gif", False)
+        await mgr.set_bypass_gif(guild_id, not current)
         await _rerender_main(interaction, guild_id, bot, author_id)
     return cb
 

@@ -31,8 +31,12 @@ class ModAutomodNolinkConfig(Base, TimestampMixin):
         Boolean, nullable=False, default=False, server_default="false",
     )
 
+    bypass_gif: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false",
+    )
+
     def to_dict(self) -> dict:
-        return {"guild_id": self.guild_id, "enabled": self.enabled}
+        return {"guild_id": self.guild_id, "enabled": self.enabled, "bypass_gif": self.bypass_gif}
 
 
 class ModAutomodNolinkWhitelist(Base, TimestampMixin):
