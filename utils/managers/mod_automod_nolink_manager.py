@@ -99,7 +99,7 @@ async def set_enabled(guild_id: int, enabled: bool) -> dict:
 
 
 async def set_bypass_gif(guild_id: int, bypass_gif: bool) -> dict:
-    """Active ou désactive le bypass des liens GIF (Tenor/Giphy/.gif) pour un serveur."""
+    """Active ou désactive le bypass des liens GIF (Tenor/Giphy/Klipy/.gif) pour un serveur."""
     async with get_session() as session:
         row = await session.get(ModAutomodNolinkConfig, guild_id)
         if row is None:

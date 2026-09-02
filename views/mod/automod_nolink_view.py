@@ -26,7 +26,7 @@ from views._components.channel_select import ChannelSelect
 
 log = logging.getLogger(__name__)
 
-CHANNEL_TYPES = [discord.ChannelType.text, discord.ChannelType.news]
+CHANNEL_TYPES = [discord.ChannelType.text, discord.ChannelType.news, discord.ChannelType.forum]
 CHANNELS_PREVIEW_MAX = 25
 REMOVE_SELECT_MAX = 25
 
@@ -51,7 +51,7 @@ async def create_automod_nolink_view(guild_id: int, bot, author_id: Optional[int
     container = Container()
 
     # Header
-    container.add_item(TextDisplay("# <:protect_config:1539608365704028340> Système No Link"))
+    container.add_item(TextDisplay("# <:protect_doc:1539608530850545735> Système no link"))
     container.add_item(Separator())
 
     # Toggle activation
@@ -72,6 +72,9 @@ async def create_automod_nolink_view(guild_id: int, bot, author_id: Optional[int
     ))
     container.add_item(Separator())
 
+    # Toggle bypass GIF — évite que le picker GIF natif de Discord (qui
+    # insère une URL Tenor dans le message) se fasse supprimer comme un
+    # lien classique (Paul, 2026-09-02).
     gif_toggle_btn = Button(
         label="Activé" if bypass_gif else "Désactivé",
         emoji="<:valider:1495444292867723284>" if bypass_gif else "<:annuler:1495444256754761979>",
@@ -83,7 +86,7 @@ async def create_automod_nolink_view(guild_id: int, bot, author_id: Optional[int
     container.add_item(Section(
         TextDisplay(
             "**🖼️ Bypass GIF**\n"
-            "-# Autorise les GIF malgré le système actif."
+            "-# Autorise les GIF (Tenor/Giphy/Klipy, ou lien en `.gif`) malgré le système actif."
         ),
         accessory=gif_toggle_btn,
     ))
@@ -157,9 +160,6 @@ async def create_automod_nolink_whitelist_view(guild_id: int, bot, author_id: Op
     )
     container.add_item(ActionRow(add_select))
 
-    # Retrait (Select manuel construit depuis la DB — fonctionne même si le
-    # salon a été supprimé côté Discord depuis, contrairement à un ChannelSelect
-    # natif qui ne proposerait plus le salon).
     if whitelist:
         remove_options: list[SelectOption] = []
         for cid in whitelist[:REMOVE_SELECT_MAX]:
