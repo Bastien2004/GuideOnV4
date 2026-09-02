@@ -51,7 +51,7 @@ async def create_automod_nolink_view(guild_id: int, bot, author_id: Optional[int
     container = Container()
 
     # Header
-    container.add_item(TextDisplay("# <:protect_doc:1539608530850545735> Système no link"))
+    container.add_item(TextDisplay("# <:protect_doc:1539608530850545735> Système NoLink"))
     container.add_item(Separator())
 
     # Toggle activation
@@ -72,9 +72,6 @@ async def create_automod_nolink_view(guild_id: int, bot, author_id: Optional[int
     ))
     container.add_item(Separator())
 
-    # Toggle bypass GIF — évite que le picker GIF natif de Discord (qui
-    # insère une URL Tenor dans le message) se fasse supprimer comme un
-    # lien classique (Paul, 2026-09-02).
     gif_toggle_btn = Button(
         label="Activé" if bypass_gif else "Désactivé",
         emoji="<:valider:1495444292867723284>" if bypass_gif else "<:annuler:1495444256754761979>",
@@ -86,7 +83,7 @@ async def create_automod_nolink_view(guild_id: int, bot, author_id: Optional[int
     container.add_item(Section(
         TextDisplay(
             "**🖼️ Bypass GIF**\n"
-            "-# Autorise les GIF (Tenor/Giphy/Klipy, ou lien en `.gif`) malgré le système actif."
+            "-# Autorise les GIF (Tenor/Giphy/Klipy, ou lien en `.gif`)."
         ),
         accessory=gif_toggle_btn,
     ))
