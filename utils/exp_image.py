@@ -170,11 +170,6 @@ class ExpImageBuilder:
         draw.text((text_x, exp_y), exp_text, font=font_small, fill=(255, 255, 255, 255))
 
         # ── Barre EXP ──
-        # La piste (fond) est une pilule arrondie (rounded_rectangle). Le
-        # remplissage doit épouser exactement la même forme des deux côtés :
-        # on le dessine en colonnes pleine hauteur puis on le découpe avec un
-        # masque de la même forme arrondie, sinon les coins du remplissage
-        # ressortent carrés au niveau du bord gauche/droit de la piste.
         bar_img = Image.new("RGBA", (bar_width, bar_height), (0, 0, 0, 0))
         bar_draw = ImageDraw.Draw(bar_img)
         bar_radius = bar_height // 2
