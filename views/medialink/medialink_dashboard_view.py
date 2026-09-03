@@ -61,7 +61,7 @@ class MediaLinkHubView(BaseLayoutView):
 
         container.add_item(TextDisplay(
             "Connecte tes **réseaux sociaux** à __MédiaLink__ afin de recevoir des \n"
-            "**annonces** __automatiques__ à la **publication** de nouveaux **contenus**"
+            "**annonces** __automatiques__ à la **publication** de nouveaux **contenus**."
             ))
         container.add_item(Separator())
 
@@ -78,7 +78,7 @@ class MediaLinkHubView(BaseLayoutView):
         container.add_item(Separator())
 
         # ── Activité ──
-        container.add_item(TextDisplay("### <:fichier_i:1539608464324567040> __Activité__ :"))
+        container.add_item(TextDisplay("### <:fichier_i:1539608464324567040> __Activités__ :"))
         container.add_item(
             TextDisplay(
                 f"📢 **{self.stats['sent']}** Annonce(s) envoyée(s)\n"
@@ -151,16 +151,7 @@ class MediaLinkHubView(BaseLayoutView):
     async def _cb_open_statistics(self, interaction: discord.Interaction) -> None:
         from utils.container_universel import info_container, send_ephemeral
 
-        await send_ephemeral(
-            interaction,
-            info_container(
-                "Les chiffres du moment sont déjà affichés dans la section "
-                "Activité du hub. Un écran d'historique détaillé (tendances "
-                "dans le temps) reste à faire — le schéma de stockage "
-                "(comptage à la volée vs. table d'agrégats) n'est pas "
-                "encore tranché."
-            ),
-        )
+        await send_ephemeral(interaction, info_container("🚧 En travaux"),)
 
     async def _cb_open_logs(self, interaction: discord.Interaction) -> None:
         from views.medialink.medialink_logs_view import MediaLinkLogsView
@@ -176,9 +167,7 @@ class MediaLinkHubView(BaseLayoutView):
 
 
 class MediaLinkDashboardView(BaseLayoutView):
-    """Écran "Plateformes" — liste détaillée des connexions de la guild,
-    une par une, avec gestion. Ouvert depuis MediaLinkHubView, et cible
-    de "retour" pour les écrans enfants (gérer/ajouter une connexion)."""
+    """Liste détaillée des connexions de la guild."""
 
     def __init__(self, *, guild_id: int, owner_id: int, connections: list[dict]):
         super().__init__(owner_id=owner_id, timeout=600)
@@ -194,8 +183,9 @@ class MediaLinkDashboardView(BaseLayoutView):
     def _build(self) -> None:
         container = Container()
 
-        container.add_item(TextDisplay("# 🌐 Plateformes"))
-
+        container.add_item(TextDisplay("# <:internet:1539608583149453323> Plateformes"))
+        container.add_item(Separator())
+        
         if not self.connections:
             container.add_item(
                 TextDisplay(
