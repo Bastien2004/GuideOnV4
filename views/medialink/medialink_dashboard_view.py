@@ -66,12 +66,15 @@ class MediaLinkDashboardView(BaseLayoutView):
 
         add_btn = Button(label="Ajouter une connexion", style=ButtonStyle.primary, emoji="➕")
         add_btn.callback = self._cb_add_connection
+        templates_btn = Button(label="Templates", style=ButtonStyle.secondary, emoji="📝")
+        templates_btn.callback = self._cb_open_templates
         stats_btn = Button(label="Statistiques", style=ButtonStyle.secondary, emoji="📊")
         stats_btn.callback = self._cb_open_statistics
         logs_btn = Button(label="Historique", style=ButtonStyle.secondary, emoji="🗒️")
         logs_btn.callback = self._cb_open_logs
 
         container.add_item(Section(TextDisplay("Actions :"), accessory=add_btn))
+        container.add_item(Section(TextDisplay(" "), accessory=templates_btn))
         container.add_item(Section(TextDisplay(" "), accessory=stats_btn))
         container.add_item(Section(TextDisplay(" "), accessory=logs_btn))
         container.add_item(TextDisplay("-# GuideOn Studio"))
@@ -79,10 +82,9 @@ class MediaLinkDashboardView(BaseLayoutView):
         self.add_item(container)
 
     # ── Callbacks ────────────────────────────────────────────────
-    # Statistiques et Historique restent des stubs (cf. leurs vues
-    # respectives, bloquées pour des raisons différentes). Gérer/
-    # Ajouter une connexion sont maintenant branchés (mode manuel, cf.
-    # medialink_platforms_view.py).
+    # Statistiques reste un stub bloqué (cf. medialink_statistics_view.py
+    # — arbitrage de schéma en attente). Gérer/Ajouter une connexion,
+    # Templates et Historique sont branchés.
 
     def _cb_manage_connection(self, connection_id: int):
         async def _callback(interaction: discord.Interaction) -> None:
@@ -101,8 +103,30 @@ class MediaLinkDashboardView(BaseLayoutView):
         view = AddConnectionView(guild_id=self.guild_id, owner_id=self.owner_id)
         await self.push_update(interaction, view=view)
 
+    async def _cb_open_templates(self, interaction: discord.Interaction) -> None:
+        from views.medialink.medialink_announcement_view import TemplateListView
+
+        view = await TemplateListView.build(guild_id=self.guild_id, owner_id=self.owner_id)
+        await self.push_update(interaction, view=view)
+
     async def _cb_open_statistics(self, interaction: discord.Interaction) -> None:
-        raise NotImplementedError("dashboard._cb_open_statistics — ouvrir medialink_statistics_view.py")
+        # Toujours bloqué — cf. medialink_statistics_view.py : le schéma
+        # de media_statistics (comptage à la volée vs. table d'agrégats)
+        # n'est pas encore tranché avec Paul. Message clair plutôt qu'un
+        # crash silencieux rattrapé par BaseLayoutView.on_error.
+        from utils.container_universel import info_container, send_ephemeral
+
+        await send_ephemeral(
+            interaction,
+            info_container(
+                "Statistiques : écran pas encore disponible — le schéma de "
+                "stockage (comptage à la volée vs. table d'agrégats) reste "
+                "à trancher."
+            ),
+        )
 
     async def _cb_open_logs(self, interaction: discord.Interaction) -> None:
-        raise NotImplementedError("dashboard._cb_open_logs — ouvrir medialink_logs_view.py")
+        from views.medialink.medialink_logs_view import MediaLinkLogsView
+
+        view = await MediaLinkLogsView.build(guild=interaction.guild, owner_id=self.owner_id)
+        await self.push_update(interaction, view=view)

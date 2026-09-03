@@ -17,6 +17,13 @@ QUAND LES PROVIDERS EXISTERONT (roadmap A1/A2) — à faire à ce moment-là :
     ProviderCapabilities de la connexion.
   - Remplacer le TextInput channel_id par un discord.ui.ChannelSelect
     (plus fiable qu'un ID copié-collé à la main).
+
+Le template (media_templates) est maintenant sélectionnable — en ID
+saisi à la main pour l'instant (même logique manuelle que le reste de ce
+fichier). Un Select rempli depuis medialink_manager.list_templates()
+serait plus confortable mais un Modal Discord ne peut pas contenir de
+Select (limite de l'API) ; passer par un Select + bouton séparé plutôt
+qu'un Modal si Paul préfère ce confort, à voir avec lui.
 """
 from __future__ import annotations
 
@@ -48,8 +55,15 @@ class AddRuleModal(discord.ui.Modal):
             required=True,
             max_length=32,
         )
+        self.template_id_input = discord.ui.TextInput(
+            label="ID du template (optionnel)",
+            placeholder="Voir le bouton Templates du dashboard — laisser vide si aucun",
+            required=False,
+            max_length=16,
+        )
         self.add_item(self.event_type_input)
         self.add_item(self.channel_id_input)
+        self.add_item(self.template_id_input)
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         raw_channel_id = self.channel_id_input.value.strip()
@@ -60,10 +74,29 @@ class AddRuleModal(discord.ui.Modal):
             )
             return
 
+        raw_template_id = self.template_id_input.value.strip()
+        if raw_template_id and not raw_template_id.isdigit():
+            await interaction.response.send_message(
+                "❌ L'ID du template doit être un nombre (visible dans l'écran Templates du dashboard), "
+                "ou laissé vide.",
+                ephemeral=True,
+            )
+            return
+
+        template_id = int(raw_template_id) if raw_template_id else None
+        if template_id is not None and await medialink_mgr.get_template(template_id) is None:
+            await interaction.response.send_message(
+                "❌ Aucun template avec cet ID — vérifie dans l'écran Templates du dashboard, "
+                "ou laisse le champ vide pour une règle sans template.",
+                ephemeral=True,
+            )
+            return
+
         await medialink_mgr.add_rule(
             self.connection["id"],
             self.event_type_input.value.strip(),
             int(raw_channel_id),
+            template_id=template_id,
         )
 
         view = await ConnectionRulesView.build(connection=self.connection, owner_id=self.owner_id)
@@ -99,9 +132,10 @@ class ConnectionRulesView(BaseLayoutView):
                     style=ButtonStyle.secondary,
                 )
                 toggle_btn.callback = self._cb_toggle_rule(rule["id"])
+                template_note = f" · template #{rule['template_id']}" if rule.get("template_id") else " · sans template"
                 container.add_item(Section(
                     TextDisplay(
-                        f"➥ `{rule['event_type']}` → <#{rule['channel_id']}>"
+                        f"➥ `{rule['event_type']}` → <#{rule['channel_id']}>{template_note}"
                     ),
                     accessory=toggle_btn,
                 ))
