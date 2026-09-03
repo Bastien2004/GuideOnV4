@@ -1,0 +1,167 @@
+"""
+utils/managers/medialink_manager.py — CRUD des connexions et règles
+MEDIALINK (media_connections / media_rules).
+
+Même pattern que utils/managers/mod_automod_nolink_manager.py : cache TTL
+en mémoire par guild sur les connexions (lues à chaque ouverture du
+dashboard et à chaque passage du scheduler), invalidé explicitement à
+chaque écriture.
+
+NOTE : le CRUD des templates (media_templates) suivra le même pattern —
+ajouté à ce fichier ou à un utils/managers/medialink_template_manager.py
+dédié selon la taille qu'il prendra une fois les Builders (§7) fixés
+avec Paul. Pas encore fait dans ce squelette.
+"""
+from __future__ import annotations
+
+import time
+
+from sqlalchemy import delete, select
+
+from utils.db.models.medialink_connection import MediaConnection
+from utils.db.models.medialink_rule import MediaRule
+from utils.db.session import get_session
+
+# ═══ Cache connexions (par guild) ═══════════════════════════════════
+_CONN_TTL = 60
+_conn_cache: dict[int, tuple[list[dict], float]] = {}
+
+
+def _conn_fresh(guild_id: int) -> list[dict] | None:
+    entry = _conn_cache.get(guild_id)
+    if entry is None:
+        return None
+    payload, ts = entry
+    if time.monotonic() - ts > _CONN_TTL:
+        return None
+    return [dict(row) for row in payload]
+
+
+def _conn_prime(guild_id: int, payload: list[dict]) -> None:
+    _conn_cache[guild_id] = ([dict(row) for row in payload], time.monotonic())
+
+
+def _conn_invalidate(guild_id: int) -> None:
+    _conn_cache.pop(guild_id, None)
+
+
+# ═══ Connexions ══════════════════════════════════════════════════════
+
+async def list_connections(guild_id: int) -> list[dict]:
+    """Connexions actives d'une guild (toutes plateformes confondues)."""
+    cached = _conn_fresh(guild_id)
+    if cached is not None:
+        return cached
+
+    async with get_session() as session:
+        result = await session.execute(
+            select(MediaConnection).where(MediaConnection.guild_id == guild_id)
+        )
+        payload = [row.to_dict() for row in result.scalars().all()]
+
+    _conn_prime(guild_id, payload)
+    return payload
+
+
+async def add_connection(
+    guild_id: int,
+    platform: str,
+    external_id: str,
+    *,
+    external_username: str | None = None,
+    external_url: str | None = None,
+    avatar_url: str | None = None,
+) -> dict:
+    """Crée une connexion. À appeler APRÈS un
+    BaseMediaProvider.validate_account() réussi côté appelant (cog/vue) —
+    ce manager ne valide rien côté plateforme, il ne fait que persister."""
+    async with get_session() as session:
+        row = MediaConnection(
+            guild_id=guild_id,
+            platform=platform,
+            external_id=external_id,
+            external_username=external_username,
+            external_url=external_url,
+            avatar_url=avatar_url,
+        )
+        session.add(row)
+        await session.flush()
+        payload = row.to_dict()
+
+    _conn_invalidate(guild_id)
+    return payload
+
+
+async def remove_connection(guild_id: int, connection_id: int) -> None:
+    """Supprime une connexion — cascade sur ses règles (rules,
+    cascade="all, delete-orphan" côté modèle) et sur ses événements/
+    logs en base (ondelete=CASCADE)."""
+    async with get_session() as session:
+        await session.execute(
+            delete(MediaConnection).where(
+                MediaConnection.id == connection_id,
+                MediaConnection.guild_id == guild_id,
+            )
+        )
+
+    _conn_invalidate(guild_id)
+
+
+async def set_connection_status(connection_id: int, guild_id: int, status: str) -> None:
+    """Met à jour l'état d'une connexion (§6.3) — appelé par
+    utils.medialink.event_manager / le scheduler après un check_status()."""
+    async with get_session() as session:
+        row = await session.get(MediaConnection, connection_id)
+        if row is not None:
+            row.status = status
+
+    _conn_invalidate(guild_id)
+
+
+# ═══ Règles ══════════════════════════════════════════════════════════
+# Pas de cache dédié ici : les règles sont chargées via la relationship
+# `MediaConnection.rules` (lazy="selectin"), déjà couverte par le cache
+# connexions ci-dessus — un accès direct par connection_id reste rare
+# (essentiellement les vues de configuration d'UNE règle à la fois).
+
+async def list_rules(connection_id: int) -> list[dict]:
+    async with get_session() as session:
+        result = await session.execute(
+            select(MediaRule).where(MediaRule.connection_id == connection_id)
+        )
+        return [row.to_dict() for row in result.scalars().all()]
+
+
+async def add_rule(
+    connection_id: int,
+    event_type: str,
+    channel_id: int,
+    *,
+    template_id: int | None = None,
+    mention_role_id: int | None = None,
+) -> dict:
+    async with get_session() as session:
+        row = MediaRule(
+            connection_id=connection_id,
+            event_type=event_type,
+            channel_id=channel_id,
+            template_id=template_id,
+            mention_role_id=mention_role_id,
+        )
+        session.add(row)
+        await session.flush()
+        payload = row.to_dict()
+
+    return payload
+
+
+async def remove_rule(rule_id: int) -> None:
+    async with get_session() as session:
+        await session.execute(delete(MediaRule).where(MediaRule.id == rule_id))
+
+
+async def set_rule_enabled(rule_id: int, enabled: bool) -> None:
+    async with get_session() as session:
+        row = await session.get(MediaRule, rule_id)
+        if row is not None:
+            row.enabled = enabled

@@ -129,3 +129,12 @@ class GroupeQR(app_commands.Group):
 
 def groupeQR():
     return GroupeQR()
+
+'''
+class GroupeMEDIALINK(app_commands.Group):
+    def __init__(self):
+        super().__init__(name="medialink", description="Commandes MEDIALINK")
+
+def groupeMEDIALINK():
+    return GroupeMEDIALINK()
+'''
