@@ -1,7 +1,12 @@
 """
 views/medialink/medialink_events_view.py — configuration des règles
 (Rules, §3) d'UNE connexion : quel event_type → quel salon → quel
-template → quel rôle à mentionner.
+template → quel rôle à mentionner. Et l'écran "Événements" du hub
+(vue d'ensemble toutes connexions confondues).
+
+RESTYLÉ (2026-09) — mêmes conventions que medialink_dashboard_view.py :
+émotes custom du serveur, ActionRow pour les rangées de boutons, lignes
+"**gras** — état" / "-# sous-texte".
 
 ── MODE ACTUEL : AJOUT MANUEL (provisoire) ──────────────────────────
 Même logique que medialink_platforms_view.py : la liste des event_type
@@ -29,10 +34,23 @@ from __future__ import annotations
 
 import discord
 from discord import ButtonStyle
-from discord.ui import Button, Container, Section, Separator, TextDisplay
+from discord.ui import ActionRow, Button, Container, Section, Separator, TextDisplay
 
 from utils.managers import medialink_manager as medialink_mgr
 from views._components.base_view import BaseLayoutView
+
+EMOJI_ADD = "<:plus:1495444111505752154>"
+EMOJI_DELETE = "<:supprimer:1495444051623809075>"
+EMOJI_BACK = "<:retour:1515658955190308995>"
+EMOJI_VALID = "<:valider:1495444292867723284>"
+EMOJI_CANCEL = "<:annuler:1495444256754761979>"
+
+_PLATFORM_EMOJI = {
+    "youtube": "▶️",
+    "twitch": "🟣",
+    "tiktok": "🎵",
+    "reddit": "🔴",
+}
 
 
 class AddRuleModal(discord.ui.Modal):
@@ -57,7 +75,7 @@ class AddRuleModal(discord.ui.Modal):
         )
         self.template_id_input = discord.ui.TextInput(
             label="ID du template (optionnel)",
-            placeholder="Voir le bouton Templates du dashboard — laisser vide si aucun",
+            placeholder="Voir le bouton Annonces du hub — laisser vide si aucun",
             required=False,
             max_length=16,
         )
@@ -77,7 +95,7 @@ class AddRuleModal(discord.ui.Modal):
         raw_template_id = self.template_id_input.value.strip()
         if raw_template_id and not raw_template_id.isdigit():
             await interaction.response.send_message(
-                "❌ L'ID du template doit être un nombre (visible dans l'écran Templates du dashboard), "
+                "❌ L'ID du template doit être un nombre (visible dans l'écran Annonces du hub), "
                 "ou laissé vide.",
                 ephemeral=True,
             )
@@ -86,7 +104,7 @@ class AddRuleModal(discord.ui.Modal):
         template_id = int(raw_template_id) if raw_template_id else None
         if template_id is not None and await medialink_mgr.get_template(template_id) is None:
             await interaction.response.send_message(
-                "❌ Aucun template avec cet ID — vérifie dans l'écran Templates du dashboard, "
+                "❌ Aucun template avec cet ID — vérifie dans l'écran Annonces du hub, "
                 "ou laisse le champ vide pour une règle sans template.",
                 ephemeral=True,
             )
@@ -120,38 +138,43 @@ class ConnectionRulesView(BaseLayoutView):
     def _build(self) -> None:
         container = Container()
         label = self.connection.get("external_username") or self.connection["external_id"]
-        container.add_item(TextDisplay(f"# 🔧 Règles — {label}"))
+        emoji = _PLATFORM_EMOJI.get(self.connection["platform"], "🔗")
+        container.add_item(TextDisplay(f"# 🔧 Règles — {emoji} {label}"))
+        container.add_item(TextDisplay(f"-# {len(self.rules)} règle(s) configurée(s) pour cette connexion."))
         container.add_item(Separator())
 
         if not self.rules:
             container.add_item(TextDisplay("*Aucune règle configurée pour cette connexion.*"))
         else:
             for rule in self.rules:
+                enabled = rule.get("enabled", True)
                 toggle_btn = Button(
-                    label="Désactiver" if rule.get("enabled", True) else "Activer",
-                    style=ButtonStyle.secondary,
+                    label="Désactiver" if enabled else "Activer",
+                    style=ButtonStyle.danger if enabled else ButtonStyle.success,
+                    emoji=EMOJI_CANCEL if enabled else EMOJI_VALID,
                 )
                 toggle_btn.callback = self._cb_toggle_rule(rule["id"])
-                template_note = f" · template #{rule['template_id']}" if rule.get("template_id") else " · sans template"
+                template_note = f"template #{rule['template_id']}" if rule.get("template_id") else "sans template"
+                state_badge = "🟢 Active" if enabled else "⚪ Inactive"
                 container.add_item(Section(
                     TextDisplay(
-                        f"➥ `{rule['event_type']}` → <#{rule['channel_id']}>{template_note}"
+                        f"**`{rule['event_type']}`** — {state_badge}\n"
+                        f"-# → <#{rule['channel_id']}> · {template_note}"
                     ),
                     accessory=toggle_btn,
                 ))
 
         container.add_item(Separator())
-        add_btn = Button(label="Ajouter une règle", style=ButtonStyle.primary, emoji="➕")
+        add_btn = Button(label="Ajouter une règle", style=ButtonStyle.success, emoji=EMOJI_ADD)
         add_btn.callback = self._cb_add_rule
-        container.add_item(add_btn)
-
-        remove_btn = Button(label="Supprimer la connexion", style=ButtonStyle.danger, emoji="🗑️")
+        remove_btn = Button(label="Supprimer la connexion", style=ButtonStyle.danger, emoji=EMOJI_DELETE)
         remove_btn.callback = self._cb_remove_connection
-        container.add_item(remove_btn)
-
-        back_btn = Button(label="Retour au dashboard", style=ButtonStyle.secondary)
+        back_btn = Button(label="Retour", style=ButtonStyle.secondary, emoji=EMOJI_BACK)
         back_btn.callback = self._cb_back
-        container.add_item(back_btn)
+
+        container.add_item(ActionRow(add_btn, remove_btn, back_btn))
+        container.add_item(Separator())
+        container.add_item(TextDisplay("-# GuideOn Studio"))
 
         self.add_item(container)
 
@@ -185,7 +208,7 @@ class ConnectionRulesView(BaseLayoutView):
 
 
 class GuildEventsOverviewView(BaseLayoutView):
-    """Écran "Événements" du hub — TOUTES les règles de la guild, tous
+    """Écran "Événements" du hub — TOUTES les règles de la guild, toutes
     connexions confondues, en lecture seule (§16 : vue d'ensemble). Pour
     modifier une règle précise, on passe par Plateformes → Gérer → cette
     connexion (ConnectionRulesView, ci-dessus) — pas de duplication du
@@ -219,17 +242,20 @@ class GuildEventsOverviewView(BaseLayoutView):
             lines = []
             for rule in self.rules:
                 status_icon = "🟢" if rule.get("enabled", True) else "⚪"
+                platform_emoji = _PLATFORM_EMOJI.get(rule["connection_platform"], "🔗")
                 template_note = f"template #{rule['template_id']}" if rule.get("template_id") else "sans template"
                 lines.append(
-                    f"{status_icon} `{rule['connection_platform']}` **{rule['connection_label']}** — "
-                    f"`{rule['event_type']}` → <#{rule['channel_id']}> ({template_note})"
+                    f"{status_icon} {platform_emoji} **{rule['connection_label']}** — "
+                    f"`{rule['event_type']}` → <#{rule['channel_id']}>\n-# {template_note}"
                 )
             container.add_item(TextDisplay("\n".join(lines)))
 
         container.add_item(Separator())
-        back_btn = Button(label="Retour au hub", style=ButtonStyle.secondary, emoji="↩️")
+        back_btn = Button(label="Retour au hub", style=ButtonStyle.secondary, emoji=EMOJI_BACK)
         back_btn.callback = self._cb_back
-        container.add_item(back_btn)
+        container.add_item(ActionRow(back_btn))
+        container.add_item(Separator())
+        container.add_item(TextDisplay("-# GuideOn Studio"))
 
         self.add_item(container)
 

@@ -21,11 +21,16 @@ from __future__ import annotations
 
 import discord
 from discord import ButtonStyle
-from discord.ui import Button, Container, Section, Separator, TextDisplay
+from discord.ui import ActionRow, Button, Container, Section, Separator, TextDisplay
 
 from utils.managers import medialink_manager as medialink_mgr
 from utils.medialink.builders.placeholders import PLACEHOLDER_FIELDS
 from views._components.base_view import BaseLayoutView
+
+EMOJI_ADD = "<:plus:1495444111505752154>"
+EMOJI_EDIT = "<:modifier:1495444144712192003>"
+EMOJI_DELETE = "<:supprimer:1495444051623809075>"
+EMOJI_BACK = "<:retour:1515658955190308995>"
 
 
 class CreateTemplateModal(discord.ui.Modal):
@@ -103,28 +108,33 @@ class TemplateListView(BaseLayoutView):
 
     def _build(self) -> None:
         container = Container()
-        container.add_item(TextDisplay("# 📝 Templates MEDIALINK"))
+        container.add_item(TextDisplay("# 📢 Annonces"))
+        container.add_item(TextDisplay(f"-# {len(self.templates)} template(s) créé(s) sur ce serveur."))
         container.add_item(Separator())
 
         if not self.templates:
             container.add_item(TextDisplay("*Aucun template créé pour l'instant.*"))
         else:
             for tpl in self.templates:
-                edit_btn = Button(label="Modifier", style=ButtonStyle.secondary)
+                edit_btn = Button(label="Modifier", style=ButtonStyle.secondary, emoji=EMOJI_EDIT)
                 edit_btn.callback = self._cb_open_template(tpl["id"])
+                preview = (tpl.get("content") or "*(vide)*").replace("\n", " ")
+                if len(preview) > 80:
+                    preview = preview[:77] + "…"
                 container.add_item(Section(
-                    TextDisplay(f"➥ **{tpl['name']}**"),
+                    TextDisplay(f"**📝 {tpl['name']}**\n-# {preview}"),
                     accessory=edit_btn,
                 ))
 
         container.add_item(Separator())
-        create_btn = Button(label="Créer un template", style=ButtonStyle.primary, emoji="➕")
+        create_btn = Button(label="Créer un template", style=ButtonStyle.success, emoji=EMOJI_ADD)
         create_btn.callback = self._cb_create_template
-        container.add_item(create_btn)
-
-        back_btn = Button(label="Retour au hub", style=ButtonStyle.secondary, emoji="↩️")
+        back_btn = Button(label="Retour au hub", style=ButtonStyle.secondary, emoji=EMOJI_BACK)
         back_btn.callback = self._cb_back
-        container.add_item(back_btn)
+
+        container.add_item(ActionRow(create_btn, back_btn))
+        container.add_item(Separator())
+        container.add_item(TextDisplay("-# GuideOn Studio"))
 
         self.add_item(container)
 
@@ -159,25 +169,27 @@ class TemplateEditView(BaseLayoutView):
 
     def _build(self) -> None:
         container = Container()
-        container.add_item(TextDisplay(f"# ✏️ Template — {self.template.get('name', 'Sans nom')}"))
+        container.add_item(TextDisplay(f"# ✏️ {self.template.get('name', 'Sans nom')}"))
         container.add_item(Separator())
 
-        placeholders_help = ", ".join(f"{{{p}}}" for p in PLACEHOLDER_FIELDS)
-        container.add_item(TextDisplay(f"-# Placeholders disponibles : {placeholders_help}"))
+        placeholders_help = ", ".join(f"`{{{p}}}`" for p in PLACEHOLDER_FIELDS)
+        container.add_item(TextDisplay(f"**Placeholders disponibles**\n-# {placeholders_help}"))
+        container.add_item(Separator())
 
         content = self.template.get("content") or "*(vide)*"
-        edit_btn = Button(label="Modifier le texte", style=ButtonStyle.primary)
+        edit_btn = Button(label="Modifier", style=ButtonStyle.secondary, emoji=EMOJI_EDIT)
         edit_btn.callback = self._cb_edit_content
-        container.add_item(Section(TextDisplay(f"Texte actuel :\n>>> {content}"), accessory=edit_btn))
+        container.add_item(Section(TextDisplay(f"**Texte actuel**\n>>> {content}"), accessory=edit_btn))
 
         container.add_item(Separator())
-        delete_btn = Button(label="Supprimer le template", style=ButtonStyle.danger, emoji="🗑️")
+        delete_btn = Button(label="Supprimer", style=ButtonStyle.danger, emoji=EMOJI_DELETE)
         delete_btn.callback = self._cb_delete_template
-        container.add_item(delete_btn)
-
-        back_btn = Button(label="Retour à la liste", style=ButtonStyle.secondary)
+        back_btn = Button(label="Retour", style=ButtonStyle.secondary, emoji=EMOJI_BACK)
         back_btn.callback = self._cb_back
-        container.add_item(back_btn)
+
+        container.add_item(ActionRow(delete_btn, back_btn))
+        container.add_item(Separator())
+        container.add_item(TextDisplay("-# GuideOn Studio"))
 
         self.add_item(container)
 

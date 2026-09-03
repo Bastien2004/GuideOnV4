@@ -13,12 +13,14 @@ from __future__ import annotations
 
 import discord
 from discord import ButtonStyle
-from discord.ui import Button, Container, Separator, TextDisplay
+from discord.ui import ActionRow, Button, Container, Separator, TextDisplay
 from sqlalchemy import select
 
 from utils.db.models.medialink_log import MediaLog
 from utils.db.session import get_session
 from views._components.base_view import BaseLayoutView
+
+EMOJI_BACK = "<:retour:1515658955190308995>"
 
 _PAGE_SIZE = 10
 
@@ -44,24 +46,26 @@ class MediaLinkLogsView(BaseLayoutView):
 
     def _build(self) -> None:
         container = Container()
-        container.add_item(TextDisplay("# 🗒️ Historique MEDIALINK"))
+        container.add_item(TextDisplay("# 🗒️ Logs"))
+        container.add_item(TextDisplay(f"-# {len(self.logs)} entrée(s) récente(s) sur ce serveur."))
         container.add_item(Separator())
 
         if not self.logs:
             container.add_item(TextDisplay("*Aucun événement journalisé pour l'instant.*"))
         else:
-            for log in self.logs:
-                icon = {"info": "ℹ️", "warning": "⚠️", "error": "❌"}.get(log["level"], "ℹ️")
-                container.add_item(TextDisplay(f"{icon} `{log['event_type']}` — {log['message']}"))
+            icon = {"info": "🔵", "warning": "🟡", "error": "🔴"}
+            lines = [
+                f"{icon.get(log['level'], '🔵')} **`{log['event_type']}`**\n-# {log['message']}"
+                for log in self.logs
+            ]
+            container.add_item(TextDisplay("\n".join(lines)))
 
-        # BUG CORRIGÉ (2026-09) : cet écran n'avait aucun bouton retour —
-        # un vrai cul-de-sac une fois ouvert (fallait relancer /medialink
-        # config). Resté invisible tant que le hub bloqué en amont
-        # empêchait d'atteindre cet écran.
         container.add_item(Separator())
-        back_btn = Button(label="Retour au hub", style=ButtonStyle.secondary, emoji="↩️")
+        back_btn = Button(label="Retour au hub", style=ButtonStyle.secondary, emoji=EMOJI_BACK)
         back_btn.callback = self._cb_back
-        container.add_item(back_btn)
+        container.add_item(ActionRow(back_btn))
+        container.add_item(Separator())
+        container.add_item(TextDisplay("-# GuideOn Studio"))
 
         self.add_item(container)
 

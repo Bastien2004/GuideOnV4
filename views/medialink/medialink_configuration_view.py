@@ -14,9 +14,11 @@ from __future__ import annotations
 
 import discord
 from discord import ButtonStyle
-from discord.ui import Button, Container, Separator, TextDisplay
+from discord.ui import ActionRow, Button, Container, Separator, TextDisplay
 
 from views._components.base_view import BaseLayoutView
+
+EMOJI_BACK = "<:retour:1515658955190308995>"
 
 
 class MediaLinkSettingsView(BaseLayoutView):
@@ -29,21 +31,22 @@ class MediaLinkSettingsView(BaseLayoutView):
 
     def _build(self) -> None:
         container = Container()
-        container.add_item(TextDisplay("# ⚙️ Réglages MEDIALINK"))
+        container.add_item(TextDisplay("# ⚙️ Configuration"))
         container.add_item(Separator())
         container.add_item(
             TextDisplay(
-                "Aucun réglage global identifié pour l'instant — les "
+                "-# Aucun réglage global identifié pour l'instant — les "
                 "réglages actuels sont tous rattachés à une connexion "
                 "ou une règle précise (voir Plateformes)."
             )
         )
 
-        # BUG CORRIGÉ (2026-09) : pas de bouton retour ici non plus.
         container.add_item(Separator())
-        back_btn = Button(label="Retour au hub", style=ButtonStyle.secondary, emoji="↩️")
+        back_btn = Button(label="Retour au hub", style=ButtonStyle.secondary, emoji=EMOJI_BACK)
         back_btn.callback = self._cb_back
-        container.add_item(back_btn)
+        container.add_item(ActionRow(back_btn))
+        container.add_item(Separator())
+        container.add_item(TextDisplay("-# GuideOn Studio"))
 
         self.add_item(container)
 

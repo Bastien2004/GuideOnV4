@@ -24,11 +24,13 @@ from __future__ import annotations
 
 import discord
 from discord import ButtonStyle, SelectOption
-from discord.ui import Button, Container, Select, Separator, TextDisplay
+from discord.ui import ActionRow, Button, Container, Select, Separator, TextDisplay
 
 from utils.db.models.medialink_connection import MediaPlatform
 from utils.managers import medialink_manager as medialink_mgr
 from views._components.base_view import BaseLayoutView
+
+EMOJI_BACK = "<:retour:1515658955190308995>"
 
 _PLATFORM_OPTIONS = [
     SelectOption(label="YouTube", value=MediaPlatform.YOUTUBE.value, emoji="▶️"),
@@ -93,15 +95,18 @@ class AddConnectionView(BaseLayoutView):
             )
         )
         container.add_item(Separator())
-        container.add_item(TextDisplay("Choisis la plateforme à connecter :"))
+        container.add_item(TextDisplay("**Choisis la plateforme à connecter :**"))
 
         select = Select(placeholder="Plateforme", options=_PLATFORM_OPTIONS)
         select.callback = self._cb_platform_chosen
-        container.add_item(select)
+        container.add_item(ActionRow(select))
 
-        back_btn = Button(label="Retour", style=ButtonStyle.secondary)
+        container.add_item(Separator())
+        back_btn = Button(label="Retour", style=ButtonStyle.secondary, emoji=EMOJI_BACK)
         back_btn.callback = self._cb_back
-        container.add_item(back_btn)
+        container.add_item(ActionRow(back_btn))
+        container.add_item(Separator())
+        container.add_item(TextDisplay("-# GuideOn Studio"))
 
         self.add_item(container)
 
