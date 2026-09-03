@@ -10,7 +10,6 @@ from discord import ButtonStyle
 from discord.ui import Button, Container, Section, Separator, TextDisplay
 
 from utils.managers import medialink_manager as medialink_mgr
-from utils.medialink.builders.container import empty_state_container
 from views._components.base_view import BaseLayoutView
 
 _PLATFORM_EMOJI = {
@@ -32,20 +31,35 @@ class MediaLinkDashboardView(BaseLayoutView):
         self._build()
 
     @classmethod
-    async def build(cls, *, guild: discord.Guild, owner_id: int) -> "MediaLinkDashboardView | discord.ui.LayoutView":
+    async def build(cls, *, guild: discord.Guild, owner_id: int) -> "MediaLinkDashboardView":
         connections = await medialink_mgr.list_connections(guild.id)
-        if not connections:
-            # §6.2 : état vide explicite plutôt qu'un dashboard silencieux.
-            return empty_state_container()
         return cls(guild_id=guild.id, owner_id=owner_id, connections=connections)
 
     def _build(self) -> None:
         container = Container()
 
         container.add_item(TextDisplay("# 📡 MEDIALINK"))
-        container.add_item(
-            TextDisplay(f"-# {len(self.connections)} connexion(s) active(s) sur ce serveur.")
-        )
+
+        if not self.connections:
+            # BUG CORRIGÉ (2026-09) : ce cas renvoyait auparavant
+            # utils.medialink.builders.container.empty_state_container(),
+            # un écran 100% statique SANS AUCUN BOUTON — impossible
+            # d'ajouter une première connexion depuis là. Cette fonction
+            # n'est plus utilisée nulle part (elle peut être supprimée) ;
+            # le dashboard gère maintenant lui-même l'état vide, en
+            # gardant la rangée d'actions (§6.2) ci-dessous.
+            container.add_item(
+                TextDisplay(
+                    "Aucun compte connecté pour le moment.\n"
+                    "Ajoute une première connexion (YouTube, Twitch, TikTok ou "
+                    "Reddit) pour commencer à recevoir des annonces automatiques."
+                )
+            )
+        else:
+            container.add_item(
+                TextDisplay(f"-# {len(self.connections)} connexion(s) active(s) sur ce serveur.")
+            )
+
         container.add_item(Separator())
 
         for conn in self.connections:
@@ -110,10 +124,6 @@ class MediaLinkDashboardView(BaseLayoutView):
         await self.push_update(interaction, view=view)
 
     async def _cb_open_statistics(self, interaction: discord.Interaction) -> None:
-        # Toujours bloqué — cf. medialink_statistics_view.py : le schéma
-        # de media_statistics (comptage à la volée vs. table d'agrégats)
-        # n'est pas encore tranché avec Paul. Message clair plutôt qu'un
-        # crash silencieux rattrapé par BaseLayoutView.on_error.
         from utils.container_universel import info_container, send_ephemeral
 
         await send_ephemeral(

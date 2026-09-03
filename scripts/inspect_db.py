@@ -1,5 +1,5 @@
 """
-inspect_db.py — diagnostic en LECTURE SEULE : liste les tables réellement
+script/inspect_db.py — diagnostic en LECTURE SEULE : liste les tables réellement
 présentes en base + la valeur actuelle de alembic_version, en réutilisant
 le moteur/la config déjà en place dans le bot (utils.db.engine /
 utils.settings). Ne modifie rien.
