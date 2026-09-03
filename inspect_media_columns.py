@@ -47,7 +47,7 @@ async def main() -> None:
                 await conn.execute(
                     text(
                         "SELECT conname, contype FROM pg_constraint "
-                        "WHERE conrelid = :t::regclass ORDER BY conname"
+                        "WHERE conrelid = CAST(:t AS regclass) ORDER BY conname"
                     ),
                     {"t": table},
                 )
