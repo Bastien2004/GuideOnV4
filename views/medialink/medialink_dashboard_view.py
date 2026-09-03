@@ -79,21 +79,27 @@ class MediaLinkDashboardView(BaseLayoutView):
         self.add_item(container)
 
     # ── Callbacks ────────────────────────────────────────────────
-    # Stubs : chaque callback devra ouvrir la vue correspondante
-    # (medialink_platforms_view.py, medialink_events_view.py,
-    # medialink_statistics_view.py, medialink_logs_view.py) via
-    # self.push_update(interaction, view=...).
+    # Statistiques et Historique restent des stubs (cf. leurs vues
+    # respectives, bloquées pour des raisons différentes). Gérer/
+    # Ajouter une connexion sont maintenant branchés (mode manuel, cf.
+    # medialink_platforms_view.py).
 
     def _cb_manage_connection(self, connection_id: int):
         async def _callback(interaction: discord.Interaction) -> None:
-            raise NotImplementedError(
-                f"dashboard._cb_manage_connection({connection_id}) — "
-                "ouvrir medialink_events_view.py (roadmap)"
-            )
+            from views.medialink.medialink_events_view import ConnectionRulesView
+
+            connection = next((c for c in self.connections if c["id"] == connection_id), None)
+            if connection is None:
+                return
+            view = await ConnectionRulesView.build(connection=connection, owner_id=self.owner_id)
+            await self.push_update(interaction, view=view)
         return _callback
 
     async def _cb_add_connection(self, interaction: discord.Interaction) -> None:
-        raise NotImplementedError("dashboard._cb_add_connection — ouvrir medialink_platforms_view.py")
+        from views.medialink.medialink_platforms_view import AddConnectionView
+
+        view = AddConnectionView(guild_id=self.guild_id, owner_id=self.owner_id)
+        await self.push_update(interaction, view=view)
 
     async def _cb_open_statistics(self, interaction: discord.Interaction) -> None:
         raise NotImplementedError("dashboard._cb_open_statistics — ouvrir medialink_statistics_view.py")

@@ -52,16 +52,12 @@ async def medialink_config(interaction: discord.Interaction) -> None:
 
     # 💻 Envoi du dashboard.
     try:
-        view = await MediaLinkDashboardView.build(
-            guild=interaction.guild, owner_id=interaction.user.id,
-        )
+        view = await MediaLinkDashboardView.build(guild=interaction.guild, owner_id=interaction.user.id)
         await interaction.followup.send(view=view, ephemeral=True)
+
     except Exception:
         log.exception("[MEDIALINK CONFIG] Ouverture dashboard échouée guild=%s", interaction.guild.id)
-        await interaction.followup.send(
-            view=error_container("Impossible d'ouvrir le **dashboard MEDIALINK**."),
-            ephemeral=True,
-        )
+        await interaction.followup.send(view=error_container("Impossible d'ouvrir le **dashboard MEDIALINK**."), ephemeral=True)
 
 
 # ============================================================
