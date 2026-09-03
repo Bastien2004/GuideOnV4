@@ -60,9 +60,8 @@ class MediaLinkHubView(BaseLayoutView):
         container.add_item(Separator())
 
         container.add_item(TextDisplay(
-            "Connecte des **réseaux sociaux** à __MédiaLink__\n"
-            "afin de recevoir des **annonces** __automatique__\n"
-            "à la **publication** de nouveaux **contenus**.\n"
+            "Connecte tes **réseaux sociaux** à __MédiaLink__ afin de recevoir des \n"
+            "**annonces** __automatiques__ à la **publication** de nouveaux **contenus**"
             ))
         container.add_item(Separator())
 
@@ -73,19 +72,18 @@ class MediaLinkHubView(BaseLayoutView):
             count = self.stats["platforms"].get(platform, 0)
             emoji = _PLATFORM_EMOJI[platform]
             label = _PLATFORM_LABEL[platform]
-            suffix = "configuration" if count <= 1 else "configurations"
+            suffix = "configuration." if count <= 1 else "configurations."
             platform_lines.append(f"**{emoji} {label}** — {count} {suffix}")
         container.add_item(TextDisplay("\n".join(platform_lines)))
         container.add_item(Separator())
 
         # ── Activité ──
-        container.add_item(TextDisplay("### ⚡ __Activité__"))
-        error_badge = "🔴" if self.stats["errors"] else "🟢"
+        container.add_item(TextDisplay("### <:fichier_i:1539608464324567040> __Activité__"))
         container.add_item(
             TextDisplay(
                 f"📢 **{self.stats['sent']}** annonce(s) envoyée(s)\n"
-                f"🟢 **{self.stats['active_rules']}** règle(s) active(s)\n"
-                f"{error_badge} **{self.stats['errors']}** erreur(s)"
+                f"📋 **{self.stats['active_rules']}** règle(s) active(s)\n"
+                f"‼️ **{self.stats['errors']}** erreur(s)"
             )
         )
         container.add_item(Separator())
