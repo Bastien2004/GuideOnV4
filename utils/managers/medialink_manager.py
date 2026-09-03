@@ -203,7 +203,7 @@ async def add_template(
     name: str,
     *,
     content: str | None = None,
-    embed_config: dict | None = None,
+    container_config: dict | None = None,
     buttons: list | None = None,
 ) -> dict:
     async with get_session() as session:
@@ -211,7 +211,7 @@ async def add_template(
             guild_id=guild_id,
             name=name,
             content=content,
-            embed_config=embed_config,
+            container_config=container_config,
             buttons=buttons,
         )
         session.add(row)
@@ -221,10 +221,10 @@ async def add_template(
 
 async def update_template(template_id: int, **fields) -> dict | None:
     """Met à jour uniquement les champs fournis (ex: update_template(id,
-    content="...")). Champs acceptés : name, content, embed_config,
+    content="...")). Champs acceptés : name, content, container_config,
     buttons — tout autre nom est ignoré silencieusement pour éviter
     qu'un appelant ne touche accidentellement guild_id/id."""
-    allowed = {"name", "content", "embed_config", "buttons"}
+    allowed = {"name", "content", "container_config", "buttons"}
     async with get_session() as session:
         row = await session.get(MediaTemplate, template_id)
         if row is None:
