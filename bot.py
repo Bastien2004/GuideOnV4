@@ -253,7 +253,7 @@ class GuideONBot(commands.Bot):
         from cogs.qr.scan import qr_scan
 
         # ── IMPORT MEDIALINK ──
-        # from cogs.medialink.medialink_config import medialink_config
+        from cogs.medialink.medialink_config import medialink_config
 
 
          # 🔩 ── CONFIG ──
@@ -342,11 +342,12 @@ class GuideONBot(commands.Bot):
 
 
         # 📡 ── MEDIALINK ──
-        #self.groupMEDIALINK = groupeMEDIALINK()
-        #for cmd in [medialink_config]:
-        #    groupMEDIALINK.add_command(cmd)
+        groupMEDIALINK = groupeMEDIALINK()
+        for cmd in [medialink_config]:
+            groupMEDIALINK.add_command(cmd)
 
-        for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY, groupGIVE, groupEXP, groupMOD, groupQR]: # + groupMEDIALINK soon
+
+        for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY, groupGIVE, groupEXP, groupMOD, groupQR, groupMEDIALINK]:
             self.tree.add_command(group)
 
         log.info("[SETUP_HOOK] ✅ Groupes de commandes enregistrés.")
