@@ -88,17 +88,15 @@ class MediaLinkDashboardView(BaseLayoutView):
         logs_btn.callback = self._cb_open_logs
 
         container.add_item(Section(TextDisplay("Actions :"), accessory=add_btn))
-        container.add_item(Section(TextDisplay(" "), accessory=templates_btn))
-        container.add_item(Section(TextDisplay(" "), accessory=stats_btn))
-        container.add_item(Section(TextDisplay(" "), accessory=logs_btn))
+        container.add_item(Section(TextDisplay("-# Templates"), accessory=templates_btn))
+        container.add_item(Section(TextDisplay("-# Statistiques"), accessory=stats_btn))
+        container.add_item(Section(TextDisplay("-# Historique"), accessory=logs_btn))
         container.add_item(TextDisplay("-# GuideOn Studio"))
 
         self.add_item(container)
 
     # ── Callbacks ────────────────────────────────────────────────
-    # Statistiques reste un stub bloqué (cf. medialink_statistics_view.py
-    # — arbitrage de schéma en attente). Gérer/Ajouter une connexion,
-    # Templates et Historique sont branchés.
+    # Statistiques reste un stub bloqué
 
     def _cb_manage_connection(self, connection_id: int):
         async def _callback(interaction: discord.Interaction) -> None:
@@ -124,6 +122,7 @@ class MediaLinkDashboardView(BaseLayoutView):
         await self.push_update(interaction, view=view)
 
     async def _cb_open_statistics(self, interaction: discord.Interaction) -> None:
+
         from utils.container_universel import info_container, send_ephemeral
 
         await send_ephemeral(
