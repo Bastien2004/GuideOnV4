@@ -146,19 +146,32 @@ class YouTubeProvider(BaseMediaProvider):
         return bool(data.get("items"))
 
     async def get_account(self, external_id: str) -> ProviderAccount:
-        data = await self._get(
-            "channels", {"part": "snippet", "id": external_id}
-        )
+        # BUG CORRIGÉ (2026-09, intégration vue) : cette méthode appelait
+        # channels.list avec id=external_id sans passer par
+        # _resolve_handle_or_id (contrairement à validate_account juste
+        # au-dessus) — un @handle saisi par l'utilisateur ne renvoyait
+        # donc jamais aucun résultat (le paramètre `id` de l'API veut un
+        # vrai ID de chaîne "UC...", pas un handle ; seul `forHandle` le
+        # résout). Alignée ici sur validate_account pour accepter les
+        # deux formats, comme le fait déjà le reste du Provider.
+        params = self._resolve_handle_or_id(external_id)
+        data = await self._get("channels", {"part": "snippet", **params})
         items = data.get("items", [])
         if not items:
             raise ProviderNotFoundError(
                 f"Chaîne YouTube introuvable pour external_id={external_id!r}"
             )
+        # L'external_id persisté DOIT être l'ID de chaîne stable renvoyé
+        # par l'API ("items[0]['id']"), jamais ce que l'utilisateur a
+        # tapé : un @handle peut changer de propriétaire/être réutilisé,
+        # alors que l'ID "UC..." est la clé anti-doublon stable (§9.1,
+        # cf. docstring de module et ProviderAccount.external_id).
+        resolved_id = items[0]["id"]
         snippet = items[0]["snippet"]
         return ProviderAccount(
-            external_id=external_id,
+            external_id=resolved_id,
             username=snippet.get("title"),
-            url=f"https://www.youtube.com/channel/{external_id}",
+            url=f"https://www.youtube.com/channel/{resolved_id}",
             avatar_url=snippet.get("thumbnails", {}).get("default", {}).get("url"),
             raw=items[0],
         )

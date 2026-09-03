@@ -45,6 +45,8 @@ class Settings(BaseSettings):
     ng_api_key: str = ""
     ng_api_base_url: str = "https://api.nationsglory.fr"
 
+    youtube_api_key: str = ""
+
     # URLs externes
     website_url: str = "https://guideonbot.guideon.dev/"
     shop_url: str = "https://guideonbot.guideon.dev/"
