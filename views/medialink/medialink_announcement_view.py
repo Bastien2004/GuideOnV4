@@ -122,7 +122,7 @@ class TemplateListView(BaseLayoutView):
         create_btn.callback = self._cb_create_template
         container.add_item(create_btn)
 
-        back_btn = Button(label="Retour au dashboard", style=ButtonStyle.secondary)
+        back_btn = Button(label="Retour au hub", style=ButtonStyle.secondary, emoji="↩️")
         back_btn.callback = self._cb_back
         container.add_item(back_btn)
 
@@ -142,9 +142,9 @@ class TemplateListView(BaseLayoutView):
         await interaction.response.send_modal(modal)
 
     async def _cb_back(self, interaction: discord.Interaction) -> None:
-        from views.medialink.medialink_dashboard_view import MediaLinkDashboardView
+        from views.medialink.medialink_dashboard_view import MediaLinkHubView
 
-        view = await MediaLinkDashboardView.build(guild=interaction.guild, owner_id=self.owner_id)
+        view = await MediaLinkHubView.build(guild=interaction.guild, owner_id=self.owner_id)
         await self.push_update(interaction, view=view)
 
 

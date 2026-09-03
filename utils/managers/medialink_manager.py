@@ -18,12 +18,18 @@ from __future__ import annotations
 
 import time
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 
 from utils.db.models.medialink_connection import MediaConnection
+from utils.db.models.medialink_event import MediaEventRecord
 from utils.db.models.medialink_rule import MediaRule
 from utils.db.models.medialink_template import MediaTemplate
 from utils.db.session import get_session
+
+# Plateformes connues (§2 du cahier) — utilisé pour que le hub affiche
+# toujours les 4, à 0 configuration, plutôt que de n'afficher que celles
+# qui ont déjà une connexion.
+KNOWN_PLATFORMS = ("youtube", "twitch", "tiktok", "reddit")
 
 # ═══ Cache connexions (par guild) ═══════════════════════════════════
 _CONN_TTL = 60
@@ -238,3 +244,78 @@ async def remove_template(template_id: int) -> None:
     nouvelle n'est pas choisie."""
     async with get_session() as session:
         await session.execute(delete(MediaTemplate).where(MediaTemplate.id == template_id))
+
+
+# ═══ Règles — vue transversale (toutes connexions) ══════════════════
+# list_rules() ci-dessus est par connexion (utilisé par
+# ConnectionRulesView) ; celle-ci est pour l'écran "Événements" du hub,
+# qui montre TOUTES les règles de la guild en un coup d'œil.
+
+async def list_all_rules(guild_id: int) -> list[dict]:
+    """Toutes les règles de la guild, chacune enrichie du libellé et de
+    la plateforme de sa connexion (pour affichage sans requête N+1)."""
+    async with get_session() as session:
+        result = await session.execute(
+            select(MediaRule, MediaConnection)
+            .join(MediaConnection, MediaRule.connection_id == MediaConnection.id)
+            .where(MediaConnection.guild_id == guild_id)
+            .order_by(MediaConnection.platform, MediaRule.event_type)
+        )
+        rows = []
+        for rule, connection in result.all():
+            row = rule.to_dict()
+            row["connection_label"] = connection.external_username or connection.external_id
+            row["connection_platform"] = connection.platform
+            rows.append(row)
+        return rows
+
+
+# ═══ Hub — statistiques agrégées ═════════════════════════════════════
+# Chiffres affichés sur l'écran d'accueil de /medialink config (§6.2) :
+# des COMPTAGES directs sur les tables existantes (media_connections/
+# media_rules/media_events), PAS l'écran "Statistiques" détaillé
+# (medialink_statistics_view.py, toujours bloqué sur l'arbitrage du
+# schéma media_statistics — historique/agrégats dans le temps). Ici on
+# ne montre qu'un instantané courant, aucune table dédiée requise.
+
+async def get_hub_stats(guild_id: int) -> dict:
+    async with get_session() as session:
+        platform_rows = await session.execute(
+            select(MediaConnection.platform, func.count(MediaConnection.id))
+            .where(MediaConnection.guild_id == guild_id)
+            .group_by(MediaConnection.platform)
+        )
+        platforms = {p: 0 for p in KNOWN_PLATFORMS}
+        for platform, count in platform_rows.all():
+            platforms[platform] = count
+
+        active_rules = (
+            await session.execute(
+                select(func.count(MediaRule.id))
+                .join(MediaConnection, MediaRule.connection_id == MediaConnection.id)
+                .where(MediaConnection.guild_id == guild_id, MediaRule.enabled.is_(True))
+            )
+        ).scalar() or 0
+
+        sent = (
+            await session.execute(
+                select(func.count(MediaEventRecord.id))
+                .join(MediaConnection, MediaEventRecord.connection_id == MediaConnection.id)
+                .where(MediaConnection.guild_id == guild_id, MediaEventRecord.status == "sent")
+            )
+        ).scalar() or 0
+
+        errors = (
+            await session.execute(
+                select(func.count(MediaEventRecord.id))
+                .join(MediaConnection, MediaEventRecord.connection_id == MediaConnection.id)
+                .where(MediaConnection.guild_id == guild_id, MediaEventRecord.status == "failed")
+            )
+        ).scalar() or 0
+
+    return {
+        "platforms": platforms,
+        "active_rules": active_rules,
+        "sent": sent,
+        "errors": errors,
+    }

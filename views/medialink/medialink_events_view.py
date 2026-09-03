@@ -182,3 +182,59 @@ class ConnectionRulesView(BaseLayoutView):
 
         view = await MediaLinkDashboardView.build(guild=interaction.guild, owner_id=self.owner_id)
         await self.push_update(interaction, view=view)
+
+
+class GuildEventsOverviewView(BaseLayoutView):
+    """Écran "Événements" du hub — TOUTES les règles de la guild, tous
+    connexions confondues, en lecture seule (§16 : vue d'ensemble). Pour
+    modifier une règle précise, on passe par Plateformes → Gérer → cette
+    connexion (ConnectionRulesView, ci-dessus) — pas de duplication du
+    flux d'édition ici, juste la vue d'ensemble qui manquait au hub."""
+
+    def __init__(self, *, guild_id: int, owner_id: int, rules: list[dict]):
+        super().__init__(owner_id=owner_id, timeout=300)
+        self.guild_id = guild_id
+        self.rules = rules
+        self._build()
+
+    @classmethod
+    async def build(cls, *, guild: discord.Guild, owner_id: int) -> "GuildEventsOverviewView":
+        rules = await medialink_mgr.list_all_rules(guild.id)
+        return cls(guild_id=guild.id, owner_id=owner_id, rules=rules)
+
+    def _build(self) -> None:
+        container = Container()
+        container.add_item(TextDisplay("# ⚡ Événements"))
+        container.add_item(TextDisplay(f"-# {len(self.rules)} règle(s) configurée(s) sur ce serveur."))
+        container.add_item(Separator())
+
+        if not self.rules:
+            container.add_item(
+                TextDisplay(
+                    "*Aucune règle configurée pour l'instant — ajoute une connexion "
+                    "puis une règle depuis l'écran Plateformes.*"
+                )
+            )
+        else:
+            lines = []
+            for rule in self.rules:
+                status_icon = "🟢" if rule.get("enabled", True) else "⚪"
+                template_note = f"template #{rule['template_id']}" if rule.get("template_id") else "sans template"
+                lines.append(
+                    f"{status_icon} `{rule['connection_platform']}` **{rule['connection_label']}** — "
+                    f"`{rule['event_type']}` → <#{rule['channel_id']}> ({template_note})"
+                )
+            container.add_item(TextDisplay("\n".join(lines)))
+
+        container.add_item(Separator())
+        back_btn = Button(label="Retour au hub", style=ButtonStyle.secondary, emoji="↩️")
+        back_btn.callback = self._cb_back
+        container.add_item(back_btn)
+
+        self.add_item(container)
+
+    async def _cb_back(self, interaction: discord.Interaction) -> None:
+        from views.medialink.medialink_dashboard_view import MediaLinkHubView
+
+        view = await MediaLinkHubView.build(guild=interaction.guild, owner_id=self.owner_id)
+        await self.push_update(interaction, view=view)

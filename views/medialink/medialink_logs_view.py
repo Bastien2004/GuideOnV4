@@ -12,7 +12,8 @@ que les premiers logs existent.
 from __future__ import annotations
 
 import discord
-from discord.ui import Container, Separator, TextDisplay
+from discord import ButtonStyle
+from discord.ui import Button, Container, Separator, TextDisplay
 from sqlalchemy import select
 
 from utils.db.models.medialink_log import MediaLog
@@ -53,4 +54,19 @@ class MediaLinkLogsView(BaseLayoutView):
                 icon = {"info": "ℹ️", "warning": "⚠️", "error": "❌"}.get(log["level"], "ℹ️")
                 container.add_item(TextDisplay(f"{icon} `{log['event_type']}` — {log['message']}"))
 
+        # BUG CORRIGÉ (2026-09) : cet écran n'avait aucun bouton retour —
+        # un vrai cul-de-sac une fois ouvert (fallait relancer /medialink
+        # config). Resté invisible tant que le hub bloqué en amont
+        # empêchait d'atteindre cet écran.
+        container.add_item(Separator())
+        back_btn = Button(label="Retour au hub", style=ButtonStyle.secondary, emoji="↩️")
+        back_btn.callback = self._cb_back
+        container.add_item(back_btn)
+
         self.add_item(container)
+
+    async def _cb_back(self, interaction: discord.Interaction) -> None:
+        from views.medialink.medialink_dashboard_view import MediaLinkHubView
+
+        view = await MediaLinkHubView.build(guild=interaction.guild, owner_id=self.owner_id)
+        await self.push_update(interaction, view=view)

@@ -1,6 +1,7 @@
 """
-cogs/medialink/medialink_config.py — Dashboard de configuration des annonces MEDIALINK.
+cogs/medialink/medialink_config.py — Dashboard de configuration MEDIALINK.
 """
+
 from __future__ import annotations
 
 import logging
@@ -15,7 +16,7 @@ from utils.error_handler import handle_app_command_error
 from utils.perm_admin import check_admin
 from utils.track_commande import tracker_commande
 
-from views.medialink.medialink_dashboard_view import MediaLinkDashboardView
+from views.medialink.medialink_dashboard_view import MediaLinkHubView
 
 log = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ async def medialink_config(interaction: discord.Interaction) -> None:
     if not await verifier_ban_utilisateur(interaction):
         return
 
-    # 🔐 Permission admin
+    # 🔐 Vérification permissions.
     if not await check_admin(interaction, "configurer **MEDIALINK** du serveur"):
         return
 
@@ -50,14 +51,18 @@ async def medialink_config(interaction: discord.Interaction) -> None:
     # 📊 Tracking.
     await tracker_commande(interaction, "medialink_config")
 
-    # 💻 Envoi du dashboard.
+    # 💻 Envoi du hub.
     try:
-        view = await MediaLinkDashboardView.build(guild=interaction.guild, owner_id=interaction.user.id)
+        view = await MediaLinkHubView.build(
+            guild=interaction.guild, owner_id=interaction.user.id,
+        )
         await interaction.followup.send(view=view, ephemeral=True)
-
     except Exception:
-        log.exception("[MEDIALINK CONFIG] Ouverture dashboard échouée guild=%s", interaction.guild.id)
-        await interaction.followup.send(view=error_container("Impossible d'ouvrir le **dashboard MEDIALINK**."), ephemeral=True)
+        log.exception("[MEDIALINK CONFIG] Ouverture hub échouée guild=%s", interaction.guild.id)
+        await interaction.followup.send(
+            view=error_container("Impossible d'ouvrir le **hub MEDIALINK**."),
+            ephemeral=True,
+        )
 
 
 # ============================================================
