@@ -5,8 +5,8 @@ views/medialink/medialink_dashboard_view.py — Interface Hub MediaLink.
 from __future__ import annotations
 
 import discord
-from discord import ButtonStyle
-from discord.ui import ActionRow, Button, Container, Section, Separator, TextDisplay
+from discord import ButtonStyle, SelectOption
+from discord.ui import ActionRow, Button, Container, Section, Select, Separator, TextDisplay
 
 from utils.managers import medialink_manager as medialink_mgr
 from utils.settings import settings
@@ -84,24 +84,25 @@ class MediaLinkHubView(BaseLayoutView):
         )
         container.add_item(Separator())
 
-        # ── Navigation (6 écrans, 2 rangées de 3 — ActionRow, pas 6
-        # boutons empilés) ──
-        platforms_btn = Button(label="Plateformes", style=ButtonStyle.primary, emoji="🌐")
-        platforms_btn.callback = self._cb_open_platforms
-        events_btn = Button(label="Événements", style=ButtonStyle.secondary, emoji="⚡")
-        events_btn.callback = self._cb_open_events
-        templates_btn = Button(label="Annonces", style=ButtonStyle.secondary, emoji="📢")
-        templates_btn.callback = self._cb_open_templates
-
-        stats_btn = Button(label="Statistiques", style=ButtonStyle.secondary, emoji="📊")
-        stats_btn.callback = self._cb_open_statistics
-        logs_btn = Button(label="Logs", style=ButtonStyle.secondary, emoji="🗒️")
-        logs_btn.callback = self._cb_open_logs
-        settings_btn = Button(label="Configuration", style=ButtonStyle.secondary, emoji=EMOJI_SETTINGS)
-        settings_btn.callback = self._cb_open_settings
-
-        container.add_item(ActionRow(platforms_btn, events_btn, templates_btn))
-        container.add_item(ActionRow(stats_btn, logs_btn, settings_btn))
+        # ── Navigation (menu select, comme /mod config — un seul Select
+        # listant les 6 écrans plutôt que 6 boutons) ──
+        nav_options = [
+            SelectOption(label="Plateformes", value="platforms", emoji="🌐",
+                         description="Gérer les connexions YouTube, Twitch, TikTok, Reddit."),
+            SelectOption(label="Événements", value="events", emoji="⚡",
+                         description="Vue d'ensemble de toutes les règles configurées."),
+            SelectOption(label="Annonces", value="templates", emoji="📢",
+                         description="Gérer les templates de message."),
+            SelectOption(label="Statistiques", value="statistics", emoji="📊",
+                         description="Consulter les chiffres d'activité du serveur."),
+            SelectOption(label="Logs", value="logs", emoji="🗒️",
+                         description="Historique des événements et des erreurs."),
+            SelectOption(label="Configuration", value="settings", emoji=EMOJI_SETTINGS,
+                         description="Réglages globaux du module MédiaLink."),
+        ]
+        nav_select = Select(placeholder="Choisir un écran...", options=nav_options, min_values=1, max_values=1)
+        nav_select.callback = self._cb_nav_select
+        container.add_item(ActionRow(nav_select))
         container.add_item(Separator())
 
         doc_btn = Button(label="Documentation", style=ButtonStyle.link, url=settings.doc_url, emoji="📚")
@@ -113,6 +114,20 @@ class MediaLinkHubView(BaseLayoutView):
         self.add_item(container)
 
     # ── Callbacks ────────────────────────────────────────────────
+
+    async def _cb_nav_select(self, interaction: discord.Interaction) -> None:
+        value = interaction.data["values"][0]
+        handlers = {
+            "platforms": self._cb_open_platforms,
+            "events": self._cb_open_events,
+            "templates": self._cb_open_templates,
+            "statistics": self._cb_open_statistics,
+            "logs": self._cb_open_logs,
+            "settings": self._cb_open_settings,
+        }
+        handler = handlers.get(value)
+        if handler is not None:
+            await handler(interaction)
 
     async def _cb_open_platforms(self, interaction: discord.Interaction) -> None:
         view = await MediaLinkDashboardView.build(guild=interaction.guild, owner_id=self.owner_id)
