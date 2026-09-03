@@ -8,36 +8,39 @@ RESTYLÉ (2026-09) — mêmes conventions que medialink_dashboard_view.py :
 émotes custom du serveur, ActionRow pour les rangées de boutons, lignes
 "**gras** — état" / "-# sous-texte".
 
-── MODE ACTUEL : AJOUT MANUEL (provisoire) ──────────────────────────
-Même logique que medialink_platforms_view.py : la liste des event_type
-proposés devrait venir de BaseMediaProvider.capabilities de la connexion
-concernée, mais ça n'est pas exploitable tant que les Providers réels
-n'existent pas. En attendant, "Ajouter une règle" ouvre un Modal où
-event_type et le salon (par ID) sont saisis à la main — pas de
-validation contre une liste de types réels, pas de sélecteur de salon
-Discord natif (ChannelSelect) pour l'instant.
+── YOUTUBE : SELECT NATIFS (2026-09, Provider réel branché) ─────────
+Pour une connexion YouTube (cf. medialink_platforms_view.py, même date),
+"Ajouter une règle" n'ouvre plus le Modal manuel mais AddRuleView
+(ci-dessous) : un Select pour l'event_type — rempli depuis
+YouTubeProvider.capabilities, comme prévu par le TODO d'origine, donc il
+suit automatiquement les capabilities réelles du Provider — un
+ChannelSelect natif Discord pour le salon (composant partagé
+views/_components/channel_select.py, déjà utilisé ailleurs dans le bot,
+ex. views/mod/logs_config_view.py), et un Select pour le template
+existant. Un Modal Discord ne pouvant pas contenir de Select (limite de
+l'API), ça ne pouvait pas rester un Modal une fois ces 3 champs
+transformés en Select — d'où cet écran séparé (confirmé avec Paul).
 
-QUAND LES PROVIDERS EXISTERONT (roadmap A1/A2) — à faire à ce moment-là :
-  - Remplacer le TextInput event_type par un Select rempli depuis
-    ProviderCapabilities de la connexion.
-  - Remplacer le TextInput channel_id par un discord.ui.ChannelSelect
-    (plus fiable qu'un ID copié-collé à la main).
-
-Le template (media_templates) est maintenant sélectionnable — en ID
-saisi à la main pour l'instant (même logique manuelle que le reste de ce
-fichier). Un Select rempli depuis medialink_manager.list_templates()
-serait plus confortable mais un Modal Discord ne peut pas contenir de
-Select (limite de l'API) ; passer par un Select + bouton séparé plutôt
-qu'un Modal si Paul préfère ce confort, à voir avec lui.
+── TWITCH / TIKTOK / REDDIT : TOUJOURS EN AJOUT MANUEL (provisoire) ──
+Leurs Providers sont encore des stubs (cf. medialink_platforms_view.py) :
+AddRuleModal (Modal, saisie manuelle par TextInput) reste le flux pour
+ces 3 plateformes, cf. _cb_add_rule qui dispatche selon la plateforme de
+la connexion. À basculer vers AddRuleView au même principe que YouTube
+au fur et à mesure que Bastien livre chaque Provider.
 """
 from __future__ import annotations
 
 import discord
-from discord import ButtonStyle
-from discord.ui import ActionRow, Button, Container, Section, Separator, TextDisplay
+from discord import ButtonStyle, SelectOption
+from discord.ui import ActionRow, Button, Container, Section, Select, Separator, TextDisplay
 
+from utils.container_universel import error_container, send_ephemeral
+from utils.db.models.medialink_connection import MediaPlatform
 from utils.managers import medialink_manager as medialink_mgr
+from utils.medialink.providers.base import ProviderCapabilities
+from utils.medialink.providers.youtube import YouTubeProvider
 from views._components.base_view import BaseLayoutView
+from views._components.channel_select import ChannelSelect
 
 EMOJI_ADD = "<:plus:1495444111505752154>"
 EMOJI_DELETE = "<:supprimer:1495444051623809075>"
@@ -51,6 +54,23 @@ _PLATFORM_EMOJI = {
     "tiktok": "🎵",
     "reddit": "🔴",
 }
+
+# capability → (event_type, label affiché, emoji) — un seul provider réel
+# pour l'instant (YouTube), mais la liste d'options se déduit de ses
+# capabilities réelles plutôt que d'être figée en dur (cf. docstring).
+_YOUTUBE_EVENT_CATALOG: list[tuple[ProviderCapabilities, str, str, str]] = [
+    (ProviderCapabilities.NEW_POST, "youtube.video_published", "Nouvelle vidéo", "▶️"),
+    (ProviderCapabilities.SHORT_FORM, "youtube.short_published", "Nouveau Short", "🎬"),
+    (ProviderCapabilities.LIVE_STATUS, "youtube.live_started", "Passage en live", "🔴"),
+]
+
+
+def _build_event_options(capabilities: ProviderCapabilities) -> list[SelectOption]:
+    return [
+        SelectOption(label=label, value=event_type, emoji=emoji)
+        for cap, event_type, label, emoji in _YOUTUBE_EVENT_CATALOG
+        if cap in capabilities
+    ]
 
 
 class AddRuleModal(discord.ui.Modal):
@@ -189,8 +209,13 @@ class ConnectionRulesView(BaseLayoutView):
         return _callback
 
     async def _cb_add_rule(self, interaction: discord.Interaction) -> None:
-        modal = AddRuleModal(connection=self.connection, owner_id=self.owner_id)
-        await interaction.response.send_modal(modal)
+        if self.connection["platform"] == MediaPlatform.YOUTUBE.value:
+            # Provider réel : Select natifs plutôt qu'un Modal (cf. docstring).
+            view = await AddRuleView.build(connection=self.connection, owner_id=self.owner_id)
+            await self.push_update(interaction, view=view)
+        else:
+            modal = AddRuleModal(connection=self.connection, owner_id=self.owner_id)
+            await interaction.response.send_modal(modal)
 
     async def _cb_remove_connection(self, interaction: discord.Interaction) -> None:
         await medialink_mgr.remove_connection(self.connection["guild_id"], self.connection["id"])
@@ -204,6 +229,157 @@ class ConnectionRulesView(BaseLayoutView):
         from views.medialink.medialink_dashboard_view import MediaLinkDashboardView
 
         view = await MediaLinkDashboardView.build(guild=interaction.guild, owner_id=self.owner_id)
+        await self.push_update(interaction, view=view)
+
+
+class AddRuleView(BaseLayoutView):
+    """Ajout d'une règle pour une connexion dont le Provider est réel
+    (YouTube actuellement, cf. docstring de module) : 3 Select
+    (event_type, salon, template) accumulés dans la vue puis persistés
+    par le bouton Valider — impossible de tout mettre dans un Modal
+    Discord (qui ne peut pas contenir de Select), donc le choix se fait
+    par rerender successifs de cette même vue, au même principe que
+    views/mod/logs_config_view.py::_refresh."""
+
+    def __init__(self, *, connection: dict, owner_id: int, templates: list[dict]):
+        super().__init__(owner_id=owner_id, timeout=300)
+        self.connection = connection
+        self.templates = templates
+        self._event_type: str | None = None
+        self._channel_id: int | None = None
+        self._template_id: int | None = None
+        self._build()
+
+    @classmethod
+    async def build(cls, *, connection: dict, owner_id: int) -> "AddRuleView":
+        templates = await medialink_mgr.list_templates(connection["guild_id"])
+        return cls(connection=connection, owner_id=owner_id, templates=templates)
+
+    def _build(self) -> None:
+        self.clear_items()
+
+        container = Container()
+        label = self.connection.get("external_username") or self.connection["external_id"]
+        emoji = _PLATFORM_EMOJI.get(self.connection["platform"], "🔗")
+        container.add_item(TextDisplay(f"# {EMOJI_ADD} Ajouter une règle — {emoji} {label}"))
+        container.add_item(TextDisplay("-# Choisis le type d'événement et le salon, puis valide."))
+        container.add_item(Separator())
+
+        event_options = _build_event_options(YouTubeProvider.capabilities)
+        if not event_options:
+            # Défense en profondeur : ne devrait pas arriver tant que
+            # YouTube a au moins une capability, cf. _YOUTUBE_EVENT_CATALOG.
+            event_options = [SelectOption(label="Aucun type disponible", value="__none__", emoji="⚠️", default=True)]
+            event_disabled = True
+        else:
+            event_disabled = False
+        event_select = Select(
+            placeholder="Type d'événement...",
+            options=[
+                SelectOption(
+                    label=opt.label, value=opt.value, emoji=opt.emoji,
+                    default=(opt.value == self._event_type),
+                )
+                for opt in event_options
+            ],
+            min_values=1, max_values=1, disabled=event_disabled,
+        )
+        event_select.callback = self._cb_pick_event
+        container.add_item(TextDisplay(
+            f"**Type d'événement**\n-# {self._event_label() if self._event_type else '`Non choisi`'}"
+        ))
+        container.add_item(ActionRow(event_select))
+        container.add_item(Separator())
+
+        channel_select = ChannelSelect(
+            placeholder="Salon Discord...",
+            on_select=self._cb_pick_channel,
+            channel_types=[discord.ChannelType.text, discord.ChannelType.news],
+        )
+        channel_display = f"<#{self._channel_id}>" if self._channel_id else "`Non choisi`"
+        container.add_item(TextDisplay(f"**Salon**\n-# {channel_display}"))
+        container.add_item(ActionRow(channel_select))
+        container.add_item(Separator())
+
+        template_options = [
+            SelectOption(label="Aucun template", value="__none__", default=self._template_id is None)
+        ]
+        template_options += [
+            SelectOption(label=t["name"], value=str(t["id"]), default=(self._template_id == t["id"]))
+            for t in self.templates[:24]  # 25 options max sur un Select, 1 réservée à "Aucun"
+        ]
+        template_select = Select(
+            placeholder="Template (optionnel)...", options=template_options, min_values=1, max_values=1,
+        )
+        template_select.callback = self._cb_pick_template
+        container.add_item(TextDisplay(f"**Template**\n-# {self._template_label()}"))
+        container.add_item(ActionRow(template_select))
+        container.add_item(Separator())
+
+        confirm_btn = Button(
+            label="Créer la règle",
+            style=ButtonStyle.success,
+            emoji=EMOJI_VALID,
+            disabled=self._event_type is None or self._channel_id is None,
+        )
+        confirm_btn.callback = self._cb_confirm
+        cancel_btn = Button(label="Annuler", style=ButtonStyle.secondary, emoji=EMOJI_BACK)
+        cancel_btn.callback = self._cb_cancel
+        container.add_item(ActionRow(confirm_btn, cancel_btn))
+        container.add_item(Separator())
+        container.add_item(TextDisplay("-# GuideOn Studio"))
+
+        self.add_item(container)
+
+    def _event_label(self) -> str:
+        match = next((label for _, event_type, label, _ in _YOUTUBE_EVENT_CATALOG if event_type == self._event_type), None)
+        return f"`{self._event_type}`" if match is None else f"{match} (`{self._event_type}`)"
+
+    def _template_label(self) -> str:
+        if self._template_id is None:
+            return "Aucun"
+        tpl = next((t for t in self.templates if t["id"] == self._template_id), None)
+        return tpl["name"] if tpl else "Aucun"
+
+    # ── Callbacks ────────────────────────────────────────────────
+
+    async def _cb_pick_event(self, interaction: discord.Interaction) -> None:
+        values = interaction.data["values"]
+        self._event_type = values[0] if values and values[0] != "__none__" else None
+        self._build()
+        await self.push_update(interaction)
+
+    async def _cb_pick_channel(self, interaction: discord.Interaction, channel_id: int) -> None:
+        self._channel_id = channel_id
+        self._build()
+        await self.push_update(interaction)
+
+    async def _cb_pick_template(self, interaction: discord.Interaction) -> None:
+        value = interaction.data["values"][0]
+        self._template_id = int(value) if value != "__none__" else None
+        self._build()
+        await self.push_update(interaction)
+
+    async def _cb_confirm(self, interaction: discord.Interaction) -> None:
+        if self._event_type is None or self._channel_id is None:
+            await send_ephemeral(
+                interaction,
+                error_container("Choisis un type d'événement et un salon avant de valider."),
+            )
+            return
+
+        await medialink_mgr.add_rule(
+            self.connection["id"],
+            self._event_type,
+            self._channel_id,
+            template_id=self._template_id,
+        )
+
+        view = await ConnectionRulesView.build(connection=self.connection, owner_id=self.owner_id)
+        await self.push_update(interaction, view=view)
+
+    async def _cb_cancel(self, interaction: discord.Interaction) -> None:
+        view = await ConnectionRulesView.build(connection=self.connection, owner_id=self.owner_id)
         await self.push_update(interaction, view=view)
 
 
