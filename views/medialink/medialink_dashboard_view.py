@@ -78,12 +78,12 @@ class MediaLinkHubView(BaseLayoutView):
         container.add_item(Separator())
 
         # ── Activité ──
-        container.add_item(TextDisplay("### <:fichier_i:1539608464324567040> __Activité__"))
+        container.add_item(TextDisplay("### <:fichier_i:1539608464324567040> __Activité__ :"))
         container.add_item(
             TextDisplay(
-                f"📢 **{self.stats['sent']}** annonce(s) envoyée(s)\n"
-                f"📋 **{self.stats['active_rules']}** règle(s) active(s)\n"
-                f"‼️ **{self.stats['errors']}** erreur(s)"
+                f"📢 **{self.stats['sent']}** Annonce(s) envoyée(s)\n"
+                f"📋 **{self.stats['active_rules']}** Règle(s) active(s)\n"
+                f"‼️ **{self.stats['errors']}** Erreur(s)"
             )
         )
         container.add_item(Separator())
