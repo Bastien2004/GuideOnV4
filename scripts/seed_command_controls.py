@@ -11,7 +11,7 @@ from utils.db.models.control_admin import CommandControl
 
 COMMANDS = {
     # ── Commande à ajouter ; ──
-    "config_join_to_create": False,
+    "medialink_config": False,
 }
 
 
