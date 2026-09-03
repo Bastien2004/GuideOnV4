@@ -57,7 +57,13 @@ class MediaLinkHubView(BaseLayoutView):
         container = Container()
 
         container.add_item(TextDisplay("# <:analyser:1495446292963528798> Système MédiaLink"))
-        container.add_item(TextDisplay("➤ Système de diffusion automatique"))
+        container.add_item(Separator())
+
+        container.add_item(TextDisplay(
+            "Connecte des **réseaux sociaux** à __MédiaLink__\n"
+            "afin de recevoir des **annonces** __automatique__\n"
+            "à la **publication** de nouveaux **contenus**.\n"
+            ))
         container.add_item(Separator())
 
         # ── Plateformes ──
@@ -84,8 +90,7 @@ class MediaLinkHubView(BaseLayoutView):
         )
         container.add_item(Separator())
 
-        # ── Navigation (menu select, comme /mod config — un seul Select
-        # listant les 6 écrans plutôt que 6 boutons) ──
+        # ── Navigation ──
         nav_options = [
             SelectOption(label="Plateformes", value="platforms", emoji="🌐",
                          description="Gérer les connexions YouTube, Twitch, TikTok, Reddit."),
@@ -100,7 +105,7 @@ class MediaLinkHubView(BaseLayoutView):
             SelectOption(label="Configuration", value="settings", emoji=EMOJI_SETTINGS,
                          description="Réglages globaux du module MédiaLink."),
         ]
-        nav_select = Select(placeholder="Choisir un écran...", options=nav_options, min_values=1, max_values=1)
+        nav_select = Select(placeholder="Choisir une catégorie...", options=nav_options, min_values=1, max_values=1)
         nav_select.callback = self._cb_nav_select
         container.add_item(ActionRow(nav_select))
         container.add_item(Separator())
@@ -146,11 +151,6 @@ class MediaLinkHubView(BaseLayoutView):
         await self.push_update(interaction, view=view)
 
     async def _cb_open_statistics(self, interaction: discord.Interaction) -> None:
-        # L'instantané ci-dessus (Activité) couvre déjà les chiffres du
-        # moment. Cet écran serait pour l'historique/les tendances dans
-        # le temps — ça reste bloqué sur l'arbitrage du schéma
-        # media_statistics (comptage à la volée vs. table d'agrégats),
-        # cf. medialink_statistics_view.py.
         from utils.container_universel import info_container, send_ephemeral
 
         await send_ephemeral(
