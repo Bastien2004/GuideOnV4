@@ -17,6 +17,7 @@ sollicités, contrairement au dashboard des connexions).
 from __future__ import annotations
 
 import time
+from datetime import datetime, timezone
 
 from sqlalchemy import delete, func, select
 
@@ -117,14 +118,43 @@ async def remove_connection(guild_id: int, connection_id: int) -> None:
 
 
 async def set_connection_status(connection_id: int, guild_id: int, status: str) -> None:
-    """Met à jour l'état d'une connexion (§6.3) — appelé par
-    utils.medialink.event_manager / le scheduler après un check_status()."""
+    """Met à jour l'état d'une connexion (§6.3) ET last_checked_at —
+    appelé par utils.medialink.scheduler après CHAQUE passage de polling
+    sur cette connexion, succès ou échec (cf. docstring de scheduler.py :
+    "Mettre à jour MediaConnection.last_checked_at ... après chaque
+    passage, succès ou échec")."""
     async with get_session() as session:
         row = await session.get(MediaConnection, connection_id)
         if row is not None:
             row.status = status
+            row.last_checked_at = datetime.now(timezone.utc)
 
     _conn_invalidate(guild_id)
+
+
+async def touch_last_event(connection_id: int, guild_id: int) -> None:
+    """Met à jour last_event_at (dashboard §6.2) — appelé par le
+    scheduler seulement quand un NOUVEL événement vient d'être ingéré
+    avec succès pour cette connexion (pas à chaque passage de polling,
+    contrairement à set_connection_status ci-dessus)."""
+    async with get_session() as session:
+        row = await session.get(MediaConnection, connection_id)
+        if row is not None:
+            row.last_event_at = datetime.now(timezone.utc)
+
+    _conn_invalidate(guild_id)
+
+
+async def list_all_connections() -> list[dict]:
+    """Toutes les connexions, TOUTES guildes confondues — contrairement à
+    list_connections(guild_id) ci-dessus (utilisé par le dashboard d'UNE
+    guild), c'est ce dont a besoin utils.medialink.scheduler pour faire
+    le polling de toutes les connexions actives du bot en un seul
+    passage. Pas de cache ici : le scheduler tourne à son propre rythme
+    (§9.2), pas à la fréquence d'ouverture d'un dashboard."""
+    async with get_session() as session:
+        result = await session.execute(select(MediaConnection))
+        return [row.to_dict() for row in result.scalars().all()]
 
 
 # ═══ Règles ══════════════════════════════════════════════════════════

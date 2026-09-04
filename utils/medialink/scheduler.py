@@ -1,40 +1,81 @@
 """
-utils/medialink/scheduler.py — déclenche fetch_events() sur chaque
-Provider actif à intervalle régulier (§9.2 "Fréquence de polling").
-
-STUB volontairement léger : c'est un composant de la roadmap V1 (B4/B6),
-pas un bloquant Phase 0/A1. Le contrat qu'il devra respecter est déjà
-fixé par providers/base.py et event_manager.py, donc il peut être
-implémenté indépendamment une fois les premiers Providers réels
-disponibles (partie API de Bastien).
-
-Ce que ce module devra faire, une fois écrit pour de vrai :
-  1. Charger les connexions actives (utils.managers.medialink_manager.
-     list_connections, par guild ou globalement selon la stratégie de
-     boucle retenue).
-  2. Instancier/réutiliser le BaseMediaProvider correspondant à chaque
-     connexion (connect() déjà fait, ou fait ici — à trancher).
-  3. Appeler fetch_events() à une fréquence qui respecte les limites de
-     l'API de chaque plateforme (§9.2) — probablement configurable PAR
-     plateforme, pas une constante globale unique.
-  4. Résoudre event.connection_id pour chaque MediaEvent produit (un
-     Provider ne le connaît pas nativement, cf. event_manager.ingest).
-  5. Transmettre à event_manager.ingest(), puis les RoutedEvent renvoyés
-     à processor.py.
-  6. Mettre à jour MediaConnection.last_checked_at (et status via
-     check_status()) après chaque passage, succès ou échec.
+utils/medialink/scheduler.py — Transite du MediaEventdéclenche vers le processor.
 """
+
 from __future__ import annotations
 
+import logging
 
-async def run_once() -> None:
-    """Un seul passage de polling sur toutes les connexions actives.
+import discord
 
-    Non implémenté dans ce squelette — voir docstring de module pour le
-    contrat attendu. Volontairement une fonction `run_once` plutôt
-    qu'une boucle infinie interne : la boucle temporelle (asyncio task
-    périodique, ou task loop discord.ext.tasks) doit être décidée avec
-    Paul selon comment le reste du bot gère déjà ce genre de tâches
-    récurrentes.
-    """
-    raise NotImplementedError("scheduler.run_once() — à implémenter (roadmap V1, B4/B6)")
+from utils.db.models.medialink_connection import ConnectionStatus
+from utils.db.models.medialink_log import MediaLog, MediaLogLevel
+from utils.db.session import get_session
+
+from utils.managers import medialink_manager as medialink_mgr
+from utils.medialink import event_manager, processor
+from utils.medialink.providers.base import BaseMediaProvider
+from utils.medialink.providers.youtube import YouTubeProvider
+
+log = logging.getLogger(__name__)
+
+# Classe de Provider réelle. À compléter ! 
+_PROVIDER_CLASSES: dict[str, type[BaseMediaProvider]] = {
+    "youtube": YouTubeProvider,
+}
+
+
+async def run_once(bot: discord.Client) -> None:
+    connections = await medialink_mgr.list_all_connections()
+
+    for connection in connections:
+        if connection["status"] == ConnectionStatus.DISABLED.value:
+            continue
+
+        provider_cls = _PROVIDER_CLASSES.get(connection["platform"])
+        if provider_cls is None:
+            continue
+
+        await _poll_connection(bot, connection, provider_cls)
+
+
+async def _poll_connection(bot: discord.Client, connection: dict, provider_cls: type[BaseMediaProvider]) -> None:
+    provider = provider_cls()
+    try:
+        await provider.connect(connection["external_id"])
+        events = await provider.fetch_events()
+
+    except Exception as exc:
+        log.warning("[MEDIALINK] fetch_events() échoué connection=%s platform=%s: %s", connection["id"], connection["platform"], exc)
+        await medialink_mgr.set_connection_status(connection["id"], connection["guild_id"], ConnectionStatus.ERROR.value)
+        await _log(connection["guild_id"], connection["id"], MediaLogLevel.ERROR, "connection.check_failed", str(exc))
+        return
+    
+    finally:
+        try:
+            await provider.disconnect()
+        except Exception:
+            log.debug("[MEDIALINK] disconnect() a levé une exception (ignorée) connection=%s", connection["id"])
+
+    await medialink_mgr.set_connection_status(connection["id"], connection["guild_id"], ConnectionStatus.OPERATIONAL.value)
+
+    for event in events:
+        event.connection_id = connection["id"]
+
+        routed = await event_manager.ingest(event)
+        if routed is None:
+            continue
+
+        await medialink_mgr.touch_last_event(connection["id"], connection["guild_id"])
+        await processor.process(bot, routed)
+
+
+async def _log(guild_id: int, connection_id: int, level: MediaLogLevel, event_type: str, message: str) -> None:
+    async with get_session() as session:
+        session.add(MediaLog(
+            guild_id=guild_id,
+            connection_id=connection_id,
+            level=level.value,
+            event_type=event_type,
+            message=message[:2000],
+        ))
