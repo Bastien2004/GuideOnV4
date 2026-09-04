@@ -16,6 +16,7 @@ toucher d'ici là, ces deux classes ne sont utilisées que par ce provider).
 from __future__ import annotations
 
 import re
+from datetime import datetime
 
 import httpx
 
@@ -64,6 +65,29 @@ def _parse_duration_seconds(duration: str) -> int:
 
 def _chunked(items: list[str], size: int) -> list[list[str]]:
     return [items[i : i + size] for i in range(0, len(items), size)]
+
+
+def _parse_iso_datetime(value: str) -> datetime | None:
+    """Convertit un timestamp ISO 8601 tel que renvoyé par l'API YouTube
+    (ex: "2022-06-06T10:05:43Z") en datetime aware.
+
+    BUG CORRIGÉ (2026-09, trouvé en prod dès le premier vrai passage du
+    scheduler) : cette valeur était passée telle quelle (une str) à
+    MediaEvent.published_at / media_events.published_at, tous deux
+    typés `datetime`, pas `str` — asyncpg refuse d'insérer une str dans
+    une colonne TIMESTAMPTZ ("expected a datetime.date or
+    datetime.datetime instance, got 'str'"), ce qui faisait planter
+    event_manager._persist_if_new() sur CHAQUE événement.
+
+    None si absent/invalide plutôt que de faire planter fetch_events()
+    en entier pour une vidéo (même logique défensive que
+    _parse_duration_seconds ci-dessus)."""
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
 
 
 class YouTubeProvider(BaseMediaProvider):
@@ -247,7 +271,7 @@ class YouTubeProvider(BaseMediaProvider):
                         .get("url", "")
                     ),
                     author=snippet.get("channelTitle", self._channel_title),
-                    published_at=snippet.get("publishedAt", ""),
+                    published_at=_parse_iso_datetime(snippet.get("publishedAt", "")),
                 )
             )
 
