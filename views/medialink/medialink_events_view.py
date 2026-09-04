@@ -21,6 +21,27 @@ existant. Un Modal Discord ne pouvant pas contenir de Select (limite de
 l'API), ça ne pouvait pas rester un Modal une fois ces 3 champs
 transformés en Select — d'où cet écran séparé (confirmé avec Paul).
 
+── ÉVÉNEMENT(S) : SÉLECTION MULTIPLE (2026-09) ────────────────────────
+BUG DE FOND CORRIGÉ : un Short YouTube (vidéo ≤180s, cf.
+providers/youtube.py::_SHORT_MAX_SECONDS) a un event_type distinct
+("youtube.short_published") de "youtube.video_published" — un admin qui
+ne crée qu'une règle "Nouvelle vidéo" ne reçoit donc JAMAIS d'annonce
+pour ses Shorts, silencieusement (event_manager.resolve_active_rules()
+fait une correspondance stricte sur event_type, §9 du cahier des
+charges — aucune règle trouvée = SKIPPED, sans erreur visible). Trouvé
+en prod (connexion créée sans règle "short_published", plusieurs Shorts
+jamais annoncés avant que ce soit remarqué).
+
+Plutôt que de créer les règles automatiquement à la connexion (impossible
+proprement : le salon/template ne sont choisis qu'à cette étape-ci,
+cf. medialink_platforms_view.py::_submit_youtube, pas au moment de la
+connexion), le Select d'event_type devient multi-sélection : l'admin
+choisit "Nouvelle vidéo" ET "Nouveau Short" en une fois, sur le même
+salon/template choisis une seule fois, et _cb_confirm crée une MediaRule
+par event_type sélectionné. Reste un choix explicite de l'admin (il peut
+tout aussi bien ne cocher que "Live" s'il ne veut pas des Shorts), pas
+une création silencieuse en son nom.
+
 ── TWITCH / TIKTOK / REDDIT : TOUJOURS EN AJOUT MANUEL (provisoire) ──
 Leurs Providers sont encore des stubs (cf. medialink_platforms_view.py) :
 AddRuleModal (Modal, saisie manuelle par TextInput) reste le flux pour
@@ -233,19 +254,26 @@ class ConnectionRulesView(BaseLayoutView):
 
 
 class AddRuleView(BaseLayoutView):
-    """Ajout d'une règle pour une connexion dont le Provider est réel
-    (YouTube actuellement, cf. docstring de module) : 3 Select
-    (event_type, salon, template) accumulés dans la vue puis persistés
-    par le bouton Valider — impossible de tout mettre dans un Modal
-    Discord (qui ne peut pas contenir de Select), donc le choix se fait
-    par rerender successifs de cette même vue, au même principe que
-    views/mod/logs_config_view.py::_refresh."""
+    """Ajout d'une (ou plusieurs) règle(s) pour une connexion dont le
+    Provider est réel (YouTube actuellement, cf. docstring de module) :
+    un Select MULTI-sélection pour le/les event_type(s), un ChannelSelect
+    natif Discord pour le salon, et un Select pour le template existant.
+    Impossible de tout mettre dans un Modal Discord (qui ne peut pas
+    contenir de Select), donc le choix se fait par rerender successifs
+    de cette même vue, au même principe que
+    views/mod/logs_config_view.py::_refresh.
+
+    Sélection multiple du type d'événement (2026-09, cf. docstring de
+    module) : évite qu'un admin crée une règle "Nouvelle vidéo" sans
+    penser à "Nouveau Short" à côté — même salon/template, un seul choix
+    d'un coup, une MediaRule créée par event_type coché.
+    """
 
     def __init__(self, *, connection: dict, owner_id: int, templates: list[dict]):
         super().__init__(owner_id=owner_id, timeout=300)
         self.connection = connection
         self.templates = templates
-        self._event_type: str | None = None
+        self._event_types: list[str] = []
         self._channel_id: int | None = None
         self._template_id: int | None = None
         self._build()
@@ -262,7 +290,10 @@ class AddRuleView(BaseLayoutView):
         label = self.connection.get("external_username") or self.connection["external_id"]
         emoji = _PLATFORM_EMOJI.get(self.connection["platform"], "🔗")
         container.add_item(TextDisplay(f"# {EMOJI_ADD} Ajouter une règle — {emoji} {label}"))
-        container.add_item(TextDisplay("-# Choisis le type d'événement et le salon, puis valide."))
+        container.add_item(TextDisplay(
+            "-# Choisis un ou plusieurs types d'événements (ex : Vidéo + Short) et un "
+            "salon, puis valide. Ils partageront le même salon et le même template."
+        ))
         container.add_item(Separator())
 
         event_options = _build_event_options(YouTubeProvider.capabilities)
@@ -271,22 +302,24 @@ class AddRuleView(BaseLayoutView):
             # YouTube a au moins une capability, cf. _YOUTUBE_EVENT_CATALOG.
             event_options = [SelectOption(label="Aucun type disponible", value="__none__", emoji="⚠️", default=True)]
             event_disabled = True
+            max_values = 1
         else:
             event_disabled = False
+            max_values = len(event_options)
         event_select = Select(
-            placeholder="Type d'événement...",
+            placeholder="Type(s) d'événement...",
             options=[
                 SelectOption(
                     label=opt.label, value=opt.value, emoji=opt.emoji,
-                    default=(opt.value == self._event_type),
+                    default=(opt.value in self._event_types),
                 )
                 for opt in event_options
             ],
-            min_values=1, max_values=1, disabled=event_disabled,
+            min_values=1, max_values=max_values, disabled=event_disabled,
         )
         event_select.callback = self._cb_pick_event
         container.add_item(TextDisplay(
-            f"**Type d'événement**\n-# {self._event_label() if self._event_type else '`Non choisi`'}"
+            f"**Type(s) d'événement**\n-# {self._event_label()}"
         ))
         container.add_item(ActionRow(event_select))
         container.add_item(Separator())
@@ -316,11 +349,14 @@ class AddRuleView(BaseLayoutView):
         container.add_item(ActionRow(template_select))
         container.add_item(Separator())
 
+        confirm_label = (
+            f"Créer {len(self._event_types)} règle(s)" if len(self._event_types) > 1 else "Créer la règle"
+        )
         confirm_btn = Button(
-            label="Créer la règle",
+            label=confirm_label,
             style=ButtonStyle.success,
             emoji=EMOJI_VALID,
-            disabled=self._event_type is None or self._channel_id is None,
+            disabled=not self._event_types or self._channel_id is None,
         )
         confirm_btn.callback = self._cb_confirm
         cancel_btn = Button(label="Annuler", style=ButtonStyle.secondary, emoji=EMOJI_BACK)
@@ -332,8 +368,13 @@ class AddRuleView(BaseLayoutView):
         self.add_item(container)
 
     def _event_label(self) -> str:
-        match = next((label for _, event_type, label, _ in _YOUTUBE_EVENT_CATALOG if event_type == self._event_type), None)
-        return f"`{self._event_type}`" if match is None else f"{match} (`{self._event_type}`)"
+        if not self._event_types:
+            return "`Non choisi`"
+        labels = []
+        for event_type in self._event_types:
+            match = next((label for _, et, label, _ in _YOUTUBE_EVENT_CATALOG if et == event_type), None)
+            labels.append(f"{match} (`{event_type}`)" if match else f"`{event_type}`")
+        return " · ".join(labels)
 
     def _template_label(self) -> str:
         if self._template_id is None:
@@ -345,7 +386,7 @@ class AddRuleView(BaseLayoutView):
 
     async def _cb_pick_event(self, interaction: discord.Interaction) -> None:
         values = interaction.data["values"]
-        self._event_type = values[0] if values and values[0] != "__none__" else None
+        self._event_types = [v for v in values if v != "__none__"]
         self._build()
         await self.push_update(interaction)
 
@@ -361,19 +402,22 @@ class AddRuleView(BaseLayoutView):
         await self.push_update(interaction)
 
     async def _cb_confirm(self, interaction: discord.Interaction) -> None:
-        if self._event_type is None or self._channel_id is None:
+        if not self._event_types or self._channel_id is None:
             await send_ephemeral(
                 interaction,
-                error_container("Choisis un type d'événement et un salon avant de valider."),
+                error_container("Choisis au moins un type d'événement et un salon avant de valider."),
             )
             return
 
-        await medialink_mgr.add_rule(
-            self.connection["id"],
-            self._event_type,
-            self._channel_id,
-            template_id=self._template_id,
-        )
+        # Une MediaRule par event_type coché, toutes sur le même salon
+        # et le même template — cf. docstring de classe.
+        for event_type in self._event_types:
+            await medialink_mgr.add_rule(
+                self.connection["id"],
+                event_type,
+                self._channel_id,
+                template_id=self._template_id,
+            )
 
         view = await ConnectionRulesView.build(connection=self.connection, owner_id=self.owner_id)
         await self.push_update(interaction, view=view)
