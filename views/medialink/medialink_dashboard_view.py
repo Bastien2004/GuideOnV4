@@ -149,9 +149,10 @@ class MediaLinkHubView(BaseLayoutView):
         await self.push_update(interaction, view=view)
 
     async def _cb_open_statistics(self, interaction: discord.Interaction) -> None:
-        from utils.container_universel import info_container, send_ephemeral
+        from views.medialink.medialink_statistics_view import MediaLinkStatisticsView
 
-        await send_ephemeral(interaction, info_container("🚧 En travaux"),)
+        view = await MediaLinkStatisticsView.build(guild=interaction.guild, owner_id=self.owner_id)
+        await self.push_update(interaction, view=view)
 
     async def _cb_open_logs(self, interaction: discord.Interaction) -> None:
         from views.medialink.medialink_logs_view import MediaLinkLogsView
