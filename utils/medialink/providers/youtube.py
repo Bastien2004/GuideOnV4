@@ -140,12 +140,22 @@ class YouTubeProvider(BaseMediaProvider):
     # -- contrat BaseMediaProvider -------------------------------------------
 
     async def connect(self, external_id: str, **credentials: object) -> None:
-        """external_id = l'ID de chaîne YouTube (commence par "UC...")."""
-        self._channel_id = external_id
+        """external_id = l'ID de chaîne YouTube ("UC...") ou un @handle.
+
+        BUG CORRIGÉ (2026-09) : cette méthode appelait channels.list avec
+        id=external_id sans passer par _resolve_handle_or_id() (contrairement
+        à validate_account()/get_account() juste au-dessus) — un @handle
+        stocké tel quel en base (ex: connexion créée avant que get_account()
+        soit lui-même corrigé, cf. son commentaire) faisait échouer connect()
+        à CHAQUE cycle du scheduler avec "Chaîne YouTube introuvable pour
+        external_id=...". Alignée ici sur le même helper que le reste du
+        Provider, par cohérence et défense en profondeur.
+        """
+        params = self._resolve_handle_or_id(external_id)
 
         data = await self._get(
             "channels",
-            {"part": "contentDetails,snippet", "id": external_id},
+            {"part": "contentDetails,snippet", **params},
         )
         items = data.get("items", [])
         if not items:
@@ -154,6 +164,12 @@ class YouTubeProvider(BaseMediaProvider):
             )
 
         item = items[0]
+        # self._channel_id est fixé sur l'ID RÉSOLU par l'API (items[0]["id"]),
+        # jamais sur l'external_id brut passé en argument : si un @handle a
+        # été fourni, external_id n'est PAS un channel_id valide, et
+        # check_status() (qui réutilise self._channel_id avec id=...)
+        # échouerait exactement pareil sinon.
+        self._channel_id = item["id"]
         self._uploads_playlist_id = (
             item["contentDetails"]["relatedPlaylists"]["uploads"]
         )
