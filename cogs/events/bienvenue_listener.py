@@ -4,6 +4,7 @@ cogs/events/bienvenue_listener.py — Envoie les messages de bienvenue/départ.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 import discord
@@ -13,6 +14,8 @@ from utils.bienvenue_render import build_bienvenue_embed, build_bienvenue_view, 
 from utils.managers.bienvenue_manager import load_bienvenue_config
 
 log = logging.getLogger(__name__)
+
+REPAIR_MENTION_DELAY_SECONDS = 5.0
 
 
 # ============================================================
@@ -24,6 +27,7 @@ class BienvenueListener(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self._mention_repair_tasks: set[asyncio.Task] = set()
 
     async def _send_announcement(self, member: discord.Member, *, channel_id: int | None, template: str, kind: str, format_: str, image_url: str | None) -> None:
         """Envoie le message d'arrivée ou de départ dans le salon configuré."""
@@ -61,21 +65,40 @@ class BienvenueListener(commands.Cog):
         # ✉️ Envoie le message dans le salon.
         try:
             if format_ == "text":
-                await channel.send(view=build_bienvenue_view(rendered, kind=embed_kind))
+                view = build_bienvenue_view(rendered, kind=embed_kind)
+                sent = await channel.send(view=view)
+                self._schedule_mention_repair(sent, view=view)
             else:
                 resolved_image = resolve_image_url(guild.id, image_url)
                 embed, file = build_bienvenue_embed(rendered, kind=embed_kind, custom_image_url=resolved_image)
 
                 if file is not None:
-                    await channel.send(embed=embed, file=file)
+                    sent = await channel.send(embed=embed, file=file)
                 else:
-                    await channel.send(embed=embed)
+                    sent = await channel.send(embed=embed)
+                self._schedule_mention_repair(sent, embed=embed)
 
         except discord.Forbidden:
             log.warning("[LISTENER BIENVENUE] Forbidden en envoyant %s dans #%s (guild=%s)", kind, channel.name, guild.id)
 
         except discord.HTTPException:
             log.exception("[LISTENER BIENVENUE] Erreur HTTP en envoyant %s (guild=%s)", kind, guild.id)
+
+    def _schedule_mention_repair(self, message: discord.Message, *, view: discord.ui.LayoutView | None = None, embed: discord.Embed | None = None) -> None:
+        """Programme la ré-édition de réparation."""
+        task = asyncio.create_task(self._repair_mention(message, view=view, embed=embed))
+        self._mention_repair_tasks.add(task)
+        task.add_done_callback(self._mention_repair_tasks.discard)
+
+    async def _repair_mention(self, message: discord.Message, *, view: discord.ui.LayoutView | None = None, embed: discord.Embed | None = None) -> None:
+        await asyncio.sleep(REPAIR_MENTION_DELAY_SECONDS)
+        try:
+            if view is not None:
+                await message.edit(view=view)
+            elif embed is not None:
+                await message.edit(embed=embed)
+        except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+            log.debug("[LISTENER BIENVENUE] Ré-édition de réparation de mention impossible (message %s).", message.id)
 
 
 # ============================================================
