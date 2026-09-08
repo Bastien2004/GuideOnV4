@@ -35,6 +35,7 @@ CATEGORIES = {
             "- 🫖 NG US : https://discord.gg/QpA7XmEngG **(fermé)**\n\n"
 
             "**🎮 __Bedrock__**\n"
+            "- 🪻 Iris : https://discord.gg/kScRaURvfC\n"
             "- 💓 Alpha : https://discord.gg/KxC9E2VPeX\n"
             "- 🖤 Sigma : https://discord.gg/RcJeepJB2V\n"
             "- 🩶 Oméga : https://discord.gg/cy48ux3Bk2\n"
