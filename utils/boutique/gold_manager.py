@@ -31,7 +31,7 @@ async def send_gold_error(interaction: discord.Interaction) -> None:
     container.add_item(Separator())
 
     container.add_item(TextDisplay(
-        "Cette commande est réservée aux serveurs disposant de l'abonnement **Gold+**.\n"
+        "Cette fonctionnalité est réservée aux serveurs disposant de l'abonnement **Gold+**.\n"
         "Votre serveur ne possède pas encore cet accès."
     ))
     container.add_item(Separator())
