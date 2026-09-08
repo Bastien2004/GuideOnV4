@@ -1,20 +1,17 @@
 """
-utils/managers/join_to_create_manager.py — Config + suivi des salons "Join to Create".
-
-Deux responsabilités distinctes :
-  - Config par serveur (salon déclencheur + catégorie destination), cache
-    simple par guild_id — même pattern que mod_log_manager/mod_sanction_manager.
-  - Traçabilité des salons générés (join_to_create_channels) : permet au
-    listener de ne supprimer QUE les salons qu'il a lui-même créés quand ils
-    se vident, jamais un salon posé manuellement par un admin dans la même
-    catégorie.
+utils/managers/join_to_create_manager.py — Configuration et suivi des salons "Join to Create".
 """
+
 from __future__ import annotations
 
 from sqlalchemy import delete, select
 
+from utils.boutique.gold_manager import is_gold
 from utils.db.models.join_to_create import JoinToCreateChannel, JoinToCreateConfig
 from utils.db.session import get_session
+
+LIMITE_TRIGGERS_DEFAUT = 1
+LIMITE_TRIGGERS_GOLD = 3
 
 
 class JoinToCreateError(Exception):
@@ -27,58 +24,110 @@ class JoinToCreateError(Exception):
 
 
 # ============================================================
-# ⚙️ Config (par serveur, cache simple invalidé à l'écriture)
+# ⚙️ Système de salon déclencheurs
 # ============================================================
 
-DEFAULT_CONFIG: dict = {
-    "trigger_channel_id": None, "trigger_channel_name": None, "category_id": None,
-}
-
-_config_cache: dict[int, dict] = {}
+_triggers_cache: dict[int, list[dict]] = {}
 
 
-async def load_config(guild_id: int) -> dict:
-    if guild_id in _config_cache:
-        return _config_cache[guild_id].copy()
-
-    async with get_session() as session:
-        row = await session.get(JoinToCreateConfig, guild_id)
-        cfg = row.to_dict() if row is not None else {**DEFAULT_CONFIG, "guild_id": guild_id}
-
-    _config_cache[guild_id] = cfg
-    return cfg.copy()
+def _invalidate(guild_id: int) -> None:
+    _triggers_cache.pop(guild_id, None)
 
 
-async def save_config(guild_id: int, partial: dict) -> dict:
-    allowed = set(DEFAULT_CONFIG.keys())
-    clean = {k: v for k, v in partial.items() if k in allowed}
+async def list_triggers(guild_id: int) -> list[dict]:
+    """Tous les déclencheurs configurés pour ce serveur (0 à 3)."""
+    if guild_id in _triggers_cache:
+        return [row.copy() for row in _triggers_cache[guild_id]]
 
     async with get_session() as session:
-        row = await session.get(JoinToCreateConfig, guild_id)
-        if row is None:
-            merged = {**DEFAULT_CONFIG, **clean}
-            row = JoinToCreateConfig(guild_id=guild_id, **merged)
-            session.add(row)
-        else:
-            for key, value in clean.items():
-                setattr(row, key, value)
+        rows = (
+            await session.execute(
+                select(JoinToCreateConfig)
+                .where(JoinToCreateConfig.guild_id == guild_id)
+                .order_by(JoinToCreateConfig.id)
+            )
+        ).scalars().all()
+    result = [row.to_dict() for row in rows]
+
+    _triggers_cache[guild_id] = result
+    return [row.copy() for row in result]
+
+
+async def get_trigger(trigger_id: int) -> dict | None:
+    """Un déclencheur précis par son id (pour cibler renommage/suppression)."""
+    async with get_session() as session:
+        row = await session.get(JoinToCreateConfig, trigger_id)
+    return row.to_dict() if row is not None else None
+
+
+def get_trigger_limit(guild_id: int) -> int:
+    """Nombre maximum de salons déclencheurs autorisés pour ce serveur."""
+    return LIMITE_TRIGGERS_GOLD if is_gold(guild_id) else LIMITE_TRIGGERS_DEFAUT
+
+
+async def can_add_trigger(guild_id: int) -> tuple[bool, int, int]:
+    """(peut_ajouter, nombre_actuel, limite) — vérifie le QUOTA seul, pas la
+    catégorie (cf. category_already_used, vérifiée séparément puisqu'elle a
+    un message d'erreur dédié)."""
+    triggers = await list_triggers(guild_id)
+    limite = get_trigger_limit(guild_id)
+    return len(triggers) < limite, len(triggers), limite
+
+
+async def category_already_used(guild_id: int, category_id: int, *, exclude_trigger_id: int | None = None) -> bool:
+    """True si un AUTRE déclencheur de ce serveur pointe déjà vers cette
+    catégorie (règle métier Paul 2026-09 : 3 déclencheurs Gold+ = 3
+    catégories différentes, jamais deux dans la même)."""
+    triggers = await list_triggers(guild_id)
+    return any(
+        t["category_id"] == category_id and t["id"] != exclude_trigger_id
+        for t in triggers
+    )
+
+
+async def create_trigger(guild_id: int, *, trigger_channel_id: int, trigger_channel_name: str, category_id: int) -> dict:
+    """Crée un nouveau salon déclencheur."""
+    async with get_session() as session:
+        row = JoinToCreateConfig(
+            guild_id=guild_id,
+            trigger_channel_id=trigger_channel_id,
+            trigger_channel_name=trigger_channel_name,
+            category_id=category_id,
+        )
+        session.add(row)
         await session.flush()
         result = row.to_dict()
 
-    _config_cache[guild_id] = result
-    return result.copy()
+    _invalidate(guild_id)
+    return result
 
 
-async def set_category(guild_id: int, category_id: int) -> dict:
-    return await save_config(guild_id, {"category_id": category_id})
+async def rename_trigger(trigger_id: int, name: str) -> dict | None:
+    """Renomme un déclencheur particulier."""
+    async with get_session() as session:
+        row = await session.get(JoinToCreateConfig, trigger_id)
+        if row is None:
+            return None
+        row.trigger_channel_name = name
+        await session.flush()
+        result = row.to_dict()
+        guild_id = row.guild_id
+
+    _invalidate(guild_id)
+    return result
 
 
-async def set_trigger_channel(guild_id: int, channel_id: int, name: str) -> dict:
-    return await save_config(guild_id, {"trigger_channel_id": channel_id, "trigger_channel_name": name})
+async def delete_trigger(trigger_id: int) -> dict | None:
+    """Supprime un salon déclencheur particulier."""
+    async with get_session() as session:
+        row = await session.get(JoinToCreateConfig, trigger_id)
+        if row is None:
+            return None
+        result = row.to_dict()
+        await session.delete(row)
 
-
-async def clear_trigger_channel(guild_id: int) -> dict:
-    return await save_config(guild_id, {"trigger_channel_id": None, "trigger_channel_name": None})
+    _invalidate(result["guild_id"])
+    return result
 
 
 # ============================================================

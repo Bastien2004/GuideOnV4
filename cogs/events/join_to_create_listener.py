@@ -1,23 +1,10 @@
 """
-cogs/events/join_to_create_listener.py — Système "Join to Create" (salons
-vocaux à la volée), configuré via /config join_to_create.
-
-Écoute on_voice_state_update :
-  - Un membre rejoint le salon déclencheur configuré → crée un salon vocal
-    personnel dans la catégorie destination et l'y déplace, SAUF si la
-    catégorie a atteint la limite Discord de 50 salons (tous types
-    confondus) : dans ce cas le membre est expulsé du salon déclencheur et
-    prévenu en MP qu'il y a déjà trop de vocaux actifs.
-  - Un salon devient vide (0 membre) → suppression automatique, UNIQUEMENT
-    s'il est tracé en DB comme salon généré par ce système
-    (utils.managers.join_to_create_manager) — jamais un salon posé
-    manuellement par un admin dans la même catégorie (le salon déclencheur
-    lui-même n'est jamais tracé, donc jamais supprimé par cette logique).
+cogs/events/join_to_create_listener.py — Gestion du système "Join to create".
 """
+
 from __future__ import annotations
 
 import logging
-
 import discord
 from discord.ext import commands
 
@@ -25,8 +12,6 @@ from utils.container_universel import warning_container
 from utils.managers import join_to_create_manager as jtc_mgr
 
 log = logging.getLogger(__name__)
-
-# Limite Discord : 50 salons maximum par catégorie (tous types confondus).
 _CATEGORY_CHANNEL_LIMIT = 50
 
 
@@ -50,12 +35,14 @@ class JoinToCreateListener(commands.Cog):
             return
 
         try:
-            cfg = await jtc_mgr.load_config(guild.id)
-            trigger_id = cfg.get("trigger_channel_id")
-
-            # 🎙️ Arrivée dans le salon déclencheur → création + déplacement.
-            if trigger_id and after.channel is not None and after.channel.id == trigger_id:
-                await self._handle_join_trigger(guild, member, cfg)
+            # 🎙️ Arrivée dans UN des salons déclencheurs → création + déplacement.
+            if after.channel is not None:
+                triggers = await jtc_mgr.list_triggers(guild.id)
+                trigger = next(
+                    (t for t in triggers if t.get("trigger_channel_id") == after.channel.id), None,
+                )
+                if trigger is not None:
+                    await self._handle_join_trigger(guild, member, trigger)
 
             # 🧹 Départ d'un salon devenu vide → suppression si généré par nous.
             if before.channel is not None and (after.channel is None or after.channel.id != before.channel.id):
@@ -68,16 +55,16 @@ class JoinToCreateListener(commands.Cog):
             )
 
     # ────────────────────────────────────────────────────────
-    # 🎙️ Création à l'arrivée dans le salon déclencheur
+    # 🎙️ Création à l'arrivée dans un salon déclencheur
     # ────────────────────────────────────────────────────────
 
-    async def _handle_join_trigger(self, guild: discord.Guild, member: discord.Member, cfg: dict) -> None:
-        category_id = cfg.get("category_id")
+    async def _handle_join_trigger(self, guild: discord.Guild, member: discord.Member, trigger: dict) -> None:
+        category_id = trigger.get("category_id")
         category = guild.get_channel(category_id) if category_id else None
         if not isinstance(category, discord.CategoryChannel):
             log.warning(
-                "[JOIN_TO_CREATE] Catégorie configurée introuvable guild=%s category_id=%s",
-                guild.id, category_id,
+                "[JOIN_TO_CREATE] Catégorie configurée introuvable guild=%s trigger=%s category_id=%s",
+                guild.id, trigger.get("id"), category_id,
             )
             return
 
