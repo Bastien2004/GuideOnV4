@@ -11,7 +11,8 @@ from utils.db.models.control_admin import CommandControl
 
 COMMANDS = {
     # ── Commande à ajouter ; ──
-    "medialink_config": False,
+    "exp_info": False,
+    "mod_piege": False,
 }
 
 
