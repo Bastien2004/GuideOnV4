@@ -226,7 +226,8 @@ class GuideONBot(commands.Bot):
         from cogs.exp.exp_leaderboard import exp_leaderboard
         from cogs.exp.exp_gestion import exp_gestion
         from cogs.exp.exp_config import exp_config
-        
+        from cogs.exp.exp_info import exp_info
+
         # ── IMPORT ALPHA ──
         from cogs.alpha.test import test_alpha
         from cogs.alpha.regle_interne import regle_interne
@@ -312,7 +313,7 @@ class GuideONBot(commands.Bot):
 
         # 🧩 ── EXP ──
         groupEXP = groupeEXP()
-        for cmd in [exp_level, exp_leaderboard, exp_gestion, exp_config]:
+        for cmd in [exp_level, exp_leaderboard, exp_gestion, exp_config, exp_info]:
             groupEXP.add_command(cmd)
 
 

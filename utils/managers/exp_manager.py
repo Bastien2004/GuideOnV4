@@ -185,6 +185,11 @@ DEFAULT_CONFIG: dict = {
     "exp_per_voice_minute": DEFAULT_EXP_PER_VOICE_MINUTE,
     "boost_role_id": None,
     "boost_percent": 0,
+    # Annonce de montee de niveau (2026-09) : desactivee par defaut, et
+    # sans effet tant qu'aucun salon n'est configure (cf.
+    # views/exp/config_view.py et cogs/events/exp_listener.py).
+    "levelup_announce_enabled": False,
+    "levelup_channel_id": None,
 }
 
 _config_cache: dict[int, tuple[dict, float]] = {}

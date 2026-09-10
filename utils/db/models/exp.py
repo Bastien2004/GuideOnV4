@@ -51,6 +51,16 @@ class ExpConfig(Base, TimestampMixin):
     boost_role_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     boost_percent: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
+    # Annonce de montee de niveau (2026-09, remplace l'ancien message
+    # ephemere auto-supprime au bout de 8s dans le salon du message) :
+    # desactivee par defaut, et meme quand activee elle ne fait rien tant
+    # qu'aucun salon n'est configure (cf. utils.managers.exp_manager et
+    # cogs/events/exp_listener.py::_notify_level_up).
+    levelup_announce_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, server_default="false"
+    )
+    levelup_channel_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+
     def to_dict(self) -> dict:
         """Representation dict de la config (cles stables pour la view/manager)."""
         return {
@@ -59,6 +69,8 @@ class ExpConfig(Base, TimestampMixin):
             "exp_per_voice_minute": self.exp_per_voice_minute,
             "boost_role_id": self.boost_role_id,
             "boost_percent": self.boost_percent,
+            "levelup_announce_enabled": self.levelup_announce_enabled,
+            "levelup_channel_id": self.levelup_channel_id,
         }
 
     def __repr__(self) -> str:  # pragma: no cover - debug only

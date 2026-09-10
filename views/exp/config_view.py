@@ -47,6 +47,14 @@ def _role_label(role_id: Optional[int], guild: discord.Guild) -> str:
     return role.mention if role is not None else f"`Rôle supprimé (ID {role_id})`"
 
 
+def _channel_label(channel_id: Optional[int], guild: discord.Guild) -> str:
+    """Affichage du salon d'annonce de level-up configuré."""
+    if channel_id is None:
+        return "`Non configuré`"
+    channel = guild.get_channel(channel_id)
+    return channel.mention if channel is not None else f"`Salon supprimé (ID {channel_id})`"
+
+
 # ============================================================
 # 🧩 Construction de l'interface
 # ============================================================
@@ -65,6 +73,8 @@ async def create_config_view(guild_id: int, bot, author_id: Optional[int] = None
     per_voice_minute = cfg.get("exp_per_voice_minute", 2)
     boost_role_id = cfg.get("boost_role_id")
     boost_percent = cfg.get("boost_percent", 0)
+    levelup_announce_enabled = cfg.get("levelup_announce_enabled", False)
+    levelup_channel_id = cfg.get("levelup_channel_id")
 
     view = BaseLayoutView(owner_id=author_id, timeout=600)
     container = Container()
@@ -118,6 +128,34 @@ async def create_config_view(guild_id: int, bot, author_id: Optional[int] = None
         TextDisplay(f"**🚀 Bonus du rôle boost**\n-# Actuel : **{boost_percent}%**"),
         accessory=btn_percent,
     ))
+    container.add_item(Separator())
+
+    # ── Annonce de montée de niveau (2026-09) ────────────────────────
+    # Remplace l'ancien message éphémère de 8s dans le salon d'origine :
+    # option explicite + salon dédié, sans quoi rien n'est jamais annoncé
+    # (cf. cogs/events/exp_listener.py::_notify_level_up).
+    btn_announce = _state_btn(levelup_announce_enabled)
+    btn_announce.callback = _cb_toggle_levelup_announce(guild_id, bot, author_id)
+    container.add_item(Section(
+        TextDisplay(
+            "**🔔 Annonce de montée de niveau**\n"
+            "-# Message permanent envoyé dans le salon ci-dessous à chaque level-up.\n"
+            "-# Nécessite un salon configuré pour être activée."
+        ),
+        accessory=btn_announce,
+    ))
+
+    channel_btn_label = "Modifier" if levelup_channel_id is not None else "Choisir"
+    channel_btn = Button(label=channel_btn_label, style=ButtonStyle.secondary, emoji="<:modifier:1495444144712192003>")
+    channel_btn.callback = _cb_pick_levelup_channel(guild_id, bot, author_id)
+    container.add_item(Section(
+        TextDisplay(f"**📢 Salon d'annonce**\n-# Actuel : {_channel_label(levelup_channel_id, guild)}"),
+        accessory=channel_btn,
+    ))
+    if levelup_channel_id is not None:
+        clear_channel_btn = Button(label="Retirer le salon", style=ButtonStyle.danger, emoji="<:supprimer:1495444051623809075>")
+        clear_channel_btn.callback = _cb_clear_levelup_channel(guild_id, bot, author_id)
+        container.add_item(ActionRow(clear_channel_btn))
     container.add_item(Separator())
 
     doc_btn = Button(label="Documentation", style=ButtonStyle.link, url=settings.doc_url, emoji="📚")
@@ -241,6 +279,88 @@ async def _validate_boost_role(interaction: Interaction, role_id: int) -> Option
     if role.is_default():
         return "Le rôle **everyone** ne peut pas être utilisé."
     return None
+
+
+def _cb_toggle_levelup_announce(guild_id, bot, author_id):
+    """Gère l'activation/désactivation de l'annonce de level-up — refuse
+    l'activation tant qu'aucun salon n'est configuré, pour ne pas laisser
+    l'admin croire que l'option est active alors qu'elle ne fera rien
+    (cf. _notify_level_up qui exige les deux : option + salon)."""
+    check = _guard(author_id)
+
+    async def cb(interaction: Interaction):
+        if not await check(interaction):
+            return
+        cfg = await load_exp_config(guild_id)
+        current = cfg.get("levelup_announce_enabled", False)
+
+        if not current and not cfg.get("levelup_channel_id"):
+            await interaction.response.send_message(
+                view=error_container(
+                    "Choisis d'abord un **salon d'annonce** avant d'activer cette option."
+                ),
+                ephemeral=True,
+            )
+            return
+
+        await save_exp_config(guild_id, {"levelup_announce_enabled": not current})
+        await _rerender(interaction, guild_id, bot, author_id)
+    return cb
+
+
+async def _validate_levelup_channel(interaction: Interaction, channel_id: int) -> Optional[str]:
+    """Vérification de sécurité pour le salon d'annonce de level-up."""
+    guild = interaction.guild
+    channel = guild.get_channel(channel_id) if guild else None
+    if channel is None:
+        return "Salon introuvable sur ce serveur."
+    if not isinstance(channel, (discord.TextChannel, discord.Thread)):
+        return "Le salon choisi doit être un salon textuel."
+    return None
+
+
+def _cb_pick_levelup_channel(guild_id, bot, author_id):
+    """Gère la sélection du salon d'annonce de level-up."""
+    check = _guard(author_id)
+
+    async def cb(interaction: Interaction):
+        if not await check(interaction):
+            return
+
+        cfg = await load_exp_config(guild_id)
+
+        async def _on_save(channel_id: int) -> None:
+            await save_exp_config(guild_id, {"levelup_channel_id": channel_id})
+
+        async def _build_return_view():
+            return await create_config_view(guild_id, bot, author_id)
+
+        await interaction.response.edit_message(
+            view=SelectPageView(
+                kind="channel",
+                title="📢 Salon d'annonce",
+                description="-# Salon où seront envoyées les annonces de montée de niveau.",
+                current_value=cfg.get("levelup_channel_id"),
+                owner_id=author_id,
+                on_save=_on_save,
+                build_return_view=_build_return_view,
+                validate=_validate_levelup_channel,
+            )
+        )
+    return cb
+
+
+def _cb_clear_levelup_channel(guild_id, bot, author_id):
+    """Gère le retrait du salon d'annonce — désactive aussi l'option pour
+    ne jamais laisser `levelup_announce_enabled=True` sans salon valide."""
+    check = _guard(author_id)
+
+    async def cb(interaction: Interaction):
+        if not await check(interaction):
+            return
+        await save_exp_config(guild_id, {"levelup_channel_id": None, "levelup_announce_enabled": False})
+        await _rerender(interaction, guild_id, bot, author_id)
+    return cb
 
 
 def _cb_pick_boost_role(guild_id, bot, author_id):

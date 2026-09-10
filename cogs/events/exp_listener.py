@@ -8,7 +8,10 @@ interactions slash.
 
   - on_message : +EXP par message (avec cooldown anti-spam en mémoire)
   - on_voice_state_update : +EXP proportionnel au temps passé en vocal
-  - Notification de level-up (Components V2) dans le salon du message
+  - Notification de level-up (Components V2), désormais une annonce
+    PERMANENTE dans un salon dédié configurable (cf. _notify_level_up) —
+    plus le message éphémère de 8s dans le salon d'origine (2026-09, cf.
+    docstring de views/exp/levelup_view.py pour le détail du changement)
   - Rôle boost configuré par serveur (bonus en pourcentage)
 
 Repris de la V3, stockage migré en DB (utils.managers.exp_manager) : le
@@ -63,18 +66,42 @@ class ExpListener(commands.Cog):
         return any(r.id == boost_role_id for r in member.roles)
 
     # ----------------------------------------------------
-    # Notification de level-up
+    # Notification de level-up (annonce permanente, salon dédié)
     # ----------------------------------------------------
-    async def _notify_level_up(self, channel: discord.abc.Messageable, member: discord.Member, new_level: int) -> None:
+    async def _notify_level_up(
+        self, guild: discord.Guild, member: discord.Member, old_level: int, new_level: int, config: dict,
+    ) -> None:
+        """N'envoie RIEN par défaut : l'annonce est une option explicite
+        (`levelup_announce_enabled`) qui ne fait quoi que ce soit que si un
+        salon a en plus été configuré (`levelup_channel_id`) — cf.
+        views/exp/config_view.py. Appelée aussi bien depuis on_message que
+        depuis on_voice_state_update : un salon d'annonce dédié n'a
+        d'intérêt que s'il centralise TOUTES les montées de niveau, pas
+        seulement celles déclenchées par un message."""
+        if not config.get("levelup_announce_enabled"):
+            return
+
+        channel_id = config.get("levelup_channel_id")
+        if not channel_id:
+            return
+
+        channel = guild.get_channel(channel_id)
+        if not isinstance(channel, (discord.TextChannel, discord.Thread)):
+            log.warning(
+                "[EXP] Salon d'annonce de level-up introuvable/invalide (guild=%s, channel_id=%s)",
+                guild.id, channel_id,
+            )
+            return
+
         tier = tier_name_for_level(new_level) or "Niveau"
-        view = build_levelup_view(member, new_level, tier)
+        tier_changed = tier_name_for_level(old_level) != tier
+        view = build_levelup_view(member, new_level, tier, tier_changed=tier_changed)
 
         try:
-            await channel.send(view=view, delete_after=8)
+            await channel.send(view=view)
         except (discord.Forbidden, discord.HTTPException):
             log.warning(
-                "[EXP] Notification de level-up impossible (guild=%s, channel=%s)",
-                member.guild.id, getattr(channel, "id", None),
+                "[EXP] Annonce de level-up impossible (guild=%s, channel=%s)", guild.id, channel.id,
             )
 
     # ----------------------------------------------------
@@ -112,7 +139,7 @@ class ExpListener(commands.Cog):
             return
 
         if result.leveled_up:
-            await self._notify_level_up(message.channel, message.author, result.new_level)
+            await self._notify_level_up(message.guild, message.author, result.old_level, result.new_level, config)
 
     # ----------------------------------------------------
     # Gain d'EXP via vocal
@@ -154,12 +181,16 @@ class ExpListener(commands.Cog):
             gained = elapsed_minutes * exp_per_minute
 
             try:
-                await add_exp(
+                result = await add_exp(
                     guild_id, user_id, gained,
                     has_boost_role=has_boost, boost_percent=boost_percent,
                 )
             except Exception:
                 log.exception("[EXP] Échec du gain d'EXP vocal (guild=%s, user=%s)", guild_id, user_id)
+                return
+
+            if result.leveled_up:
+                await self._notify_level_up(member.guild, member, result.old_level, result.new_level, config)
 
 
 # ----------------------------------------------------
