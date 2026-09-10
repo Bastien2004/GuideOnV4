@@ -1,18 +1,7 @@
 """
-views/exp/info_view.py — /exp info : menu explicatif du système d'EXP.
-
-REFONTE (2026-09, retour Paul : "un système de menu... tout bien séparer") :
-remplace l'ancien mur de texte unique par un menu à 3 sections (Select) —
-Gains / Paliers / Commandes — chacune sur son propre écran avec un bouton
-Retour, à l'image des hubs du bot (cf. views/medialink/medialink_dashboard_view.py
-et views/mod/automod_dashboard_view.py, même principe de navigation).
-
-Une seule classe porte tout (pas de sous-vues séparées) : le contenu est
-100% statique/lecture seule (aucune mutation, juste 4 écrans différents),
-donc un simple attribut `self.section` + une méthode `_build_xxx()` par
-écran suffit — inutile de complexifier avec plusieurs fichiers/classes
-pour un menu aussi simple.
+views/exp/info_view.py — Interface explicatif du système d'EXP.
 """
+
 from __future__ import annotations
 
 import discord
@@ -22,6 +11,11 @@ from discord.ui import ActionRow, Button, Container, Select, Separator, TextDisp
 from utils.managers.exp_manager import LEVEL_TIERS, MAX_LEVEL
 from utils.settings import settings
 from views._components.base_view import BaseLayoutView
+
+
+# ============================================================
+# 🔩 Paramètres
+# ============================================================
 
 EMOJI_BACK = "<:retour:1515658955190308995>"
 
@@ -34,7 +28,7 @@ _SECTION_OPTIONS = [
 _COMMANDS = [
     ("`/exp level [membre]`", "Affiche la carte de niveau et l'EXP d'un membre (toi par défaut)."),
     ("`/exp leaderboard`", "Affiche le classement EXP du serveur."),
-    ("`/exp info`", "Affiche ce menu explicatif."),
+    ("`/exp info`", "Affiche le menu explicatif du système."),
     ("`/exp gestion <membre>`", "**Admin** — Ajuste manuellement l'EXP d'un membre."),
     ("`/exp config`", "**Admin** — Configure le système d'EXP (gains, rôle boost, annonce de level-up)."),
 ]
@@ -46,6 +40,10 @@ def _boost_role_label(role_id: int | None, guild: discord.Guild) -> str:
     role = guild.get_role(role_id)
     return role.mention if role is not None else "`Rôle supprimé`"
 
+
+# ============================================================
+# 🚧 Construction de la view
+# ============================================================
 
 class ExpInfoView(BaseLayoutView):
     """Menu explicatif de /exp info — écran d'accueil + 3 sections."""
@@ -61,17 +59,10 @@ class ExpInfoView(BaseLayoutView):
     async def create(cls, *, guild: discord.Guild, cfg: dict, owner_id: int | None = None) -> "ExpInfoView":
         return cls(guild=guild, cfg=cfg, owner_id=owner_id)
 
-    # ------------------------------------------------------------------
-    # Construction
-    # ------------------------------------------------------------------
 
     def _build(self) -> None:
         self.clear_items()
-        builders = {
-            "gains": self._build_gains,
-            "paliers": self._build_paliers,
-            "commandes": self._build_commandes,
-        }
+        builders = {"gains": self._build_gains, "paliers": self._build_paliers, "commandes": self._build_commandes}
         container = builders.get(self.section, self._build_home)()
         self.add_item(container)
 
@@ -86,12 +77,17 @@ class ExpInfoView(BaseLayoutView):
 
     def _build_home(self) -> Container:
         container = Container()
-        container.add_item(TextDisplay("# 🧮 Système d'Expérience"))
+        container.add_item(TextDisplay("# <:analyser:1495446292963528798> Système d'expérience"))
+        container.add_item(Separator())
+
         container.add_item(TextDisplay(
-            f"Chaque membre progresse à travers **{MAX_LEVEL} niveaux**, répartis en "
-            f"**{len(LEVEL_TIERS)} paliers** personnalisés propres à GuideOn.\n"
-            f"-# Choisis une section ci-dessous pour en savoir plus."
+            "Ce système propose une progression dynamique\n"
+            f"de **{MAX_LEVEL} niveaux**, répartis en **{len(LEVEL_TIERS)} paliers**.\n"
+            "Tous personnalisés et propres à GuideOn.\n"
         ))
+        container.add_item(Separator())
+
+        container.add_item(TextDisplay("<:lister:1495445288364675192> En savoir plus :"))
         container.add_item(Separator())
 
         select = Select(placeholder="📖 Choisir une section", options=_SECTION_OPTIONS)
