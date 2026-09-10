@@ -17,7 +17,7 @@ from utils.container_universel import error_container
 from utils.error_handler import handle_app_command_error
 from utils.managers.exp_manager import load_exp_config
 
-from views.exp.info_view import build_exp_info_view
+from views.exp.info_view import ExpInfoView
 
 log = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ async def exp_info(interaction: discord.Interaction) -> None:
     # 🧩 Construction et envoi de l'interface.
     try:
         cfg = await load_exp_config(interaction.guild.id)
-        view = build_exp_info_view(interaction.guild, cfg)
+        view = await ExpInfoView.create(guild=interaction.guild, cfg=cfg, owner_id=interaction.user.id)
         await interaction.followup.send(view=view)
 
     except Exception:
