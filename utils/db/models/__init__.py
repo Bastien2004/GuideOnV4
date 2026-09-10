@@ -16,6 +16,7 @@ from utils.db.models.command_stats import CommandStatDaily
 from utils.db.models.control_admin import CommandControl
 from utils.db.models.exp import ExpConfig, ExpUser
 from utils.db.models.giveaway import Giveaway, GiveawayBlacklist, GiveawayParticipant
+from utils.db.models.honeypot import HoneypotConfig
 from utils.db.models.invite import InviteConfig, InviteLink, InviteStat
 from utils.db.models.join_to_create import JoinToCreateChannel, JoinToCreateConfig
 from utils.db.models.mod_logs import LogConfig
@@ -45,11 +46,13 @@ from utils.db.models.mod_automod_antispam_msg import ModAutomodAntispamMsgConfig
 from utils.db.models.mod_automod_antiflood import ModAutomodAntifloodConfig
 from utils.db.models.mod_channel_lock_exemption import ModChannelLockExemption
 
+# --- MEDIALINK (nouveau module, cf. cahier des charges) ---------------------
 from utils.db.models.medialink_connection import MediaConnection, MediaPlatform, ConnectionStatus
 from utils.db.models.medialink_rule import MediaRule
 from utils.db.models.medialink_event import MediaEventRecord, MediaEventStatus
 from utils.db.models.medialink_template import MediaTemplate
 from utils.db.models.medialink_log import MediaLog, MediaLogLevel
+# medialink_statistics : pas de modèle pour l'instant, cf. docstring du fichier.
 
 __all__ = [
     "AlphaEventConfig",
@@ -68,6 +71,7 @@ __all__ = [
     "Giveaway",
     "GiveawayBlacklist",
     "GiveawayParticipant",
+    "HoneypotConfig",
     "InviteConfig",
     "InviteLink",
     "InviteStat",
