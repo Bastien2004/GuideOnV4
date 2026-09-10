@@ -33,6 +33,7 @@ from sqlalchemy.exc import IntegrityError
 from utils.container_universel import error_container, send_ephemeral
 from utils.db.models.medialink_connection import MediaPlatform
 from utils.managers import medialink_manager as medialink_mgr
+from utils.medialink import event_manager
 from utils.medialink.providers.youtube import (
     ProviderAuthError,
     ProviderNotFoundError,
@@ -164,7 +165,7 @@ class AddConnectionModal(discord.ui.Modal):
             await provider.disconnect()
 
         try:
-            await medialink_mgr.add_connection(
+            connection = await medialink_mgr.add_connection(
                 self.guild_id,
                 self.platform,
                 account.external_id,
@@ -178,6 +179,27 @@ class AddConnectionModal(discord.ui.Modal):
                 error_container(f"**{account.username or external_id}** est déjà connectée sur ce serveur."),
             )
             return
+
+        # Immunise contre un envoi rétroactif (BUG CORRIGÉ 2026-09, cf.
+        # event_manager.seed_baseline_events) : les vidéos déjà publiées
+        # AVANT la connexion ne doivent JAMAIS être annoncées, même si une
+        # règle "vidéo publiée" est configurée juste après — sans ce
+        # `connect()` + `fetch_events()` immédiat, le 1er passage du
+        # Scheduler prendrait tout l'historique existant pour du "nouveau".
+        # Ne bloque pas la création de la connexion en cas d'échec (réseau,
+        # quota...) : la connexion reste utilisable, seul ce filet de
+        # sécurité anti-rétroactif n'aura pas pu être posé pour cette fois.
+        try:
+            await provider.connect(account.external_id)
+            baseline_events = await provider.fetch_events()
+            await event_manager.seed_baseline_events(connection["id"], baseline_events)
+        except Exception:
+            log.warning(
+                "[MEDIALINK] Échec de l'immunisation anti-rétroactif (baseline) guild=%d connection=%s",
+                self.guild_id, connection["id"], exc_info=True,
+            )
+        finally:
+            await provider.disconnect()
 
         from views.medialink.medialink_dashboard_view import MediaLinkDashboardView
 
