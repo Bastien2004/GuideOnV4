@@ -55,6 +55,7 @@ async def exp_level(interaction: discord.Interaction, membre: Optional[discord.M
     if isinstance(target, discord.Member) and target.bot:
         await interaction.followup.send(
             view=error_container("Les **bots** n'ont pas de niveau d'EXP."),
+            ephemeral=True,
         )
         return
 
@@ -69,7 +70,10 @@ async def exp_level(interaction: discord.Interaction, membre: Optional[discord.M
 
     except Exception:
         log.exception("[EXP LEVEL] Affichage de l'image level d'exp échoué (guild=%s, target=%s)", interaction.guild.id, target.id)
-        await interaction.followup.send(view=error_container("Impossible de générer l'**image** de ton level d'exp."))
+        await interaction.followup.send(
+            view=error_container("Impossible de générer l'**image** de ton level d'exp."),
+            ephemeral=True,
+        )
 
 
 # ============================================================
