@@ -21,8 +21,8 @@ EMOJI_BACK = "<:retour:1515658955190308995>"
 
 _SECTION_OPTIONS = [
     SelectOption(label="Les gains", value="gains", emoji="💰", description="Comment gagner de l'EXP"),
-    SelectOption(label="Les paliers", value="paliers", emoji="🏔️", description="Les rangs et niveaux"),
-    SelectOption(label="Les commandes", value="commandes", emoji="📜", description="Toutes les commandes /exp"),
+    SelectOption(label="Les paliers", value="paliers", emoji="📈", description="Les rangs et niveaux"),
+    SelectOption(label="Les commandes", value="commandes", emoji="📋", description="Toutes les commandes /exp"),
 ]
 
 _COMMANDS = [
@@ -81,14 +81,12 @@ class ExpInfoView(BaseLayoutView):
         container.add_item(Separator())
 
         container.add_item(TextDisplay(
-            "Ce système propose une progression dynamique\n"
-            f"de **{MAX_LEVEL} niveaux**, répartis en **{len(LEVEL_TIERS)} paliers**.\n"
-            "Tous personnalisés et propres à GuideOn.\n"
+            f"Ce système propose une progression dynamique de **{MAX_LEVEL} niveaux**, \n"
+            f"répartis en **{len(LEVEL_TIERS)} paliers**. Tous personnalisés et propres à GuideOn.\n"
         ))
         container.add_item(Separator())
 
-        container.add_item(TextDisplay("<:lister:1495445288364675192> En savoir plus :"))
-        container.add_item(Separator())
+        container.add_item(TextDisplay("### <:lister:1495445288364675192> En savoir plus :"))
 
         select = Select(placeholder="📖 Choisir une section", options=_SECTION_OPTIONS)
         select.callback = self._cb_select_section
@@ -102,8 +100,7 @@ class ExpInfoView(BaseLayoutView):
 
     def _build_gains(self) -> Container:
         container = Container()
-        container.add_item(TextDisplay("# 💰 Les gains d'EXP"))
-        container.add_item(TextDisplay("-# Valeurs actuellement configurées sur ce serveur."))
+        container.add_item(TextDisplay("# <:Up:1547703175061180607> Les gains d'exp"))
         container.add_item(Separator())
 
         per_message = self.cfg.get("exp_per_message", 10)
@@ -112,22 +109,23 @@ class ExpInfoView(BaseLayoutView):
         boost_percent = self.cfg.get("boost_percent", 0)
 
         container.add_item(TextDisplay(
-            f"**💬 Message**\n-# `+{per_message} EXP` par message envoyé, avec un cooldown "
-            f"de 60 secondes entre deux gains (anti-spam)."
-        ))
-        container.add_item(Separator())
-        container.add_item(TextDisplay(
-            f"**🎙️ Vocal**\n-# `+{per_voice} EXP` par minute passée dans un salon vocal."
-        ))
-        container.add_item(Separator())
+            "Voici les valeurs actuellement configurées sur ce serveur.\n\n"
+
+            "➥ **💬 Message** :\n"
+            f"-# `+{per_message} EXP` par minute passée à envoyer des messages.\n\n"
+
+            "➥ **🎙️ Vocal** :\n"
+            f"-# `+{per_voice} EXP` par minute passée à dans un salon vocal. \n\n"
+            
+            ))
 
         if boost_role_id and boost_percent > 0:
             container.add_item(TextDisplay(
-                f"**🚀 Rôle boost**\n-# {_boost_role_label(boost_role_id, self.guild)} bénéficie "
-                f"de **+{boost_percent}%** d'EXP sur tous ses gains (message et vocal)."
+                f"➥ **✨ Rôle boost** :\n"
+                f"-# {_boost_role_label(boost_role_id, self.guild)} bénéficie de **+{boost_percent}%** d'EXP."
             ))
         else:
-            container.add_item(TextDisplay(f"**🚀 Rôle boost**\n-# {_boost_role_label(boost_role_id, self.guild)}"))
+            container.add_item(TextDisplay(f"➥ **✨ Rôle boost**\n-# {_boost_role_label(boost_role_id, self.guild)}"))
         container.add_item(Separator())
 
         container.add_item(ActionRow(self._back_button()))
