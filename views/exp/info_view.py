@@ -108,24 +108,28 @@ class ExpInfoView(BaseLayoutView):
         boost_role_id = self.cfg.get("boost_role_id")
         boost_percent = self.cfg.get("boost_percent", 0)
 
-        container.add_item(TextDisplay(
-            "Voici les valeurs actuellement configurées sur ce serveur.\n\n"
+        txt_boost =  ""
+        if boost_role_id and boost_percent > 0:
+            txt_boost = f"-# {_boost_role_label(boost_role_id, self.guild)} bénéficie de **+{boost_percent}%** d'EXP."
+        else:
+            txt_boost = "`Aucun rôle boost configuré sur ce serveur.`"
 
+        container.add_item(TextDisplay(
             "➥ **💬 Message** :\n"
             f"-# `+{per_message} EXP` par minute passée à envoyer des messages.\n\n"
+        ))
+        container.add_item(Separator())
 
+        container.add_item(TextDisplay(
             "➥ **🎙️ Vocal** :\n"
             f"-# `+{per_voice} EXP` par minute passée à dans un salon vocal. \n\n"
-            
-            ))
+        ))
+        container.add_item(Separator())
 
-        if boost_role_id and boost_percent > 0:
-            container.add_item(TextDisplay(
-                f"➥ **✨ Rôle boost** :\n"
-                f"-# {_boost_role_label(boost_role_id, self.guild)} bénéficie de **+{boost_percent}%** d'EXP."
-            ))
-        else:
-            container.add_item(TextDisplay(f"➥ **✨ Rôle boost**\n-# {_boost_role_label(boost_role_id, self.guild)}"))
+        container.add_item(TextDisplay(
+            "➥ **✨ Rôle boost** :\n"
+            f"{txt_boost}"
+        ))
         container.add_item(Separator())
 
         container.add_item(ActionRow(self._back_button()))
