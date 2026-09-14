@@ -28,7 +28,7 @@ log = logging.getLogger(__name__)
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="info", description="ℹ️ Explique le système d'EXP et les paliers")
+@app_commands.command(name="info", description="📋 Explique le système d'EXP et les paliers")
 async def exp_info(interaction: discord.Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.
