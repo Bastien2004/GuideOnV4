@@ -40,7 +40,7 @@ LEVEL_TIERS: list[dict] = [
     {"range": (29, 57), "name": "⚙️ Ferrium"},
     {"range": (58, 85), "name": "🔅 Luminite"},
     {"range": (86, 114), "name": "🔹 Crysolite"},
-    {"range": (115, 142), "name": "◼️ Pyronium"},
+    {"range": (115, 142), "name": "⚫ Pyronium"},
     {"range": (143, 171), "name": "🏮 Eclipsite"},
     {"range": (172, 200), "name": "💠 Zenthium"},
 ]

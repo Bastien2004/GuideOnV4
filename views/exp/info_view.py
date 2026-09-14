@@ -30,7 +30,7 @@ _COMMANDS = [
     ("`/exp leaderboard`", "Affiche le classement EXP du serveur."),
     ("`/exp info`", "Affiche le menu explicatif du système."),
     ("`/exp gestion <membre>`", "**Admin** — Ajuste manuellement l'EXP d'un membre."),
-    ("`/exp config`", "**Admin** — Configure le système d'EXP (gains, rôle boost, annonce de level-up)."),
+    ("`/exp config`", "**Admin** — Configure le système d'expérience."),
 ]
 
 
@@ -143,7 +143,7 @@ class ExpInfoView(BaseLayoutView):
         container.add_item(Separator())
 
         tier_lines = [
-            f"➤ **{tier['name']}** — Niveaux `{tier['range'][0]}` à `{tier['range'][1]}`"
+            f"➤ **{tier['name']}** — Niveaux `{tier['range'][0]}` à `{tier['range'][1]}`."
             for tier in LEVEL_TIERS
         ]
         container.add_item(TextDisplay("\n".join(tier_lines)))
