@@ -26,7 +26,7 @@ _SECTION_OPTIONS = [
 ]
 
 _COMMANDS = [
-    ("`/exp level [membre]`", "Affiche la carte de niveau et l'EXP d'un membre (toi par défaut)."),
+    ("`/exp level [membre]`", "Affiche le niveau et l'exp d'un membre."),
     ("`/exp leaderboard`", "Affiche le classement EXP du serveur."),
     ("`/exp info`", "Affiche le menu explicatif du système."),
     ("`/exp gestion <membre>`", "**Admin** — Ajuste manuellement l'EXP d'un membre."),
@@ -136,17 +136,14 @@ class ExpInfoView(BaseLayoutView):
         self._footer(container)
         return container
 
+
     def _build_paliers(self) -> Container:
         container = Container()
-        container.add_item(TextDisplay("# 🏔️ Les paliers"))
-        container.add_item(TextDisplay(
-            f"-# {len(LEVEL_TIERS)} paliers répartis sur {MAX_LEVEL} niveaux — plus le niveau "
-            f"est élevé, plus il faut d'EXP pour progresser au suivant."
-        ))
+        container.add_item(TextDisplay("# <:AI:1547703102273093633> Les paliers"))
         container.add_item(Separator())
 
         tier_lines = [
-            f"**{tier['name']}** — Niveaux `{tier['range'][0]}` à `{tier['range'][1]}`"
+            f"➤ **{tier['name']}** — Niveaux `{tier['range'][0]}` à `{tier['range'][1]}`"
             for tier in LEVEL_TIERS
         ]
         container.add_item(TextDisplay("\n".join(tier_lines)))
@@ -158,11 +155,12 @@ class ExpInfoView(BaseLayoutView):
 
     def _build_commandes(self) -> Container:
         container = Container()
-        container.add_item(TextDisplay("# 📜 Les commandes"))
+        container.add_item(TextDisplay("# <:programme:1539608621833527418> Les commandes"))
         container.add_item(Separator())
 
-        lines = [f"{cmd}\n-# {desc}" for cmd, desc in _COMMANDS]
-        container.add_item(TextDisplay("\n\n".join(lines)))
+        lines = [f"➤ {cmd}\n-# {desc}" for cmd, desc in _COMMANDS]
+
+        container.add_item(TextDisplay("\n".join(lines)))
         container.add_item(Separator())
 
         container.add_item(ActionRow(self._back_button()))
