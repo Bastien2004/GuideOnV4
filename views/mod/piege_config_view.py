@@ -11,7 +11,7 @@ import discord
 from discord import ButtonStyle, MediaGalleryItem
 from discord.ui import ActionRow, Button, Container, MediaGallery, Section, Separator, TextDisplay
 
-from utils.container_universel import error_container, send_ephemeral
+from utils.container_universel import error_container, info_container, send_ephemeral
 from utils.managers.honeypot_manager import load_config, set_channel, set_enabled
 from utils.settings import settings
 from views._components.base_view import BaseLayoutView
@@ -32,45 +32,35 @@ PIEGE_BANNER_FILENAME = "piege_guideon.webp"
 PIEGE_BANNER_PATH = os.path.join("source", PIEGE_BANNER_FILENAME)
 
 _WARNING_MESSAGE = (
-    "Ce salon sert de **piège anti-raid**. Il est intentionnellement laissé "
-    "visible et accessible en écriture à **tous les membres**.\n\n"
-    "**N'envoie aucun message ici** : toute personne qui le fait est "
-    "automatiquement **expulsée** du serveur, ses messages sont "
-    "**supprimés**, et l'action est enregistrée dans l'historique de modération."
+    "Ce salon sert de **piège** contre les __comptes suspfeect__."
+    "Il est intentionnellement laissé **visible** et **accessible** à tous.\n\n"
+
+    "`NE PAS ÉCRIRE DANS CE SALON !`"
+
+    "Toutes personnes déclanchant le piège s'expose :\n"
+    "➤ 🔨 A une **Expulsion immédiate** de son compte.\n"
+    "➤ 🗑️ A une **Suppression** de tous ses messages\n"
+    "➤ 📝 A un **signalement** dans son registre des sanctions."
 )
 
 
 def get_piege_banner_file() -> discord.File | None:
-    """Bannière affichée en haut du message posté dans le salon-piège à sa
-    création (2026-09, demande Paul). Optionnelle et sans effet si le
-    fichier n'existe pas encore côté dépôt (même garde défensive que
-    utils/botbancmd.py pour son image de ban) — ne bloque jamais la
-    création du salon si l'asset manque."""
+    """Récupère la bannière du système."""
     if not os.path.exists(PIEGE_BANNER_PATH):
         return None
     return discord.File(PIEGE_BANNER_PATH, filename=PIEGE_BANNER_FILENAME)
 
 
 def build_warning_view(guild_name: str, *, attach_banner: bool = False) -> discord.ui.LayoutView:
-    """Le message posté dans le salon-piège à sa création.
-
-    Reprend le même habillage que warning_container (utils/
-    container_universel.py) plutôt que de le réutiliser tel quel : la
-    bannière doit être insérée tout en haut, AVANT le titre, et Container
-    n'expose qu'add_item() (pas d'insertion positionnelle) — impossible
-    de préfixer un container déjà construit par warning_container() sans
-    tout reconstruire, donc autant le faire directement ici. Le habillage
-    (icône, titre "Attention", pied de page) reste identique à
-    warning_container pour ne pas changer l'identité visuelle du reste
-    du bot."""
+    """Création de la view d'avertissement dans le salon-piège."""
     view = discord.ui.LayoutView(timeout=None)
     container = Container()
 
     if attach_banner:
         container.add_item(MediaGallery(MediaGalleryItem(f"attachment://{PIEGE_BANNER_FILENAME}")))
 
-    container.add_item(TextDisplay("# <:erreur:1495443907281031359> Attention"))
     container.add_item(Separator())
+    container.add_item(TextDisplay("# <:erreur:1495443907281031359> ATTENTION — SALON PIÈGE <:erreur:1495443907281031359>"))
     container.add_item(TextDisplay(_WARNING_MESSAGE))
     container.add_item(Separator())
     container.add_item(TextDisplay("-# GuideOn Studio"))
@@ -155,11 +145,6 @@ class PiegeConfigView(BaseLayoutView):
         container.add_item(Separator())
 
         # ── Rôles & membres ignorés ──────────────────────
-        # Gérés (ajout + suppression + liste paginée) sur un écran dédié,
-        # cf. views/mod/piege_ignored_view.py — afficher chaque entrée ici
-        # directement (Section+accessory par ligne) a fini par dépasser la
-        # limite Discord de 40 composants/message dès qu'il y avait assez
-        # de rôles/membres ignorés (cf. traceback Paul du 2026-09-16).
         ignored_roles = self.cfg.get("ignored_role_ids") or []
         ignored_members = self.cfg.get("ignored_member_ids") or []
         manage_btn = Button(label="Gérer la liste", style=ButtonStyle.secondary, emoji=ICON_LISTE)
@@ -187,19 +172,23 @@ class PiegeConfigView(BaseLayoutView):
         try:
             await self.push_update(interaction)
         except discord.NotFound:
-            # Le message du panneau a disparu entre-temps — typiquement
-            # /mod piege lancé directement DANS le salon-piège, puis clic
-            # sur "Supprimer le salon" : le message du panneau est
-            # supprimé EN MÊME TEMPS que son salon (cf. traceback Paul du
-            # 2026-09-16, "Unknown Message" sur edit_message). La config
-            # en DB est déjà à jour à ce stade (cf. _on_delete_channel) —
-            # il n'y a rien de plus à faire côté Discord : le salon qui
-            # aurait pu recevoir un message de repli n'existe plus non
-            # plus. Pas une vraie erreur, donc pas de log en ERROR ici.
             log.debug(
                 "[PIEGE] Rafraîchissement du panneau ignoré : message introuvable "
                 "(probablement supprimé avec son salon) guild=%s", self.guild.id,
             )
+            try:
+                await send_ephemeral(
+                    interaction,
+                    info_container(
+                        "Le panneau a été supprimé en même temps que son salon. "
+                        "Relance `/mod piege` pour l'afficher à nouveau."
+                    ),
+                )
+            except discord.HTTPException:
+                log.warning(
+                    "[PIEGE] Réponse de repli après NotFound également en échec guild=%s",
+                    self.guild.id,
+                )
 
     # ------------------------------------------------------------------
     # Callbacks — salon-piège
