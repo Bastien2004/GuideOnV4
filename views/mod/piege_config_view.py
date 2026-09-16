@@ -1,29 +1,17 @@
 """
-views/mod/piege_config_view.py — Interface de configuration du système
-HoneyPot / "Piège" (/mod piege).
-
-Contrairement à RaidProtect (dont s'inspire ce système visuellement, cf.
-Paul 2026-09) : PAS de sélecteur de sanction ni de durée — la réaction est
-FIXE (kick + purge + entrée /mod historique, cf.
-cogs/events/honeypot_listener.py) et le panneau ne propose donc que :
-  - créer/supprimer le salon-piège
-  - activer/désactiver la détection sans supprimer le salon
-  - gérer les rôles/membres ignorés (jamais sanctionnés par le piège)
-
-Style aligné sur views/join_to_create/join_to_create_config_view.py et
-views/mod/sanction_builder_view.py (Section+accessory par champ, icônes
-maison). En-tête <:bouclier:...> réutilisé de views/mod/automod_dashboard_view.py
-(même famille "protection/sécurité", même identité visuelle).
+views/mod/piege_config_view.py — Interface de configuration du système de piège (HoneyPot).
 """
+
 from __future__ import annotations
 
 import logging
+import os
 
 import discord
-from discord import ButtonStyle
-from discord.ui import ActionRow, Button, Container, Section, Separator, TextDisplay
+from discord import ButtonStyle, MediaGalleryItem
+from discord.ui import ActionRow, Button, Container, MediaGallery, Section, Separator, TextDisplay
 
-from utils.container_universel import error_container, send_ephemeral, warning_container
+from utils.container_universel import error_container, send_ephemeral
 from utils.managers.honeypot_manager import load_config, set_channel, set_enabled
 from utils.settings import settings
 from views._components.base_view import BaseLayoutView
@@ -40,6 +28,9 @@ ICON_LISTE = "<:lister:1495445288364675192>"
 
 CHANNEL_NAME = "🍯・piège"
 
+PIEGE_BANNER_FILENAME = "piege_guideon.webp"
+PIEGE_BANNER_PATH = os.path.join("source", PIEGE_BANNER_FILENAME)
+
 _WARNING_MESSAGE = (
     "Ce salon sert de **piège anti-raid**. Il est intentionnellement laissé "
     "visible et accessible en écriture à **tous les membres**.\n\n"
@@ -49,11 +40,43 @@ _WARNING_MESSAGE = (
 )
 
 
-def build_warning_view(guild_name: str) -> discord.ui.LayoutView:
-    """Le message posté dans le salon-piège à sa création — réutilise
-    warning_container pour une identité visuelle GuideOn cohérente avec le
-    reste du bot, sans construire un container ad-hoc."""
-    return warning_container(_WARNING_MESSAGE)
+def get_piege_banner_file() -> discord.File | None:
+    """Bannière affichée en haut du message posté dans le salon-piège à sa
+    création (2026-09, demande Paul). Optionnelle et sans effet si le
+    fichier n'existe pas encore côté dépôt (même garde défensive que
+    utils/botbancmd.py pour son image de ban) — ne bloque jamais la
+    création du salon si l'asset manque."""
+    if not os.path.exists(PIEGE_BANNER_PATH):
+        return None
+    return discord.File(PIEGE_BANNER_PATH, filename=PIEGE_BANNER_FILENAME)
+
+
+def build_warning_view(guild_name: str, *, attach_banner: bool = False) -> discord.ui.LayoutView:
+    """Le message posté dans le salon-piège à sa création.
+
+    Reprend le même habillage que warning_container (utils/
+    container_universel.py) plutôt que de le réutiliser tel quel : la
+    bannière doit être insérée tout en haut, AVANT le titre, et Container
+    n'expose qu'add_item() (pas d'insertion positionnelle) — impossible
+    de préfixer un container déjà construit par warning_container() sans
+    tout reconstruire, donc autant le faire directement ici. Le habillage
+    (icône, titre "Attention", pied de page) reste identique à
+    warning_container pour ne pas changer l'identité visuelle du reste
+    du bot."""
+    view = discord.ui.LayoutView(timeout=None)
+    container = Container()
+
+    if attach_banner:
+        container.add_item(MediaGallery(MediaGalleryItem(f"attachment://{PIEGE_BANNER_FILENAME}")))
+
+    container.add_item(TextDisplay("# <:erreur:1495443907281031359> Attention"))
+    container.add_item(Separator())
+    container.add_item(TextDisplay(_WARNING_MESSAGE))
+    container.add_item(Separator())
+    container.add_item(TextDisplay("-# GuideOn Studio"))
+
+    view.add_item(container)
+    return view
 
 
 class PiegeConfigView(BaseLayoutView):
@@ -195,8 +218,13 @@ class PiegeConfigView(BaseLayoutView):
             await send_ephemeral(interaction, error_container("Erreur Discord lors de la création du salon."))
             return
 
+        banner_file = get_piege_banner_file()
+        warning_view = build_warning_view(self.guild.name, attach_banner=banner_file is not None)
         try:
-            await channel.send(view=build_warning_view(self.guild.name))
+            if banner_file is not None:
+                await channel.send(view=warning_view, file=banner_file)
+            else:
+                await channel.send(view=warning_view)
         except (discord.Forbidden, discord.HTTPException):
             log.warning("[PIEGE] Message d'avertissement non envoyé guild=%s channel=%s", self.guild.id, channel.id)
 
