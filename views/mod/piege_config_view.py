@@ -42,15 +42,15 @@ PIEGE_BANNER_FILENAME = "piege_guideon.webp"
 PIEGE_BANNER_PATH = os.path.join("source", PIEGE_BANNER_FILENAME)
 
 _WARNING_MESSAGE = (
-    "Ce salon sert de **piège** contre les __comptes suspfeect__."
-    "Il est intentionnellement laissé **visible** et **accessible** à tous.\n\n"
+    "Ce salon sert de **piège** contre les __comptes suspects__.\n"
+    "Il est volontairement laissé **accessible** à tous.\n\n"
 
-    "`NE PAS ÉCRIRE DANS CE SALON !`"
+    "`NE PAS ÉCRIRE DANS CE SALON !`\n\n"
 
-    "Toutes personnes déclanchant le piège s'expose :\n"
+    "__Toutes personnes déclanchant le piège s'expose__ :\n"
     "➤ 🔨 A une **Expulsion immédiate** de son compte.\n"
     "➤ 🗑️ A une **Suppression** de tous ses messages\n"
-    "➤ 📝 A un **signalement** dans son registre des sanctions."
+    "➤ 📝 A un **signalement** dans son registre des sanctions.\n"
 )
 
 
@@ -164,8 +164,7 @@ class PiegeConfigView(BaseLayoutView):
         container.add_item(Section(
             TextDisplay(
                 "**🚫 Rôles & membres ignorés**\n"
-                f"-# `{len(ignored_roles)}` rôle(s), `{len(ignored_members)}` membre(s) — "
-                "jamais sanctionnés par le piège."
+                f"-# `{len(ignored_roles)}` rôle(s), `{len(ignored_members)}` membre(s)"
             ),
             accessory=manage_btn,
         ))
