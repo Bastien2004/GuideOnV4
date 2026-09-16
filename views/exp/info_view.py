@@ -122,7 +122,7 @@ class ExpInfoView(BaseLayoutView):
 
         container.add_item(TextDisplay(
             "➥ **🎙️ Vocal** :\n"
-            f"-# `+{per_voice} EXP` par minute passée à dans un salon vocal. \n\n"
+            f"-# `+{per_voice} EXP` par minute passée dans un salon vocal. \n\n"
         ))
         container.add_item(Separator())
 

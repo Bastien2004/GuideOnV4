@@ -184,7 +184,22 @@ class PiegeConfigView(BaseLayoutView):
     async def _refresh(self, interaction: discord.Interaction) -> None:
         self.cfg = await load_config(self.guild.id)
         self._build()
-        await self.push_update(interaction)
+        try:
+            await self.push_update(interaction)
+        except discord.NotFound:
+            # Le message du panneau a disparu entre-temps — typiquement
+            # /mod piege lancé directement DANS le salon-piège, puis clic
+            # sur "Supprimer le salon" : le message du panneau est
+            # supprimé EN MÊME TEMPS que son salon (cf. traceback Paul du
+            # 2026-09-16, "Unknown Message" sur edit_message). La config
+            # en DB est déjà à jour à ce stade (cf. _on_delete_channel) —
+            # il n'y a rien de plus à faire côté Discord : le salon qui
+            # aurait pu recevoir un message de repli n'existe plus non
+            # plus. Pas une vraie erreur, donc pas de log en ERROR ici.
+            log.debug(
+                "[PIEGE] Rafraîchissement du panneau ignoré : message introuvable "
+                "(probablement supprimé avec son salon) guild=%s", self.guild.id,
+            )
 
     # ------------------------------------------------------------------
     # Callbacks — salon-piège
