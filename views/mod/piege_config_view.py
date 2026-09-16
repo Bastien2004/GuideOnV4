@@ -19,12 +19,22 @@ from views.mod.piege_ignored_view import PiegeIgnoredListView
 
 log = logging.getLogger(__name__)
 
+
+# ============================================================
+# 🥰 Emojis
+# ============================================================
+
 ICON_HEADER = "<:bouclier:1539013183577133106>"
 ICON_PLUS = "<:plus:1495444111505752154>"
 ICON_DELETE = "<:supprimer:1495444051623809075>"
 ICON_VALIDER = "<:valider:1495444292867723284>"
 ICON_ANNULER = "<:annuler:1495444256754761979>"
 ICON_LISTE = "<:lister:1495445288364675192>"
+
+
+# ============================================================
+# 🔩 Paramètres
+# ============================================================
 
 CHANNEL_NAME = "🍯・piège"
 
@@ -44,6 +54,10 @@ _WARNING_MESSAGE = (
 )
 
 
+# ============================================================
+# ⚒️ Fonctions utilitaires
+# ============================================================
+
 def get_piege_banner_file() -> discord.File | None:
     """Récupère la bannière du système."""
     if not os.path.exists(PIEGE_BANNER_PATH):
@@ -53,6 +67,7 @@ def get_piege_banner_file() -> discord.File | None:
 
 def build_warning_view(guild_name: str, *, attach_banner: bool = False) -> discord.ui.LayoutView:
     """Création de la view d'avertissement dans le salon-piège."""
+
     view = discord.ui.LayoutView(timeout=None)
     container = Container()
 
@@ -86,24 +101,23 @@ class PiegeConfigView(BaseLayoutView):
         cfg = await load_config(guild.id)
         return cls(guild=guild, moderator_id=moderator_id, cfg=cfg)
 
-    # ------------------------------------------------------------------
-    # Construction
-    # ------------------------------------------------------------------
+    # ============================================================
+    # 🚧 Construction de l'interface
+    # ============================================================
 
     def _build(self) -> None:
         self.clear_items()
 
         container = Container()
-        container.add_item(TextDisplay(f"# {ICON_HEADER} Configuration du Piège"))
+        container.add_item(TextDisplay(f"# {ICON_HEADER} Configuration du piège"))
+        container.add_item(Separator())
+
         container.add_item(TextDisplay(
-            "➥ Crée un __salon-piège__ (HoneyPot) : tout membre qui y écrit est "
-            "**expulsé automatiquement**, ses messages **supprimés**, et l'action "
-            "**enregistrée** dans `/mod historique`.\n"
-            "-# Pas de sanction ni de durée à choisir : la réaction est fixe."
+            "➥ Crée un __salon-piège__ contre les **comptes suspects**.\n"
+            "Tout membre qui y écrit sera **expulsé automatiquement**."
         ))
         container.add_item(Separator())
 
-        # ── Salon-piège ────────────────────────────────
         channel_id = self.cfg.get("channel_id")
         channel = self.guild.get_channel(channel_id) if channel_id else None
 
@@ -112,7 +126,7 @@ class PiegeConfigView(BaseLayoutView):
             channel_btn = Button(label="Supprimer le salon", style=ButtonStyle.danger, emoji=ICON_DELETE)
             channel_btn.callback = self._on_delete_channel
         elif channel_id:
-            channel_display = "`Salon introuvable (supprimé manuellement ?)`"
+            channel_display = "`Salon introuvable`"
             channel_btn = Button(label="Recréer le salon", style=ButtonStyle.primary, emoji=ICON_PLUS)
             channel_btn.callback = self._on_create_channel
         else:
@@ -126,7 +140,6 @@ class PiegeConfigView(BaseLayoutView):
         ))
         container.add_item(Separator())
 
-        # ── Statut ─────────────────────────────────────
         enabled = bool(self.cfg.get("enabled")) and channel is not None
         status_btn = Button(
             label="Activé" if enabled else "Désactivé",
@@ -138,13 +151,12 @@ class PiegeConfigView(BaseLayoutView):
         container.add_item(Section(
             TextDisplay(
                 "**🔘 Statut de la détection**\n"
-                "-# Suspend/réactive le piège sans supprimer le salon."
+                "-# Suspend/réactive le système de piège."
             ),
             accessory=status_btn,
         ))
         container.add_item(Separator())
 
-        # ── Rôles & membres ignorés ──────────────────────
         ignored_roles = self.cfg.get("ignored_role_ids") or []
         ignored_members = self.cfg.get("ignored_member_ids") or []
         manage_btn = Button(label="Gérer la liste", style=ButtonStyle.secondary, emoji=ICON_LISTE)
@@ -169,30 +181,24 @@ class PiegeConfigView(BaseLayoutView):
     async def _refresh(self, interaction: discord.Interaction) -> None:
         self.cfg = await load_config(self.guild.id)
         self._build()
+
         try:
             await self.push_update(interaction)
+
         except discord.NotFound:
-            log.debug(
-                "[PIEGE] Rafraîchissement du panneau ignoré : message introuvable "
-                "(probablement supprimé avec son salon) guild=%s", self.guild.id,
-            )
+            log.debug("[MOD PIEGE] Rafraîchissement du panneau ignoré : message introuvable guild=%s", self.guild.id)
+
             try:
                 await send_ephemeral(
                     interaction,
-                    info_container(
-                        "Le panneau a été supprimé en même temps que son salon. "
-                        "Relance `/mod piege` pour l'afficher à nouveau."
-                    ),
-                )
+                    error_container("Une **erreur** est survenue. Relance `/mod piege` pour afficher l'interface."))
+            
             except discord.HTTPException:
-                log.warning(
-                    "[PIEGE] Réponse de repli après NotFound également en échec guild=%s",
-                    self.guild.id,
-                )
+                log.warning("[MOD PIEGE] Réponse de secours après NotFound en échec guild=%s", self.guild.id)
 
-    # ------------------------------------------------------------------
-    # Callbacks — salon-piège
-    # ------------------------------------------------------------------
+    # ============================================================
+    # 💻 Callbacks
+    # ============================================================
 
     async def _on_create_channel(self, interaction: discord.Interaction) -> None:
         me = self.guild.me
@@ -215,22 +221,26 @@ class PiegeConfigView(BaseLayoutView):
                 name=CHANNEL_NAME, position=0, overwrites=overwrites,
                 reason=f"Configuration HoneyPot par {interaction.user}",
             )
+
         except discord.Forbidden:
-            await send_ephemeral(interaction, error_container("Permissions insuffisantes pour créer ce salon."))
+            await send_ephemeral(interaction, error_container("**Permissions insuffisantes** pour créer ce salon."))
             return
+        
         except discord.HTTPException:
-            await send_ephemeral(interaction, error_container("Erreur Discord lors de la création du salon."))
+            await send_ephemeral(interaction, error_container("**Erreur Discord** lors de la création du salon."))
             return
 
         banner_file = get_piege_banner_file()
         warning_view = build_warning_view(self.guild.name, attach_banner=banner_file is not None)
+
         try:
             if banner_file is not None:
                 await channel.send(view=warning_view, file=banner_file)
             else:
                 await channel.send(view=warning_view)
+
         except (discord.Forbidden, discord.HTTPException):
-            log.warning("[PIEGE] Message d'avertissement non envoyé guild=%s channel=%s", self.guild.id, channel.id)
+            log.warning("[MOD PIEGE] Message d'avertissement non envoyé guild=%s channel=%s", self.guild.id, channel.id)
 
         await set_channel(self.guild.id, channel.id)
         await set_enabled(self.guild.id, True)
@@ -239,11 +249,13 @@ class PiegeConfigView(BaseLayoutView):
     async def _on_delete_channel(self, interaction: discord.Interaction) -> None:
         channel_id = self.cfg.get("channel_id")
         channel = self.guild.get_channel(channel_id) if channel_id else None
+
         if isinstance(channel, discord.TextChannel):
             try:
                 await channel.delete(reason=f"Suppression HoneyPot par {interaction.user}")
+
             except (discord.Forbidden, discord.HTTPException) as exc:
-                log.warning("[PIEGE] Suppression salon échouée guild=%s channel=%s erreur=%s", self.guild.id, channel_id, exc)
+                log.warning("[MOD PIEGE] Suppression salon échouée guild=%s channel=%s erreur=%s", self.guild.id, channel_id, exc)
 
         await set_channel(self.guild.id, None)
         await set_enabled(self.guild.id, False)
@@ -253,10 +265,6 @@ class PiegeConfigView(BaseLayoutView):
         current = bool(self.cfg.get("enabled"))
         await set_enabled(self.guild.id, not current)
         await self._refresh(interaction)
-
-    # ------------------------------------------------------------------
-    # Callbacks — rôles & membres ignorés
-    # ------------------------------------------------------------------
 
     async def _on_manage_ignored(self, interaction: discord.Interaction) -> None:
         view = await PiegeIgnoredListView.create(guild=self.guild, moderator_id=self.moderator_id)
