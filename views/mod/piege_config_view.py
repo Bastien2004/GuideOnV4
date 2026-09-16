@@ -47,7 +47,7 @@ _WARNING_MESSAGE = (
 
     "`NE PAS ÉCRIRE DANS CE SALON !`\n\n"
 
-    "__Toutes personnes déclanchant le piège s'expose__ :\n"
+    "__Toute personne déclanchant le piège s'expose__ :\n"
     "➤ 🔨 A une **Expulsion immédiate** de son compte.\n"
     "➤ 🗑️ A une **Suppression** de tous ses messages\n"
     "➤ 📝 A un **signalement** dans son registre des sanctions.\n"
