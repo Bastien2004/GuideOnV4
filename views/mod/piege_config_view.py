@@ -24,19 +24,10 @@ from discord import ButtonStyle
 from discord.ui import ActionRow, Button, Container, Section, Separator, TextDisplay
 
 from utils.container_universel import error_container, send_ephemeral, warning_container
-from utils.managers.honeypot_manager import (
-    add_ignored_member,
-    add_ignored_role,
-    load_config,
-    remove_ignored_member,
-    remove_ignored_role,
-    set_channel,
-    set_enabled,
-)
+from utils.managers.honeypot_manager import load_config, set_channel, set_enabled
 from utils.settings import settings
 from views._components.base_view import BaseLayoutView
-from views._components.role_select import RoleSelect
-from views._components.user_select import UserSelect
+from views.mod.piege_ignored_view import PiegeIgnoredListView
 
 log = logging.getLogger(__name__)
 
@@ -45,10 +36,9 @@ ICON_PLUS = "<:plus:1495444111505752154>"
 ICON_DELETE = "<:supprimer:1495444051623809075>"
 ICON_VALIDER = "<:valider:1495444292867723284>"
 ICON_ANNULER = "<:annuler:1495444256754761979>"
+ICON_LISTE = "<:lister:1495445288364675192>"
 
 CHANNEL_NAME = "🍯・piège"
-IGNORED_PREVIEW_MAX = 10
-MAX_ADD_AT_ONCE = 5
 
 _WARNING_MESSAGE = (
     "Ce salon sert de **piège anti-raid**. Il est intentionnellement laissé "
@@ -141,42 +131,24 @@ class PiegeConfigView(BaseLayoutView):
         ))
         container.add_item(Separator())
 
-        # ── Rôles ignorés ────────────────────────────────
+        # ── Rôles & membres ignorés ──────────────────────
+        # Gérés (ajout + suppression + liste paginée) sur un écran dédié,
+        # cf. views/mod/piege_ignored_view.py — afficher chaque entrée ici
+        # directement (Section+accessory par ligne) a fini par dépasser la
+        # limite Discord de 40 composants/message dès qu'il y avait assez
+        # de rôles/membres ignorés (cf. traceback Paul du 2026-09-16).
         ignored_roles = self.cfg.get("ignored_role_ids") or []
-        container.add_item(TextDisplay(f"**🚫 Rôles ignorés** (`{len(ignored_roles)}`)\n-# Un membre possédant un de ces rôles ne déclenche jamais le piège."))
-        for role_id in ignored_roles[:IGNORED_PREVIEW_MAX]:
-            role = self.guild.get_role(role_id)
-            label = role.mention if role is not None else f"`Rôle supprimé ({role_id})`"
-            remove_btn = Button(style=ButtonStyle.danger, emoji=ICON_DELETE)
-            remove_btn.callback = self._cb_remove_role(role_id)
-            container.add_item(Section(TextDisplay(label), accessory=remove_btn))
-        if len(ignored_roles) > IGNORED_PREVIEW_MAX:
-            container.add_item(TextDisplay(f"-# … et {len(ignored_roles) - IGNORED_PREVIEW_MAX} de plus."))
-        role_select = RoleSelect(
-            placeholder="Ajouter un/des rôle(s) ignoré(s)",
-            on_select=self._on_add_roles,
-            max_values=MAX_ADD_AT_ONCE,
-        )
-        container.add_item(ActionRow(role_select))
-        container.add_item(Separator())
-
-        # ── Membres ignorés ──────────────────────────────
         ignored_members = self.cfg.get("ignored_member_ids") or []
-        container.add_item(TextDisplay(f"**🚫 Membres ignorés** (`{len(ignored_members)}`)\n-# Jamais sanctionnés par le piège, quel que soit leur rôle."))
-        for member_id in ignored_members[:IGNORED_PREVIEW_MAX]:
-            member = self.guild.get_member(member_id)
-            label = member.mention if member is not None else f"`Membre introuvable ({member_id})`"
-            remove_btn = Button(style=ButtonStyle.danger, emoji=ICON_DELETE)
-            remove_btn.callback = self._cb_remove_member(member_id)
-            container.add_item(Section(TextDisplay(label), accessory=remove_btn))
-        if len(ignored_members) > IGNORED_PREVIEW_MAX:
-            container.add_item(TextDisplay(f"-# … et {len(ignored_members) - IGNORED_PREVIEW_MAX} de plus."))
-        user_select = UserSelect(
-            placeholder="Ajouter un/des membre(s) ignoré(s)",
-            on_select=self._on_add_members,
-            max_values=MAX_ADD_AT_ONCE,
-        )
-        container.add_item(ActionRow(user_select))
+        manage_btn = Button(label="Gérer la liste", style=ButtonStyle.secondary, emoji=ICON_LISTE)
+        manage_btn.callback = self._on_manage_ignored
+        container.add_item(Section(
+            TextDisplay(
+                "**🚫 Rôles & membres ignorés**\n"
+                f"-# `{len(ignored_roles)}` rôle(s), `{len(ignored_members)}` membre(s) — "
+                "jamais sanctionnés par le piège."
+            ),
+            accessory=manage_btn,
+        ))
         container.add_item(Separator())
 
         btn_doc = Button(label="Documentation", style=ButtonStyle.link, url=settings.doc_url, emoji="📚")
@@ -251,31 +223,9 @@ class PiegeConfigView(BaseLayoutView):
         await self._refresh(interaction)
 
     # ------------------------------------------------------------------
-    # Callbacks — rôles ignorés
+    # Callbacks — rôles & membres ignorés
     # ------------------------------------------------------------------
 
-    async def _on_add_roles(self, interaction: discord.Interaction, role_ids: list[int]) -> None:
-        for role_id in role_ids:
-            await add_ignored_role(self.guild.id, role_id)
-        await self._refresh(interaction)
-
-    def _cb_remove_role(self, role_id: int):
-        async def _callback(interaction: discord.Interaction) -> None:
-            await remove_ignored_role(self.guild.id, role_id)
-            await self._refresh(interaction)
-        return _callback
-
-    # ------------------------------------------------------------------
-    # Callbacks — membres ignorés
-    # ------------------------------------------------------------------
-
-    async def _on_add_members(self, interaction: discord.Interaction, member_ids: list[int]) -> None:
-        for member_id in member_ids:
-            await add_ignored_member(self.guild.id, member_id)
-        await self._refresh(interaction)
-
-    def _cb_remove_member(self, member_id: int):
-        async def _callback(interaction: discord.Interaction) -> None:
-            await remove_ignored_member(self.guild.id, member_id)
-            await self._refresh(interaction)
-        return _callback
+    async def _on_manage_ignored(self, interaction: discord.Interaction) -> None:
+        view = await PiegeIgnoredListView.create(guild=self.guild, moderator_id=self.moderator_id)
+        await self.push_update(interaction, view=view)
