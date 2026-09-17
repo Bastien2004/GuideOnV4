@@ -1,12 +1,5 @@
 """
-cogs/mod/mod_piege.py — Configure le système HoneyPot / "Piège" anti-raid.
-
-Verrouillée sur permission Discord `administrator` (comme /mod config) :
-ce n'est pas une sanction ponctuelle mais la configuration d'un système qui
-sanctionne automatiquement — mal réglé (mauvais salon, exemptions trop
-larges/étroites), l'impact est bien plus large qu'une commande /mod
-classique. Cette clé n'est donc PAS délégable via /mod permissions, comme
-/mod config.
+cogs/mod/mod_piege.py — Configure le système de piège (honeypot).
 """
 
 from __future__ import annotations
@@ -41,7 +34,7 @@ async def mod_piege(interaction: discord.Interaction) -> None:
     if not await verifier_ban_utilisateur(interaction):
         return
 
-    # 🔐 Verrouillage strict Admin Discord (non-délégable via /mod permissions).
+    # 🔐 Vérification des permissions.
     if not await check_admin(interaction, "configurer le **Piège** (HoneyPot)"):
         return
 
