@@ -1,22 +1,7 @@
 """
-utils/managers/mod_log_manager.py — Systeme de logs /mod (3 packs cumulatifs).
-
-Un seul pack actif a la fois par serveur : stagiaire < chercheur < espion,
-chaque palier incluant tous les evenements du precedent (cf. PACK_EVENTS).
-Espion necessite un serveur Gold+ (verifie a l'activation ET a l'envoi,
-au cas ou le statut Gold+ serait perdu entre-temps).
-
-Les logs sont envoyes en embed Discord (decision explicite de Paul pour
-ce module precis — le reste du bot reste en Components V2), avec couleur
-par categorie d'evenement, horodatage, miniature quand disponible (avatar
-du membre, icone du serveur, rendu de l'emoji/sticker) et pied de page
-GuideOn Studio.
-
-bind_bot() permet de resoudre un guild_id en discord.Guild depuis les
-managers (utils.managers.mod_sanction_manager, mod_rename_manager) sans
-leur faire porter une dependance directe sur le client Discord — appele
-une fois au demarrage du bot, dans GuideONBot.setup_hook (bot.py).
+utils/managers/mod_log_manager.py — Gestion du système de logs
 """
+
 from __future__ import annotations
 
 import logging
@@ -29,11 +14,6 @@ from utils.db.models.mod_logs import LogConfig
 from utils.db.session import get_session
 
 log = logging.getLogger(__name__)
-
-# Fuseau horaire d'affichage des logs (footer). Fixe pour l'instant — la
-# quasi-totalité des serveurs cibles (NationsGlory) sont francophones et
-# vivent à l'heure de Paris. Passage à un fuseau par-guilde possible plus
-# tard si besoin (colonne timezone sur LogConfig).
 DISPLAY_TZ = ZoneInfo("Europe/Paris")
 
 
@@ -79,8 +59,10 @@ EVENT_CATALOG: dict[str, tuple[str, str]] = {
     "role_update": ("🎭", "Rôle modifié"),
     "voice_join": ("🔊", "Connexion vocal"),
     "voice_leave": ("🔇", "Déconnexion vocal"),
-    "voice_mute": ("🔕", "Sourdine vocale (mod)"),
+    "voice_mute": ("🔕", "Mute vocal (mod)"),
+    "voice_deaf": ("🙉", "Sourdine vocale (mod)"),
     "voice_move": ("↔️", "Déplacement vocal (mod)"),
+    "voice_disconnect": ("🚪", "Expulsion vocale (mod)"),
     "guild_update": ("⚙️", "Serveur modifié"),
     "member_rename": ("🖊️", "Pseudo modifié"),
     # ---- Espion (Gold+) ----
@@ -103,7 +85,8 @@ _STAGIAIRE_EVENTS = (
 _CHERCHEUR_EVENTS = _STAGIAIRE_EVENTS + (
     "channel_create", "channel_delete", "channel_update",
     "role_create", "role_delete", "role_update",
-    "voice_join", "voice_leave", "voice_mute", "voice_move",
+    "voice_join", "voice_leave", "voice_mute", "voice_deaf",
+    "voice_move", "voice_disconnect",
     "guild_update", "member_rename",
 )
 _ESPION_EVENTS = _CHERCHEUR_EVENTS + (
@@ -147,7 +130,9 @@ EVENT_COLORS: dict[str, discord.Color] = {
     "voice_join": _COLOR_VOICE,
     "voice_leave": _COLOR_VOICE,
     "voice_mute": _COLOR_VOICE,
+    "voice_deaf": _COLOR_VOICE,
     "voice_move": _COLOR_VOICE,
+    "voice_disconnect": _COLOR_VOICE,
     "guild_update": _COLOR_UPDATE,
     "member_rename": _COLOR_UPDATE,
     "emoji_create": _COLOR_CREATE,

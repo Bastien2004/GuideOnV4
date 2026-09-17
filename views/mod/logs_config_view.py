@@ -42,8 +42,9 @@ PACK_DESCRIPTIONS: dict[str, str] = {
     ),
     "chercheur": (
         "Logs Stagiaire + ajout, suppression et modification de salon et rôle, "
-        "connexion et déconnexion vocale, mise en sourdine et déplacement vocal "
-        "par un modérateur, modification du serveur, renommage."
+        "connexion et déconnexion vocale, mise en muet, mise en sourdine, "
+        "expulsion et déplacement vocal par un modérateur, modification du "
+        "serveur, renommage."
     ),
     "espion": (
         "Logs Chercheur + création, suppression et modification des emojis et "
