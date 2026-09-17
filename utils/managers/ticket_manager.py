@@ -478,6 +478,34 @@ async def count_open_tickets(guild_id: int) -> int:
             )
         ) or 0
 
+async def count_closed_tickets(guild_id: int) -> int:
+    """Nombre de tickets fermés mais encore présents en DB."""
+    async with get_session() as session:
+        return (
+            await session.scalar(
+                select(func.count())
+                .select_from(Ticket)
+                .where(
+                    Ticket.guild_id == guild_id,
+                    Ticket.closed.is_(True),
+                )
+            )
+        ) or 0
+
+
+async def count_deleted_tickets(guild_id: int) -> int:
+    """Nombre total de tickets supprimés pour une guilde."""
+    async with get_session() as session:
+        return (
+            await session.scalar(
+                select(func.coalesce(
+                    func.sum(TicketPanel.deleted_tickets_count),
+                    0,
+                ))
+                .select_from(TicketPanel)
+                .where(TicketPanel.guild_id == guild_id)
+            )
+        ) or 0
 
 async def count_user_tickets_on_panel(
     guild_id: int, panel_id: str, user_id: int
