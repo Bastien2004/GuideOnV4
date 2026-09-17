@@ -54,7 +54,7 @@ PACK_DESCRIPTIONS: dict[str, str] = {
     ),
     "espion": (
         "Logs Chercheur + création et suppression d'emojis et stickers,\n"
-        "changements de nom et d'avatar, boosts serveur, message\n."
+        "changements de nom et d'avatar, boosts serveur, message\n"
         "épinglé et désépinglé."
     ),
 }
@@ -94,7 +94,7 @@ class LogsConfigView(BaseLayoutView):
             on_select=self._on_select_channel,
             channel_types=[discord.ChannelType.text, discord.ChannelType.news],
         )
-        channel_label = TextDisplay(f"**📍 Salon de logs** : `{channel_display}`")
+        channel_label = TextDisplay(f"**📍 Salon de logs** : {channel_display}")
         if channel_id:
             btn_clear_channel = Button(style=ButtonStyle.danger, emoji="<:supprimer:1495444051623809075>")
             btn_clear_channel.callback = self._on_clear_channel
@@ -113,9 +113,8 @@ class LogsConfigView(BaseLayoutView):
             channel_types=[discord.ChannelType.text, discord.ChannelType.news],
         )
         mod_action_label = TextDisplay(
-            f"**🛡️ Salon de modération** : `{mod_action_display}`\n"
-            "-# Une fois configuré, les actions de modération (warn/mute/ban …)\n"
-            "-# y sont envoyées exclusivement et indépendamment des packs."
+            f"**🛡️ Salon de modération** : {mod_action_display}\n"
+            "➥ Recense uniquement les actions de modération (warn/mute/ban …)"
         )
         if mod_action_channel_id:
             btn_clear_mod_action = Button(style=ButtonStyle.danger, emoji="<:supprimer:1495444051623809075>")
@@ -139,7 +138,7 @@ class LogsConfigView(BaseLayoutView):
 
             status = "🟢" if active else "⚫"
             gold_hint = " ✨" if pack_key in GOLD_REQUIRED_PACKS else ""
-            text = f"{status} {emoji} __**{label}**__{gold_hint}\n-# {PACK_DESCRIPTIONS[pack_key]}"
+            text = f"{status} {emoji} __**{label}**__{gold_hint}\n {PACK_DESCRIPTIONS[pack_key]}"
 
             if gold_locked:
                 btn = Button(label="Gold+", style=ButtonStyle.secondary, emoji="✨")
