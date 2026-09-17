@@ -94,15 +94,14 @@ class LogsConfigView(BaseLayoutView):
             on_select=self._on_select_channel,
             channel_types=[discord.ChannelType.text, discord.ChannelType.news],
         )
-        container.add_item(TextDisplay(f"**📍 Salon de logs** : -# {channel_display}"))
-        container.add_item(ActionRow(select))
+        channel_label = TextDisplay(f"**📍 Salon de logs** : `{channel_display}`")
         if channel_id:
-            btn_clear_channel = Button(
-                label="Retirer le salon de logs", style=ButtonStyle.danger,
-                emoji="<:supprimer:1495444051623809075>",
-            )
+            btn_clear_channel = Button(style=ButtonStyle.danger, emoji="<:supprimer:1495444051623809075>")
             btn_clear_channel.callback = self._on_clear_channel
-            container.add_item(ActionRow(btn_clear_channel))
+            container.add_item(Section(channel_label, accessory=btn_clear_channel))
+        else:
+            container.add_item(channel_label)
+        container.add_item(ActionRow(select))
         container.add_item(Separator())
 
 
@@ -113,25 +112,21 @@ class LogsConfigView(BaseLayoutView):
             on_select=self._on_select_mod_action_channel,
             channel_types=[discord.ChannelType.text, discord.ChannelType.news],
         )
-        container.add_item(TextDisplay(
-            f"**🛡️ Salon de modération** : -# {mod_action_display}\n"
+        mod_action_label = TextDisplay(
+            f"**🛡️ Salon de modération** : `{mod_action_display}`\n"
             "-# Une fois configuré, les actions de modération (warn/mute/ban …)\n"
-            " y sont envoyées exclusivement et indépendamment des pack."
-        ))
-        container.add_item(ActionRow(mod_action_select))
+            "-# y sont envoyées exclusivement et indépendamment des packs."
+        )
         if mod_action_channel_id:
-            btn_clear_mod_action = Button(
-                label="Retirer le salon dédié", style=ButtonStyle.danger,
-                emoji="<:supprimer:1495444051623809075>",
-            )
+            btn_clear_mod_action = Button(style=ButtonStyle.danger, emoji="<:supprimer:1495444051623809075>")
             btn_clear_mod_action.callback = self._on_clear_mod_action_channel
-            container.add_item(ActionRow(btn_clear_mod_action))
+            container.add_item(Section(mod_action_label, accessory=btn_clear_mod_action))
+        else:
+            container.add_item(mod_action_label)
+        container.add_item(ActionRow(mod_action_select))
         container.add_item(Separator())
 
-        container.add_item(TextDisplay(
-            "**📦 Pack actif**\n"
-            "-# Un seul pack peut être actif à la fois. En activer un nouveau désactive l'ancien."
-        ))
+        container.add_item(TextDisplay("# 📦 Nos packs disponible"))
         container.add_item(Separator())
 
         selected_pack = self.cfg.get("selected_pack")
