@@ -120,7 +120,6 @@ class LogsConfigView(BaseLayoutView):
             container.add_item(ActionRow(btn_clear_mod_action))
         container.add_item(Separator())
 
-        # ── Packs ─────────────────────────────────────────
         container.add_item(TextDisplay(
             "**📦 Pack actif**\n"
             "-# Un seul pack peut être actif à la fois. En activer un nouveau désactive l'ancien."
