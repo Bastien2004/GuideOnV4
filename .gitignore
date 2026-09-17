@@ -37,4 +37,4 @@ logs/
 backups/
 *.sql.gz
 *.dump
-*.egg-info/
+*.egg-info/data/ng_json/ng_version.json
