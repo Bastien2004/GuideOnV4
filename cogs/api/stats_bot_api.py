@@ -188,6 +188,14 @@ async def get_guild_ticket_stats(request: Request, guild_id: int):
     closed_count = await tm.count_closed_tickets(guild_id)
     deleted_count = await tm.count_deleted_tickets(guild_id)
 
+    log.info(
+        "TICKET STATS guild=%s open=%s closed=%s deleted=%s",
+        guild_id,
+        open_count,
+        closed_count,
+        deleted_count,
+    )
+
     return {
         "guild_id": guild_id,
         "open": open_count,
