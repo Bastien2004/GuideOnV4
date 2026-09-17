@@ -20,6 +20,7 @@ from utils.managers.mod_log_manager import (
     PACK_KEYS,
     PACK_LABELS,
     LogConfigError,
+    clear_channel,
     clear_mod_action_channel,
     load_log_config,
     set_channel,
@@ -95,6 +96,13 @@ class LogsConfigView(BaseLayoutView):
         )
         container.add_item(TextDisplay(f"**📍 Salon de logs** : -# {channel_display}"))
         container.add_item(ActionRow(select))
+        if channel_id:
+            btn_clear_channel = Button(
+                label="Retirer le salon de logs", style=ButtonStyle.danger,
+                emoji="<:supprimer:1495444051623809075>",
+            )
+            btn_clear_channel.callback = self._on_clear_channel
+            container.add_item(ActionRow(btn_clear_channel))
         container.add_item(Separator())
 
 
@@ -191,6 +199,10 @@ class LogsConfigView(BaseLayoutView):
                 return
 
         await set_mod_action_channel(self.guild.id, channel_id)
+        await self._refresh(interaction)
+
+    async def _on_clear_channel(self, interaction: discord.Interaction) -> None:
+        await clear_channel(self.guild.id)
         await self._refresh(interaction)
 
     async def _on_clear_mod_action_channel(self, interaction: discord.Interaction) -> None:

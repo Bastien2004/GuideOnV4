@@ -210,6 +210,18 @@ async def set_channel(guild_id: int, channel_id: int) -> dict:
     return await save_log_config(guild_id, {"log_channel_id": channel_id})
 
 
+async def clear_channel(guild_id: int) -> dict:
+    """
+    Retire le salon de logs "pack" (celui utilisé par is_event_enabled/
+    send_log pour tous les évènements sauf mod_action quand un salon dédié
+    est configuré). Un pack peut rester actif sans salon configuré : les
+    évènements sont alors simplement silencieux (send_log ne trouve pas de
+    salon et ne fait rien), jusqu'à ce qu'un nouveau salon soit choisi —
+    même comportement que clear_mod_action_channel ci-dessous.
+    """
+    return await save_log_config(guild_id, {"log_channel_id": None})
+
+
 async def set_mod_action_channel(guild_id: int, channel_id: int) -> dict:
     """
     Configure le salon dédié aux actions de modération uniquement. Une fois
