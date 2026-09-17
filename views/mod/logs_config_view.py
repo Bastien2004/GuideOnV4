@@ -1,11 +1,7 @@
 """
-views/mod/logs_config_view.py — Panneau de configuration du système de logs (/mod logs).
-
-Un seul pack actif à la fois (stagiaire/chercheur/espion, cumulatifs —
-cf. utils.managers.mod_log_manager.PACK_EVENTS) et un seul salon de logs
-par serveur. Style aligné sur views/bienvenue/config_view.py et
-views/autorole/config_view.py (Section+accessory, icônes maison).
+views/mod/logs_config_view.py — Interface de configuration du système de logs (/mod logs).
 """
+
 from __future__ import annotations
 
 import discord
@@ -14,6 +10,11 @@ from discord.ui import ActionRow, Button, Container, Section, Separator, TextDis
 
 from utils.boutique.gold_manager import is_gold, send_gold_error
 from utils.container_universel import error_container, warning_container
+
+from utils.settings import settings
+from views._components.base_view import BaseLayoutView
+from views._components.channel_select import ChannelSelect
+
 from utils.managers.mod_log_manager import (
     GOLD_REQUIRED_PACKS,
     PACK_KEYS,
@@ -25,36 +26,45 @@ from utils.managers.mod_log_manager import (
     set_mod_action_channel,
     set_pack,
 )
-from utils.settings import settings
-from views._components.base_view import BaseLayoutView
-from views._components.channel_select import ChannelSelect
+
+
+# ============================================================
+# 🥰 Emojis
+# ============================================================
 
 ICON_MODIFIER = "<:modifier:1495444144712192003>"
 ICON_VALIDER = "<:valider:1495444292867723284>"
 ICON_ANNULER = "<:annuler:1495444256754761979>"
 
-# Description affichée sous chaque pack — reprend le contenu cumulatif exact
-# demandé par Paul (chaque palier inclut le précédent).
+
+# ============================================================
+# 🔩 Paramètres
+# ============================================================
+
 PACK_DESCRIPTIONS: dict[str, str] = {
     "stagiaire": (
-        "Messages supprimés et modifiés, arrivées et départs, dons et retraits "
-        "de rôles, actions GuideON MOD."
+        "Messages supprimés et modifiés, arrivées et départs,\n"
+        "dons et retraits de rôles et actions GuideON MOD."
     ),
     "chercheur": (
-        "Logs Stagiaire + ajout, suppression et modification de salon et rôle, "
-        "connexion et déconnexion vocale, mise en muet, mise en sourdine, "
-        "expulsion et déplacement vocal par un modérateur, modification du "
-        "serveur, renommage."
+        "Pack Stagiaire + gestion des salons et des rôles,\n"
+        "connexion et déconnexion vocale, mise en muet/sourdine,\n"
+        "expulsion et déplacement vocal, modification du serveur et renommage."
     ),
     "espion": (
-        "Logs Chercheur + création, suppression et modification des emojis et "
-        "stickers, changements de nom et d'avatar, messages épinglés, boosts serveur."
+        "Logs Chercheur + création et suppression d'emojis et stickers,\n"
+        "changements de nom et d'avatar, boosts serveur, message\n."
+        "épinglé et désépinglé."
     ),
 }
 
 
+# ============================================================
+# 💻 Création de l'interface
+# ============================================================
+
 class LogsConfigView(BaseLayoutView):
-    """Panneau /mod logs : salon + sélection du pack actif."""
+    """Construction du /mod logs."""
 
     def __init__(self, *, guild: discord.Guild, moderator_id: int, cfg: dict | None = None):
         super().__init__(owner_id=moderator_id, timeout=300)
@@ -68,18 +78,14 @@ class LogsConfigView(BaseLayoutView):
         cfg = await load_log_config(guild.id)
         return cls(guild=guild, moderator_id=moderator_id, cfg=cfg)
 
-    # ------------------------------------------------------------------
-    # Construction
-    # ------------------------------------------------------------------
 
     def _build(self) -> None:
         self.clear_items()
 
         container = Container()
-        container.add_item(TextDisplay("# 📋 Configuration des logs"))
+        container.add_item(TextDisplay("# <:protect_config:1539608365704028340> Configuration des logs"))
         container.add_item(Separator())
 
-        # ── Salon ─────────────────────────────────────────
         channel_id = self.cfg.get("log_channel_id")
         channel_display = f"<#{channel_id}>" if channel_id else "`Non configuré`"
         select = ChannelSelect(
@@ -87,24 +93,22 @@ class LogsConfigView(BaseLayoutView):
             on_select=self._on_select_channel,
             channel_types=[discord.ChannelType.text, discord.ChannelType.news],
         )
-        container.add_item(TextDisplay(f"**📍 Salon de logs**\n-# {channel_display}"))
+        container.add_item(TextDisplay(f"**📍 Salon de logs** : -# {channel_display}"))
         container.add_item(ActionRow(select))
         container.add_item(Separator())
 
-        # ── Salon dédié : actions de modération uniquement ──
+
         mod_action_channel_id = self.cfg.get("mod_action_channel_id")
         mod_action_display = f"<#{mod_action_channel_id}>" if mod_action_channel_id else "`Non configuré`"
         mod_action_select = ChannelSelect(
-            placeholder="Choisir le salon dédié aux actions de modération",
+            placeholder="(Option) Choisir le salon de modération",
             on_select=self._on_select_mod_action_channel,
             channel_types=[discord.ChannelType.text, discord.ChannelType.news],
         )
         container.add_item(TextDisplay(
-            "**🛡️ Salon dédié — Actions de modération**\n"
-            f"-# {mod_action_display}\n"
-            "-# Optionnel. Une fois configuré, les actions de modération "
-            "(warn/mute/kick/ban/lock/…) y sont envoyées EN EXCLUSIVITÉ, "
-            "indépendamment du pack ci-dessous (même sans pack actif)."
+            f"**🛡️ Salon de modération** : -# {mod_action_display}\n"
+            "-# Une fois configuré, les actions de modération (warn/mute/ban …)\n"
+            " y sont envoyées exclusivement et indépendamment des pack."
         ))
         container.add_item(ActionRow(mod_action_select))
         if mod_action_channel_id:

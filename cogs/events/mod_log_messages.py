@@ -1,10 +1,10 @@
 """
-cogs/events/mod_log_messages.py — Logs /mod : messages (pack Stagiaire) + épinglage (pack Espion).
-
-commands.Cog avec setup() -> chargé automatiquement par _load_cogs_from_directory.
+cogs/events/mod_log_messages.py — Gestion des logs messages (delete/edit/pin/unpin).
 """
+
 from __future__ import annotations
 
+import asyncio
 import datetime
 import logging
 
@@ -15,7 +15,58 @@ from utils.managers.mod_log_manager import send_log
 
 log = logging.getLogger(__name__)
 
+
+# ============================================================
+# 🔩 Paramètres
+# ============================================================
+
 MAX_PREVIEW_LENGTH = 1000
+_AUDIT_LOOKUP_ATTEMPTS = 3
+_AUDIT_LOOKUP_DELAY = 0.6
+
+
+# ============================================================
+# ⚒️ Fonctions utilitaires
+# ============================================================
+
+async def _resolve_pin_action(guild: discord.Guild, channel: discord.abc.GuildChannel) -> tuple[str, str]:
+    """Détermine s'il s'agit d'un épinglage ou d'un désépinglage."""
+
+    if guild.me is None or not guild.me.guild_permissions.view_audit_log:
+        return "message_pin", "Un membre"
+
+    for attempt in range(_AUDIT_LOOKUP_ATTEMPTS):
+        best_entry = None
+        best_is_pin = True
+        try:
+            for action, is_pin in (
+                (discord.AuditLogAction.message_pin, True),
+                (discord.AuditLogAction.message_unpin, False),
+            ):
+                async for entry in guild.audit_logs(limit=5, action=action):
+                    entry_channel = getattr(entry.extra, "channel", None)
+                    if entry_channel is None or entry_channel.id != channel.id:
+                        continue
+                    if best_entry is None or entry.created_at > best_entry.created_at:
+                        best_entry, best_is_pin = entry, is_pin
+                    break
+
+        except discord.Forbidden:
+            return "message_pin", "Un membre"
+        
+        except discord.HTTPException:
+            log.debug("[MODLOG] Log indisponible pour l'épinglage (guild=%s)", guild.id)
+            return "message_pin", "Un membre"
+
+        if best_entry is not None:
+            event_key = "message_pin" if best_is_pin else "message_unpin"
+            actor = best_entry.user.mention if best_entry.user else "Un membre"
+            return event_key, actor
+
+        if attempt < _AUDIT_LOOKUP_ATTEMPTS - 1:
+            await asyncio.sleep(_AUDIT_LOOKUP_DELAY)
+
+    return "message_pin", "Un membre"
 
 
 def _preview(content: str | None) -> str:
@@ -26,6 +77,10 @@ def _preview(content: str | None) -> str:
         return content[:MAX_PREVIEW_LENGTH] + "…"
     return content
 
+
+# ============================================================
+# 🖥️ Logs des messages (delete/edit/pin/unpin ...)
+# ============================================================
 
 class ModLogMessages(commands.Cog):
     """Logs des messages supprimés/modifiés et des (dés)épinglages."""
@@ -81,15 +136,7 @@ class ModLogMessages(commands.Cog):
         if guild is None:
             return
 
-        actor = "Un membre"
-        try:
-            async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.message_pin):
-                actor = entry.user.mention if entry.user else actor
-                break
-        except discord.Forbidden:
-            pass
-        except discord.HTTPException:
-            log.debug("[MOD_LOG] Impossible de consulter l'audit-log pour l'épinglage (guild=%s)", guild.id)
+        event_key, actor = await _resolve_pin_action(guild, channel)
 
         pin_count = None
         try:
@@ -101,7 +148,7 @@ class ModLogMessages(commands.Cog):
         if pin_count is not None:
             fields.append(("Messages épinglés", str(pin_count), True))
 
-        await send_log(guild.id, "message_pin", fields)
+        await send_log(guild.id, event_key, fields)
 
 
 async def setup(bot: commands.Bot) -> None:
