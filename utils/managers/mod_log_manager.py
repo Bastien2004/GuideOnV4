@@ -75,6 +75,7 @@ EVENT_CATALOG: dict[str, tuple[str, str]] = {
     "user_rename": ("👤", "Nom d'utilisateur modifié"),
     "avatar_update": ("🖼️", "Avatar modifié"),
     "message_pin": ("📌", "Message épinglé"),
+    "message_unpin": ("📌", "Message désépinglé"),
     "boost": ("💎", "Boost serveur"),
 }
 
@@ -92,7 +93,7 @@ _CHERCHEUR_EVENTS = _STAGIAIRE_EVENTS + (
 _ESPION_EVENTS = _CHERCHEUR_EVENTS + (
     "emoji_create", "emoji_delete", "emoji_update",
     "sticker_create", "sticker_delete", "sticker_update",
-    "user_rename", "avatar_update", "message_pin", "boost",
+    "user_rename", "avatar_update", "message_pin", "message_unpin", "boost",
 )
 
 PACK_EVENTS: dict[str, frozenset[str]] = {
@@ -144,6 +145,7 @@ EVENT_COLORS: dict[str, discord.Color] = {
     "user_rename": _COLOR_UPDATE,
     "avatar_update": _COLOR_UPDATE,
     "message_pin": _COLOR_PIN,
+    "message_unpin": _COLOR_PIN,
     "boost": _COLOR_BOOST,
 }
 
