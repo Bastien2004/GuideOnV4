@@ -48,9 +48,9 @@ PACK_DESCRIPTIONS: dict[str, str] = {
         "dons et retraits de rôles et actions GuideON MOD."
     ),
     "chercheur": (
-        "Pack Stagiaire + gestion des salons et des rôles,\n"
+        "Pack Stagiaire + gestion des salons, rôles et serveur\n"
         "connexion et déconnexion vocale, mise en muet/sourdine,\n"
-        "expulsion et déplacement vocal, modification du serveur et renommage."
+        "expulsion et déplacement vocal, renommage."
     ),
     "espion": (
         "Logs Chercheur + création et suppression d'emojis et stickers,\n"
@@ -114,7 +114,7 @@ class LogsConfigView(BaseLayoutView):
         )
         mod_action_label = TextDisplay(
             f"**🛡️ Salon de modération** : {mod_action_display}\n"
-            "➥ Recense uniquement les actions de modération (warn/mute/ban …)"
+            "-# ➥ Recense uniquement les actions de modération (warn/mute/ban …)"
         )
         if mod_action_channel_id:
             btn_clear_mod_action = Button(style=ButtonStyle.danger, emoji="<:supprimer:1495444051623809075>")
@@ -125,7 +125,7 @@ class LogsConfigView(BaseLayoutView):
         container.add_item(ActionRow(mod_action_select))
         container.add_item(Separator())
 
-        container.add_item(TextDisplay("# 📦 Nos packs disponible"))
+        container.add_item(TextDisplay("# 📦 Nos packs disponible :"))
         container.add_item(Separator())
 
         selected_pack = self.cfg.get("selected_pack")
@@ -136,9 +136,8 @@ class LogsConfigView(BaseLayoutView):
             active = selected_pack == pack_key
             gold_locked = pack_key in GOLD_REQUIRED_PACKS and not server_is_gold
 
-            status = "🟢" if active else "⚫"
             gold_hint = " ✨" if pack_key in GOLD_REQUIRED_PACKS else ""
-            text = f"{status} {emoji} __**{label}**__{gold_hint}\n {PACK_DESCRIPTIONS[pack_key]}"
+            text = f"{emoji} __**{label}**__{gold_hint}\n {PACK_DESCRIPTIONS[pack_key]}"
 
             if gold_locked:
                 btn = Button(label="Gold+", style=ButtonStyle.secondary, emoji="✨")
