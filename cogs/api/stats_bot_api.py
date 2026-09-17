@@ -13,6 +13,8 @@ from pydantic import BaseModel
 from utils.managers import guild_stats_manager as gsm
 from cogs.api.base import app, require_token
 
+from utils.managers import ticket_manager as tm
+
 log = logging.getLogger(__name__)
 
 PeriodTotalsName = Literal["today", "yesterday", "week", "month", "year"]
@@ -74,6 +76,13 @@ class LeaderboardResponse(BaseModel):
     guild_id: int
     period: str
     entries: list[LeaderboardEntry]
+
+
+class TicketStatsResponse(BaseModel):
+    guild_id: int
+    open: int
+    closed: int
+    deleted: int
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -166,3 +175,22 @@ async def get_guild_message_leaderboard(
 
     entries = [{"user_id": user_id, "message_count": count} for user_id, count in rows]
     return {"guild_id": guild_id, "period": period, "entries": entries}
+
+@app.get(
+    "/stats/{guild_id}/tickets",
+    dependencies=[Depends(require_token)],
+    response_model=TicketStatsResponse,
+)
+async def get_guild_ticket_stats(request: Request, guild_id: int):
+    """Statistiques actuelles des tickets d'une guilde."""
+
+    open_count = await tm.count_open_tickets(guild_id)
+    closed_count = await tm.count_closed_tickets(guild_id)
+    deleted_count = await tm.count_deleted_tickets(guild_id)
+
+    return {
+        "guild_id": guild_id,
+        "open": open_count,
+        "closed": closed_count,
+        "deleted": deleted_count,
+    }
