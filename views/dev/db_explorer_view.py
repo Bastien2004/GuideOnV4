@@ -3,7 +3,10 @@ views/dev/db_explorer_view.py — Interface de /dev database.
 
 Deux écrans :
 - DBTableListView  : liste paginée (25 max/page — limite Discord d'un select)
-                     de toutes les tables connues du code (Base.metadata).
+                     de toutes les tables connues du code (Base.metadata),
+                     avec un bouton "Rechercher une table" (modal texte) car
+                     le select Discord ne permet pas de taper pour filtrer,
+                     et 71+ tables ne tiennent pas sur une seule page.
 - DBTableDetailView : colonnes + indices d'une table, avec aperçu (10
                       premières lignes) ou recherche par colonne/valeur
                       (modal), résultat affiché directement dans la vue.
@@ -43,18 +46,32 @@ MAX_COLUMNS_SHOWN_PER_ROW = 25  # garde-fou d'affichage pour les tables très la
 # ============================================================
 
 class DBTableListView(BaseLayoutView):
-    """Liste paginée des tables, sélectionnables via un menu déroulant."""
+    """
+    Liste paginée des tables (mode navigation), ou liste filtrée par nom
+    (mode recherche, activé via le bouton "Rechercher une table" — un select
+    Discord ne permet pas de taper pour filtrer, d'où le passage par un modal
+    texte plutôt que de compter sur la pagination pour trouver une table).
+    """
 
-    def __init__(self, *, owner_id: int, page: int = 0):
+    def __init__(self, *, owner_id: int, page: int = 0, filter_query: str | None = None):
         super().__init__(owner_id=owner_id, timeout=180)
         self.page = page
+        self.filter_query = filter_query or None
         self._select: Select | None = None
         self._build()
+
+    def _matching_names(self) -> list[str]:
+        names = list_table_names()
+        if not self.filter_query:
+            return names
+        needle = self.filter_query.lower()
+        return [n for n in names if needle in n.lower()]
 
     def _build(self) -> None:
         self.clear_items()
 
-        names = list_table_names()
+        all_count = len(list_table_names())
+        names = self._matching_names()
         total_pages = max(1, math.ceil(len(names) / TABLES_PER_PAGE))
         self.page = max(0, min(self.page, total_pages - 1))
         start = self.page * TABLES_PER_PAGE
@@ -64,23 +81,40 @@ class DBTableListView(BaseLayoutView):
         c.add_item(TextDisplay("# 🗄️ Explorateur BDD"))
         c.add_item(TextDisplay("-# Lecture seule — aucune écriture possible depuis cette interface."))
         c.add_item(Separator())
-        c.add_item(TextDisplay(f"**{len(names)} table(s)** enregistrée(s) dans le code — choisis-en une :"))
 
-        select = Select(
-            placeholder=f"Choisir une table (page {self.page + 1}/{total_pages})",
-            options=[discord.SelectOption(label=name) for name in current] or [
-                discord.SelectOption(label="—", value="—")
-            ],
-        )
-        select.callback = self._on_select_table
-        self._select = select
-        c.add_item(ActionRow(select))
+        if self.filter_query:
+            c.add_item(TextDisplay(
+                f"**Recherche `{self.filter_query}`** — {len(names)}/{all_count} table(s) correspondante(s)."
+            ))
+        else:
+            c.add_item(TextDisplay(f"**{all_count} table(s)** enregistrée(s) dans le code — choisis-en une :"))
+
+        if names:
+            select = Select(
+                placeholder=f"Choisir une table (page {self.page + 1}/{total_pages})",
+                options=[discord.SelectOption(label=name) for name in current],
+            )
+            select.callback = self._on_select_table
+            self._select = select
+            c.add_item(ActionRow(select))
+        else:
+            c.add_item(TextDisplay("*Aucune table ne correspond à cette recherche.*"))
+            self._select = None
 
         btn_prev = Button(emoji="◀️", style=ButtonStyle.secondary, disabled=(self.page <= 0))
         btn_next = Button(emoji="▶️", style=ButtonStyle.secondary, disabled=(self.page >= total_pages - 1))
         btn_prev.callback = self._on_prev
         btn_next.callback = self._on_next
         c.add_item(ActionRow(btn_prev, btn_next))
+
+        btn_search = Button(label="Rechercher une table", style=ButtonStyle.primary, emoji="🔍")
+        btn_search.callback = self._on_open_search
+        buttons = [btn_search]
+        if self.filter_query:
+            btn_clear = Button(label="Effacer la recherche", style=ButtonStyle.secondary, emoji="✖️")
+            btn_clear.callback = self._on_clear_search
+            buttons.append(btn_clear)
+        c.add_item(ActionRow(*buttons))
 
         c.add_item(Separator())
         c.add_item(TextDisplay("-# GuideOn Studio"))
@@ -97,9 +131,45 @@ class DBTableListView(BaseLayoutView):
         self._build()
         await self.push_update(interaction)
 
+    async def _on_open_search(self, interaction: discord.Interaction) -> None:
+        modal = DBTableSearchModal(on_submit=self._on_search_submit)
+        await interaction.response.send_modal(modal)
+
+    async def _on_search_submit(self, interaction: discord.Interaction, query: str) -> None:
+        query = query.strip()
+        if not query:
+            await self._on_clear_search(interaction)
+            return
+
+        matches = self._matching_names_for(query)
+        if len(matches) == 1:
+            # Un seul résultat : on va directement au détail, pas la peine
+            # de repasser par un select à une seule option.
+            detail_view = DBTableDetailView(owner_id=self.owner_id, table_name=matches[0], list_page=0, filter_query=query)
+            await detail_view.load()
+            await interaction.response.edit_message(view=detail_view)
+            return
+
+        self.filter_query = query
+        self.page = 0
+        self._build()
+        await interaction.response.edit_message(view=self)
+
+    async def _on_clear_search(self, interaction: discord.Interaction) -> None:
+        self.filter_query = None
+        self.page = 0
+        self._build()
+        await interaction.response.edit_message(view=self)
+
+    def _matching_names_for(self, query: str) -> list[str]:
+        needle = query.lower()
+        return [n for n in list_table_names() if needle in n.lower()]
+
     async def _on_select_table(self, interaction: discord.Interaction) -> None:
         table_name = self._select.values[0]
-        detail_view = DBTableDetailView(owner_id=self.owner_id, table_name=table_name, list_page=self.page)
+        detail_view = DBTableDetailView(
+            owner_id=self.owner_id, table_name=table_name, list_page=self.page, filter_query=self.filter_query
+        )
         await detail_view.load()
         await self.push_update(interaction, view=detail_view)
 
@@ -111,10 +181,11 @@ class DBTableListView(BaseLayoutView):
 class DBTableDetailView(BaseLayoutView):
     """Colonnes/indices d'une table + aperçu ou résultat de recherche."""
 
-    def __init__(self, *, owner_id: int, table_name: str, list_page: int = 0):
+    def __init__(self, *, owner_id: int, table_name: str, list_page: int = 0, filter_query: str | None = None):
         super().__init__(owner_id=owner_id, timeout=180)
         self.table_name = table_name
         self.list_page = list_page
+        self.filter_query = filter_query
         self.row_count: int | None = None
         self.result_rows: list[dict] | None = None
         self.result_title: str | None = None
@@ -221,12 +292,32 @@ class DBTableDetailView(BaseLayoutView):
         await interaction.response.edit_message(view=self)
 
     async def _on_back(self, interaction: discord.Interaction) -> None:
-        list_view = DBTableListView(owner_id=self.owner_id, page=self.list_page)
+        list_view = DBTableListView(owner_id=self.owner_id, page=self.list_page, filter_query=self.filter_query)
         await self.push_update(interaction, view=list_view)
 
 
 # ============================================================
-# 📝 Modal de recherche
+# 📝 Modal de recherche de table (menu de gauche, pallie l'absence de
+# saisie texte dans un select Discord)
+# ============================================================
+
+class DBTableSearchModal(Modal):
+    def __init__(self, *, on_submit) -> None:
+        super().__init__(title="Rechercher une table")
+        self._on_submit_cb = on_submit
+        self.query_input = TextInput(
+            label="Nom de la table (ou une partie)",
+            placeholder="ex: ng_server, ticket, mod_sanction...",
+            max_length=64,
+        )
+        self.add_item(self.query_input)
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        await self._on_submit_cb(interaction, self.query_input.value)
+
+
+# ============================================================
+# 📝 Modal de recherche (colonne / valeur, dans le détail d'une table)
 # ============================================================
 
 class DBSearchModal(Modal):
