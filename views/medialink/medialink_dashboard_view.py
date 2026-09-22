@@ -93,8 +93,6 @@ class MediaLinkHubView(BaseLayoutView):
                          description="Consulter les chiffres d'activité du serveur."),
             SelectOption(label="Logs", value="logs", emoji="🗒️",
                          description="Historique des événements et des erreurs."),
-            SelectOption(label="Configuration", value="settings", emoji=EMOJI_SETTINGS,
-                         description="Réglages globaux du module MédiaLink."),
         ]
         nav_select = Select(placeholder="Choisir une catégorie...", options=nav_options, min_values=1, max_values=1)
         nav_select.callback = self._cb_nav_select
