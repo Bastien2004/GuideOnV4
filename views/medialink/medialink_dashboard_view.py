@@ -30,7 +30,6 @@ EMOJI_ADD = "<:plus:1495444111505752154>"
 EMOJI_EDIT = "<:modifier:1495444144712192003>"
 EMOJI_DELETE = "<:supprimer:1495444051623809075>"
 EMOJI_BACK = "<:retour:1515658955190308995>"
-EMOJI_SETTINGS = "<:parametre:1495444004328706059>"
 
 class MediaLinkHubView(BaseLayoutView):
     """Page principale dashboard MediaLink"""
@@ -117,7 +116,6 @@ class MediaLinkHubView(BaseLayoutView):
             "templates": self._cb_open_templates,
             "statistics": self._cb_open_statistics,
             "logs": self._cb_open_logs,
-            "settings": self._cb_open_settings,
         }
         handler = handlers.get(value)
         if handler is not None:
