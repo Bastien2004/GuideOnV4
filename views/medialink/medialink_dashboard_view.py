@@ -83,16 +83,16 @@ class MediaLinkHubView(BaseLayoutView):
 
         # ── Navigation ──
         nav_options = [
-            SelectOption(label="Plateformes", value="platforms", emoji="🌐",
-                         description="Gérer les connexions YouTube, Twitch, TikTok, Reddit."),
-            SelectOption(label="Événements", value="events", emoji="⚡",
-                         description="Vue d'ensemble de toutes les règles configurées."),
-            SelectOption(label="Annonces", value="templates", emoji="📢",
-                         description="Gérer les templates de message."),
-            SelectOption(label="Statistiques", value="statistics", emoji="📊",
-                         description="Consulter les chiffres d'activité du serveur."),
-            SelectOption(label="Logs", value="logs", emoji="🗒️",
-                         description="Historique des événements et des erreurs."),
+            SelectOption(label="Plateformes", value="platforms", emoji="<:globe:1552036805925150900>",
+                         description="Gérer les connexions vers vos réseaux."),
+            SelectOption(label="Événements", value="events", emoji="<:analyser:1495446292963528798>",
+                         description="Gérer les types d'événements configurés."),
+            SelectOption(label="Annonces", value="templates", emoji="<:annonce:1552028020896698398>",
+                         description="Gérer les templates d'annonce."),
+            SelectOption(label="Statistiques", value="statistics", emoji="<:Stat:1547703142466982039>",
+                         description="Consulter les statistiques d'activités."),
+            SelectOption(label="Logs", value="logs", emoji="<:fichier_i:1539608464324567040>",
+                         description="Consulter votre historique du système."),
         ]
         nav_select = Select(placeholder="Choisir une catégorie...", options=nav_options, min_values=1, max_values=1)
         nav_select.callback = self._cb_nav_select
