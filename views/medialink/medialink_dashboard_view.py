@@ -202,7 +202,7 @@ class MediaLinkDashboardView(BaseLayoutView):
 
         add_btn = Button(label="Ajouter une connexion", style=ButtonStyle.success, emoji=EMOJI_ADD)
         add_btn.callback = self._cb_add_connection
-        back_btn = Button(label="Retour au hub", style=ButtonStyle.secondary, emoji=EMOJI_BACK)
+        back_btn = Button(label="Retour", style=ButtonStyle.secondary, emoji=EMOJI_BACK)
         back_btn.callback = self._cb_back
 
         container.add_item(ActionRow(add_btn, back_btn))

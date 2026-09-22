@@ -204,7 +204,6 @@ class ConnectionRulesView(BaseLayoutView):
             return
 
         if self.connection["platform"] in _PLATFORM_PROVIDERS:
-            # Provider réel : Select natifs plutôt qu'un Modal (cf. docstring).
             view = await AddRuleView.build(connection=self.connection, owner_id=self.owner_id)
             await self.push_update(interaction, view=view)
         else:
@@ -260,8 +259,6 @@ class AddRuleView(BaseLayoutView):
 
         event_options = _build_event_options(self.provider_cls.capabilities, self.event_catalog)
         if not event_options:
-            # Défense en profondeur : ne devrait pas arriver tant que la
-            # plateforme a au moins une capability, cf. son catalogue.
             event_options = [SelectOption(label="Aucun type disponible", value="__none__", emoji="⚠️", default=True)]
             event_disabled = True
             max_values = 1
@@ -371,8 +368,6 @@ class AddRuleView(BaseLayoutView):
             )
             return
 
-        # Une MediaRule par event_type coché, toutes sur le même salon
-        # et le même template — cf. docstring de classe.
         for event_type in self._event_types:
             await medialink_mgr.add_rule(
                 self.connection["id"],
@@ -390,11 +385,7 @@ class AddRuleView(BaseLayoutView):
 
 
 class GuildEventsOverviewView(BaseLayoutView):
-    """Écran "Événements" du hub — TOUTES les règles de la guild, toutes
-    connexions confondues, en lecture seule (§16 : vue d'ensemble). Pour
-    modifier une règle précise, on passe par Plateformes → Gérer → cette
-    connexion (ConnectionRulesView, ci-dessus) — pas de duplication du
-    flux d'édition ici, juste la vue d'ensemble qui manquait au hub."""
+    """Interface "Événements" du dashboard."""
 
     def __init__(self, *, guild_id: int, owner_id: int, rules: list[dict]):
         super().__init__(owner_id=owner_id, timeout=300)
@@ -409,31 +400,26 @@ class GuildEventsOverviewView(BaseLayoutView):
 
     def _build(self) -> None:
         container = Container()
-        container.add_item(TextDisplay("# ⚡ Événements"))
-        container.add_item(TextDisplay(f"-# {len(self.rules)} règle(s) configurée(s) sur ce serveur."))
+        container.add_item(TextDisplay("# <:Stat:1547703142466982039> Événements"))
         container.add_item(Separator())
 
         if not self.rules:
             container.add_item(
-                TextDisplay(
-                    "*Aucune règle configurée pour l'instant — ajoute une connexion "
-                    "puis une règle depuis l'écran Plateformes.*"
-                )
+                TextDisplay("*Aucune règle configurée pour l'instant*")
             )
         else:
             lines = []
             for rule in self.rules:
-                status_icon = "🟢" if rule.get("enabled", True) else "⚪"
                 platform_emoji = _PLATFORM_EMOJI.get(rule["connection_platform"], "🔗")
                 template_note = f"template #{rule['template_id']}" if rule.get("template_id") else "sans template"
                 lines.append(
-                    f"{status_icon} {platform_emoji} **{rule['connection_label']}** — "
-                    f"`{rule['event_type']}` → <#{rule['channel_id']}>\n-# {template_note}"
+                    f"{platform_emoji} **{rule['connection_label']}** — `{rule['event_type']}`\n"
+                    f"➣ <#{rule['channel_id']}> - {template_note}\n"
                 )
             container.add_item(TextDisplay("\n".join(lines)))
 
         container.add_item(Separator())
-        back_btn = Button(label="Retour au hub", style=ButtonStyle.secondary, emoji=EMOJI_BACK)
+        back_btn = Button(label="Retour", style=ButtonStyle.secondary, emoji=EMOJI_BACK)
         back_btn.callback = self._cb_back
         container.add_item(ActionRow(back_btn))
         container.add_item(Separator())
