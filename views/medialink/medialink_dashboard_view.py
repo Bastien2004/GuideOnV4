@@ -26,13 +26,6 @@ _PLATFORM_LABEL = {
     "reddit": "Reddit",
 }
 
-_STATUS_BADGE = {
-    "operational": "🟢 Opérationnel",
-    "degraded": "🟡 Dégradé",
-    "error": "🔴 Erreur",
-    "disabled": "⚪ Désactivé",
-}
-
 EMOJI_ADD = "<:plus:1495444111505752154>"
 EMOJI_EDIT = "<:modifier:1495444144712192003>"
 EMOJI_DELETE = "<:supprimer:1495444051623809075>"
@@ -160,12 +153,6 @@ class MediaLinkHubView(BaseLayoutView):
         view = await MediaLinkLogsView.build(guild=interaction.guild, owner_id=self.owner_id)
         await self.push_update(interaction, view=view)
 
-    async def _cb_open_settings(self, interaction: discord.Interaction) -> None:
-        from views.medialink.medialink_configuration_view import MediaLinkSettingsView
-
-        view = MediaLinkSettingsView(guild_id=self.guild_id, owner_id=self.owner_id)
-        await self.push_update(interaction, view=view)
-
 
 class MediaLinkDashboardView(BaseLayoutView):
     """Liste détaillée des connexions de la guild."""
@@ -205,12 +192,11 @@ class MediaLinkDashboardView(BaseLayoutView):
         for conn in self.connections:
             emoji = _PLATFORM_EMOJI.get(conn["platform"], "🔗")
             label = conn.get("external_username") or conn["external_id"]
-            status_badge = _STATUS_BADGE.get(conn.get("status", "operational"), conn.get("status"))
             manage_btn = Button(label="Gérer", style=ButtonStyle.secondary, emoji=EMOJI_EDIT)
             manage_btn.callback = self._cb_manage_connection(conn["id"])
             container.add_item(Section(
                 TextDisplay(
-                    f"**{emoji} {label}** — {status_badge}\n"
+                    f"**{emoji} {label}**\n"
                     f"-# `{conn['platform']}`"
                 ),
                 accessory=manage_btn,
