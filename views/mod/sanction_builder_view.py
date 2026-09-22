@@ -21,7 +21,7 @@ import discord
 from discord import ButtonStyle
 from discord.ui import ActionRow, Button, Container, Section, Separator, TextDisplay
 
-from utils.container_universel import error_container, success_container, warning_container
+from utils.container_universel import error_container, send_ephemeral, success_container, warning_container
 from utils.datetime_utils import format_duration, parse_duration
 from utils.managers.mod_sanction_manager import (
     MAX_MUTE_SECONDS,
@@ -310,6 +310,8 @@ class SanctionBuilderView(BaseLayoutView):
             await interaction.response.send_message(view=warning_container(refus), ephemeral=True)
             return
 
+        await interaction.response.defer()
+
         dm_sent = False
         if self.notify_mp:
             try:
@@ -326,18 +328,18 @@ class SanctionBuilderView(BaseLayoutView):
             sanction = await self._apply(dm_sent)
         except SanctionError as e:
             view = warning_container(e.message) if e.warning else error_container(e.message)
-            await interaction.response.send_message(view=view, ephemeral=True)
+            await send_ephemeral(interaction, view)
             return
         except Exception:
             log.exception(
                 "[SANCTION_BUILDER] Échec inattendu type=%s guild=%s user=%s",
                 self.sanction_type.value, self.guild.id, self.target.id,
             )
-            await interaction.response.send_message(
-                view=error_container(
+            await send_ephemeral(
+                interaction,
+                error_container(
                     f"Une erreur inattendue est survenue lors du **{_ACTION_LABEL[self.sanction_type]}**."
                 ),
-                ephemeral=True,
             )
             return
 
