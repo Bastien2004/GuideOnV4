@@ -1,21 +1,7 @@
 """
-views/medialink/medialink_announcement_view.py — liste + édition des
-MediaTemplate (§7, 4e concept "Announcement Template").
-
-── MISE EN FORME (2026-09, cadré avec Paul) ─────────────────────────
-container_config (accent_color/title/description/thumbnail_enabled) et
-buttons ont maintenant leur UI d'édition ci-dessous : EditContainerModal
-pour titre/description/couleur, un bouton toggle direct pour
-thumbnail_enabled (pas de Select possible dans un Modal — cf. maquette
-AddRuleView dans medialink_events_view.py pour le même constat), et
-AddButtonModal pour ajouter un bouton lien (suppression via un bouton
-par entrée). "Aperçu" envoie un rendu réel (utils/medialink/builders/
-announcement.py) construit avec un MediaEvent d'exemple, en éphémère —
-seul moyen fiable de vérifier visuellement la règle §7 ("ne jamais
-afficher une valeur nulle") sans attendre un vrai événement.
-
-content (texte libre) garde son fonctionnement d'origine, inchangé.
+views/medialink/medialink_announcement_view.py — Gestion des templates d'annonces.
 """
+
 from __future__ import annotations
 
 import discord
@@ -25,25 +11,26 @@ from discord.ui import ActionRow, Button, Container, Section, Separator, TextDis
 from utils.container_universel import error_container, info_container, send_ephemeral
 from utils.db.models.medialink_template import MediaTemplate
 from utils.managers import medialink_manager as medialink_mgr
+
 from utils.medialink.builders import announcement as announcement_builder
 from utils.medialink.builders.announcement import MAX_BUTTONS
 from utils.medialink.builders.placeholders import PLACEHOLDER_FIELDS
 from utils.medialink.event import MediaEvent
 from views._components.base_view import BaseLayoutView
 
+
+# ============================================================
+# 🥰 Emojis
+# ============================================================
+
 EMOJI_ADD = "<:plus:1495444111505752154>"
 EMOJI_EDIT = "<:modifier:1495444144712192003>"
 EMOJI_DELETE = "<:supprimer:1495444051623809075>"
 EMOJI_BACK = "<:retour:1515658955190308995>"
 
-# Événement d'exemple pour l'Aperçu (_cb_preview ci-dessous) — permet de
-# voir le rendu réel d'un template (titre/description/vignette/boutons)
-# sans attendre un vrai événement plateforme. Tous les placeholders
-# connus (PLACEHOLDER_FIELDS) ont volontairement une valeur non vide ici,
-# pour que l'aperçu montre le template "au mieux" ; un vrai événement
-# peut avoir moins de champs disponibles (cf. §7 dans placeholders.py).
+
 _PREVIEW_EVENT = MediaEvent(
-    platform="youtube",
+    platform="Youtube",
     event_type="new_post",
     external_id="preview",
     title="Titre de la vidéo (exemple)",
@@ -55,8 +42,7 @@ _PREVIEW_EVENT = MediaEvent(
 
 
 class CreateTemplateModal(discord.ui.Modal):
-    """Création d'un template — juste un nom pour l'instant, le texte
-    s'édite ensuite depuis TemplateEditView (cf. EditContentModal)."""
+    """Création d'un template."""
 
     def __init__(self, *, guild_id: int, owner_id: int):
         super().__init__(title="Créer un template")
@@ -82,14 +68,14 @@ class EditContentModal(discord.ui.Modal):
     """Édition du texte libre (`content`) d'un template existant."""
 
     def __init__(self, *, template: dict, owner_id: int):
-        super().__init__(title="Modifier le texte du template")
+        super().__init__(title="Modifier le texte")
         self.template = template
         self.owner_id = owner_id
 
         self.content_input = discord.ui.TextInput(
             label="Texte de l'annonce",
             style=discord.TextStyle.paragraph,
-            placeholder="Ex : 🎬 Nouvelle vidéo de {auteur} : {titre}",
+            placeholder="Ex : <:clip:1552026756893114440> Nouvelle vidéo de {auteur} : {titre}",
             default=template.get("content") or "",
             required=False,
             max_length=2000,
@@ -97,13 +83,9 @@ class EditContentModal(discord.ui.Modal):
         self.add_item(self.content_input)
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
-        updated = await medialink_mgr.update_template(
-            self.template["id"], content=self.content_input.value.strip() or None,
-        )
+        updated = await medialink_mgr.update_template(self.template["id"], content=self.content_input.value.strip() or None)
+
         if updated is None:
-            # Le template a été supprimé entre l'ouverture du Modal et sa
-            # validation (concurrence) — retour propre à la liste plutôt
-            # qu'un crash sur un template qui n'existe plus.
             view = await TemplateListView.build(guild_id=self.template["guild_id"], owner_id=self.owner_id)
             await interaction.response.edit_message(view=view)
             return
@@ -113,10 +95,7 @@ class EditContentModal(discord.ui.Modal):
 
 
 class EditContainerModal(discord.ui.Modal):
-    """Édition de container_config (titre/description/couleur) — pas
-    thumbnail_enabled, qui se bascule directement par bouton sur
-    TemplateEditView (cf. _cb_toggle_thumbnail) puisqu'un booléen n'a pas
-    sa place dans un Modal."""
+    """Édition du container."""
 
     def __init__(self, *, template: dict, owner_id: int):
         super().__init__(title="Modifier la mise en forme")
@@ -126,7 +105,7 @@ class EditContainerModal(discord.ui.Modal):
 
         self.title_input = discord.ui.TextInput(
             label="Titre (optionnel)",
-            placeholder="Ex : 🎬 Nouvelle vidéo",
+            placeholder="Ex : <:clip:1552026756893114440> Nouvelle vidéo",
             default=config.get("title") or "",
             required=False,
             max_length=256,
@@ -161,10 +140,7 @@ class EditContainerModal(discord.ui.Modal):
                     raise ValueError
             except ValueError:
                 await interaction.response.send_message(
-                    view=error_container(
-                        "Couleur invalide — utilise un code hexadécimal à 6 "
-                        "caractères, ex : `#5865F2`."
-                    ),
+                    view=error_container("Couleur **invalide** — utilise de l'__hexadécimal__ , ex : `#5865F2`."),
                     ephemeral=True,
                 )
                 return
@@ -186,8 +162,7 @@ class EditContainerModal(discord.ui.Modal):
 
 
 class AddButtonModal(discord.ui.Modal):
-    """Ajout d'un bouton lien (label + URL) à `buttons` — rendu en
-    ActionRow de Button(style=link) par announcement.py."""
+    """Ajout d'un bouton lien."""
 
     def __init__(self, *, template: dict, owner_id: int):
         super().__init__(title="Ajouter un bouton")
@@ -196,7 +171,7 @@ class AddButtonModal(discord.ui.Modal):
 
         self.label_input = discord.ui.TextInput(
             label="Texte du bouton",
-            placeholder="Ex : Voir la vidéo",
+            placeholder="Ex : <:lien:1552027533032034394> Voir la vidéo",
             required=True,
             max_length=80,
         )
@@ -240,8 +215,7 @@ class AddButtonModal(discord.ui.Modal):
 
 
 class TemplateListView(BaseLayoutView):
-    """Liste des templates d'une guild — point d'entrée (§16, accessible
-    depuis le dashboard, cf. medialink_dashboard_view.py)."""
+    """Liste des templates d'une guild."""
 
     def __init__(self, *, guild_id: int, owner_id: int, templates: list[dict]):
         super().__init__(owner_id=owner_id, timeout=300)
@@ -256,8 +230,7 @@ class TemplateListView(BaseLayoutView):
 
     def _build(self) -> None:
         container = Container()
-        container.add_item(TextDisplay("# 📢 Annonces"))
-        container.add_item(TextDisplay(f"-# {len(self.templates)} template(s) créé(s) sur ce serveur."))
+        container.add_item(TextDisplay("# <:annonce:1552028020896698398> Templates d'annonce"))
         container.add_item(Separator())
 
         if not self.templates:
@@ -269,8 +242,9 @@ class TemplateListView(BaseLayoutView):
                 preview = (tpl.get("content") or "*(vide)*").replace("\n", " ")
                 if len(preview) > 80:
                     preview = preview[:77] + "…"
+                    
                 container.add_item(Section(
-                    TextDisplay(f"**📝 {tpl['name']}**\n-# {preview}{_extras_label(tpl)}"),
+                    TextDisplay(f'**📝 {tpl['name']}**\n-# ➤ Template "{tpl['name']}"'),
                     accessory=edit_btn,
                 ))
 
@@ -306,24 +280,8 @@ class TemplateListView(BaseLayoutView):
         await self.push_update(interaction, view=view)
 
 
-def _extras_label(tpl: dict) -> str:
-    """Petite indication " · mise en forme, 2 bouton(s)" dans la liste,
-    pour distinguer d'un coup d'œil un template texte simple d'un
-    template avec container_config/buttons — sans avoir à ouvrir
-    chacun."""
-    config = tpl.get("container_config") or {}
-    extras = []
-    if config.get("title") or config.get("description"):
-        extras.append("mise en forme")
-    buttons = tpl.get("buttons") or []
-    if buttons:
-        extras.append(f"{len(buttons)} bouton(s)")
-    return f" · {', '.join(extras)}" if extras else ""
-
-
 class TemplateEditView(BaseLayoutView):
-    """Édition d'un template : texte libre (content), mise en forme
-    Components V2 (container_config) et boutons (buttons)."""
+    """Édition d'un template."""
 
     def __init__(self, *, template: dict, owner_id: int):
         super().__init__(owner_id=owner_id, timeout=300)
@@ -334,21 +292,19 @@ class TemplateEditView(BaseLayoutView):
         self.clear_items()
 
         container = Container()
-        container.add_item(TextDisplay(f"# ✏️ {self.template.get('name', 'Sans nom')}"))
+        container.add_item(TextDisplay(f"# <:modifier:1495444144712192003> {self.template.get('name', 'Sans nom')}"))
         container.add_item(Separator())
 
         placeholders_help = ", ".join(f"`{{{p}}}`" for p in PLACEHOLDER_FIELDS)
         container.add_item(TextDisplay(f"**Placeholders disponibles**\n-# {placeholders_help}"))
         container.add_item(Separator())
 
-        # ── Texte libre ────────────────────────────────────────────
         content = self.template.get("content") or "*(vide)*"
         edit_content_btn = Button(label="Modifier", style=ButtonStyle.secondary, emoji=EMOJI_EDIT)
         edit_content_btn.callback = self._cb_edit_content
         container.add_item(Section(TextDisplay(f"**Texte libre**\n>>> {content}"), accessory=edit_content_btn))
         container.add_item(Separator())
 
-        # ── Mise en forme (container_config) ─────────────────────────
         config = self.template.get("container_config") or {}
         title = config.get("title") or "*(aucun)*"
         description = config.get("description") or "*(aucune)*"
@@ -379,14 +335,13 @@ class TemplateEditView(BaseLayoutView):
         ))
         container.add_item(Separator())
 
-        # ── Boutons ───────────────────────────────────────────────
         buttons = self.template.get("buttons") or []
         container.add_item(TextDisplay(f"**Boutons** ({len(buttons)}/{MAX_BUTTONS})"))
         for index, btn in enumerate(buttons):
             remove_btn = Button(style=ButtonStyle.danger, emoji=EMOJI_DELETE)
             remove_btn.callback = self._cb_remove_button(index)
             container.add_item(Section(
-                TextDisplay(f"🔗 **{btn.get('label', '(sans texte)')}**\n-# {btn.get('url', '')}"),
+                TextDisplay(f"<:lien:1552027533032034394> **{btn.get('label', '(sans texte)')}**\n-# {btn.get('url', '')}"),
                 accessory=remove_btn,
             ))
 
@@ -456,10 +411,6 @@ class TemplateEditView(BaseLayoutView):
         return _callback
 
     async def _cb_preview(self, interaction: discord.Interaction) -> None:
-        # MediaTemplate transitoire (jamais ajouté à une session, jamais
-        # persisté) : announcement_builder.build() ne lit que
-        # content/container_config/buttons, une instance en mémoire à
-        # partir du dict suffit — pas besoin d'aller rechercher en base.
         transient = MediaTemplate(
             id=self.template["id"],
             guild_id=self.template["guild_id"],
@@ -474,7 +425,7 @@ class TemplateEditView(BaseLayoutView):
         if not kwargs:
             await send_ephemeral(
                 interaction,
-                info_container("Ce template est vide pour l'instant — rien à prévisualiser."),
+                info_container("Ce **template** n'est pas encore __construit__."),
             )
             return
 
