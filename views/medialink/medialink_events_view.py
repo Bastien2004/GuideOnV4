@@ -8,18 +8,27 @@ RESTYLÉ (2026-09) — mêmes conventions que medialink_dashboard_view.py :
 émotes custom du serveur, ActionRow pour les rangées de boutons, lignes
 "**gras** — état" / "-# sous-texte".
 
-── YOUTUBE : SELECT NATIFS (2026-09, Provider réel branché) ─────────
-Pour une connexion YouTube (cf. medialink_platforms_view.py, même date),
-"Ajouter une règle" n'ouvre plus le Modal manuel mais AddRuleView
-(ci-dessous) : un Select pour l'event_type — rempli depuis
-YouTubeProvider.capabilities, comme prévu par le TODO d'origine, donc il
-suit automatiquement les capabilities réelles du Provider — un
-ChannelSelect natif Discord pour le salon (composant partagé
+── YOUTUBE / TWITCH : SELECT NATIFS (2026-09, Providers réels) ──────
+Pour une connexion dont le Provider est réel (cf. medialink_platforms_
+view.py), "Ajouter une règle" n'ouvre plus le Modal manuel mais
+AddRuleView (ci-dessous) : un Select pour l'event_type — rempli depuis
+`{Provider}.capabilities`, croisé avec le catalogue d'event_type propre
+à la plateforme (_PLATFORM_EVENT_CATALOGS ci-dessous), donc il suit
+automatiquement les capabilities réelles du Provider — un ChannelSelect
+natif Discord pour le salon (composant partagé
 views/_components/channel_select.py, déjà utilisé ailleurs dans le bot,
 ex. views/mod/logs_config_view.py), et un Select pour le template
 existant. Un Modal Discord ne pouvant pas contenir de Select (limite de
 l'API), ça ne pouvait pas rester un Modal une fois ces 3 champs
 transformés en Select — d'où cet écran séparé (confirmé avec Paul).
+
+Généralisé à Twitch (2026-09, Provider réel branché, cf.
+medialink_platforms_view.py même date) : AddRuleView ne connaissait que
+YouTube en dur (YouTubeProvider.capabilities, _YOUTUBE_EVENT_CATALOG) —
+remplacé par _PLATFORM_PROVIDERS / _PLATFORM_EVENT_CATALOGS, deux dicts
+indexés par platform, pour que l'ajout d'une plateforme suivante
+(TikTok, Reddit, une fois leurs Providers livrés) se fasse en ajoutant
+une entrée à ces deux dicts plutôt qu'en dupliquant la classe.
 
 ── ÉVÉNEMENT(S) : SÉLECTION MULTIPLE (2026-09) ────────────────────────
 BUG DE FOND CORRIGÉ : un Short YouTube (vidéo ≤180s, cf.
@@ -40,14 +49,17 @@ choisit "Nouvelle vidéo" ET "Nouveau Short" en une fois, sur le même
 salon/template choisis une seule fois, et _cb_confirm crée une MediaRule
 par event_type sélectionné. Reste un choix explicite de l'admin (il peut
 tout aussi bien ne cocher que "Live" s'il ne veut pas des Shorts), pas
-une création silencieuse en son nom.
+une création silencieuse en son nom. Pour Twitch, un seul event_type
+existe en V1 (twitch.live_started) — le Select reste utilisable en
+sélection unique, rien de spécifique à gérer.
 
-── TWITCH / TIKTOK / REDDIT : TOUJOURS EN AJOUT MANUEL (provisoire) ──
+── TIKTOK / REDDIT : TOUJOURS EN AJOUT MANUEL (provisoire) ──────────
 Leurs Providers sont encore des stubs (cf. medialink_platforms_view.py) :
 AddRuleModal (Modal, saisie manuelle par TextInput) reste le flux pour
-ces 3 plateformes, cf. _cb_add_rule qui dispatche selon la plateforme de
-la connexion. À basculer vers AddRuleView au même principe que YouTube
-au fur et à mesure que Bastien livre chaque Provider.
+ces 2 plateformes, cf. _cb_add_rule qui dispatche selon la plateforme de
+la connexion (présence ou non dans _PLATFORM_PROVIDERS). À basculer vers
+AddRuleView au même principe que YouTube/Twitch au fur et à mesure que
+Bastien livre chaque Provider.
 """
 from __future__ import annotations
 
@@ -58,7 +70,8 @@ from discord.ui import ActionRow, Button, Container, Section, Select, Separator,
 from utils.container_universel import error_container, send_ephemeral
 from utils.db.models.medialink_connection import MediaPlatform
 from utils.managers import medialink_manager as medialink_mgr
-from utils.medialink.providers.base import ProviderCapabilities
+from utils.medialink.providers.base import BaseMediaProvider, ProviderCapabilities
+from utils.medialink.providers.twitch import TwitchProvider
 from utils.medialink.providers.youtube import YouTubeProvider
 from views._components.base_view import BaseLayoutView
 from views._components.channel_select import ChannelSelect
@@ -76,20 +89,44 @@ _PLATFORM_EMOJI = {
     "reddit": "🔴",
 }
 
-# capability → (event_type, label affiché, emoji) — un seul provider réel
-# pour l'instant (YouTube), mais la liste d'options se déduit de ses
-# capabilities réelles plutôt que d'être figée en dur (cf. docstring).
+# capability → (event_type, label affiché, emoji) — un catalogue par
+# plateforme dont le Provider est réel ; la liste d'options affichée se
+# déduit des capabilities RÉELLES du Provider (cf. _build_event_options),
+# pas figée en dur indépendamment de ce que le Provider sait faire.
 _YOUTUBE_EVENT_CATALOG: list[tuple[ProviderCapabilities, str, str, str]] = [
     (ProviderCapabilities.NEW_POST, "youtube.video_published", "Nouvelle vidéo", "▶️"),
     (ProviderCapabilities.SHORT_FORM, "youtube.short_published", "Nouveau Short", "🎬"),
     (ProviderCapabilities.LIVE_STATUS, "youtube.live_started", "Passage en live", "🔴"),
 ]
 
+# Twitch V1 : LIVE_STATUS uniquement (cf. providers/twitch.py, portée V1
+# décidée avec l'équipe) — un seul event_type pour l'instant, mais reste
+# une liste pour rester au même format que les autres catalogues et
+# accueillir VOD/Clips plus tard sans changer la structure.
+_TWITCH_EVENT_CATALOG: list[tuple[ProviderCapabilities, str, str, str]] = [
+    (ProviderCapabilities.LIVE_STATUS, "twitch.live_started", "Passage en live", "🟣"),
+]
 
-def _build_event_options(capabilities: ProviderCapabilities) -> list[SelectOption]:
+# Plateformes dont le Provider est réel : Select natifs (AddRuleView) au
+# lieu du Modal manuel — cf. medialink_platforms_view.py::_VERIFIED_PLATFORMS,
+# même principe/mêmes plateformes des deux côtés.
+_PLATFORM_PROVIDERS: dict[str, type[BaseMediaProvider]] = {
+    MediaPlatform.YOUTUBE.value: YouTubeProvider,
+    MediaPlatform.TWITCH.value: TwitchProvider,
+}
+_PLATFORM_EVENT_CATALOGS: dict[str, list[tuple[ProviderCapabilities, str, str, str]]] = {
+    MediaPlatform.YOUTUBE.value: _YOUTUBE_EVENT_CATALOG,
+    MediaPlatform.TWITCH.value: _TWITCH_EVENT_CATALOG,
+}
+
+
+def _build_event_options(
+    capabilities: ProviderCapabilities,
+    catalog: list[tuple[ProviderCapabilities, str, str, str]],
+) -> list[SelectOption]:
     return [
         SelectOption(label=label, value=event_type, emoji=emoji)
-        for cap, event_type, label, emoji in _YOUTUBE_EVENT_CATALOG
+        for cap, event_type, label, emoji in catalog
         if cap in capabilities
     ]
 
@@ -230,7 +267,7 @@ class ConnectionRulesView(BaseLayoutView):
         return _callback
 
     async def _cb_add_rule(self, interaction: discord.Interaction) -> None:
-        if self.connection["platform"] == MediaPlatform.YOUTUBE.value:
+        if self.connection["platform"] in _PLATFORM_PROVIDERS:
             # Provider réel : Select natifs plutôt qu'un Modal (cf. docstring).
             view = await AddRuleView.build(connection=self.connection, owner_id=self.owner_id)
             await self.push_update(interaction, view=view)
@@ -255,24 +292,34 @@ class ConnectionRulesView(BaseLayoutView):
 
 class AddRuleView(BaseLayoutView):
     """Ajout d'une (ou plusieurs) règle(s) pour une connexion dont le
-    Provider est réel (YouTube actuellement, cf. docstring de module) :
-    un Select MULTI-sélection pour le/les event_type(s), un ChannelSelect
-    natif Discord pour le salon, et un Select pour le template existant.
-    Impossible de tout mettre dans un Modal Discord (qui ne peut pas
-    contenir de Select), donc le choix se fait par rerender successifs
-    de cette même vue, au même principe que
+    Provider est réel (YouTube et Twitch actuellement, cf. docstring de
+    module) : un Select MULTI-sélection pour le/les event_type(s), un
+    ChannelSelect natif Discord pour le salon, et un Select pour le
+    template existant. Impossible de tout mettre dans un Modal Discord
+    (qui ne peut pas contenir de Select), donc le choix se fait par
+    rerender successifs de cette même vue, au même principe que
     views/mod/logs_config_view.py::_refresh.
+
+    Le Provider et le catalogue d'event_type utilisés se déduisent de
+    connection["platform"] via _PLATFORM_PROVIDERS / _PLATFORM_EVENT_
+    CATALOGS (cf. docstring de module) — rien de spécifique à une
+    plateforme n'est codé en dur dans cette classe.
 
     Sélection multiple du type d'événement (2026-09, cf. docstring de
     module) : évite qu'un admin crée une règle "Nouvelle vidéo" sans
     penser à "Nouveau Short" à côté — même salon/template, un seul choix
-    d'un coup, une MediaRule créée par event_type coché.
+    d'un coup, une MediaRule créée par event_type coché. Pour une
+    plateforme à un seul event_type (Twitch V1), le Select reste en
+    sélection unique — max_values suit simplement le nombre d'options
+    disponibles.
     """
 
     def __init__(self, *, connection: dict, owner_id: int, templates: list[dict]):
         super().__init__(owner_id=owner_id, timeout=300)
         self.connection = connection
         self.templates = templates
+        self.provider_cls = _PLATFORM_PROVIDERS[connection["platform"]]
+        self.event_catalog = _PLATFORM_EVENT_CATALOGS[connection["platform"]]
         self._event_types: list[str] = []
         self._channel_id: int | None = None
         self._template_id: int | None = None
@@ -296,10 +343,10 @@ class AddRuleView(BaseLayoutView):
         ))
         container.add_item(Separator())
 
-        event_options = _build_event_options(YouTubeProvider.capabilities)
+        event_options = _build_event_options(self.provider_cls.capabilities, self.event_catalog)
         if not event_options:
-            # Défense en profondeur : ne devrait pas arriver tant que
-            # YouTube a au moins une capability, cf. _YOUTUBE_EVENT_CATALOG.
+            # Défense en profondeur : ne devrait pas arriver tant que la
+            # plateforme a au moins une capability, cf. son catalogue.
             event_options = [SelectOption(label="Aucun type disponible", value="__none__", emoji="⚠️", default=True)]
             event_disabled = True
             max_values = 1
@@ -372,7 +419,7 @@ class AddRuleView(BaseLayoutView):
             return "`Non choisi`"
         labels = []
         for event_type in self._event_types:
-            match = next((label for _, et, label, _ in _YOUTUBE_EVENT_CATALOG if et == event_type), None)
+            match = next((label for _, et, label, _ in self.event_catalog if et == event_type), None)
             labels.append(f"{match} (`{event_type}`)" if match else f"`{event_type}`")
         return " · ".join(labels)
 
