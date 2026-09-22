@@ -1,39 +1,8 @@
 """
 views/medialink/medialink_platforms_view.py — ajout/suppression d'une
 connexion (compte/chaîne suivi sur une plateforme), §6.
-
-── YOUTUBE : PROVIDER RÉEL BRANCHÉ (2026-09) ─────────────────────────
-utils/medialink/providers/youtube.py n'est plus un stub (Bastien) : pour
-YouTube, AddConnectionModal appelle désormais get_account(external_id)
-(YouTubeProvider) avant de persister — un seul appel API qui fait à la
-fois la validation (lève ProviderNotFoundError si la chaîne n'existe
-pas) et le pré-remplissage de external_username/avatar_url/external_url,
-donc plus besoin de demander le nom affiché à la main pour YouTube (cf.
-_submit_youtube ci-dessous). validate_account() séparément n'est donc
-plus nécessaire ici (get_account() fait déjà l'équivalent).
-
-── TWITCH : PROVIDER RÉEL BRANCHÉ (2026-09) ──────────────────────────
-utils/medialink/providers/twitch.py n'est plus un stub non plus : même
-principe que YouTube (cf. _submit_twitch), avec deux différences :
-  - le champ saisi est un pseudo Twitch, pas un ID/handle ;
-  - contrairement à YouTubeProvider, TwitchProvider.connect() attend
-    directement l'ID NUMÉRIQUE déjà résolu par get_account() (cf. sa
-    docstring de module) — donc account.external_id se réutilise tel
-    quel pour connect(), pas de retraitement supplémentaire ici.
-ProviderAuthError/ProviderNotFoundError sont définies séparément dans
-youtube.py ET twitch.py (même nom, cf. leurs docstrings respectives —
-temporaire en attendant un errors.py partagé) : importées ci-dessous
-avec des alias pour ne pas se marcher dessus dans ce fichier qui utilise
-les deux Providers.
-
-── TIKTOK / REDDIT : TOUJOURS EN AJOUT MANUEL (provisoire) ───────────
-Leurs Providers respectifs (utils/medialink/providers/{tiktok,
-reddit}.py) sont encore des stubs (NotImplementedError) — ces 2
-plateformes gardent donc le flux manuel d'origine : external_id + nom
-affiché saisis à la main, SANS validation côté plateforme. À basculer
-plateforme par plateforme au même principe que YouTube/Twitch au fur et
-à mesure que Bastien livre chaque Provider (cf. _submit_manual).
 """
+
 from __future__ import annotations
 
 import logging
@@ -44,7 +13,7 @@ from discord import ButtonStyle, SelectOption
 from discord.ui import ActionRow, Button, Container, Select, Separator, TextDisplay
 from sqlalchemy.exc import IntegrityError
 
-from utils.container_universel import error_container, send_ephemeral
+from utils.container_universel import error_container, send_ephemeral, warning_container
 from utils.db.models.medialink_connection import MediaPlatform
 from utils.managers import medialink_manager as medialink_mgr
 from utils.medialink import event_manager
@@ -64,16 +33,34 @@ log = logging.getLogger(__name__)
 
 EMOJI_BACK = "<:retour:1515658955190308995>"
 
-# Plateformes dont le Provider est réel (validation + pré-remplissage via
-# l'API) — les autres restent en ajout manuel, cf. _submit_manual.
-_VERIFIED_PLATFORMS = (MediaPlatform.YOUTUBE.value, MediaPlatform.TWITCH.value)
 
-_PLATFORM_OPTIONS = [
-    SelectOption(label="YouTube", value=MediaPlatform.YOUTUBE.value, emoji="▶️"),
-    SelectOption(label="Twitch", value=MediaPlatform.TWITCH.value, emoji="🟣"),
-    SelectOption(label="TikTok", value=MediaPlatform.TIKTOK.value, emoji="🎵"),
-    SelectOption(label="Reddit", value=MediaPlatform.REDDIT.value, emoji="👽"),
+_VERIFIED_PLATFORMS = (MediaPlatform.YOUTUBE.value, MediaPlatform.TWITCH.value)
+_UNAVAILABLE_PREFIX = "__unavailable__"
+
+_PLATFORM_LABELS: list[tuple[MediaPlatform, str, str]] = [
+    (MediaPlatform.YOUTUBE, "YouTube", "▶️"),
+    (MediaPlatform.TWITCH, "Twitch", "🟣"),
+    (MediaPlatform.TIKTOK, "TikTok", "🎵"),
+    (MediaPlatform.REDDIT, "Reddit", "👽"),
 ]
+
+
+def _build_platform_options() -> list[SelectOption]:
+    options: list[SelectOption] = []
+    for platform, label, emoji in _PLATFORM_LABELS:
+        if platform.value in medialink_mgr.BLOCKED_PLATFORMS:
+            options.append(SelectOption(
+                label=label,
+                description="Bientôt disponible",
+                value=f"{_UNAVAILABLE_PREFIX}{platform.value}",
+                emoji=emoji,
+            ))
+        else:
+            options.append(SelectOption(label=label, value=platform.value, emoji=emoji))
+    return options
+
+
+_PLATFORM_OPTIONS = _build_platform_options()
 
 
 class AddConnectionModal(discord.ui.Modal):
@@ -160,10 +147,6 @@ class AddConnectionModal(discord.ui.Modal):
         await interaction.response.edit_message(view=view)
 
     async def _submit_youtube(self, interaction: discord.Interaction, external_id: str) -> None:
-        # L'appel API peut prendre plus que les 3s allouées à une réponse
-        # d'interaction directe — defer() d'abord, comme le reste du bot
-        # le fait déjà pour un appel externe depuis un Modal/bouton (cf.
-        # ex. views/ngstaff/config_role_react_view.py::_on_deploy).
         await interaction.response.defer(ephemeral=True)
 
         provider = YouTubeProvider()
@@ -214,16 +197,6 @@ class AddConnectionModal(discord.ui.Modal):
                 error_container(f"**{account.username or external_id}** est déjà connectée sur ce serveur."),
             )
             return
-
-        # Immunise contre un envoi rétroactif (BUG CORRIGÉ 2026-09, cf.
-        # event_manager.seed_baseline_events) : les vidéos déjà publiées
-        # AVANT la connexion ne doivent JAMAIS être annoncées, même si une
-        # règle "vidéo publiée" est configurée juste après — sans ce
-        # `connect()` + `fetch_events()` immédiat, le 1er passage du
-        # Scheduler prendrait tout l'historique existant pour du "nouveau".
-        # Ne bloque pas la création de la connexion en cas d'échec (réseau,
-        # quota...) : la connexion reste utilisable, seul ce filet de
-        # sécurité anti-rétroactif n'aura pas pu être posé pour cette fois.
         try:
             await provider.connect(account.external_id)
             baseline_events = await provider.fetch_events()
@@ -242,8 +215,6 @@ class AddConnectionModal(discord.ui.Modal):
         await interaction.edit_original_response(view=view)
 
     async def _submit_twitch(self, interaction: discord.Interaction, external_id: str) -> None:
-        # Même raison que _submit_youtube : l'appel API peut dépasser les
-        # 3s allouées à une réponse d'interaction directe.
         await interaction.response.defer(ephemeral=True)
 
         provider = TwitchProvider()
@@ -291,15 +262,6 @@ class AddConnectionModal(discord.ui.Modal):
                 error_container(f"**{account.username or external_id}** est déjà connectée sur ce serveur."),
             )
             return
-
-        # Même immunisation anti-rétroactif que YouTube (cf. son
-        # commentaire), mais pour un live déjà en cours au moment de la
-        # connexion : sans ça, le 1er passage du Scheduler trouverait le
-        # stream déjà live et le prendrait pour un "nouveau" live_started,
-        # alors qu'il n'a fait que le découvrir en cours de route.
-        # TwitchProvider.connect() attend directement l'ID numérique déjà
-        # résolu (account.external_id) — pas de retraitement nécessaire,
-        # contrairement à un éventuel @handle YouTube.
         try:
             await provider.connect(account.external_id)
             baseline_events = await provider.fetch_events()
@@ -333,8 +295,7 @@ class AddConnectionView(BaseLayoutView):
             TextDisplay(
                 "-# YouTube et Twitch : vérifiés automatiquement (nom et "
                 "avatar récupérés depuis le compte). TikTok, Reddit : "
-                "ajout manuel pour l'instant, sans vérification côté "
-                "plateforme."
+                "bientôt disponibles."
             )
         )
         container.add_item(Separator())
@@ -355,6 +316,14 @@ class AddConnectionView(BaseLayoutView):
 
     async def _cb_platform_chosen(self, interaction: discord.Interaction) -> None:
         platform = interaction.data["values"][0]
+
+        if platform.startswith(_UNAVAILABLE_PREFIX):
+            await interaction.response.send_message(
+                view=warning_container("🚧 Cette plateforme sera **bientôt disponible**."),
+                ephemeral=True,
+            )
+            return
+
         modal = AddConnectionModal(guild_id=self.guild_id, owner_id=self.owner_id, platform=platform)
         await interaction.response.send_modal(modal)
 

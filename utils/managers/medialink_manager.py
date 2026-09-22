@@ -1,18 +1,6 @@
 """
 utils/managers/medialink_manager.py — CRUD des connexions, règles et
 templates MEDIALINK (media_connections / media_rules / media_templates).
-
-Même pattern que utils/managers/mod_automod_nolink_manager.py : cache TTL
-en mémoire par guild sur les connexions (lues à chaque ouverture du
-dashboard et à chaque passage du scheduler), invalidé explicitement à
-chaque écriture.
-
-NOTE : le CRUD des templates ci-dessous reste volontairement dans CE
-fichier (pas de utils/managers/medialink_template_manager.py séparé) —
-le volume de code est faible et il n'y a pas encore de raison de le
-scinder ; à revoir si ça grossit une fois les Announcement Builders (§7)
-branchés dessus. Pas de cache dédié sur les templates (écrans peu
-sollicités, contrairement au dashboard des connexions).
 """
 from __future__ import annotations
 
@@ -27,10 +15,9 @@ from utils.db.models.medialink_rule import MediaRule
 from utils.db.models.medialink_template import MediaTemplate
 from utils.db.session import get_session
 
-# Plateformes connues (§2 du cahier) — utilisé pour que le hub affiche
-# toujours les 4, à 0 configuration, plutôt que de n'afficher que celles
-# qui ont déjà une connexion.
+# Plateformes
 KNOWN_PLATFORMS = ("youtube", "twitch", "tiktok", "reddit")
+BLOCKED_PLATFORMS = ("tiktok", "reddit")
 
 # ═══ Cache connexions (par guild) ═══════════════════════════════════
 _CONN_TTL = 60
@@ -351,17 +338,6 @@ async def get_hub_stats(guild_id: int) -> dict:
 
 
 # ═══ Écran Statistiques — détail par connexion ══════════════════════
-# Arbitrage tranché avec Paul (2026-09) : comptage À LA VOLÉE sur
-# media_events/media_rules (GROUP BY direct, comme get_hub_stats
-# ci-dessus), PAS de table d'agrégats pré-calculés — cf. l'arbitrage
-# documenté dans utils/db/models/medialink_statistics.py (supprimé,
-# devenu sans objet une fois ce choix fait). Et des TOTAUX détaillés à
-# l'instant T, pas d'historique/tendance dans le temps (§16 : l'écran
-# "Statistiques" n'a jamais promis de graphique, juste des chiffres).
-#
-# Contrairement à get_hub_stats (comptage global toutes plateformes
-# confondues), ici le détail est PAR CONNEXION — c'est ce qui justifie
-# une fonction séparée plutôt que d'enrichir get_hub_stats sur place.
 
 async def get_detailed_stats(guild_id: int) -> dict:
     """Statistiques détaillées d'une guild : totaux globaux + détail par
@@ -410,9 +386,6 @@ async def get_detailed_stats(guild_id: int) -> dict:
         sent = counts.get(MediaEventStatus.SENT.value, 0)
         failed = counts.get(MediaEventStatus.FAILED.value, 0)
         skipped = counts.get(MediaEventStatus.SKIPPED.value, 0)
-        # PENDING et PROCESSING sont regroupés en "en attente" pour cet
-        # écran — la distinction n'a d'intérêt que pour le debug interne
-        # (cf. media_logs), pas pour une vue d'ensemble.
         pending = counts.get(MediaEventStatus.PENDING.value, 0) + counts.get(MediaEventStatus.PROCESSING.value, 0)
 
         totals["sent"] += sent
@@ -421,7 +394,7 @@ async def get_detailed_stats(guild_id: int) -> dict:
         totals["pending"] += pending
 
         rules = rules_by_connection.get(connection.id, {"total_rules": 0, "active_rules": 0})
-        attempted = sent + failed  # skipped/pending : rien n'a encore été tenté, exclus du taux de succès
+        attempted = sent + failed
 
         by_connection.append({
             "connection_id": connection.id,
