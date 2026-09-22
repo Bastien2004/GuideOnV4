@@ -48,6 +48,7 @@ class ProviderCapabilities(Flag):
     LIVE_STATUS = auto()
     SHORT_FORM = auto()  # ex: YouTube Shorts, TikTok
     COMMENTS = auto()
+    CLIPS = auto()
 
 
 @dataclass(slots=True)

@@ -15,13 +15,15 @@ from utils.db.session import get_session
 from utils.managers import medialink_manager as medialink_mgr
 from utils.medialink import event_manager, processor
 from utils.medialink.providers.base import BaseMediaProvider
+from utils.medialink.providers.twitch import TwitchProvider
 from utils.medialink.providers.youtube import YouTubeProvider
 
 log = logging.getLogger(__name__)
 
-# Classe de Provider réelle. À compléter ! 
+# Classe de Provider réelle. À compléter !
 _PROVIDER_CLASSES: dict[str, type[BaseMediaProvider]] = {
     "youtube": YouTubeProvider,
+    "twitch": TwitchProvider,
 }
 
 

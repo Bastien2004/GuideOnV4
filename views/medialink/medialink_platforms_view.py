@@ -12,13 +12,27 @@ donc plus besoin de demander le nom affiché à la main pour YouTube (cf.
 _submit_youtube ci-dessous). validate_account() séparément n'est donc
 plus nécessaire ici (get_account() fait déjà l'équivalent).
 
-── TWITCH / TIKTOK / REDDIT : TOUJOURS EN AJOUT MANUEL (provisoire) ──
-Leurs Providers respectifs (utils/medialink/providers/{twitch,tiktok,
-reddit}.py) sont encore des stubs (NotImplementedError) — ces 3
+── TWITCH : PROVIDER RÉEL BRANCHÉ (2026-09) ──────────────────────────
+utils/medialink/providers/twitch.py n'est plus un stub non plus : même
+principe que YouTube (cf. _submit_twitch), avec deux différences :
+  - le champ saisi est un pseudo Twitch, pas un ID/handle ;
+  - contrairement à YouTubeProvider, TwitchProvider.connect() attend
+    directement l'ID NUMÉRIQUE déjà résolu par get_account() (cf. sa
+    docstring de module) — donc account.external_id se réutilise tel
+    quel pour connect(), pas de retraitement supplémentaire ici.
+ProviderAuthError/ProviderNotFoundError sont définies séparément dans
+youtube.py ET twitch.py (même nom, cf. leurs docstrings respectives —
+temporaire en attendant un errors.py partagé) : importées ci-dessous
+avec des alias pour ne pas se marcher dessus dans ce fichier qui utilise
+les deux Providers.
+
+── TIKTOK / REDDIT : TOUJOURS EN AJOUT MANUEL (provisoire) ───────────
+Leurs Providers respectifs (utils/medialink/providers/{tiktok,
+reddit}.py) sont encore des stubs (NotImplementedError) — ces 2
 plateformes gardent donc le flux manuel d'origine : external_id + nom
 affiché saisis à la main, SANS validation côté plateforme. À basculer
-plateforme par plateforme au même principe que YouTube au fur et à
-mesure que Bastien livre chaque Provider (cf. _submit_manual).
+plateforme par plateforme au même principe que YouTube/Twitch au fur et
+à mesure que Bastien livre chaque Provider (cf. _submit_manual).
 """
 from __future__ import annotations
 
@@ -34,9 +48,14 @@ from utils.container_universel import error_container, send_ephemeral
 from utils.db.models.medialink_connection import MediaPlatform
 from utils.managers import medialink_manager as medialink_mgr
 from utils.medialink import event_manager
+from utils.medialink.providers.twitch import (
+    ProviderAuthError as TwitchAuthError,
+    ProviderNotFoundError as TwitchNotFoundError,
+    TwitchProvider,
+)
 from utils.medialink.providers.youtube import (
-    ProviderAuthError,
-    ProviderNotFoundError,
+    ProviderAuthError as YouTubeAuthError,
+    ProviderNotFoundError as YouTubeNotFoundError,
     YouTubeProvider,
 )
 from views._components.base_view import BaseLayoutView
@@ -44,6 +63,10 @@ from views._components.base_view import BaseLayoutView
 log = logging.getLogger(__name__)
 
 EMOJI_BACK = "<:retour:1515658955190308995>"
+
+# Plateformes dont le Provider est réel (validation + pré-remplissage via
+# l'API) — les autres restent en ajout manuel, cf. _submit_manual.
+_VERIFIED_PLATFORMS = (MediaPlatform.YOUTUBE.value, MediaPlatform.TWITCH.value)
 
 _PLATFORM_OPTIONS = [
     SelectOption(label="YouTube", value=MediaPlatform.YOUTUBE.value, emoji="▶️"),
@@ -54,22 +77,19 @@ _PLATFORM_OPTIONS = [
 
 
 class AddConnectionModal(discord.ui.Modal):
-    """Saisie d'une connexion. YouTube passe par le Provider réel
-    (validation + pré-remplissage via l'API, cf. _submit_youtube) ;
-    Twitch/TikTok/Reddit restent en saisie manuelle tant que leurs
-    Providers sont des stubs (cf. _submit_manual, et note en tête de
-    fichier)."""
+    """Saisie d'une connexion. YouTube et Twitch passent par leur
+    Provider réel (validation + pré-remplissage via l'API, cf.
+    _submit_youtube / _submit_twitch) ; TikTok/Reddit restent en saisie
+    manuelle tant que leurs Providers sont des stubs (cf. _submit_manual,
+    et note en tête de fichier)."""
 
     def __init__(self, *, guild_id: int, owner_id: int, platform: str):
-        is_youtube = platform == MediaPlatform.YOUTUBE.value
-        super().__init__(
-            title="Ajouter une chaîne YouTube" if is_youtube else "Ajouter une connexion (mode manuel)"
-        )
         self.guild_id = guild_id
         self.owner_id = owner_id
         self.platform = platform
 
-        if is_youtube:
+        if platform == MediaPlatform.YOUTUBE.value:
+            super().__init__(title="Ajouter une chaîne YouTube")
             # Un seul champ : get_account() (appelé dans _submit_youtube)
             # valide le compte ET renvoie nom/avatar/URL — plus besoin de
             # les faire saisir à la main pour cette plateforme.
@@ -81,10 +101,23 @@ class AddConnectionModal(discord.ui.Modal):
             )
             self.username_input = None
             self.add_item(self.external_id_input)
+        elif platform == MediaPlatform.TWITCH.value:
+            super().__init__(title="Ajouter un compte Twitch")
+            # Idem YouTube : get_account() (cf. _submit_twitch) résout le
+            # pseudo en ID numérique et renvoie nom/avatar/URL.
+            self.external_id_input = discord.ui.TextInput(
+                label="Pseudo Twitch",
+                placeholder="Ex : ninja ou @ninja",
+                required=True,
+                max_length=128,
+            )
+            self.username_input = None
+            self.add_item(self.external_id_input)
         else:
+            super().__init__(title="Ajouter une connexion (mode manuel)")
             self.external_id_input = discord.ui.TextInput(
                 label="Identifiant du compte (external_id)",
-                placeholder="Ex : pseudo Twitch, subreddit...",
+                placeholder="Ex : subreddit...",
                 required=True,
                 max_length=128,
             )
@@ -101,6 +134,8 @@ class AddConnectionModal(discord.ui.Modal):
 
         if self.platform == MediaPlatform.YOUTUBE.value:
             await self._submit_youtube(interaction, external_id)
+        elif self.platform == MediaPlatform.TWITCH.value:
+            await self._submit_twitch(interaction, external_id)
         else:
             await self._submit_manual(interaction, external_id)
 
@@ -134,7 +169,7 @@ class AddConnectionModal(discord.ui.Modal):
         provider = YouTubeProvider()
         try:
             account = await provider.get_account(external_id)
-        except ProviderNotFoundError:
+        except YouTubeNotFoundError:
             await send_ephemeral(
                 interaction,
                 error_container(
@@ -143,7 +178,7 @@ class AddConnectionModal(discord.ui.Modal):
                 ),
             )
             return
-        except ProviderAuthError:
+        except YouTubeAuthError:
             log.error("[MEDIALINK] YouTube ProviderAuthError (clé API invalide/quota épuisé) | guild=%d", self.guild_id)
             await send_ephemeral(
                 interaction,
@@ -206,6 +241,82 @@ class AddConnectionModal(discord.ui.Modal):
         view = await MediaLinkDashboardView.build(guild=interaction.guild, owner_id=self.owner_id)
         await interaction.edit_original_response(view=view)
 
+    async def _submit_twitch(self, interaction: discord.Interaction, external_id: str) -> None:
+        # Même raison que _submit_youtube : l'appel API peut dépasser les
+        # 3s allouées à une réponse d'interaction directe.
+        await interaction.response.defer(ephemeral=True)
+
+        provider = TwitchProvider()
+        try:
+            account = await provider.get_account(external_id)
+        except TwitchNotFoundError:
+            await send_ephemeral(
+                interaction,
+                error_container("Aucun compte Twitch trouvé pour ce pseudo. Vérifie l'orthographe."),
+            )
+            return
+        except TwitchAuthError:
+            log.error("[MEDIALINK] Twitch ProviderAuthError (client_id/secret invalide) | guild=%d", self.guild_id)
+            await send_ephemeral(
+                interaction,
+                error_container(
+                    "L'authentification Twitch du bot a échoué "
+                    "(client_id/secret invalide) — réessaie plus tard ou "
+                    "préviens un développeur."
+                ),
+            )
+            return
+        except httpx.HTTPError:
+            log.exception("[MEDIALINK] Erreur réseau Twitch API | guild=%d", self.guild_id)
+            await send_ephemeral(
+                interaction,
+                error_container("Impossible de contacter l'API Twitch pour le moment — réessaie plus tard."),
+            )
+            return
+        finally:
+            await provider.disconnect()
+
+        try:
+            connection = await medialink_mgr.add_connection(
+                self.guild_id,
+                self.platform,
+                account.external_id,
+                external_username=account.username,
+                external_url=account.url,
+                avatar_url=account.avatar_url,
+            )
+        except IntegrityError:
+            await send_ephemeral(
+                interaction,
+                error_container(f"**{account.username or external_id}** est déjà connectée sur ce serveur."),
+            )
+            return
+
+        # Même immunisation anti-rétroactif que YouTube (cf. son
+        # commentaire), mais pour un live déjà en cours au moment de la
+        # connexion : sans ça, le 1er passage du Scheduler trouverait le
+        # stream déjà live et le prendrait pour un "nouveau" live_started,
+        # alors qu'il n'a fait que le découvrir en cours de route.
+        # TwitchProvider.connect() attend directement l'ID numérique déjà
+        # résolu (account.external_id) — pas de retraitement nécessaire,
+        # contrairement à un éventuel @handle YouTube.
+        try:
+            await provider.connect(account.external_id)
+            baseline_events = await provider.fetch_events()
+            await event_manager.seed_baseline_events(connection["id"], baseline_events)
+        except Exception:
+            log.warning(
+                "[MEDIALINK] Échec de l'immunisation anti-rétroactif (baseline) guild=%d connection=%s",
+                self.guild_id, connection["id"], exc_info=True,
+            )
+        finally:
+            await provider.disconnect()
+
+        from views.medialink.medialink_dashboard_view import MediaLinkDashboardView
+
+        view = await MediaLinkDashboardView.build(guild=interaction.guild, owner_id=self.owner_id)
+        await interaction.edit_original_response(view=view)
+
 
 class AddConnectionView(BaseLayoutView):
     """Étape 1 : choix de la plateforme à connecter."""
@@ -220,8 +331,8 @@ class AddConnectionView(BaseLayoutView):
         container.add_item(TextDisplay("# ➕ Ajouter une connexion"))
         container.add_item(
             TextDisplay(
-                "-# YouTube : vérifiée automatiquement (nom et avatar "
-                "récupérés depuis la chaîne). Twitch, TikTok, Reddit : "
+                "-# YouTube et Twitch : vérifiés automatiquement (nom et "
+                "avatar récupérés depuis le compte). TikTok, Reddit : "
                 "ajout manuel pour l'instant, sans vérification côté "
                 "plateforme."
             )

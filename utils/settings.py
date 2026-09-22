@@ -47,6 +47,9 @@ class Settings(BaseSettings):
 
     youtube_api_key: str = ""
 
+    twitch_client_id: str = ""
+    twitch_client_secret: str = ""
+
     # URLs externes
     website_url: str = "https://guideonbot.guideon.dev/"
     shop_url: str = "https://guideonbot.guideon.dev/"
