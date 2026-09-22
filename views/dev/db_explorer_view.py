@@ -30,7 +30,7 @@ from utils.db.introspect import (
     describe_table,
     fetch_by_column,
     fetch_preview,
-    format_value,
+    format_value_plain,
     get_table,
     list_indexed_columns,
     list_table_names,
@@ -39,6 +39,41 @@ from views._components.base_view import BaseLayoutView
 
 TABLES_PER_PAGE = 25  # limite Discord pour les options d'un select
 MAX_COLUMNS_SHOWN_PER_ROW = 25  # garde-fou d'affichage pour les tables très larges
+TABLE_CELL_MAX_WIDTH = 18  # colonnes/types (courts) dans le tableau "Colonnes"
+RESULT_CELL_MAX_WIDTH = 25  # valeurs de résultat — assez large pour ne jamais tronquer un ID Discord (≤ 20 chiffres)
+
+
+def _render_ascii_table(headers: list[str], rows: list[list[str]], *, max_col_width: int = TABLE_CELL_MAX_WIDTH) -> str:
+    """
+    Rendu compact en tableau monospace (bloc de code Discord), plutôt qu'une
+    ligne `clé` : `valeur` par colonne — bien plus lisible dès qu'il y a
+    plusieurs colonnes ou plusieurs lignes de résultat.
+    """
+    widths = []
+    for i, header in enumerate(headers):
+        col_values = [header] + [r[i] for r in rows]
+        widths.append(min(max((len(v) for v in col_values), default=0), max_col_width))
+
+    def fmt_row(values: list[str]) -> str:
+        cells = []
+        for value, width in zip(values, widths):
+            cell = value if len(value) <= width else value[: max(0, width - 1)] + "…"
+            cells.append(cell.ljust(width))
+        return " │ ".join(cells)
+
+    separator = "─┼─".join("─" * w for w in widths)
+    lines = [fmt_row(headers), separator] + [fmt_row(r) for r in rows]
+    return "```\n" + "\n".join(lines) + "\n```"
+
+
+def _column_tag(col) -> str:
+    if col.primary_key:
+        return "PK"
+    if col.unique:
+        return "unique"
+    if col.foreign_key:
+        return "FK"
+    return ""
 
 
 # ============================================================
@@ -202,44 +237,38 @@ class DBTableDetailView(BaseLayoutView):
         table = get_table(self.table_name)
 
         c = Container()
-        c.add_item(TextDisplay(f"# 🗄️ `{self.table_name}`"))
+        header = f"# 🗄️ `{self.table_name}`"
         if self.row_count is not None:
-            c.add_item(TextDisplay(f"-# {self.row_count} ligne(s) au total"))
+            header += f"\n-# {self.row_count} ligne(s) au total"
+        c.add_item(TextDisplay(header))
         c.add_item(Separator())
 
         if table is None:
             c.add_item(TextDisplay("⚠️ Cette table n'existe plus dans le code."))
         else:
-            columns = describe_table(table)
-            lines = []
-            for col in columns[:MAX_COLUMNS_SHOWN_PER_ROW]:
-                tags = []
-                if col.primary_key:
-                    tags.append("🔑 PK")
-                elif col.unique:
-                    tags.append("🔒 unique")
-                tag_str = f" — {' , '.join(tags)}" if tags else ""
-                lines.append(f"`{col.name}` _{col.type_str}_{tag_str}")
-            c.add_item(TextDisplay("**Colonnes :**\n" + "\n".join(lines)))
-            c.add_item(Separator())
+            columns = describe_table(table)[:MAX_COLUMNS_SHOWN_PER_ROW]
+            col_table = _render_ascii_table(
+                ["colonne", "type", "indice"],
+                [[col.name, col.type_str, _column_tag(col)] for col in columns],
+            )
+            c.add_item(TextDisplay(f"## Colonnes\n{col_table}"))
 
             indexed = list_indexed_columns(table)
-            hint = ", ".join(f"`{name}`" for name in indexed) if indexed else "_aucune colonne indexée détectée_"
-            c.add_item(TextDisplay(
-                f"**Indices suggérés pour une recherche :** {hint}\n"
-                "-# La recherche fonctionne en réalité sur n'importe quelle colonne réelle de la table."
-            ))
+            if indexed:
+                c.add_item(TextDisplay(
+                    "-# Indices utilisables pour une recherche : " + ", ".join(f"`{n}`" for n in indexed)
+                ))
             c.add_item(Separator())
 
         if self.result_rows is not None:
-            c.add_item(TextDisplay(self.result_title or "**Résultat :**"))
+            c.add_item(TextDisplay(f"## {self.result_title or 'Résultat'}"))
             if not self.result_rows:
                 c.add_item(TextDisplay("*Aucune ligne trouvée.*"))
             else:
-                for i, row in enumerate(self.result_rows, start=1):
-                    formatted = "\n".join(f"`{k}` : {format_value(v)}" for k, v in row.items())
-                    c.add_item(TextDisplay(f"**Ligne {i}**\n{formatted}"))
-                c.add_item(Separator())
+                headers = list(self.result_rows[0].keys())
+                rows = [[format_value_plain(row.get(h), max_len=60) for h in headers] for row in self.result_rows]
+                c.add_item(TextDisplay(_render_ascii_table(headers, rows, max_col_width=RESULT_CELL_MAX_WIDTH)))
+            c.add_item(Separator())
 
         btn_preview = Button(label="Aperçu (10 lignes)", style=ButtonStyle.secondary, emoji="📄")
         btn_search = Button(label="Rechercher", style=ButtonStyle.primary, emoji="🔍")
@@ -261,7 +290,7 @@ class DBTableDetailView(BaseLayoutView):
             return
         rows = await fetch_preview(table)
         self.result_rows = rows
-        self.result_title = f"**Aperçu — {len(rows)} ligne(s) (max 10) :**"
+        self.result_title = f"Aperçu — {len(rows)} ligne(s) (max 10)"
         self._build()
         await self.push_update(interaction)
 
@@ -287,7 +316,7 @@ class DBTableDetailView(BaseLayoutView):
             return
 
         self.result_rows = rows
-        self.result_title = f"**Recherche `{column}` = `{value}`** — {len(rows)} ligne(s) (max 10) :"
+        self.result_title = f"Recherche {column} = {value} — {len(rows)} ligne(s) (max 10)"
         self._build()
         await interaction.response.edit_message(view=self)
 

@@ -41,6 +41,7 @@ class ColumnInfo:
     primary_key: bool
     unique: bool
     nullable: bool
+    foreign_key: bool
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -66,6 +67,7 @@ def describe_table(table: Table) -> list[ColumnInfo]:
             primary_key=col.primary_key,
             unique=bool(col.unique) or col.primary_key,
             nullable=col.nullable,
+            foreign_key=bool(col.foreign_keys),
         )
         for col in table.columns
     ]
@@ -153,10 +155,24 @@ async def fetch_by_column(
 
 
 def format_value(value) -> str:
-    """Rendu compact d'une valeur de colonne pour l'affichage Discord."""
+    """Rendu compact d'une valeur de colonne pour l'affichage Discord (hors tableau)."""
     if value is None:
         return "`NULL`"
     text = str(value)
     if len(text) > VALUE_MAX_LEN:
         text = text[:VALUE_MAX_LEN] + "…"
     return f"`{text}`"
+
+
+def format_value_plain(value, *, max_len: int = VALUE_MAX_LEN) -> str:
+    """
+    Même rendu que format_value, mais SANS les backticks — pour une valeur
+    déjà destinée à l'intérieur d'un bloc de code (```...```), où des
+    backticks casseraient le rendu.
+    """
+    if value is None:
+        return "NULL"
+    text = str(value)
+    if len(text) > max_len:
+        text = text[:max_len] + "…"
+    return text
