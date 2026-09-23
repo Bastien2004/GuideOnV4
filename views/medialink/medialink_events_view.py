@@ -146,14 +146,14 @@ class ConnectionRulesView(BaseLayoutView):
         container = Container()
         label = self.connection.get("external_username") or self.connection["external_id"]
         emoji = _PLATFORM_EMOJI.get(self.connection["platform"], "🔗")
-        container.add_item(TextDisplay(f"# 🔧 Règles — {emoji} {label}"))
+        container.add_item(TextDisplay(f"# <:param:1552374201489297479> Règles — {emoji} {label}"))
         container.add_item(TextDisplay(f"-# {len(self.rules)} règle(s) configurée(s) pour cette connexion."))
         container.add_item(Separator())
 
         if not self.rules:
             container.add_item(TextDisplay("*Aucune règle configurée pour cette connexion.*"))
         else:
-            for rule in self.rules:
+            for i, rule in enumerate(self.rules):
                 enabled = rule.get("enabled", True)
                 toggle_btn = Button(
                     label="Désactiver" if enabled else "Activer",
@@ -161,15 +161,19 @@ class ConnectionRulesView(BaseLayoutView):
                     emoji=EMOJI_CANCEL if enabled else EMOJI_VALID,
                 )
                 toggle_btn.callback = self._cb_toggle_rule(rule["id"])
-                template_note = f"template #{rule['template_id']}" if rule.get("template_id") else "sans template"
-                state_badge = "🟢 Active" if enabled else "⚪ Inactive"
-                container.add_item(Section(
-                    TextDisplay(
-                        f"**`{rule['event_type']}`** — {state_badge}\n"
-                        f"-# → <#{rule['channel_id']}> · {template_note}"
-                    ),
-                    accessory=toggle_btn,
+                template_note = rule.get("template_name") or "sans template"
+                state_badge = "🟢" if enabled else "⚪"
+                container.add_item(TextDisplay(
+                    f"**{state_badge} - `{rule['event_type']}`**\n"
+                    f"-# → <#{rule['channel_id']}> · {template_note}"
                 ))
+                delete_btn = Button(
+                    label="Supprimer", style=ButtonStyle.secondary, emoji=EMOJI_DELETE,
+                )
+                delete_btn.callback = self._cb_remove_rule(rule["id"])
+                container.add_item(ActionRow(toggle_btn, delete_btn))
+                if i < len(self.rules) - 1:
+                    container.add_item(Separator())
 
         container.add_item(Separator())
         add_btn = Button(label="Ajouter une règle", style=ButtonStyle.success, emoji=EMOJI_ADD)
@@ -191,6 +195,17 @@ class ConnectionRulesView(BaseLayoutView):
             if current is None:
                 return
             await medialink_mgr.set_rule_enabled(rule_id, not current.get("enabled", True))
+            view = await ConnectionRulesView.build(connection=self.connection, owner_id=self.owner_id)
+            await self.push_update(interaction, view=view)
+        return _callback
+
+    def _cb_remove_rule(self, rule_id: int):
+        """AJOUTÉ (2026-09) : jusqu'ici, aucun moyen de retirer une règle
+        une fois créée — seulement l'activer/la désactiver (cf.
+        _cb_toggle_rule ci-dessus). Même pattern (closure sur rule_id,
+        reconstruction de la vue depuis la base après écriture)."""
+        async def _callback(interaction: discord.Interaction) -> None:
+            await medialink_mgr.remove_rule(rule_id)
             view = await ConnectionRulesView.build(connection=self.connection, owner_id=self.owner_id)
             await self.push_update(interaction, view=view)
         return _callback
@@ -411,7 +426,7 @@ class GuildEventsOverviewView(BaseLayoutView):
             lines = []
             for rule in self.rules:
                 platform_emoji = _PLATFORM_EMOJI.get(rule["connection_platform"], "🔗")
-                template_note = f"template #{rule['template_id']}" if rule.get("template_id") else "sans template"
+                template_note = rule.get("template_name") or "sans template"
                 lines.append(
                     f"{platform_emoji} **{rule['connection_label']}** — `{rule['event_type']}`\n"
                     f"➣ <#{rule['channel_id']}> - {template_note}\n"

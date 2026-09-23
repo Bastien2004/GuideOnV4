@@ -151,11 +151,24 @@ async def list_all_connections() -> list[dict]:
 # (essentiellement les vues de configuration d'UNE règle à la fois).
 
 async def list_rules(connection_id: int) -> list[dict]:
+    """Règles d'UNE connexion, chacune enrichie de template_name (jointure
+    OUTER sur media_templates : une règle sans template, ou dont le
+    template a été supprimé entretemps — ondelete='SET NULL' côté modèle
+    —, a simplement template_name=None). Ajouté (2026-09) pour que les
+    vues affichent le VRAI nom du template plutôt que "template #<id>"
+    (l'id seul n'a aucun sens pour un admin qui configure la règle)."""
     async with get_session() as session:
         result = await session.execute(
-            select(MediaRule).where(MediaRule.connection_id == connection_id)
+            select(MediaRule, MediaTemplate.name)
+            .outerjoin(MediaTemplate, MediaRule.template_id == MediaTemplate.id)
+            .where(MediaRule.connection_id == connection_id)
         )
-        return [row.to_dict() for row in result.scalars().all()]
+        rows = []
+        for rule, template_name in result.all():
+            row = rule.to_dict()
+            row["template_name"] = template_name
+            rows.append(row)
+        return rows
 
 
 async def add_rule(
@@ -270,19 +283,23 @@ async def remove_template(template_id: int) -> None:
 
 async def list_all_rules(guild_id: int) -> list[dict]:
     """Toutes les règles de la guild, chacune enrichie du libellé et de
-    la plateforme de sa connexion (pour affichage sans requête N+1)."""
+    la plateforme de sa connexion, ET du nom de son template (jointure
+    OUTER sur media_templates, cf. list_rules() ci-dessus — même raison :
+    afficher le nom plutôt que l'id) — pour affichage sans requête N+1."""
     async with get_session() as session:
         result = await session.execute(
-            select(MediaRule, MediaConnection)
+            select(MediaRule, MediaConnection, MediaTemplate.name)
             .join(MediaConnection, MediaRule.connection_id == MediaConnection.id)
+            .outerjoin(MediaTemplate, MediaRule.template_id == MediaTemplate.id)
             .where(MediaConnection.guild_id == guild_id)
             .order_by(MediaConnection.platform, MediaRule.event_type)
         )
         rows = []
-        for rule, connection in result.all():
+        for rule, connection, template_name in result.all():
             row = rule.to_dict()
             row["connection_label"] = connection.external_username or connection.external_id
             row["connection_platform"] = connection.platform
+            row["template_name"] = template_name
             rows.append(row)
         return rows
 
