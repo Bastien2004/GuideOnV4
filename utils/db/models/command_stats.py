@@ -1,11 +1,12 @@
 """
 utils/db/models/command_stats.py — Modèle CommandStatDaily, compteur
-d'utilisation quotidien par commande.
+d'utilisation quotidien par commande, par serveur.
 
-Une ligne par (command_name, stat_date), incrémentée à chaque usage via
-upsert (ON CONFLICT DO UPDATE count = count + 1). Permet à la fois le
-total all-time (somme sur toutes les dates) et un graphique d'évolution
-(group by date).
+Une ligne par (command_name, guild_id, stat_date), incrémentée à chaque
+usage via upsert (ON CONFLICT DO UPDATE count = count + 1). Permet le
+total all-time, un graphique d'évolution (group by date), et désormais
+le nombre de serveurs distincts par commande (adoption) et le nombre
+de serveurs actifs.
 """
 from __future__ import annotations
 
@@ -18,28 +19,31 @@ from utils.db.base import Base, TimestampMixin
 
 
 class CommandStatDaily(Base, TimestampMixin):
-    """Compteur d'utilisation d'une commande pour un jour donné (UTC)."""
+    """Compteur d'utilisation d'une commande, par serveur, pour un jour donné (UTC)."""
 
     __tablename__ = "command_stats_daily"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
 
     command_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    guild_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     stat_date: Mapped[date_type] = mapped_column(Date, nullable=False)
     count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
 
     __table_args__ = (
-        UniqueConstraint("command_name", "stat_date", name="uq_command_stats_daily_cmd_date"),
+        UniqueConstraint("command_name", "guild_id", "stat_date", name="uq_command_stats_daily_cmd_guild_date"),
         Index("ix_command_stats_daily_date", "stat_date"),
         Index("ix_command_stats_daily_command", "command_name"),
+        Index("ix_command_stats_daily_guild", "guild_id"),
     )
 
     def to_dict(self) -> dict:
         return {
             "command_name": self.command_name,
+            "guild_id": self.guild_id,
             "stat_date": self.stat_date,
             "count": self.count,
         }
 
     def __repr__(self) -> str:
-        return f"<CommandStatDaily {self.command_name!r} {self.stat_date} count={self.count}>"
+        return f"<CommandStatDaily {self.command_name!r} guild={self.guild_id} {self.stat_date} count={self.count}>"

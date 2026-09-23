@@ -1,29 +1,35 @@
 """
 utils/managers/command_stats_manager.py — Lecture/écriture des stats
-quotidiennes d'usage de commandes (table command_stats_daily).
+quotidiennes d'usage de commandes, par serveur (table command_stats_daily).
 
 API publique :
-    await increment_command_stat(command_name, on_date=None) -> None
-        Incrémente le compteur du jour (upsert atomique). on_date=None = aujourd'hui (UTC).
+    await increment_command_stat(command_name, guild_id, on_date=None) -> None
+        Incrémente le compteur du jour pour ce serveur (upsert atomique).
     await get_totals_by_command() -> list[dict]
-        [{"command_name": str, "total": int}], triés par total décroissant.
+        [{"command_name": str, "total": int}], tous serveurs confondus,
+        triés par total décroissant.
     await get_podium(top_n=3) -> list[dict]
-        Les top_n commandes les plus utilisées (total all-time).
+        Les top_n commandes les plus utilisées (total all-time, tous serveurs).
     await get_daily_series(days=7) -> list[dict]
-        [{"date": date, "total": int}] pour les `days` derniers jours
-        (incluant aujourd'hui), un point par jour même si total=0,
-        triés chronologiquement.
+        [{"date": date, "total": int}] pour les `days` derniers jours,
+        toutes commandes et serveurs confondus.
     await get_grand_total() -> int
-        Somme de tous les usages, toutes commandes confondues.
+        Somme de tous les usages, toutes commandes et serveurs confondus.
     await get_command_total(command_name) -> int
-        Total all-time pour UNE commande précise (0 si jamais utilisée).
+        Total all-time pour UNE commande précise (tous serveurs).
     await get_command_today_count(command_name) -> int
-        Compteur du jour (UTC) pour UNE commande précise.
+        Compteur du jour (UTC) pour UNE commande précise (tous serveurs).
     await get_command_last_used(command_name) -> date | None
-        Date du dernier jour d'utilisation de cette commande, None si jamais utilisée.
+        Date du dernier jour d'utilisation de cette commande.
+    await get_active_guilds_count(days=7) -> int
+        Nombre de serveurs distincts ayant utilisé >= 1 commande récemment.
+    await get_command_adoption(days=30) -> list[dict]
+        Pour chaque commande, nombre de serveurs distincts l'ayant utilisée
+        (base du % d'adoption par fonctionnalité).
 
 Pas de cache mémoire ici : ces données sont lues à la demande (commande
-dev peu fréquente) et doivent refléter l'état exact de la DB sans délai TTL.
+dev peu fréquente, ou API Laravel) et doivent refléter l'état exact de
+la DB sans délai TTL.
 """
 from __future__ import annotations
 
@@ -47,21 +53,22 @@ def _today_utc() -> date:
 # ✍️ Écriture
 # ════════════════════════════════════════════════════════════
 
-async def increment_command_stat(command_name: str, on_date: date | None = None) -> None:
+async def increment_command_stat(command_name: str, guild_id: int, on_date: date | None = None) -> None:
     """
-    Incrémente (ou crée) le compteur du jour pour `command_name`.
+    Incrémente (ou crée) le compteur du jour pour (command_name, guild_id).
     Upsert atomique côté DB — pas de race condition même avec des
-    incréments concurrents sur le même (command_name, date).
+    incréments concurrents sur la même combinaison.
     """
     target_date = on_date or _today_utc()
 
     stmt = pg_insert(CommandStatDaily).values(
         command_name=command_name,
+        guild_id=guild_id,
         stat_date=target_date,
         count=1,
     )
     stmt = stmt.on_conflict_do_update(
-        index_elements=["command_name", "stat_date"],
+        index_elements=["command_name", "guild_id", "stat_date"],
         set_={"count": CommandStatDaily.count + 1},
     )
 
@@ -74,7 +81,7 @@ async def increment_command_stat(command_name: str, on_date: date | None = None)
 # ════════════════════════════════════════════════════════════
 
 async def get_totals_by_command() -> list[dict]:
-    """Total all-time par commande, triés par total décroissant puis nom."""
+    """Total all-time par commande (tous serveurs confondus), triés par total décroissant puis nom."""
     stmt = (
         select(
             CommandStatDaily.command_name,
@@ -89,16 +96,16 @@ async def get_totals_by_command() -> list[dict]:
 
 
 async def get_podium(top_n: int = 3) -> list[dict]:
-    """Top `top_n` commandes les plus utilisées (total all-time)."""
+    """Top `top_n` commandes les plus utilisées (total all-time, tous serveurs)."""
     totals = await get_totals_by_command()
     return totals[:top_n]
 
 
 async def get_daily_series(days: int = 7) -> list[dict]:
     """
-    Série temporelle de l'usage TOTAL (toutes commandes confondues) sur les
-    `days` derniers jours (incluant aujourd'hui). Un point par jour, même
-    si le total est 0 ce jour-là (pas de trou dans le graphique).
+    Série temporelle de l'usage TOTAL (toutes commandes, tous serveurs
+    confondus) sur les `days` derniers jours (incluant aujourd'hui). Un
+    point par jour, même si le total est 0 ce jour-là.
     """
     today = _today_utc()
     start = today - timedelta(days=days - 1)
@@ -122,7 +129,7 @@ async def get_daily_series(days: int = 7) -> list[dict]:
 
 
 async def get_grand_total() -> int:
-    """Somme de tous les usages, toutes commandes et toutes dates confondues."""
+    """Somme de tous les usages, toutes commandes, serveurs et dates confondus."""
     stmt = select(func.coalesce(func.sum(CommandStatDaily.count), 0))
     async with get_session() as session:
         result = await session.execute(stmt)
@@ -130,7 +137,7 @@ async def get_grand_total() -> int:
 
 
 async def get_command_total(command_name: str) -> int:
-    """Total all-time pour UNE commande précise (0 si jamais utilisée)."""
+    """Total all-time pour UNE commande précise, tous serveurs confondus (0 si jamais utilisée)."""
     stmt = select(func.coalesce(func.sum(CommandStatDaily.count), 0)).where(
         CommandStatDaily.command_name == command_name
     )
@@ -140,21 +147,20 @@ async def get_command_total(command_name: str) -> int:
 
 
 async def get_command_today_count(command_name: str) -> int:
-    """Compteur du jour (UTC) pour UNE commande précise (0 si pas utilisée aujourd'hui)."""
-    stmt = select(CommandStatDaily.count).where(
+    """Compteur du jour (UTC) pour UNE commande précise, tous serveurs confondus."""
+    stmt = select(func.coalesce(func.sum(CommandStatDaily.count), 0)).where(
         CommandStatDaily.command_name == command_name,
         CommandStatDaily.stat_date == _today_utc(),
     )
     async with get_session() as session:
         result = await session.execute(stmt)
-        row = result.scalar_one_or_none()
-        return int(row) if row is not None else 0
+        return int(result.scalar_one())
 
 
 async def get_command_last_used(command_name: str) -> date | None:
     """
-    Date du dernier jour où `command_name` a été utilisée (count > 0).
-    None si la commande n'a jamais été utilisée.
+    Date du dernier jour où `command_name` a été utilisée (count > 0),
+    tous serveurs confondus. None si jamais utilisée.
     """
     stmt = (
         select(CommandStatDaily.stat_date)
@@ -165,3 +171,34 @@ async def get_command_last_used(command_name: str) -> date | None:
     async with get_session() as session:
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
+
+
+async def get_active_guilds_count(days: int = 7) -> int:
+    """Nombre de serveurs distincts ayant utilisé >= 1 commande dans les `days` derniers jours."""
+    since = _today_utc() - timedelta(days=days - 1)
+    stmt = select(func.count(func.distinct(CommandStatDaily.guild_id))).where(
+        CommandStatDaily.stat_date >= since
+    )
+    async with get_session() as session:
+        result = await session.execute(stmt)
+        return int(result.scalar_one())
+
+
+async def get_command_adoption(days: int = 30) -> list[dict]:
+    """
+    Pour chaque commande : combien de serveurs distincts l'ont utilisée
+    sur les `days` derniers jours. Base du % d'adoption par fonctionnalité.
+    """
+    since = _today_utc() - timedelta(days=days - 1)
+    stmt = (
+        select(
+            CommandStatDaily.command_name,
+            func.count(func.distinct(CommandStatDaily.guild_id)).label("guild_count"),
+        )
+        .where(CommandStatDaily.stat_date >= since)
+        .group_by(CommandStatDaily.command_name)
+        .order_by(func.count(func.distinct(CommandStatDaily.guild_id)).desc())
+    )
+    async with get_session() as session:
+        rows = (await session.execute(stmt)).all()
+    return [{"command_name": r.command_name, "guild_count": int(r.guild_count)} for r in rows]

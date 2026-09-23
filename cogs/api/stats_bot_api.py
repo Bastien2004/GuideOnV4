@@ -15,6 +15,9 @@ from cogs.api.base import app, require_token
 
 from utils.managers import ticket_manager as tm
 
+from utils.managers import guild_growth_manager as ggm
+from utils.managers import command_stats_manager as csm
+
 log = logging.getLogger(__name__)
 
 PeriodTotalsName = Literal["today", "yesterday", "week", "month", "year"]
@@ -84,6 +87,28 @@ class TicketStatsResponse(BaseModel):
     closed: int
     deleted: int
 
+class GrowthPoint(BaseModel):
+    date: date
+    joins: int
+    leaves: int
+
+
+class RetentionResponse(BaseModel):
+    days: int
+    cohort_size: int
+    still_present: int
+    retention_rate: float | None
+
+
+class ActiveGuildsResponse(BaseModel):
+    days: int
+    active_guilds: int
+
+
+class AdoptionEntry(BaseModel):
+    command_name: str
+    guild_count: int
+
 
 # ══════════════════════════════════════════════════════════════════════════
 # 🔄 ENDPOINTS — Bot (global)
@@ -101,6 +126,34 @@ async def get_stats(request: Request):
     ping = round(latency * 1000) if latency == latency else 0
 
     return {"total_guilds": total_guilds, "total_members": total_members, "ping": ping}
+
+@app.get("/stats/growth", dependencies=[Depends(require_token)], response_model=list[GrowthPoint])
+async def get_growth_series(request: Request, days: int = 30):
+    if days <= 0:
+        raise HTTPException(status_code=400, detail="`days` doit être un entier positif.")
+    return await ggm.get_growth_series(days=days)
+
+
+@app.get("/stats/retention", dependencies=[Depends(require_token)], response_model=RetentionResponse)
+async def get_retention(request: Request, days: int = 30):
+    if days <= 0:
+        raise HTTPException(status_code=400, detail="`days` doit être un entier positif.")
+    return await ggm.get_retention(days=days)
+
+
+@app.get("/stats/active-guilds", dependencies=[Depends(require_token)], response_model=ActiveGuildsResponse)
+async def get_active_guilds(request: Request, days: int = 7):
+    if days <= 0:
+        raise HTTPException(status_code=400, detail="`days` doit être un entier positif.")
+    count = await csm.get_active_guilds_count(days=days)
+    return {"days": days, "active_guilds": count}
+
+
+@app.get("/stats/adoption", dependencies=[Depends(require_token)], response_model=list[AdoptionEntry])
+async def get_command_adoption(request: Request, days: int = 30):
+    if days <= 0:
+        raise HTTPException(status_code=400, detail="`days` doit être un entier positif.")
+    return await csm.get_command_adoption(days=days)
 
 
 # ══════════════════════════════════════════════════════════════════════════

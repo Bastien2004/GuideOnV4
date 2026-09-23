@@ -10,6 +10,7 @@ from utils.db.models.autorole import AutoRoleConfig
 from utils.db.models.bienvenue import BienvenueConfig
 from utils.db.models.birthday import BirthdayConfig, BirthdayUser
 from utils.db.models.bot_ban import BotBan
+from utils.db.models.bot_guild_event import BotGuildEvent
 from utils.db.models.boutique import ShopEntry, ShopRole
 from utils.db.models.bug_report import BugReport
 from utils.db.models.command_stats import CommandStatDaily
@@ -63,6 +64,7 @@ __all__ = [
     "BirthdayConfig",
     "BirthdayUser",
     "BotBan",
+    "BotGuildEvent",
     "BugReport",
     "CommandControl",
     "CommandStatDaily",
