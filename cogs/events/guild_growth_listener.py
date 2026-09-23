@@ -22,12 +22,20 @@ class GuildGrowthListener(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild: discord.Guild):
-        await guild_growth_manager.record_join(guild.id, guild.name, guild.member_count)
+        try:
+            await guild_growth_manager.record_join(guild.id, guild.name, guild.member_count)
+        except Exception as e:
+            log.warning("[growth] Échec enregistrement join guild=%s : %s", guild.id, e)
+            return
         log.info("[growth] +1 serveur : %s (%s)", guild.name, guild.id)
 
     @commands.Cog.listener()
     async def on_guild_remove(self, guild: discord.Guild):
-        await guild_growth_manager.record_leave(guild.id, guild.name, guild.member_count)
+        try:
+            await guild_growth_manager.record_leave(guild.id, guild.name, guild.member_count)
+        except Exception as e:
+            log.warning("[growth] Échec enregistrement leave guild=%s : %s", guild.id, e)
+            return
         log.info("[growth] -1 serveur : %s (%s)", guild.name, guild.id)
 
 
