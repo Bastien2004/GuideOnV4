@@ -21,6 +21,7 @@ EMOJI_DELETE = "<:supprimer:1495444051623809075>"
 EMOJI_BACK = "<:retour:1515658955190308995>"
 EMOJI_VALID = "<:valider:1495444292867723284>"
 EMOJI_CANCEL = "<:annuler:1495444256754761979>"
+EMOJI_EDIT = "<:modifier:1495444144712192003>"
 
 _PLATFORM_EMOJI = {
     "youtube": "<:Youtube2:1545107295975772180>",
@@ -155,23 +156,17 @@ class ConnectionRulesView(BaseLayoutView):
         else:
             for i, rule in enumerate(self.rules):
                 enabled = rule.get("enabled", True)
-                toggle_btn = Button(
-                    label="Désactiver" if enabled else "Activer",
-                    style=ButtonStyle.danger if enabled else ButtonStyle.success,
-                    emoji=EMOJI_CANCEL if enabled else EMOJI_VALID,
-                )
-                toggle_btn.callback = self._cb_toggle_rule(rule["id"])
                 template_note = rule.get("template_name") or "sans template"
                 state_badge = "🟢" if enabled else "⚪"
-                container.add_item(TextDisplay(
-                    f"**{state_badge} - `{rule['event_type']}`**\n"
-                    f"-# → <#{rule['channel_id']}> · {template_note}"
+                manage_btn = Button(label="Gérer", style=ButtonStyle.secondary, emoji=EMOJI_EDIT)
+                manage_btn.callback = self._cb_manage_rule(rule["id"])
+                container.add_item(Section(
+                    TextDisplay(
+                        f"**{state_badge} - `{rule['event_type']}`**\n"
+                        f"-# → <#{rule['channel_id']}> · {template_note}"
+                    ),
+                    accessory=manage_btn,
                 ))
-                delete_btn = Button(
-                    label="Supprimer", style=ButtonStyle.secondary, emoji=EMOJI_DELETE,
-                )
-                delete_btn.callback = self._cb_remove_rule(rule["id"])
-                container.add_item(ActionRow(toggle_btn, delete_btn))
                 if i < len(self.rules) - 1:
                     container.add_item(Separator())
 
@@ -189,24 +184,24 @@ class ConnectionRulesView(BaseLayoutView):
 
         self.add_item(container)
 
-    def _cb_toggle_rule(self, rule_id: int):
+    def _cb_manage_rule(self, rule_id: int):
+        """MODIFIÉ (2026-09) : remplace les deux boutons Activer/Désactiver
+        + Supprimer affichés sous chaque règle par un unique bouton
+        "Gérer" (Section + accessory, aligné à droite — même pattern que
+        MediaLinkDashboardView pour les connexions). Ouvre RuleManageView,
+        qui regroupe les actions (toggle, suppression) sur un écran dédié
+        à la règle."""
         async def _callback(interaction: discord.Interaction) -> None:
-            current = next((r for r in self.rules if r["id"] == rule_id), None)
-            if current is None:
+            view = await RuleManageView.build(
+                connection=self.connection, owner_id=self.owner_id, rule_id=rule_id,
+            )
+            if view is None:
+                # Règle déjà supprimée entre-temps (double-clic, autre session) :
+                # on rafraîchit simplement la liste plutôt que d'afficher un écran
+                # de gestion sur une règle qui n'existe plus.
+                refreshed = await ConnectionRulesView.build(connection=self.connection, owner_id=self.owner_id)
+                await self.push_update(interaction, view=refreshed)
                 return
-            await medialink_mgr.set_rule_enabled(rule_id, not current.get("enabled", True))
-            view = await ConnectionRulesView.build(connection=self.connection, owner_id=self.owner_id)
-            await self.push_update(interaction, view=view)
-        return _callback
-
-    def _cb_remove_rule(self, rule_id: int):
-        """AJOUTÉ (2026-09) : jusqu'ici, aucun moyen de retirer une règle
-        une fois créée — seulement l'activer/la désactiver (cf.
-        _cb_toggle_rule ci-dessus). Même pattern (closure sur rule_id,
-        reconstruction de la vue depuis la base après écriture)."""
-        async def _callback(interaction: discord.Interaction) -> None:
-            await medialink_mgr.remove_rule(rule_id)
-            view = await ConnectionRulesView.build(connection=self.connection, owner_id=self.owner_id)
             await self.push_update(interaction, view=view)
         return _callback
 
@@ -237,6 +232,79 @@ class ConnectionRulesView(BaseLayoutView):
         from views.medialink.medialink_dashboard_view import MediaLinkDashboardView
 
         view = await MediaLinkDashboardView.build(guild=interaction.guild, owner_id=self.owner_id)
+        await self.push_update(interaction, view=view)
+
+
+class RuleManageView(BaseLayoutView):
+    """Écran de gestion d'une règle unique (activer/désactiver, supprimer).
+
+    AJOUTÉ (2026-09) en remplacement des deux boutons affichés directement
+    sous chaque règle dans ConnectionRulesView : celle-ci n'affiche plus
+    qu'un bouton "Gérer" par règle (Section + accessory), qui ouvre cet
+    écran dédié — même profondeur de navigation que "Gérer" sur une
+    connexion (MediaLinkDashboardView → ConnectionRulesView).
+    """
+
+    def __init__(self, *, connection: dict, owner_id: int, rule: dict):
+        super().__init__(owner_id=owner_id, timeout=300)
+        self.connection = connection
+        self.rule = rule
+        self._build()
+
+    @classmethod
+    async def build(cls, *, connection: dict, owner_id: int, rule_id: int) -> "RuleManageView | None":
+        rules = await medialink_mgr.list_rules(connection["id"])
+        rule = next((r for r in rules if r["id"] == rule_id), None)
+        if rule is None:
+            return None
+        return cls(connection=connection, owner_id=owner_id, rule=rule)
+
+    def _build(self) -> None:
+        container = Container()
+        rule = self.rule
+        enabled = rule.get("enabled", True)
+        template_note = rule.get("template_name") or "sans template"
+        state_label = "🟢 Activée" if enabled else "⚪ Désactivée"
+
+        container.add_item(TextDisplay("# <:param:1552374201489297479> Gérer la règle"))
+        container.add_item(TextDisplay(
+            f"**`{rule['event_type']}`**\n"
+            f"-# → <#{rule['channel_id']}> · {template_note}\n"
+            f"-# Statut : {state_label}"
+        ))
+        container.add_item(Separator())
+
+        toggle_btn = Button(
+            label="Désactiver" if enabled else "Activer",
+            style=ButtonStyle.danger if enabled else ButtonStyle.success,
+            emoji=EMOJI_CANCEL if enabled else EMOJI_VALID,
+        )
+        toggle_btn.callback = self._cb_toggle_rule
+        delete_btn = Button(label="Supprimer", style=ButtonStyle.danger, emoji=EMOJI_DELETE)
+        delete_btn.callback = self._cb_remove_rule
+        back_btn = Button(label="Retour", style=ButtonStyle.secondary, emoji=EMOJI_BACK)
+        back_btn.callback = self._cb_back
+
+        container.add_item(ActionRow(toggle_btn, delete_btn, back_btn))
+        container.add_item(Separator())
+        container.add_item(TextDisplay("-# GuideOn Studio"))
+
+        self.add_item(container)
+
+    async def _cb_toggle_rule(self, interaction: discord.Interaction) -> None:
+        await medialink_mgr.set_rule_enabled(self.rule["id"], not self.rule.get("enabled", True))
+        view = await RuleManageView.build(
+            connection=self.connection, owner_id=self.owner_id, rule_id=self.rule["id"],
+        )
+        await self.push_update(interaction, view=view)
+
+    async def _cb_remove_rule(self, interaction: discord.Interaction) -> None:
+        await medialink_mgr.remove_rule(self.rule["id"])
+        view = await ConnectionRulesView.build(connection=self.connection, owner_id=self.owner_id)
+        await self.push_update(interaction, view=view)
+
+    async def _cb_back(self, interaction: discord.Interaction) -> None:
+        view = await ConnectionRulesView.build(connection=self.connection, owner_id=self.owner_id)
         await self.push_update(interaction, view=view)
 
 
