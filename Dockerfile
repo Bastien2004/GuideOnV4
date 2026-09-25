@@ -14,4 +14,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+RUN cd GuideOnAi && python train.py
+
 CMD ["python", "bot.py"]
