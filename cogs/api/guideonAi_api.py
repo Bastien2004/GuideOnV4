@@ -10,11 +10,11 @@ from fastapi import Depends, HTTPException
 from pydantic import BaseModel
 
 from cogs.api.base import app, require_token
-from tokenizer import tokenize
-from vectorizer import vectorize
-from model import Model
-from response import RESPONSES
-from permissions import PERMISSIONS
+from GuideOnAi.tokenizer import tokenize
+from GuideOnAi.vectorizer import vectorize
+from GuideOnAi.model import Model
+from GuideOnAi.response import RESPONSES
+from GuideOnAi.permissions import PERMISSIONS
 
 log = logging.getLogger(__name__)
 
