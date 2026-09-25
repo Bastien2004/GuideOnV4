@@ -8,6 +8,7 @@ import logging
 import time
 
 from sqlalchemy import delete, select
+from sqlalchemy.engine import Row
 
 from utils.db.models.boutique import ShopEntry, ShopRole
 from utils.db.session import get_session
@@ -16,6 +17,11 @@ log = logging.getLogger(__name__)
 
 # Durée de vie du cache avant qu'un refresh soit considéré comme "périmé".
 CACHE_TTL_SECONDS = 60
+
+# Temps max accordé à un refresh pour aller chercher les données en DB.
+# Au-delà, on abandonne et on garde l'ancien cache plutôt que de bloquer
+# la boucle asyncio (partagée avec le heartbeat Discord).
+CACHE_REFRESH_TIMEOUT_SECONDS = 5
 
 # ──────────────────────────────────────────────────────────────────────────
 # État du cache (module-level, partagé dans le process)
@@ -31,19 +37,36 @@ _refresh_lock = asyncio.Lock()         # évite deux refresh concurrents
 # 🔄 REFRESH (async) — remplit le cache depuis la DB
 # ══════════════════════════════════════════════════════════════════════════
 
+async def _fetch_all_entries() -> list[Row]:
+    """Requête brute (isolée pour pouvoir la wrapper dans un wait_for)."""
+    async with get_session() as session:
+        result = await session.execute(
+            select(ShopEntry.role, ShopEntry.discord_id)
+        )
+        return result.all()
+
+
 async def refresh_cache() -> None:
     """
     Recharge l'intégralité du cache depuis la DB.
+
+    Bornée par CACHE_REFRESH_TIMEOUT_SECONDS : si la DB est lente/injoignable,
+    on abandonne proprement au lieu de bloquer la boucle asyncio (qui gère
+    aussi le heartbeat Discord) pendant tout le timeout réseau du driver.
     """
     global _cache, _cache_loaded_at, _cache_ready
 
     async with _refresh_lock:
         try:
-            async with get_session() as session:
-                result = await session.execute(
-                    select(ShopEntry.role, ShopEntry.discord_id)
-                )
-                rows = result.all()
+            rows = await asyncio.wait_for(
+                _fetch_all_entries(), timeout=CACHE_REFRESH_TIMEOUT_SECONDS
+            )
+        except asyncio.TimeoutError:
+            log.warning(
+                "Refresh cache boutique : timeout DB (> %ds) — on garde l'ancien cache",
+                CACHE_REFRESH_TIMEOUT_SECONDS,
+            )
+            return
         except Exception:
             log.exception("Refresh cache boutique échoué — on garde l'ancien cache")
             return
@@ -65,7 +88,13 @@ async def cache_refresher_loop(interval: int = CACHE_TTL_SECONDS) -> None:
     log.info("Démarrage de la boucle de refresh boutique (toutes les %ds)", interval)
     while True:
         await asyncio.sleep(interval)
-        await refresh_cache()
+        try:
+            await refresh_cache()
+        except Exception:
+            # Filet de sécurité : refresh_cache() catch déjà ses erreurs DB,
+            # mais si quelque chose d'inattendu remonte quand même, on ne
+            # veut surtout pas que la tâche de fond meure silencieusement.
+            log.exception("Erreur inattendue dans cache_refresher_loop — la boucle continue")
 
 
 def cache_is_ready() -> bool:
