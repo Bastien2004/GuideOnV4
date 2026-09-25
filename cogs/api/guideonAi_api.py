@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 # 🧠 CHARGEMENT DU MODÈLE (une seule fois, au démarrage du module)
 # ══════════════════════════════════════════════════════════════════════════
 
-_checkpoint = torch.load("model.pth", map_location="cpu")
+_checkpoint = torch.load("GuideOnAi/model.pth", map_location="cpu")
 
 _vocabulary = _checkpoint["vocabulary"]
 _intents = _checkpoint["intents"]
