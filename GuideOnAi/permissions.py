@@ -14,6 +14,10 @@ Types de permission (mêmes catégories que ton propre utils/command_debug.py) :
                      has_grade_check, is_staff, check_dev...)
 - "boutique"       : palier VIP / Gold+
 - "aucune"        : commande publique, pas de restriction trouvée
+
+v4 : ajout de la section CONVERSATION / SMALLTALK (16 intentions) —
+ce sont des réponses purement conversationnelles, sans commande
+associée, donc toutes en "aucune".
 """
 
 PERMISSIONS = {
@@ -151,4 +155,25 @@ PERMISSIONS = {
     "dev_setngversion":    {"type": "interne", "detail": "Interne — DEV", "verified": True},
     "dev_gold":            {"type": "interne", "detail": "Interne — DEV", "verified": True},
     "dev_vip":             {"type": "interne", "detail": "Interne — DEV", "verified": True},
+
+    # ---- CONVERSATION / SMALLTALK (nouveau v4) ----
+    # Intentions purement conversationnelles, aucune commande associée —
+    # donc "aucune" restriction. "verified": True car c'est une
+    # constatation évidente (pas une commande à auditer dans le code).
+    "greeting":          {"type": "aucune", "detail": "Smalltalk — aucune commande associée", "verified": True},
+    "how_are_you":       {"type": "aucune", "detail": "Smalltalk — aucune commande associée", "verified": True},
+    "thanks":            {"type": "aucune", "detail": "Smalltalk — aucune commande associée", "verified": True},
+    "goodbye":           {"type": "aucune", "detail": "Smalltalk — aucune commande associée", "verified": True},
+    "who_are_you":       {"type": "aucune", "detail": "Smalltalk — aucune commande associée", "verified": True},
+    "bot_creator":       {"type": "aucune", "detail": "Smalltalk — aucune commande associée", "verified": True},
+    "what_can_you_do":   {"type": "aucune", "detail": "Smalltalk — aucune commande associée", "verified": True},
+    "joke":              {"type": "aucune", "detail": "Smalltalk — aucune commande associée", "verified": True},
+    "compliment_bot":    {"type": "aucune", "detail": "Smalltalk — aucune commande associée", "verified": True},
+    "insult_bot":        {"type": "aucune", "detail": "Smalltalk — aucune commande associée", "verified": True},
+    "bored":             {"type": "aucune", "detail": "Smalltalk — aucune commande associée", "verified": True},
+    "smalltalk_weather": {"type": "aucune", "detail": "Smalltalk — aucune commande associée", "verified": True},
+    "smalltalk_time":    {"type": "aucune", "detail": "Smalltalk — aucune commande associée", "verified": True},
+    "yes_confirm":       {"type": "aucune", "detail": "Smalltalk — aucune commande associée", "verified": True},
+    "no_deny":           {"type": "aucune", "detail": "Smalltalk — aucune commande associée", "verified": True},
+    "are_you_there":     {"type": "aucune", "detail": "Smalltalk — aucune commande associée", "verified": True},
 }

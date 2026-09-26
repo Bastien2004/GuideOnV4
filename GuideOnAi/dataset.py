@@ -1,8 +1,29 @@
 """
-dataset.py — Dataset d'intentions pour GuideOn (version 3, enrichie
-spécifiquement pour corriger les confusions observées dans test.py).
+dataset.py — Dataset d'intentions pour GuideOn (version 4, ajout du
+smalltalk : salutations, remerciements, petites conversations, pour que
+le bot ait l'air d'une vraie IA conversationnelle et pas juste d'un
+répertoire de commandes).
 
-Nouveauté : "giveaway_participate" ajoutée — il n'existe aucune commande
+Nouveauté v4 :
+- 16 intentions de conversation courante ajoutées (greeting, how_are_you,
+  thanks, goodbye, who_are_you, bot_creator, what_can_you_do, joke,
+  compliment_bot, insult_bot, bored, smalltalk_weather, smalltalk_time,
+  yes_confirm, no_deny, are_you_there).
+- yes_confirm / no_deny couvrent aussi un bug de flow observé en usage :
+  quand predict() renvoie "Je pense que tu veux X, c'est bien ça ?"
+  (confiance moyenne), la réponse "oui"/"non" de l'utilisateur au tour
+  suivant était classifiée comme une intention à part entière (souvent
+  "unknown", faute d'intention dédiée) puisque predict() ne garde pas de
+  contexte entre deux appels. Ces deux intentions donnent au moins une
+  réponse cohérente à "oui"/"non" isolé — mais ça ne résout pas le fond
+  du problème (l'absence de mémoire de conversation dans predict()).
+
+⚠️ Après avoir modifié ce fichier (et response.py / permissions.py), le
+modèle doit être RÉENTRAÎNÉ (le script train.py qui génère model.pth) :
+ajouter des intentions ici ne change rien tant que le checkpoint n'est
+pas régénéré avec ce nouveau jeu d'intentions.
+
+Nouveauté v3 : "giveaway_participate" ajoutée — il n'existe aucune commande
 pour participer à un giveaway (ça se fait en réagissant avec 🎉 sur le
 message), mais le modèle répondait quand même "giveaway_create" avec
 70%+ de confiance sur ce genre de phrase. Sans intention dédiée, le
@@ -157,6 +178,24 @@ INTENTS = [
     "dev_setngversion",
     "dev_gold",
     "dev_vip",
+
+    # ---- CONVERSATION / SMALLTALK (nouveau v4) ----
+    "greeting",
+    "how_are_you",
+    "thanks",
+    "goodbye",
+    "who_are_you",
+    "bot_creator",
+    "what_can_you_do",
+    "joke",
+    "compliment_bot",
+    "insult_bot",
+    "bored",
+    "smalltalk_weather",
+    "smalltalk_time",
+    "yes_confirm",
+    "no_deny",
+    "are_you_there",
 ]
 
 
@@ -197,9 +236,6 @@ DATASET = [
     ("comment modifier le nom de ce ticket", "ticket_rename"),
     ("donne un autre nom à ce ticket", "ticket_rename"),
 
-    # ticket_ban : renforcé avec vocabulaire clairement centré sur
-    # "interdire l'accès aux TICKETS", pour éviter la confusion avec
-    # ticket_close ("empêcher d'ouvrir" ressemblait trop à "fermer").
     ("bannis-le des tickets", "ticket_ban"),
     ("comment bannir quelqu'un des tickets", "ticket_ban"),
     ("empêche cette personne d'ouvrir de nouveaux tickets à l'avenir", "ticket_ban"),
@@ -239,9 +275,6 @@ DATASET = [
     ("comment relancer quelqu'un qui ne répond plus dans son ticket", "ticket_wakeup"),
     ("ça fait deux jours qu'il n'a pas répondu dans son ticket", "ticket_wakeup"),
 
-    # panel_create / panel_delete / panel_edit / panel_list : très
-    # renforcés avec des verbes très distincts (installer / retirer /
-    # modifier / consulter) plutôt que des synonymes qui se recoupent.
     ("crée un panel de tickets", "ticket_panel_create"),
     ("je veux mettre en place le système de tickets pour la première fois", "ticket_panel_create"),
     ("comment configurer un panel de tickets", "ticket_panel_create"),
@@ -304,9 +337,6 @@ DATASET = [
     ("empêche-le d'écrire pendant une heure", "mod_mute"),
     ("coupe le micro et le chat de ce joueur", "mod_mute"),
 
-    # mod_unmute : ajouté du vocabulaire net pour éviter la confusion
-    # avec ticket_unban (le modèle mélangeait "il peut reparler" avec
-    # "il peut réouvrir un ticket").
     ("unmute ce membre", "mod_unmute"),
     ("retire le mute de ce joueur", "mod_unmute"),
     ("redonne-lui la parole dans le chat", "mod_unmute"),
@@ -329,7 +359,6 @@ DATASET = [
     ("je veux voir son casier", "mod_historique"),
     ("quelles sanctions a reçu ce membre", "mod_historique"),
 
-    # mod_rename : renforcé (confondu avec exp_leaderboard précédemment)
     ("renomme ce membre", "mod_rename"),
     ("change son pseudo sur le serveur", "mod_rename"),
     ("modifie le surnom de ce joueur", "mod_rename"),
@@ -378,7 +407,6 @@ DATASET = [
     ("attribue un rôle automatiquement aux nouveaux membres", "config_autorole"),
     ("donne un rôle par défaut à l'arrivée", "config_autorole"),
 
-    # config_bienvenue : renforcé (confondu avec exp_leaderboard)
     ("configure le message de bienvenue", "config_bienvenue"),
     ("je veux un message quand quelqu'un rejoint le serveur", "config_bienvenue"),
     ("règle l'annonce d'arrivée des nouveaux membres", "config_bienvenue"),
@@ -417,15 +445,12 @@ DATASET = [
     ("empêche-le de participer aux giveaways à l'avenir", "giveaway_blacklist"),
     ("interdis-lui définitivement les concours", "giveaway_blacklist"),
 
-    # giveaway_list : renforcé (confondu avec ng_sanction/giveaway_blacklist)
     ("liste les giveaways du serveur", "giveaway_list"),
     ("montre-moi tous les giveaways", "giveaway_list"),
     ("quels giveaways sont en cours en ce moment", "giveaway_list"),
     ("y a-t-il des concours actifs sur ce serveur", "giveaway_list"),
     ("affiche la liste des giveaways ouverts", "giveaway_list"),
 
-    # giveaway_participate : NOUVELLE intention (pas de commande, ça se
-    # fait en réagissant 🎉 sur le message du giveaway).
     ("je veux participer à ce giveaway", "giveaway_participate"),
     ("comment participer au giveaway", "giveaway_participate"),
     ("participer à un giveaway", "giveaway_participate"),
@@ -443,7 +468,6 @@ DATASET = [
     ("comment enregistrer mon anniversaire sur le bot", "birthday_add"),
     ("ajoute ma date de naissance", "birthday_add"),
 
-    # birthday_list : renforcé (confondu avec dev_permissions, très bizarre)
     ("liste les anniversaires à venir", "birthday_list"),
     ("montre-moi les prochains anniversaires du serveur", "birthday_list"),
     ("quels sont les anniversaires ce mois-ci", "birthday_list"),
@@ -465,13 +489,11 @@ DATASET = [
     ("explique-moi le système de niveaux", "exp_info"),
     ("c'est quoi le système d'expérience", "exp_info"),
 
-    # exp_level : renforcé (confondu avec exp_leaderboard)
     ("quel est mon niveau", "exp_level"),
     ("combien d'exp j'ai personnellement", "exp_level"),
     ("montre mon niveau actuel à moi", "exp_level"),
     ("où j'en suis dans ma progression d'exp", "exp_level"),
 
-    # exp_leaderboard : renforcé (confondu avec exp_level et attracteur bizarre)
     ("montre le classement exp du serveur", "exp_leaderboard"),
     ("qui a le plus d'exp sur le serveur", "exp_leaderboard"),
     ("top des niveaux du serveur", "exp_leaderboard"),
@@ -479,7 +501,6 @@ DATASET = [
     ("montre le tableau des meilleurs niveaux", "exp_leaderboard"),
     ("classement général de l'exp entre tous les membres", "exp_leaderboard"),
 
-    # exp_config : renforcé (confondu avec dev_database)
     ("configure le système d'exp", "exp_config"),
     ("règle les paliers d'exp", "exp_config"),
     ("modifie la vitesse de progression d'exp pour monter de niveau", "exp_config"),
@@ -538,7 +559,6 @@ DATASET = [
     ("montre-moi les infos ng", "ng_info"),
     ("donne-moi des informations sur nationsglory", "ng_info"),
 
-    # ng_version : renforcé (confondu avec ng_rd)
     ("quelle est la version actuelle du jeu", "ng_version"),
     ("c'est quoi la dernière version de nationsglory bedrock", "ng_version"),
     ("on est à quelle version du jeu en ce moment", "ng_version"),
@@ -552,7 +572,6 @@ DATASET = [
     ("lien de la carte du serveur", "ng_dynmaps"),
     ("où trouver la carte dynamique", "ng_dynmaps"),
 
-    # ng_rd : renforcé (confondu avec ng_version)
     ("infos sur ce palier de r&d", "ng_rd"),
     ("c'est quoi ce palier de recherche et développement", "ng_rd"),
     ("explique-moi ce palier r&d précis", "ng_rd"),
@@ -570,7 +589,6 @@ DATASET = [
     ("quel skin il a", "ng_skin"),
     ("affiche le skin de ce pseudo", "ng_skin"),
 
-    # ng_sanction : renforcé (confondu avec giveaway_list)
     ("montre les sanctions de ce serveur nationsglory", "ng_sanction"),
     ("tableau des sanctions ng en cours", "ng_sanction"),
     ("liste des sanctions appliquées sur nationsglory", "ng_sanction"),
@@ -579,11 +597,6 @@ DATASET = [
     # ============================================================
     # NGSTAFF
     # ============================================================
-    # ngstaff_rank / ngstaff_derank : très renforcés (antonymes qui se
-    # confondaient), avec du vocabulaire clairement opposé et redondant
-    # ("monter"/"augmenter"/"promouvoir" vs "descendre"/"baisser"/
-    # "rétrograder") pour que le Bag of Words ait plusieurs mots-clés
-    # distincts de chaque côté, pas juste un seul mot qui varie.
     ("rank ce membre du staff", "ngstaff_rank"),
     ("monte-le en grade dans le staff", "ngstaff_rank"),
     ("promeus ce membre du staff au grade supérieur", "ngstaff_rank"),
@@ -631,13 +644,11 @@ DATASET = [
     ("quels sont les events en cours", "alpha_event_list"),
     ("montre tous les events alpha à venir", "alpha_event_list"),
 
-    # alpha_index : renforcé (confondu avec alpha_nous_rejoindre)
     ("montre l'index du serveur alpha", "alpha_index"),
     ("met à jour l'interface d'info alpha", "alpha_index"),
     ("gère la page d'index alpha", "alpha_index"),
     ("modifie la page d'accueil informative du serveur alpha", "alpha_index"),
 
-    # alpha_nous_rejoindre : renforcé (confondu avec alpha_index)
     ("comment rejoindre le serveur alpha", "alpha_nous_rejoindre"),
     ("tuto pour rejoindre alpha", "alpha_nous_rejoindre"),
     ("montre le guide pour rejoindre le serveur alpha", "alpha_nous_rejoindre"),
@@ -688,7 +699,6 @@ DATASET = [
     ("donne-moi le timestamp de cette heure", "timestamp_command"),
     ("génère un timestamp discord", "timestamp_command"),
 
-    # ping_command : renforcé (confondu avec dev_stat_server)
     ("quelle est la latence du bot", "ping_command"),
     ("ping", "ping_command"),
     ("le bot répond vite ?", "ping_command"),
@@ -706,7 +716,6 @@ DATASET = [
     ("montre les détails de cette guild", "dev_guild_info"),
     ("donne-moi les informations techniques de ce serveur", "dev_guild_info"),
 
-    # dev_stat_server : renforcé (confondu avec ping_command)
     ("statistiques globales de guideon", "dev_stat_server"),
     ("montre les stats globales du bot", "dev_stat_server"),
     ("sur combien de serveurs le bot tourne au total", "dev_stat_server"),
@@ -720,7 +729,6 @@ DATASET = [
     ("diagnostic de cette commande", "dev_debug_cmd"),
     ("analyse pourquoi cette commande plante", "dev_debug_cmd"),
 
-    # dev_database : renforcé (confondu avec exp_config)
     ("explore la base de données du bot", "dev_database"),
     ("montre-moi cette table de la base de données", "dev_database"),
     ("accède directement à la base de données du bot", "dev_database"),
@@ -730,7 +738,6 @@ DATASET = [
     ("désactive cette commande temporairement", "dev_maintenance"),
     ("mets cette commande en maintenance", "dev_maintenance"),
 
-    # dev_permissions : renforcé (confondu bizarrement avec birthday_list)
     ("gère les permissions internes du bot", "dev_permissions"),
     ("configure les accès internes développeur", "dev_permissions"),
     ("modifie les droits d'accès aux commandes dev", "dev_permissions"),
@@ -758,4 +765,129 @@ DATASET = [
     ("donne le vip à cet utilisateur", "dev_vip"),
     ("retire le vip de ce membre", "dev_vip"),
     ("active le statut vip pour ce joueur", "dev_vip"),
+
+    # ============================================================
+    # CONVERSATION / SMALLTALK (nouveau v4)
+    # ============================================================
+    ("salut", "greeting"),
+    ("coucou", "greeting"),
+    ("bonjour", "greeting"),
+    ("hey", "greeting"),
+    ("yo", "greeting"),
+    ("salut ça va ?", "greeting"),
+    ("bonsoir", "greeting"),
+    ("hello", "greeting"),
+    ("wesh", "greeting"),
+    ("cc", "greeting"),
+
+    ("ça va ?", "how_are_you"),
+    ("comment tu vas", "how_are_you"),
+    ("comment vas-tu", "how_are_you"),
+    ("tu vas bien ?", "how_are_you"),
+    ("ça roule ?", "how_are_you"),
+    ("comment ça va toi", "how_are_you"),
+    ("et toi ça va ?", "how_are_you"),
+    ("tu te portes bien ?", "how_are_you"),
+
+    ("merci", "thanks"),
+    ("merci beaucoup", "thanks"),
+    ("je te remercie", "thanks"),
+    ("top merci", "thanks"),
+    ("merci pour ton aide", "thanks"),
+    ("thanks", "thanks"),
+    ("merci infiniment", "thanks"),
+    ("c'est gentil merci", "thanks"),
+
+    ("au revoir", "goodbye"),
+    ("à plus", "goodbye"),
+    ("à bientôt", "goodbye"),
+    ("bye", "goodbye"),
+    ("salut à plus tard", "goodbye"),
+    ("je m'en vais", "goodbye"),
+    ("bonne nuit", "goodbye"),
+    ("à la prochaine", "goodbye"),
+
+    ("qui es-tu", "who_are_you"),
+    ("t'es qui toi", "who_are_you"),
+    ("c'est quoi ton nom", "who_are_you"),
+    ("comment tu t'appelles", "who_are_you"),
+    ("qui êtes-vous", "who_are_you"),
+    ("présente-toi", "who_are_you"),
+    ("tu es qui exactement", "who_are_you"),
+
+    ("qui t'a créé", "bot_creator"),
+    ("qui t'a codé", "bot_creator"),
+    ("qui t'a programmé", "bot_creator"),
+    ("qui est ton développeur", "bot_creator"),
+    ("c'est qui ton créateur", "bot_creator"),
+    ("qui a fait ce bot", "bot_creator"),
+
+    ("que sais-tu faire", "what_can_you_do"),
+    ("qu'est-ce que tu peux faire", "what_can_you_do"),
+    ("aide-moi", "what_can_you_do"),
+    ("help", "what_can_you_do"),
+    ("quelles sont tes fonctionnalités", "what_can_you_do"),
+    ("montre-moi ce que tu sais faire", "what_can_you_do"),
+    ("à quoi tu sers", "what_can_you_do"),
+
+    ("raconte une blague", "joke"),
+    ("dis-moi une blague", "joke"),
+    ("fais-moi rire", "joke"),
+    ("tu connais une blague ?", "joke"),
+    ("raconte-moi quelque chose de drôle", "joke"),
+
+    ("t'es cool", "compliment_bot"),
+    ("bien joué", "compliment_bot"),
+    ("t'es un bon bot", "compliment_bot"),
+    ("je t'aime bien", "compliment_bot"),
+    ("t'assures", "compliment_bot"),
+    ("gg", "compliment_bot"),
+    ("t'es vraiment utile", "compliment_bot"),
+
+    ("t'es nul", "insult_bot"),
+    ("t'es useless", "insult_bot"),
+    ("ferme-la", "insult_bot"),
+    ("tu sers à rien", "insult_bot"),
+    ("t'es débile", "insult_bot"),
+    ("t'es pas doué", "insult_bot"),
+
+    ("je m'ennuie", "bored"),
+    ("je m'ennuie grave", "bored"),
+    ("y'a rien à faire ici", "bored"),
+    ("je sais pas quoi faire", "bored"),
+    ("je me fais chier", "bored"),
+
+    ("quel temps fait-il", "smalltalk_weather"),
+    ("il fait beau chez toi", "smalltalk_weather"),
+    ("quelle est la météo", "smalltalk_weather"),
+    ("il pleut chez toi ?", "smalltalk_weather"),
+
+    ("quelle heure est-il", "smalltalk_time"),
+    ("on est quel jour", "smalltalk_time"),
+    ("quel jour on est aujourd'hui", "smalltalk_time"),
+    ("c'est quelle date aujourd'hui", "smalltalk_time"),
+
+    ("oui", "yes_confirm"),
+    ("ouais", "yes_confirm"),
+    ("oui c'est ça", "yes_confirm"),
+    ("exact", "yes_confirm"),
+    ("c'est ça", "yes_confirm"),
+    ("yes", "yes_confirm"),
+    ("affirmatif", "yes_confirm"),
+    ("tout à fait", "yes_confirm"),
+
+    ("non", "no_deny"),
+    ("non pas ça", "no_deny"),
+    ("pas vraiment", "no_deny"),
+    ("non c'est pas ça", "no_deny"),
+    ("nope", "no_deny"),
+    ("absolument pas", "no_deny"),
+
+    ("test", "are_you_there"),
+    ("y'a quelqu'un ?", "are_you_there"),
+    ("t'es là ?", "are_you_there"),
+    ("es-tu là", "are_you_there"),
+    ("allo", "are_you_there"),
+    ("1234", "are_you_there"),
+    ("tu m'entends ?", "are_you_there"),
 ]

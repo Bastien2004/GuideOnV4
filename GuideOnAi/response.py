@@ -7,6 +7,11 @@ response.py — Réponses du chatbot GuideOn pour chaque intention.
   qu'ils correspondent bien au group name réel déclaré dans chaque Cog
   (certains groupes peuvent avoir un nom différent du nom du dossier).
 - Le ton est volontairement neutre/informatif, à toi de l'adapter.
+
+v4 : ajout des réponses smalltalk (greeting, thanks, joke, etc.) —
+ton volontairement plus détendu/chaleureux que le reste, pour donner
+l'impression d'une vraie conversation. Adapte librement le ton/emoji
+à l'identité de GuideON.
 """
 
 RESPONSES = {
@@ -144,4 +149,22 @@ RESPONSES = {
     "dev_setngversion":    "Commande `/dev setngversion`, réservée à l'équipe dev — change la version NG Bedrock affichée.",
     "dev_gold":            "Commande `/dev gold`, réservée à l'équipe dev — active/désactive le statut Gold+ d'un serveur.",
     "dev_vip":             "Commande `/dev vip`, réservée à l'équipe dev — attribue/retire le statut VIP à un membre.",
+
+    # ---- CONVERSATION / SMALLTALK (nouveau v4) ----
+    "greeting":           "Salut ! 😊 Je suis GuideON, prêt à t'aider avec les commandes du serveur. Dis-moi ce dont tu as besoin !",
+    "how_are_you":        "Je vais très bien, merci de demander ! Toujours partant pour t'aider 🙂 Et toi, ça va ?",
+    "thanks":             "Avec plaisir ! N'hésite pas si tu as d'autres questions 😊",
+    "goodbye":            "À bientôt ! Je reste dispo si tu as besoin d'aide plus tard 👋",
+    "who_are_you":        "Je suis GuideON, l'assistant du bot Discord GuideON ! Je peux t'aider à comprendre les commandes disponibles sur le serveur.",
+    "bot_creator":        "Je fais partie du bot GuideON, développé par son équipe. Je suis surtout là pour t'orienter vers les bonnes commandes !",
+    "what_can_you_do":    "Je peux t'expliquer comment utiliser les commandes du bot : tickets, modération, giveaways, exp, anniversaires... Dis-moi juste ce que tu cherches à faire !",
+    "joke":               "Pourquoi les développeurs confondent Halloween et Noël ? Parce que OCT 31 == DEC 25 ! 😄",
+    "compliment_bot":     "Merci beaucoup, ça me touche ! 😊 Je fais de mon mieux pour t'aider.",
+    "insult_bot":         "Pas de souci, je reste là si tu changes d'avis et que tu as besoin d'aide 🙂",
+    "bored":              "Si tu t'ennuies, tu peux lancer un giveaway ou une partie de puissance 4 / échecs sur le site GuideON ! Sinon dis-moi ce que je peux faire pour toi.",
+    "smalltalk_weather":  "Je ne peux pas consulter la météo, mais j'espère qu'il fait beau chez toi ! ☀️ Je suis surtout doué pour les commandes du bot.",
+    "smalltalk_time":     "Je n'ai pas accès à l'heure en temps réel, mais tu peux utiliser `/timestamp` pour générer un horodatage Discord si besoin !",
+    "yes_confirm":        "Parfait, dis-m'en un peu plus sur ce que tu veux faire et je te guiderai vers la bonne commande.",
+    "no_deny":            "Pas de souci, reformule ta demande et je vais essayer de mieux comprendre 🙂",
+    "are_you_there":      "Oui, je suis là ! Dis-moi ce dont tu as besoin.",
 }
