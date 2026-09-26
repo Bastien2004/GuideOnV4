@@ -1,8 +1,20 @@
+import re
+import unicodedata
+
+
+def _strip_accents(text):
+    normalized = unicodedata.normalize("NFKD", text)
+    return "".join(c for c in normalized if not unicodedata.combining(c))
+
 """
     "Je veux fermer mon ticket" -> ["je", "veux", "fermer", "mon", "ticket"]
     """
 def tokenize(text):
-        return text.lower().split()
+    text = text.lower()
+    text = _strip_accents(text)
+    text = re.sub(r"[^a-z0-9\s]", " ", text)
+
+    return text.split()
 
 
 """
