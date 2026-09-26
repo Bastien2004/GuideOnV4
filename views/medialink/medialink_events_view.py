@@ -16,12 +16,10 @@ from utils.medialink.providers.youtube import YouTubeProvider
 from views._components.base_view import BaseLayoutView
 from views._components.channel_select import ChannelSelect
 
-EMOJI_ADD = "<:plus:1495444111505752154>"
-EMOJI_DELETE = "<:supprimer:1495444051623809075>"
-EMOJI_BACK = "<:retour:1515658955190308995>"
-EMOJI_VALID = "<:valider:1495444292867723284>"
-EMOJI_CANCEL = "<:annuler:1495444256754761979>"
-EMOJI_EDIT = "<:modifier:1495444144712192003>"
+
+# ============================================================
+# 🔩 Paramètres
+# ============================================================
 
 _PLATFORM_EMOJI = {
     "youtube": "<:Youtube2:1545107295975772180>",
@@ -49,11 +47,23 @@ _PLATFORM_EVENT_CATALOGS: dict[str, list[tuple[ProviderCapabilities, str, str, s
     MediaPlatform.TWITCH.value: _TWITCH_EVENT_CATALOG,
 }
 
+# ============================================================
+# 😂 Emojis
+# ============================================================
 
-def _build_event_options(
-    capabilities: ProviderCapabilities,
-    catalog: list[tuple[ProviderCapabilities, str, str, str]],
-) -> list[SelectOption]:
+EMOJI_ADD = "<:plus:1495444111505752154>"
+EMOJI_DELETE = "<:supprimer:1495444051623809075>"
+EMOJI_BACK = "<:retour:1515658955190308995>"
+EMOJI_VALID = "<:valider:1495444292867723284>"
+EMOJI_CANCEL = "<:annuler:1495444256754761979>"
+EMOJI_EDIT = "<:modifier:1495444144712192003>"
+
+
+# ============================================================
+# ⚒️ Fonction utilitaire
+# ============================================================
+
+def _build_event_options(capabilities: ProviderCapabilities, catalog: list[tuple[ProviderCapabilities, str, str, str]]) -> list[SelectOption]:
     return [
         SelectOption(label=label, value=event_type, emoji=emoji)
         for cap, event_type, label, emoji in catalog
@@ -61,11 +71,15 @@ def _build_event_options(
     ]
 
 
+# ============================================================
+# ➕ Ajout d'une règle
+# ============================================================
+
 class AddRuleModal(discord.ui.Modal):
-    """Saisie manuelle d'une règle — cf. note en tête de fichier."""
+    """Ajout d'une nouvelle règle."""
 
     def __init__(self, *, connection: dict, owner_id: int):
-        super().__init__(title="Ajouter une règle (mode manuel)")
+        super().__init__(title="Ajouter une règle")
         self.connection = connection
         self.owner_id = owner_id
 
@@ -83,7 +97,7 @@ class AddRuleModal(discord.ui.Modal):
         )
         self.template_id_input = discord.ui.TextInput(
             label="ID du template (optionnel)",
-            placeholder="Voir le bouton Annonces du hub — laisser vide si aucun",
+            placeholder="Voir le bouton \"annonces\".",
             required=False,
             max_length=16,
         )
@@ -94,28 +108,17 @@ class AddRuleModal(discord.ui.Modal):
     async def on_submit(self, interaction: discord.Interaction) -> None:
         raw_channel_id = self.channel_id_input.value.strip()
         if not raw_channel_id.isdigit():
-            await interaction.response.send_message(
-                "❌ L'ID du salon doit être un nombre (clic droit sur le salon → Copier l'identifiant).",
-                ephemeral=True,
-            )
+            await interaction.response.send_message("L'**identifiant** du salon doit être un nombre.", ephemeral=True)
             return
 
         raw_template_id = self.template_id_input.value.strip()
         if raw_template_id and not raw_template_id.isdigit():
-            await interaction.response.send_message(
-                "❌ L'ID du template doit être un nombre (visible dans l'écran Annonces du hub), "
-                "ou laissé vide.",
-                ephemeral=True,
-            )
+            await interaction.response.send_message("L'**identifiant** du template doit être un nombre.", ephemeral=True)
             return
 
         template_id = int(raw_template_id) if raw_template_id else None
         if template_id is not None and await medialink_mgr.get_template(template_id) is None:
-            await interaction.response.send_message(
-                "❌ Aucun template avec cet ID — vérifie dans l'écran Annonces du hub, "
-                "ou laisse le champ vide pour une règle sans template.",
-                ephemeral=True,
-            )
+            await interaction.response.send_message("Aucun **template** existe avec cet identifiant.", ephemeral=True)
             return
 
         await medialink_mgr.add_rule(
@@ -128,6 +131,10 @@ class AddRuleModal(discord.ui.Modal):
         view = await ConnectionRulesView.build(connection=self.connection, owner_id=self.owner_id)
         await interaction.response.edit_message(view=view)
 
+
+# ============================================================
+# 📋 Liste + gestion des règles
+# ============================================================
 
 class ConnectionRulesView(BaseLayoutView):
     """Liste + gestion des règles d'une connexion."""
@@ -142,7 +149,7 @@ class ConnectionRulesView(BaseLayoutView):
     async def build(cls, *, connection: dict, owner_id: int) -> "ConnectionRulesView":
         rules = await medialink_mgr.list_rules(connection["id"])
         return cls(connection=connection, owner_id=owner_id, rules=rules)
-
+ 
     def _build(self) -> None:
         container = Container()
         label = self.connection.get("external_username") or self.connection["external_id"]

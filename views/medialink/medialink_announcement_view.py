@@ -41,6 +41,10 @@ _PREVIEW_EVENT = MediaEvent(
 )
 
 
+# ============================================================
+# 💻 Création d'un template
+# ============================================================
+
 class CreateTemplateModal(discord.ui.Modal):
     """Création d'un template."""
 
@@ -63,6 +67,10 @@ class CreateTemplateModal(discord.ui.Modal):
         view = TemplateEditView(template=template, owner_id=self.owner_id)
         await interaction.response.edit_message(view=view)
 
+
+# ============================================================
+# 🖍️ Edition du texte libre
+# ============================================================
 
 class EditContentModal(discord.ui.Modal):
     """Édition du texte libre (`content`) d'un template existant."""
@@ -93,6 +101,10 @@ class EditContentModal(discord.ui.Modal):
         view = TemplateEditView(template=updated, owner_id=self.owner_id)
         await interaction.response.edit_message(view=view)
 
+
+# ============================================================
+# 🖍️ Edition du container
+# ============================================================
 
 class EditContainerModal(discord.ui.Modal):
     """Édition du container."""
@@ -161,6 +173,10 @@ class EditContainerModal(discord.ui.Modal):
         await interaction.response.edit_message(view=view)
 
 
+# ============================================================
+# 🪢 Ajout des boutons liens
+# ============================================================
+
 class AddButtonModal(discord.ui.Modal):
     """Ajout d'un bouton lien."""
 
@@ -198,7 +214,7 @@ class AddButtonModal(discord.ui.Modal):
         buttons = list(self.template.get("buttons") or [])
         if len(buttons) >= MAX_BUTTONS:
             await interaction.response.send_message(
-                view=error_container(f"Un template ne peut pas avoir plus de {MAX_BUTTONS} boutons."),
+                view=error_container(f"Un **template** ne peut pas avoir plus de {MAX_BUTTONS} boutons."),
                 ephemeral=True,
             )
             return
@@ -213,6 +229,10 @@ class AddButtonModal(discord.ui.Modal):
         view = TemplateEditView(template=updated, owner_id=self.owner_id)
         await interaction.response.edit_message(view=view)
 
+
+# ============================================================
+# 📜 Liste des templates
+# ============================================================
 
 class TemplateListView(BaseLayoutView):
     """Liste des templates d'une guild."""
@@ -244,7 +264,7 @@ class TemplateListView(BaseLayoutView):
                     preview = preview[:77] + "…"
                     
                 container.add_item(Section(
-                    TextDisplay(f'**📝 {tpl['name']}**\n-# ➤ Template "{tpl['name']}"'),
+                    TextDisplay(f'**📝 {tpl['name']}**\n-# ➤ Template "{tpl['name']}".'),
                     accessory=edit_btn,
                 ))
 
@@ -280,8 +300,12 @@ class TemplateListView(BaseLayoutView):
         await self.push_update(interaction, view=view)
 
 
+# ============================================================
+# 🖍️ Édition d'un template
+# ============================================================
+
 class TemplateEditView(BaseLayoutView):
-    """Édition d'un template."""
+    """Édition d'un template d'annonce."""
 
     def __init__(self, *, template: dict, owner_id: int):
         super().__init__(owner_id=owner_id, timeout=300)
@@ -290,82 +314,137 @@ class TemplateEditView(BaseLayoutView):
 
     def _build(self) -> None:
         self.clear_items()
-
         container = Container()
-        container.add_item(TextDisplay(f"# <:modifier:1495444144712192003> {self.template.get('name', 'Sans nom')}"))
+
+        template_name = self.template.get("name", "Sans nom")
+        container.add_item(TextDisplay(f"# <:modifier:1495444144712192003> Édition de `{template_name}`"))
+        
+        placeholders_help = "  ".join(f"`{{{p}}}`" for p in PLACEHOLDER_FIELDS)
+        container.add_item(
+            TextDisplay(
+                "### 🧩 Variables disponibles\n"
+                f"{placeholders_help}\n"
+                "-# *Incorporez ces balises dans vos textes pour les remplacer dynamiquement.*"
+            )
+        )
         container.add_item(Separator())
 
-        placeholders_help = ", ".join(f"`{{{p}}}`" for p in PLACEHOLDER_FIELDS)
-        container.add_item(TextDisplay(f"**Placeholders disponibles**\n-# {placeholders_help}"))
-        container.add_item(Separator())
-
-        content = self.template.get("content") or "*(vide)*"
-        edit_content_btn = Button(label="Modifier", style=ButtonStyle.secondary, emoji=EMOJI_EDIT)
+        content = self.template.get("content") or "*(Aucun texte défini)*"
+        edit_content_btn = Button(
+            label="Modifier le texte",
+            style=ButtonStyle.primary,
+            emoji=EMOJI_EDIT,
+        )
         edit_content_btn.callback = self._cb_edit_content
-        container.add_item(Section(TextDisplay(f"**Texte libre**\n>>> {content}"), accessory=edit_content_btn))
+
+        container.add_item(
+            Section(
+                TextDisplay(f"### 📝 Message principal\n> {content}"),
+                accessory=edit_content_btn,
+            )
+        )
         container.add_item(Separator())
 
         config = self.template.get("container_config") or {}
         title = config.get("title") or "*(aucun)*"
         description = config.get("description") or "*(aucune)*"
         accent_color = config.get("accent_color")
-        color_str = f"#{accent_color:06X}" if isinstance(accent_color, int) else "*(par défaut)*"
+        color_str = f"`#{accent_color:06X}`" if isinstance(accent_color, int) else "*(par défaut)*"
 
-        edit_container_btn = Button(label="Modifier", style=ButtonStyle.secondary, emoji=EMOJI_EDIT)
+        edit_container_btn = Button(
+            label="Mise en forme",
+            style=ButtonStyle.secondary,
+            emoji=EMOJI_EDIT,
+        )
         edit_container_btn.callback = self._cb_edit_container
-        container.add_item(Section(
-            TextDisplay(
-                f"**Mise en forme**\n"
-                f"-# Titre : {title}\n"
-                f"-# Description : {description}\n"
-                f"-# Couleur : {color_str}"
-            ),
-            accessory=edit_container_btn,
-        ))
+
+        container.add_item(
+            Section(
+                TextDisplay(
+                    "### 🎨 Encadré & Apparence\n"
+                    f"• **Titre :** {title}\n"
+                    f"• **Description :** {description}\n"
+                    f"• **Couleur d'accent :** {color_str}"
+                ),
+                accessory=edit_container_btn,
+            )
+        )
 
         thumbnail_enabled = bool(config.get("thumbnail_enabled"))
         toggle_btn = Button(
-            label="Vignette : Activée" if thumbnail_enabled else "Vignette : Désactivée",
+            label="Vignette : Active" if thumbnail_enabled else "Vignette : Inactive",
             style=ButtonStyle.success if thumbnail_enabled else ButtonStyle.secondary,
+            emoji="📸" if thumbnail_enabled else "🚫",
         )
         toggle_btn.callback = self._cb_toggle_thumbnail
-        container.add_item(Section(
-            TextDisplay("-# Affiche la vignette de l'événement (`{vignette}`) à côté du texte, si disponible."),
-            accessory=toggle_btn,
-        ))
+
+        container.add_item(
+            Section(
+                TextDisplay(
+                    "### 🖼️ Vignette de l'événement\n"
+                    "-# Afficher l'image/vignette miniature à côté de l'encadré."
+                ),
+                accessory=toggle_btn,
+            )
+        )
         container.add_item(Separator())
 
         buttons = self.template.get("buttons") or []
-        container.add_item(TextDisplay(f"**Boutons** ({len(buttons)}/{MAX_BUTTONS})"))
+        container.add_item(
+            TextDisplay(f"### 🔗 Boutons interactifs (`{len(buttons)}/{MAX_BUTTONS}`)")
+        )
+
         for index, btn in enumerate(buttons):
-            remove_btn = Button(style=ButtonStyle.danger, emoji=EMOJI_DELETE)
+            remove_btn = Button(
+                label="Retirer",
+                style=ButtonStyle.danger,
+                emoji=EMOJI_DELETE,
+            )
             remove_btn.callback = self._cb_remove_button(index)
-            container.add_item(Section(
-                TextDisplay(f"<:lien:1552027533032034394> **{btn.get('label', '(sans texte)')}**\n-# {btn.get('url', '')}"),
-                accessory=remove_btn,
-            ))
+
+            label_str = btn.get('label', '(sans texte)')
+            url_str = btn.get('url', '')
+            container.add_item(
+                Section(
+                    TextDisplay(f"• **{label_str}**\n-# `{url_str}`"),
+                    accessory=remove_btn,
+                )
+            )
 
         if len(buttons) < MAX_BUTTONS:
-            add_button_btn = Button(label="Ajouter un bouton", style=ButtonStyle.secondary, emoji=EMOJI_ADD)
+            add_button_btn = Button(
+                label="Ajouter un bouton",
+                style=ButtonStyle.secondary,
+                emoji=EMOJI_ADD,
+            )
             add_button_btn.callback = self._cb_add_button
             container.add_item(ActionRow(add_button_btn))
         else:
-            container.add_item(TextDisplay(f"-# Maximum de {MAX_BUTTONS} boutons atteint."))
+            container.add_item(
+                TextDisplay("-# ⚠️ *Limite maximale de boutons atteinte.*")
+            )
 
         container.add_item(Separator())
 
-        preview_btn = Button(label="Aperçu", style=ButtonStyle.primary, emoji="👁️")
+        preview_btn = Button(label="Prévisualiser", style=ButtonStyle.primary, emoji="👁️")
         preview_btn.callback = self._cb_preview
-        delete_btn = Button(label="Supprimer", style=ButtonStyle.danger, emoji=EMOJI_DELETE)
-        delete_btn.callback = self._cb_delete_template
+
         back_btn = Button(label="Retour", style=ButtonStyle.secondary, emoji=EMOJI_BACK)
         back_btn.callback = self._cb_back
 
-        container.add_item(ActionRow(preview_btn, delete_btn, back_btn))
+        delete_btn = Button(label="Supprimer", style=ButtonStyle.danger, emoji=EMOJI_DELETE)
+        delete_btn.callback = self._cb_delete_template
+
+        container.add_item(ActionRow(preview_btn, back_btn, delete_btn))
+        
         container.add_item(Separator())
         container.add_item(TextDisplay("-# GuideOn Studio"))
 
         self.add_item(container)
+
+    # ============================================================
+    # 🎛️ Callbacks
+    # ============================================================
 
     async def _cb_edit_content(self, interaction: discord.Interaction) -> None:
         modal = EditContentModal(template=self.template, owner_id=self.owner_id)

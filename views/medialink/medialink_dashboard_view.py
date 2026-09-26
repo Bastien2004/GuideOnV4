@@ -1,5 +1,5 @@
 """
-views/medialink/medialink_dashboard_view.py — Interface Hub MediaLink.
+views/medialink/medialink_dashboard_view.py — Interface principale du MediaLink.
 """
 
 from __future__ import annotations
@@ -11,6 +11,11 @@ from discord.ui import ActionRow, Button, Container, Section, Select, Separator,
 from utils.managers import medialink_manager as medialink_mgr
 from utils.settings import settings
 from views._components.base_view import BaseLayoutView
+
+
+# ============================================================
+# 🔩 Paramètres
+# ============================================================
 
 _PLATFORM_EMOJI = {
     "youtube": "<:Youtube2:1545107295975772180>",
@@ -26,10 +31,20 @@ _PLATFORM_LABEL = {
     "reddit": "Reddit",
 }
 
+
+# ============================================================
+# 😂 Emojis
+# ============================================================
+
 EMOJI_ADD = "<:plus:1495444111505752154>"
 EMOJI_EDIT = "<:modifier:1495444144712192003>"
 EMOJI_DELETE = "<:supprimer:1495444051623809075>"
 EMOJI_BACK = "<:retour:1515658955190308995>"
+
+
+# ============================================================
+# 🖥️ Interface principale du dashboard
+# ============================================================
 
 class MediaLinkHubView(BaseLayoutView):
     """Page principale dashboard MediaLink"""
@@ -57,7 +72,6 @@ class MediaLinkHubView(BaseLayoutView):
             ))
         container.add_item(Separator())
 
-        # ── Plateformes ──
         container.add_item(TextDisplay("### <:lister:1495445288364675192> __Plateformes__ :"))
         platform_lines = []
         for platform in ("youtube", "twitch", "tiktok", "reddit"):
@@ -69,7 +83,6 @@ class MediaLinkHubView(BaseLayoutView):
         container.add_item(TextDisplay("\n".join(platform_lines)))
         container.add_item(Separator())
 
-        # ── Activité ──
         container.add_item(TextDisplay("### <:fichier_i:1539608464324567040> __Activités__ :"))
         container.add_item(
             TextDisplay(
@@ -80,7 +93,6 @@ class MediaLinkHubView(BaseLayoutView):
         )
         container.add_item(Separator())
 
-        # ── Navigation ──
         nav_options = [
             SelectOption(label="Plateformes", value="platforms", emoji="<:globe:1552036805925150900>",
                          description="Gérer les connexions vers vos réseaux."),
@@ -106,7 +118,6 @@ class MediaLinkHubView(BaseLayoutView):
 
         self.add_item(container)
 
-    # ── Callbacks ────────────────────────────────────────────────
 
     async def _cb_nav_select(self, interaction: discord.Interaction) -> None:
         value = interaction.data["values"][0]
@@ -150,6 +161,10 @@ class MediaLinkHubView(BaseLayoutView):
         await self.push_update(interaction, view=view)
 
 
+# ============================================================
+# 📋 Liste des connexions
+# ============================================================
+
 class MediaLinkDashboardView(BaseLayoutView):
     """Liste détaillée des connexions de la guild."""
 
@@ -169,34 +184,33 @@ class MediaLinkDashboardView(BaseLayoutView):
 
         container.add_item(TextDisplay("# <:internet:1539608583149453323> Plateformes"))
         container.add_item(Separator())
-        
+
         if not self.connections:
             container.add_item(
                 TextDisplay(
-                    "Aucun compte connecté pour le moment.\n"
-                    "-# Ajoute une première connexion (YouTube, Twitch, TikTok ou "
-                    "Reddit) pour commencer à recevoir des annonces automatiques."
+                    "### 📭 Aucune connexion\n"
+                    "> Aucun compte n'est lié pour le moment.\n\n"
+                    "-# Cliquez sur **Ajouter une connexion** ci-dessous pour lier YouTube, Twitch, TikTok ou Reddit."
                 )
             )
         else:
             container.add_item(
                 TextDisplay(f"-# {len(self.connections)} connexion(s) active(s) sur ce serveur.")
             )
+            container.add_item(Separator())
 
-        container.add_item(Separator())
-
-        for conn in self.connections:
-            emoji = _PLATFORM_EMOJI.get(conn["platform"], "🔗")
-            label = conn.get("external_username") or conn["external_id"]
-            manage_btn = Button(label="Gérer", style=ButtonStyle.secondary, emoji=EMOJI_EDIT)
-            manage_btn.callback = self._cb_manage_connection(conn["id"])
-            container.add_item(Section(
-                TextDisplay(
-                    f"**{emoji} {label}**\n"
-                    f"-# `{conn['platform']}`"
-                ),
-                accessory=manage_btn,
-            ))
+            for conn in self.connections:
+                emoji = _PLATFORM_EMOJI.get(conn["platform"], "🔗")
+                label = conn.get("external_username") or conn["external_id"]
+                manage_btn = Button(label="Gérer", style=ButtonStyle.secondary, emoji=EMOJI_EDIT)
+                manage_btn.callback = self._cb_manage_connection(conn["id"])
+                container.add_item(Section(
+                    TextDisplay(
+                        f"**{emoji} {label}**\n"
+                        f"-# `{conn['platform']}`"
+                    ),
+                    accessory=manage_btn,
+                ))
 
         container.add_item(Separator())
 
@@ -211,7 +225,10 @@ class MediaLinkDashboardView(BaseLayoutView):
 
         self.add_item(container)
 
-    # ── Callbacks ────────────────────────────────────────────────
+
+    # ============================================================
+    # 🎛️ Callbacks
+    # ============================================================
 
     def _cb_manage_connection(self, connection_id: int):
         async def _callback(interaction: discord.Interaction) -> None:
