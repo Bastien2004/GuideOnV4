@@ -78,6 +78,7 @@ class CommandVisibilityReport:
     entries: list[CommandPermissionEntry]      # overwrites bruts résolus (tous)
     verdicts: list[CommandVerdict]              # un verdict par commande concernée
     use_app_commands_guild: bool                # permission standard, niveau serveur (rôles du membre, hors overwrites de salon)
+    roles_granting_use_app_commands: list[str] = field(default_factory=list)  # rôles DU SERVEUR qui l'accordent (pour savoir quoi redonner)
     channel_check: ChannelPermissionCheck | None = None
 
 
@@ -218,6 +219,17 @@ async def scan_command_permissions(
 
     channel_check = _check_channel_permission(channel, member) if channel is not None else None
 
+    # ── Rôles DU SERVEUR qui accordent cette permission ─────────────────
+    # Utile quand use_app_commands_guild est False pour le membre analysé :
+    # indique directement quel(s) rôle(s) lui redonner (ou dans lequel le
+    # rajouter) plutôt que de devoir vérifier chaque rôle un par un dans
+    # Server Settings → Rôles.
+    roles_granting_use_app_commands = [
+        ("@everyone" if role.is_default() else f"@{role.name}")
+        for role in guild.roles
+        if role.permissions.use_application_commands
+    ]
+
     # ── Verdicts best-effort, commande par commande ──────────────────────
     target_ids = relevant_ids if relevant_ids else set(entries_by_command_id.keys())
     verdicts: list[CommandVerdict] = []
@@ -226,7 +238,7 @@ async def scan_command_permissions(
         verdicts.append(_build_verdict(
             label, entries_by_command_id.get(cid), catch_all_entry,
             member, member_role_ids, is_admin_or_owner,
-            use_app_commands_guild, channel_check,
+            use_app_commands_guild, channel_check, roles_granting_use_app_commands,
         ))
 
     return CommandVisibilityReport(
@@ -239,6 +251,7 @@ async def scan_command_permissions(
         verdicts=verdicts,
         use_app_commands_guild=use_app_commands_guild,
         channel_check=channel_check,
+        roles_granting_use_app_commands=roles_granting_use_app_commands,
     )
 
 
@@ -251,6 +264,7 @@ def _build_verdict(
     is_admin_or_owner: bool,
     use_app_commands_guild: bool,
     channel_check: ChannelPermissionCheck | None,
+    roles_granting_use_app_commands: list[str] | None = None,
 ) -> CommandVerdict:
     if is_admin_or_owner:
         return CommandVerdict(
@@ -262,13 +276,23 @@ def _build_verdict(
     chosen_entry = specific_entry if specific_entry is not None else catch_all_entry
     if chosen_entry is None:
         if not use_app_commands_guild:
+            if roles_granting_use_app_commands:
+                fix_hint = (
+                    "Rôle(s) du serveur qui l'accordent actuellement (à vous redonner, ou à ajouter "
+                    "sur un de vos rôles actuels) : " + ", ".join(roles_granting_use_app_commands) + "."
+                )
+            else:
+                fix_hint = (
+                    "Aucun rôle de ce serveur n'accorde cette permission actuellement — il faut "
+                    "l'ajouter explicitement à un rôle (le vôtre ou @everyone) dans Server Settings → Rôles."
+                )
             return CommandVerdict(
                 command_label, False,
                 "Aucun overwrite de permission configuré pour cette commande (donc pas un problème "
                 "d'Intégrations) — mais vos rôles actuels ne vous donnent **pas** la permission "
                 "générale Discord \"Utiliser les commandes d'application\" au niveau serveur. C'est "
                 "une permission de rôle normale (Server Settings → Rôles → permissions du rôle), pas "
-                "les Intégrations : le rôle qui l'accordait n'est plus parmi vos rôles actuels.",
+                "les Intégrations. " + fix_hint,
             )
         if channel_check is not None and not channel_check.allowed:
             culprits = ", ".join(o.label for o in channel_check.responsible_overwrites if not o.allow) or "un overwrite de ce salon"

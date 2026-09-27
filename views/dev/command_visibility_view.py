@@ -61,6 +61,18 @@ def build_command_visibility_view(report: CommandVisibilityReport) -> LayoutView
     c.add_item(TextDisplay(
         f"**Permission générale \"Utiliser les commandes d'application\" (niveau serveur) :**\n{use_badge}"
     ))
+    if not report.use_app_commands_guild:
+        if report.roles_granting_use_app_commands:
+            roles_list = ", ".join(report.roles_granting_use_app_commands)
+            c.add_item(TextDisplay(
+                f"**Rôle(s) de ce serveur qui accordent cette permission :**\n{roles_list}\n"
+                f"-# À redonner au membre, ou à ajouter sur un de ses rôles actuels."
+            ))
+        else:
+            c.add_item(TextDisplay(
+                "**Aucun rôle de ce serveur n'accorde cette permission actuellement** — il faut "
+                "l'ajouter explicitement à un rôle (Server Settings → Rôles)."
+            ))
     if report.channel_check is not None:
         chan_badge = "✅ Accordée" if report.channel_check.allowed else "❌ Refusée"
         c.add_item(TextDisplay(
