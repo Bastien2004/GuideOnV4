@@ -155,7 +155,6 @@ class ConnectionRulesView(BaseLayoutView):
         label = self.connection.get("external_username") or self.connection["external_id"]
         emoji = _PLATFORM_EMOJI.get(self.connection["platform"], "🔗")
         container.add_item(TextDisplay(f"# <:param:1552374201489297479> Règles — {emoji} {label}"))
-        container.add_item(TextDisplay(f"-# {len(self.rules)} règle(s) configurée(s) pour cette connexion."))
         container.add_item(Separator())
 
         if not self.rules:
@@ -191,21 +190,18 @@ class ConnectionRulesView(BaseLayoutView):
 
         self.add_item(container)
 
+
+    # ============================================================
+    # 📋 Gérer une règle
+    # ============================================================
+
     def _cb_manage_rule(self, rule_id: int):
-        """MODIFIÉ (2026-09) : remplace les deux boutons Activer/Désactiver
-        + Supprimer affichés sous chaque règle par un unique bouton
-        "Gérer" (Section + accessory, aligné à droite — même pattern que
-        MediaLinkDashboardView pour les connexions). Ouvre RuleManageView,
-        qui regroupe les actions (toggle, suppression) sur un écran dédié
-        à la règle."""
+        """Regroupe les actions de gestion d'une règle."""
+
         async def _callback(interaction: discord.Interaction) -> None:
-            view = await RuleManageView.build(
-                connection=self.connection, owner_id=self.owner_id, rule_id=rule_id,
-            )
+            view = await RuleManageView.build(connection=self.connection, owner_id=self.owner_id, rule_id=rule_id)
+            
             if view is None:
-                # Règle déjà supprimée entre-temps (double-clic, autre session) :
-                # on rafraîchit simplement la liste plutôt que d'afficher un écran
-                # de gestion sur une règle qui n'existe plus.
                 refreshed = await ConnectionRulesView.build(connection=self.connection, owner_id=self.owner_id)
                 await self.push_update(interaction, view=refreshed)
                 return
@@ -243,14 +239,7 @@ class ConnectionRulesView(BaseLayoutView):
 
 
 class RuleManageView(BaseLayoutView):
-    """Écran de gestion d'une règle unique (activer/désactiver, supprimer).
-
-    AJOUTÉ (2026-09) en remplacement des deux boutons affichés directement
-    sous chaque règle dans ConnectionRulesView : celle-ci n'affiche plus
-    qu'un bouton "Gérer" par règle (Section + accessory), qui ouvre cet
-    écran dédié — même profondeur de navigation que "Gérer" sur une
-    connexion (MediaLinkDashboardView → ConnectionRulesView).
-    """
+    """Interface de gestion d'une règle."""
 
     def __init__(self, *, connection: dict, owner_id: int, rule: dict):
         super().__init__(owner_id=owner_id, timeout=300)
@@ -271,13 +260,16 @@ class RuleManageView(BaseLayoutView):
         rule = self.rule
         enabled = rule.get("enabled", True)
         template_note = rule.get("template_name") or "sans template"
-        state_label = "🟢 Activée" if enabled else "⚪ Désactivée"
+        state_label = "`Activée`" if enabled else "`Désactivée`"
 
-        container.add_item(TextDisplay("# <:param:1552374201489297479> Gérer la règle"))
+        container.add_item(TextDisplay("# <:param:1552374201489297479> Paramètres de la règle"))
+        container.add_item(Separator())
+
         container.add_item(TextDisplay(
-            f"**`{rule['event_type']}`**\n"
-            f"-# → <#{rule['channel_id']}> · {template_note}\n"
-            f"-# Statut : {state_label}"
+            f"➥ **Type** : `{rule['event_type']}`.\n"
+            f"➥ **Salon d'envoi** : <#{rule['channel_id']}>.\n"
+            f"➥ **Template d'annonce** : \"{template_note}\".\n"
+            f"➥ **Statut** : {state_label}."
         ))
         container.add_item(Separator())
 
