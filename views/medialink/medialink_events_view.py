@@ -343,7 +343,7 @@ class AddRuleView(BaseLayoutView):
 
         container.add_item(TextDisplay(f"# {EMOJI_ADD} Ajout d'une règle"))
         container.add_item(Separator())
-        container.add_item(TextDisplay(f"➥ Connexion : {emoji} {label}"))
+        container.add_item(TextDisplay(f"➥ Connexion : {emoji} **{label}**"))
         container.add_item(Separator())
 
         event_options = _build_event_options(self.provider_cls.capabilities, self.event_catalog)
@@ -393,7 +393,7 @@ class AddRuleView(BaseLayoutView):
             placeholder="Template (optionnel)...", options=template_options, min_values=1, max_values=1,
         )
         template_select.callback = self._cb_pick_template
-        container.add_item(TextDisplay(f"**Template** : {self._template_label()}"))
+        container.add_item(TextDisplay(f"**Template** : `{self._template_label()}`"))
         container.add_item(ActionRow(template_select))
         container.add_item(Separator())
 
@@ -450,10 +450,7 @@ class AddRuleView(BaseLayoutView):
 
     async def _cb_confirm(self, interaction: discord.Interaction) -> None:
         if not self._event_types or self._channel_id is None:
-            await send_ephemeral(
-                interaction,
-                error_container("Choisis au moins un type d'événement et un salon avant de valider."),
-            )
+            await send_ephemeral(interaction, error_container("Terminer la **configuration**."))
             return
 
         for event_type in self._event_types:
@@ -471,6 +468,10 @@ class AddRuleView(BaseLayoutView):
         view = await ConnectionRulesView.build(connection=self.connection, owner_id=self.owner_id)
         await self.push_update(interaction, view=view)
 
+
+# ============================================================
+# 💻 Interface d'événements du dashboard
+# ============================================================
 
 class GuildEventsOverviewView(BaseLayoutView):
     """Interface "Événements" du dashboard."""
@@ -499,10 +500,10 @@ class GuildEventsOverviewView(BaseLayoutView):
             lines = []
             for rule in self.rules:
                 platform_emoji = _PLATFORM_EMOJI.get(rule["connection_platform"], "🔗")
-                template_note = rule.get("template_name") or "sans template"
+                template_note = rule.get("template_name") or "`Sans template`"
                 lines.append(
                     f"{platform_emoji} **{rule['connection_label']}** — `{rule['event_type']}`\n"
-                    f"➣ <#{rule['channel_id']}> - {template_note}\n"
+                    f"➥ <#{rule['channel_id']}> - **\"{template_note}**\".\n"
                 )
             container.add_item(TextDisplay("\n".join(lines)))
 
