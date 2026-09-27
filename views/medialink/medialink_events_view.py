@@ -238,6 +238,10 @@ class ConnectionRulesView(BaseLayoutView):
         await self.push_update(interaction, view=view)
 
 
+# ============================================================
+# 💻 Interface de gestion des règles
+# ============================================================
+
 class RuleManageView(BaseLayoutView):
     """Interface de gestion d'une règle."""
 
@@ -307,6 +311,10 @@ class RuleManageView(BaseLayoutView):
         await self.push_update(interaction, view=view)
 
 
+# ============================================================
+# ➕ Interface d'ajout d'une règle
+# ============================================================
+
 class AddRuleView(BaseLayoutView):
     """Ajout d'une (ou plusieurs) règle(s) pour une connexion."""
 
@@ -332,14 +340,14 @@ class AddRuleView(BaseLayoutView):
         container = Container()
         label = self.connection.get("external_username") or self.connection["external_id"]
         emoji = _PLATFORM_EMOJI.get(self.connection["platform"], "🔗")
-        container.add_item(TextDisplay(f"# {EMOJI_ADD} Ajouter une règle — {emoji} {label}"))
-        container.add_item(TextDisplay(
-            "-# Choisis un ou plusieurs types d'événements (ex : Vidéo + Short) et un "
-            "salon, puis valide. Ils partageront le même salon et le même template."
-        ))
+
+        container.add_item(TextDisplay(f"# {EMOJI_ADD} Ajout d'une règle"))
+        container.add_item(Separator())
+        container.add_item(TextDisplay(f"➥ Connexion : {emoji} {label}"))
         container.add_item(Separator())
 
         event_options = _build_event_options(self.provider_cls.capabilities, self.event_catalog)
+
         if not event_options:
             event_options = [SelectOption(label="Aucun type disponible", value="__none__", emoji="⚠️", default=True)]
             event_disabled = True
@@ -359,9 +367,8 @@ class AddRuleView(BaseLayoutView):
             min_values=1, max_values=max_values, disabled=event_disabled,
         )
         event_select.callback = self._cb_pick_event
-        container.add_item(TextDisplay(
-            f"**Type(s) d'événement**\n-# {self._event_label()}"
-        ))
+
+        container.add_item(TextDisplay(f"**Type d'événement** : {self._event_label()}"))
         container.add_item(ActionRow(event_select))
         container.add_item(Separator())
 
@@ -371,7 +378,7 @@ class AddRuleView(BaseLayoutView):
             channel_types=[discord.ChannelType.text, discord.ChannelType.news],
         )
         channel_display = f"<#{self._channel_id}>" if self._channel_id else "`Non choisi`"
-        container.add_item(TextDisplay(f"**Salon**\n-# {channel_display}"))
+        container.add_item(TextDisplay(f"**Salon d'envoi** : {channel_display}"))
         container.add_item(ActionRow(channel_select))
         container.add_item(Separator())
 
@@ -380,13 +387,13 @@ class AddRuleView(BaseLayoutView):
         ]
         template_options += [
             SelectOption(label=t["name"], value=str(t["id"]), default=(self._template_id == t["id"]))
-            for t in self.templates[:24]  # 25 options max sur un Select, 1 réservée à "Aucun"
+            for t in self.templates[:24]
         ]
         template_select = Select(
             placeholder="Template (optionnel)...", options=template_options, min_values=1, max_values=1,
         )
         template_select.callback = self._cb_pick_template
-        container.add_item(TextDisplay(f"**Template**\n-# {self._template_label()}"))
+        container.add_item(TextDisplay(f"**Template** : {self._template_label()}"))
         container.add_item(ActionRow(template_select))
         container.add_item(Separator())
 
@@ -423,7 +430,6 @@ class AddRuleView(BaseLayoutView):
         tpl = next((t for t in self.templates if t["id"] == self._template_id), None)
         return tpl["name"] if tpl else "Aucun"
 
-    # ── Callbacks ────────────────────────────────────────────────
 
     async def _cb_pick_event(self, interaction: discord.Interaction) -> None:
         values = interaction.data["values"]
