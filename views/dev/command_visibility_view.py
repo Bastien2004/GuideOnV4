@@ -56,6 +56,26 @@ def build_command_visibility_view(report: CommandVisibilityReport) -> LayoutView
         c.add_item(TextDisplay(f"**Commandes guild-scoped synchronisées ici ({len(report.guild_commands)}) :**\n{cmd_list}"))
     c.add_item(Separator())
 
+    # ── Permission générale "Utiliser les commandes d'application" ────
+    use_badge = "✅ Accordée" if report.use_app_commands_guild else "❌ Refusée"
+    c.add_item(TextDisplay(
+        f"**Permission générale \"Utiliser les commandes d'application\" (niveau serveur) :**\n{use_badge}"
+    ))
+    if report.channel_check is not None:
+        chan_badge = "✅ Accordée" if report.channel_check.allowed else "❌ Refusée"
+        c.add_item(TextDisplay(
+            f"**Même permission, résolue dans #{report.channel_check.channel_name} :**\n{chan_badge}"
+        ))
+        if report.channel_check.responsible_overwrites:
+            lines = [
+                f"{'✅' if ow.allow else '❌'} [{ow.kind}] {ow.label}"
+                for ow in report.channel_check.responsible_overwrites
+            ]
+            c.add_item(TextDisplay(
+                "**Overwrite(s) de ce salon fixant explicitement cette permission :**\n-# " + "\n-# ".join(lines)
+            ))
+    c.add_item(Separator())
+
     # ── Verdicts ──────────────────────────────────────────────────────
     if not report.verdicts:
         c.add_item(TextDisplay("*Rien à diagnostiquer — aucune commande concernée trouvée sur ce serveur.*"))

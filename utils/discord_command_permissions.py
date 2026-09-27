@@ -10,10 +10,17 @@ bot.py::_sync_commands — IRIS_GUILDS/ALPHA_GUILDS/DEV_GUILDS/
 list_active_ng_servers()). Aucun default_member_permissions n'est fixé
 dans le code sur ces commandes (vérifié par recherche sur tout le repo) :
 la seule restriction possible de VISIBILITÉ (la commande n'apparaît même
-plus dans le picker, avant toute exécution) vient donc d'un overwrite de
-permission de commande configuré manuellement sur Discord (page
-Intégrations), pas du code du bot. Ce module lit cette configuration
-brute côté API Discord et la résout en un diagnostic lisible.
+plus dans le picker, avant toute exécution) vient donc soit d'un overwrite
+de permission de commande configuré manuellement sur Discord (page
+Intégrations), soit de la permission Discord standard "Utiliser les
+commandes d'application" (une permission de rôle/salon normale — rien à
+voir avec les Intégrations). AJOUTÉ (2026-09, suite au premier scan pour
+Paul sur Iris : aucun overwrite de commande trouvé, ce qui a éliminé la
+piste Intégrations et pointé vers cette permission générale) : le scan
+vérifie maintenant aussi cette permission, au niveau serveur et,
+optionnellement, dans un salon précis (pour repérer l'overwrite de salon
+responsable si la permission générale est bien accordée au niveau serveur
+mais bloquée dans le salon testé).
 """
 from __future__ import annotations
 
@@ -54,6 +61,14 @@ class CommandVerdict:
 
 
 @dataclass
+class ChannelPermissionCheck:
+    channel_id: int
+    channel_name: str
+    allowed: bool
+    responsible_overwrites: list[ResolvedOverwrite] = field(default_factory=list)
+
+
+@dataclass
 class CommandVisibilityReport:
     guild: discord.Guild
     member: discord.Member
@@ -62,6 +77,8 @@ class CommandVisibilityReport:
     guild_commands: dict[int, str]            # id -> nom, commandes guild-scoped réellement synchronisées
     entries: list[CommandPermissionEntry]      # overwrites bruts résolus (tous)
     verdicts: list[CommandVerdict]              # un verdict par commande concernée
+    use_app_commands_guild: bool                # permission standard, niveau serveur (rôles du membre, hors overwrites de salon)
+    channel_check: ChannelPermissionCheck | None = None
 
 
 def _resolve_target(guild: discord.Guild, perm_type: int, target_id: int) -> tuple[str, str]:
@@ -80,12 +97,55 @@ def _resolve_target(guild: discord.Guild, perm_type: int, target_id: int) -> tup
     return "?", f"Type de permission inconnu ({perm_type}) — `{target_id}`"
 
 
+def _check_channel_permission(channel: discord.abc.GuildChannel, member: discord.Member) -> ChannelPermissionCheck:
+    """Résout la permission "Utiliser les commandes d'application" dans un
+    salon précis, et identifie le(s) overwrite(s) de CE salon qui fixent
+    explicitement ce bit (allow ou deny) pour l'utilisateur, l'un de ses
+    rôles, ou @everyone — pour pointer directement l'overwrite responsable
+    plutôt que de simplement donner le résultat final."""
+    resolved = channel.permissions_for(member)
+    responsible: list[ResolvedOverwrite] = []
+
+    everyone_ow = channel.overwrites_for(channel.guild.default_role)
+    allow, deny = everyone_ow.pair()
+    if allow.use_application_commands or deny.use_application_commands:
+        responsible.append(ResolvedOverwrite(
+            kind="role", label="@everyone (tous les membres du serveur)",
+            target_id=channel.guild.id, allow=allow.use_application_commands,
+        ))
+
+    for role in member.roles:
+        if role.is_default():
+            continue
+        ow = channel.overwrites_for(role)
+        allow, deny = ow.pair()
+        if allow.use_application_commands or deny.use_application_commands:
+            responsible.append(ResolvedOverwrite(
+                kind="role", label=f"@{role.name}", target_id=role.id,
+                allow=allow.use_application_commands,
+            ))
+
+    member_ow = channel.overwrites_for(member)
+    allow, deny = member_ow.pair()
+    if allow.use_application_commands or deny.use_application_commands:
+        responsible.append(ResolvedOverwrite(
+            kind="user", label=member.mention, target_id=member.id,
+            allow=allow.use_application_commands,
+        ))
+
+    return ChannelPermissionCheck(
+        channel_id=channel.id, channel_name=getattr(channel, "name", str(channel.id)),
+        allowed=resolved.use_application_commands, responsible_overwrites=responsible,
+    )
+
+
 async def scan_command_permissions(
     client: discord.Client,
     guild: discord.Guild,
     member: discord.Member,
     *,
     command_filter: list[str] | None = None,
+    channel: discord.abc.GuildChannel | None = None,
 ) -> CommandVisibilityReport:
     """
     Rassemble :
@@ -154,6 +214,9 @@ async def scan_command_permissions(
     # ── Rôles/statut du membre ──────────────────────────────────────────
     member_role_ids = {r.id for r in member.roles}
     is_admin_or_owner = member.guild_permissions.administrator or member.id == guild.owner_id
+    use_app_commands_guild = member.guild_permissions.use_application_commands
+
+    channel_check = _check_channel_permission(channel, member) if channel is not None else None
 
     # ── Verdicts best-effort, commande par commande ──────────────────────
     target_ids = relevant_ids if relevant_ids else set(entries_by_command_id.keys())
@@ -163,6 +226,7 @@ async def scan_command_permissions(
         verdicts.append(_build_verdict(
             label, entries_by_command_id.get(cid), catch_all_entry,
             member, member_role_ids, is_admin_or_owner,
+            use_app_commands_guild, channel_check,
         ))
 
     return CommandVisibilityReport(
@@ -173,6 +237,8 @@ async def scan_command_permissions(
         guild_commands=guild_commands,
         entries=entries,
         verdicts=verdicts,
+        use_app_commands_guild=use_app_commands_guild,
+        channel_check=channel_check,
     )
 
 
@@ -183,6 +249,8 @@ def _build_verdict(
     member: discord.Member,
     member_role_ids: set[int],
     is_admin_or_owner: bool,
+    use_app_commands_guild: bool,
+    channel_check: ChannelPermissionCheck | None,
 ) -> CommandVerdict:
     if is_admin_or_owner:
         return CommandVerdict(
@@ -193,12 +261,30 @@ def _build_verdict(
 
     chosen_entry = specific_entry if specific_entry is not None else catch_all_entry
     if chosen_entry is None:
+        if not use_app_commands_guild:
+            return CommandVerdict(
+                command_label, False,
+                "Aucun overwrite de permission configuré pour cette commande (donc pas un problème "
+                "d'Intégrations) — mais vos rôles actuels ne vous donnent **pas** la permission "
+                "générale Discord \"Utiliser les commandes d'application\" au niveau serveur. C'est "
+                "une permission de rôle normale (Server Settings → Rôles → permissions du rôle), pas "
+                "les Intégrations : le rôle qui l'accordait n'est plus parmi vos rôles actuels.",
+            )
+        if channel_check is not None and not channel_check.allowed:
+            culprits = ", ".join(o.label for o in channel_check.responsible_overwrites if not o.allow) or "un overwrite de ce salon"
+            return CommandVerdict(
+                command_label, False,
+                f"La permission générale est bien accordée au niveau serveur, mais elle est **refusée** "
+                f"dans #{channel_check.channel_name} par un overwrite de salon (responsable probable : "
+                f"{culprits}). Vérifie Salon → Modifier le salon → Permissions pour ce salon précis.",
+            )
         return CommandVerdict(
             command_label, None,
-            "Aucun overwrite de permission configuré pour cette commande sur ce serveur : la "
-            "visibilité ne dépend donc pas des Intégrations Discord — le blocage vient probablement "
-            "d'ailleurs (rôle @everyone privé de la permission générale \"Utiliser les commandes "
-            "d'application\", ou la commande n'est simplement pas synchronisée sur ce serveur).",
+            "Aucun overwrite de permission de commande trouvé, et la permission générale \"Utiliser "
+            "les commandes d'application\" est accordée au niveau serveur : la visibilité ne dépend "
+            "donc ni des Intégrations ni des permissions de rôle. Si la commande reste invisible, "
+            "vérifie les overwrites du salon précis où tu tapes la commande (Salon → Modifier le "
+            "salon → Permissions), ou reconfirme qu'elle est bien synchronisée sur ce serveur.",
         )
 
     source = "la commande elle-même" if specific_entry is not None else "le réglage par défaut"

@@ -40,12 +40,14 @@ log = logging.getLogger(__name__)
     id_serveur="ID du serveur à analyser (ex : l'ID d'Iris)",
     id_utilisateur="ID du membre à analyser (par défaut : vous)",
     commandes="Noms de commandes à filtrer, séparés par des virgules (ex : ngstaff,iris) — vide = toutes",
+    id_salon="ID du salon où la commande est testée (optionnel) — vérifie aussi les overwrites de CE salon",
 )
 async def command_visibility(
     interaction: Interaction,
     id_serveur: str,
     id_utilisateur: str | None = None,
     commandes: str | None = None,
+    id_salon: str | None = None,
 ) -> None:
 
     # 🔐 Vérification des permissions.
@@ -107,10 +109,26 @@ async def command_visibility(
 
     command_filter = [c.strip() for c in commandes.split(",") if c.strip()] if commandes else None
 
+    channel = None
+    if id_salon is not None:
+        try:
+            channel_id = int(id_salon)
+        except ValueError:
+            return await interaction.followup.send(
+                view=error_container("`id_salon` doit être un **identifiant numérique**."),
+                ephemeral=True,
+            )
+        channel = guild.get_channel(channel_id)
+        if channel is None:
+            return await interaction.followup.send(
+                view=error_container(f"Aucun salon avec l'ID `{channel_id}` sur **{guild.name}**."),
+                ephemeral=True,
+            )
+
     # 🚀 Scan et envoi du diagnostic.
     try:
         report = await scan_command_permissions(
-            interaction.client, guild, member, command_filter=command_filter,
+            interaction.client, guild, member, command_filter=command_filter, channel=channel,
         )
     except discord.HTTPException:
         log.exception("[DEV COMMAND_VISIBILITY] Erreur scan permissions")
