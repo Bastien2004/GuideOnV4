@@ -232,6 +232,14 @@ class EditListView(LayoutView):
         grade: str | None, pseudo: str, emoji: str,
         selected_keys: set[str], second_pseudos: dict[str, str],
     ) -> None:
+        # ⏱️ Deferred AVANT tout travail (DB + refresh_staff_message peut
+        # désormais éditer/envoyer PLUSIEURS messages Discord depuis le
+        # correctif de pagination — largement de quoi dépasser la fenêtre
+        # de 3s Discord pour la 1re réponse à une interaction, d'où
+        # "Unknown interaction" en prod). deferred_message_update (défaut
+        # pour un modal_submit/component) n'affiche aucun indicateur visible
+        # — UX identique, juste sans risque de timeout (Paul, 2026-09-27).
+        await interaction.response.defer()
         pseudo = pseudo.strip()
         already = await get_staff_member(self.server, discord_id)
         if already:
@@ -253,7 +261,7 @@ class EditListView(LayoutView):
         from utils.managers.ng_stafflist_manager import refresh_staff_message
         await refresh_staff_message(interaction.client, self.guild_id, server=self.server)
         members = await list_staff(self.server)
-        await interaction.response.edit_message(
+        await interaction.edit_original_response(
             view=EditListView(self.guild_id, self.owner_id, members, server=self.server)
         )
         log.info("[EDIT STAFFLIST] %s : %s (%s) ajouté/mis à jour — %s", self.server, pseudo, discord_id, label)
@@ -695,11 +703,14 @@ class _ModifyOptionsView(LayoutView):
         await interaction.response.send_modal(modal)
 
     async def _save_pseudo(self, interaction: Interaction, value: str) -> None:
+        # ⏱️ Voir _finalize_add : defer avant tout travail, refresh_staff_message
+        # peut désormais dépasser la fenêtre de 3s (pagination multi-messages).
+        await interaction.response.defer()
         await update_staff_member(self.server, self.data["discord_id"], pseudo_jeu=value.strip())
         from utils.managers.ng_stafflist_manager import refresh_staff_message
         await refresh_staff_message(interaction.client, self.guild_id, server=self.server)
         members = await list_staff(self.server)
-        await interaction.response.edit_message(
+        await interaction.edit_original_response(
             view=EditListView(self.guild_id, self.owner_id, members, server=self.server)
         )
 
@@ -718,11 +729,14 @@ class _ModifyOptionsView(LayoutView):
     async def _save_grade(
         self, interaction: Interaction, discord_id: int, member_name: str, grade: str | None
     ) -> None:
+        # ⏱️ Voir _finalize_add : defer avant tout travail, refresh_staff_message
+        # peut désormais dépasser la fenêtre de 3s (pagination multi-messages).
+        await interaction.response.defer()
         await update_staff_member(self.server, discord_id, grade=grade)
         from utils.managers.ng_stafflist_manager import refresh_staff_message
         await refresh_staff_message(interaction.client, self.guild_id, server=self.server)
         members = await list_staff(self.server)
-        await interaction.response.edit_message(
+        await interaction.edit_original_response(
             view=EditListView(self.guild_id, self.owner_id, members, server=self.server)
         )
 
@@ -739,11 +753,16 @@ class _ModifyOptionsView(LayoutView):
         await interaction.response.send_modal(modal)
 
     async def _save_emoji(self, interaction: Interaction, value: str) -> None:
+        # ⏱️ Voir _finalize_add : defer avant tout travail — c'est précisément
+        # ce chemin qui a crashé en prod sur Iris (2026-09-27, "Unknown
+        # interaction" 404/10062) : refresh_staff_message dépassait la
+        # fenêtre de 3s avant la 1re réponse à l'interaction du modal.
+        await interaction.response.defer()
         await update_staff_member(self.server, self.data["discord_id"], skin_head_emoji=value.strip())
         from utils.managers.ng_stafflist_manager import refresh_staff_message
         await refresh_staff_message(interaction.client, self.guild_id, server=self.server)
         members = await list_staff(self.server)
-        await interaction.response.edit_message(
+        await interaction.edit_original_response(
             view=EditListView(self.guild_id, self.owner_id, members, server=self.server)
         )
 
@@ -849,6 +868,10 @@ class _StatutManageView(LayoutView):
         held = {s["key"] for s in self.data.get("statuts", [])}
 
         if key in held:
+            # ⏱️ Voir _save_emoji plus haut dans ce fichier : _refresh appelle
+            # refresh_staff_message, qui peut désormais dépasser la fenêtre
+            # de 3s Discord pour la 1re réponse (pagination multi-messages).
+            await interaction.response.defer()
             await revoke_statut(self.server, self.data["discord_id"], key)
             return await self._refresh(interaction)
 
@@ -874,12 +897,19 @@ class _StatutManageView(LayoutView):
         # grant_statut, ng_statut_manager.py).
         if statut_def["requires_second_pseudo"] and self.data["grade"] is not None:
             async def on_submit(inter: Interaction, value: str) -> None:
+                # ⏱️ Voir _save_emoji plus haut : ce modal débouche sur
+                # _refresh (refresh_staff_message), qui peut désormais
+                # dépasser la fenêtre de 3s Discord pour la 1re réponse à
+                # CETTE interaction (le modal_submit, distincte de celle qui
+                # l'a ouvert) — deferred_message_update, invisible pour
+                # l'utilisateur.
+                await inter.response.defer()
                 try:
                     await grant_statut(self.server, self.data["discord_id"], key, second_pseudo=value.strip())
                 except NGStatutError as e:
                     fresh_defs = await list_statut_defs(self.server)
                     fresh_data = await get_staff_member(self.server, self.data["discord_id"])
-                    return await inter.response.edit_message(
+                    return await inter.edit_original_response(
                         view=_StatutManageView(
                             self.guild_id, self.owner_id, fresh_data, fresh_defs,
                             server=self.server, error_message=e.message,
@@ -895,10 +925,14 @@ class _StatutManageView(LayoutView):
             )
             return await interaction.response.send_modal(modal)
 
+        # ⏱️ Voir _save_emoji plus haut : ce chemin débouche sur _refresh
+        # (refresh_staff_message), qui peut désormais dépasser la fenêtre de
+        # 3s Discord pour la 1re réponse à l'interaction.
+        await interaction.response.defer()
         try:
             await grant_statut(self.server, self.data["discord_id"], key)
         except NGStatutError as e:
-            return await interaction.response.edit_message(
+            return await interaction.edit_original_response(
                 view=_StatutManageView(
                     self.guild_id, self.owner_id, self.data, self.statut_defs,
                     server=self.server, error_message=e.message,
@@ -907,11 +941,15 @@ class _StatutManageView(LayoutView):
         await self._refresh(interaction)
 
     async def _refresh(self, interaction: Interaction) -> None:
+        """Toujours appelée sur une interaction déjà deferred par l'appelant
+        (voir chaque site d'appel ci-dessus) — jamais un edit_message direct
+        ici, refresh_staff_message est trop lent depuis la pagination pour
+        rester sous la fenêtre de 3s de la 1re réponse."""
         from utils.managers.ng_stafflist_manager import refresh_staff_message
         await refresh_staff_message(interaction.client, self.guild_id, server=self.server)
         data = await get_staff_member(self.server, self.data["discord_id"])
         statut_defs = await list_statut_defs(self.server)
-        await interaction.response.edit_message(
+        await interaction.edit_original_response(
             view=_StatutManageView(self.guild_id, self.owner_id, data, statut_defs, server=self.server)
         )
 
@@ -1000,6 +1038,11 @@ class _ConfirmRemoveView(LayoutView):
         self.add_item(c)
 
     async def _on_confirm(self, interaction: Interaction) -> None:
+        # ⏱️ Voir _save_emoji (edit_list_view.py, plus haut) : defer avant
+        # tout travail — refresh_staff_message peut désormais dépasser la
+        # fenêtre de 3s Discord pour la 1re réponse (pagination
+        # multi-messages).
+        await interaction.response.defer()
         await remove_staff_member(self.server, self.data["discord_id"])
         # 🧹 NGStaffStatut n'a pas de FK vers ng_staff (seulement vers
         # ng_statut_defs, cascade sur suppression de statut) — sans cet
@@ -1009,7 +1052,7 @@ class _ConfirmRemoveView(LayoutView):
         from utils.managers.ng_stafflist_manager import refresh_staff_message
         await refresh_staff_message(interaction.client, self.guild_id, server=self.server)
         members = await list_staff(self.server)
-        await interaction.response.edit_message(
+        await interaction.edit_original_response(
             view=EditListView(self.guild_id, self.owner_id, members, server=self.server)
         )
 
