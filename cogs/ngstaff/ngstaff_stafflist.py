@@ -10,9 +10,14 @@ Différence : flow require_ng_server + has_grade_check dynamique au lieu de
 check_op_alpha (RBAC legacy, propre à Alpha).
 
 Note : contrairement à refresh_staff_message (silencieuse, appelée par
-d'autres flows), cette commande répond à l'utilisateur — la logique
-d'édition/création du message est donc reprise ici plutôt que déléguée,
-pour conserver les messages de confirmation ephémères.
+d'autres flows), cette commande répond à l'utilisateur — mais l'édition/
+création des messages elle-même est déléguée à
+ng_stafflist_manager.sync_stafflist_messages depuis le correctif de
+pagination (2026-09) : cette logique gère désormais plusieurs messages
+(une page par message, cf. views/ngstaff/stafflist_view.py) et dupliquer
+un correctif pagination dans deux fichiers serait fragile. Seul le
+"créée" vs "mise à jour" du message de confirmation reste propre à cette
+commande (sync_stafflist_messages renvoie l'info).
 """
 
 from __future__ import annotations
@@ -25,17 +30,15 @@ from discord import Interaction, app_commands
 from utils.container_universel import error_container, success_container
 from utils.control_admin import verifier_commande
 from utils.error_handler import handle_app_command_error
-from utils.managers.alpha_message_manager import clear_alpha_message, get_alpha_message, upsert_alpha_message
 from utils.managers.ng_rank_config_manager import load_rank_config
 from utils.managers.ng_staff_manager import list_staff
+from utils.managers.ng_stafflist_manager import sync_stafflist_messages
 from utils.ng_server_check import require_ng_server
 from utils.perm_check import has_grade_check
 from utils.track_commande import tracker_commande
 from views.ngstaff.stafflist_view import build_stafflist_view
 
 log = logging.getLogger(__name__)
-
-MESSAGE_KEY = "stafflist"
 
 
 # ============================================================
@@ -94,41 +97,24 @@ async def ngstaff_stafflist(interaction: Interaction) -> None:
 
     guild_id = interaction.guild_id
     members = await list_staff(server.name)
-    view = build_stafflist_view(members, server=server.name)
+    pages = build_stafflist_view(members, server=server.name)
 
-    # 🔍 Récupération message existant
-    msg_cfg = await get_alpha_message(guild_id, MESSAGE_KEY)
-    existing: discord.Message | None = None
-
-    if msg_cfg and msg_cfg.message_id:
-        try:
-            existing = await channel.fetch_message(msg_cfg.message_id)
-        except (discord.NotFound, discord.HTTPException):
-            existing = None
-            await clear_alpha_message(guild_id, MESSAGE_KEY)
-
-    # 🚀 Édition ou création
+    # 🚀 Édition ou création (une ou plusieurs pages selon la taille —
+    # voir sync_stafflist_messages pour le correctif de pagination).
     try:
-        if existing:
-            await existing.edit(view=view)
-            return await interaction.followup.send(
-                view=success_container(f"Liste du staff **mise à jour** dans {channel.mention} !"),
-                ephemeral=True,
-            )
-
-        sent = await channel.send(view=view)
-        await upsert_alpha_message(guild_id, MESSAGE_KEY, channel_id, sent.id)
-        return await interaction.followup.send(
-            view=success_container(f"Liste du staff **créée** dans {channel.mention} !"),
-            ephemeral=True,
-        )
-
+        created = await sync_stafflist_messages(channel, channel_id, guild_id, pages)
     except discord.HTTPException:
         log.exception("[STAFFLIST NGSTAFF] Erreur /ngstaff stafflist | guild=%s server=%s", guild_id, server.name)
         return await interaction.followup.send(
             view=error_container("Une erreur Discord est survenue."),
             ephemeral=True,
         )
+
+    verbe = "créée" if created else "mise à jour"
+    return await interaction.followup.send(
+        view=success_container(f"Liste du staff **{verbe}** dans {channel.mention} !"),
+        ephemeral=True,
+    )
 
 
 # ============================================================
