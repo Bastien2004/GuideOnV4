@@ -20,14 +20,12 @@ from views._components.base_view import BaseLayoutView
 _PLATFORM_EMOJI = {
     "youtube": "<:Youtube2:1545107295975772180>",
     "twitch": "<:Twitch2:1545053682129961081>",
-    "tiktok": "<:TikTok:1545107255727235113>",
     "reddit": "<:Reddit:1545053589020483724>",
 }
 
 _PLATFORM_LABEL = {
     "youtube": "YouTube",
     "twitch": "Twitch",
-    "tiktok": "TikTok",
     "reddit": "Reddit",
 }
 
@@ -74,7 +72,7 @@ class MediaLinkHubView(BaseLayoutView):
 
         container.add_item(TextDisplay("### <:lister:1495445288364675192> __Plateformes__ :"))
         platform_lines = []
-        for platform in ("youtube", "twitch", "tiktok", "reddit"):
+        for platform in ("youtube", "twitch", "reddit"):
             count = self.stats["platforms"].get(platform, 0)
             emoji = _PLATFORM_EMOJI[platform]
             label = _PLATFORM_LABEL[platform]
@@ -100,8 +98,6 @@ class MediaLinkHubView(BaseLayoutView):
                          description="Gérer les types d'événements configurés."),
             SelectOption(label="Annonces", value="templates", emoji="<:annonce:1552028020896698398>",
                          description="Gérer les templates d'annonce."),
-            SelectOption(label="Statistiques", value="statistics", emoji="<:Stat:1547703142466982039>",
-                         description="Consulter les statistiques d'activités."),
             SelectOption(label="Logs", value="logs", emoji="<:fichier_i:1539608464324567040>",
                          description="Consulter votre historique du système."),
         ]
@@ -125,7 +121,6 @@ class MediaLinkHubView(BaseLayoutView):
             "platforms": self._cb_open_platforms,
             "events": self._cb_open_events,
             "templates": self._cb_open_templates,
-            "statistics": self._cb_open_statistics,
             "logs": self._cb_open_logs,
         }
         handler = handlers.get(value)
@@ -146,12 +141,6 @@ class MediaLinkHubView(BaseLayoutView):
         from views.medialink.medialink_announcement_view import TemplateListView
 
         view = await TemplateListView.build(guild_id=self.guild_id, owner_id=self.owner_id)
-        await self.push_update(interaction, view=view)
-
-    async def _cb_open_statistics(self, interaction: discord.Interaction) -> None:
-        from views.medialink.medialink_statistics_view import MediaLinkStatisticsView
-
-        view = await MediaLinkStatisticsView.build(guild=interaction.guild, owner_id=self.owner_id)
         await self.push_update(interaction, view=view)
 
     async def _cb_open_logs(self, interaction: discord.Interaction) -> None:
@@ -190,7 +179,7 @@ class MediaLinkDashboardView(BaseLayoutView):
                 TextDisplay(
                     "### 📭 Aucune connexion\n"
                     "> Aucun compte n'est lié pour le moment.\n\n"
-                    "-# Cliquez sur **Ajouter une connexion** ci-dessous pour lier YouTube, Twitch, TikTok ou Reddit."
+                    "-# Cliquez sur **Ajouter une connexion** ci-dessous pour lier YouTube, Twitch ou Reddit."
                 )
             )
         else:

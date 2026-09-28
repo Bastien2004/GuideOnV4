@@ -40,7 +40,6 @@ _UNAVAILABLE_PREFIX = "__unavailable__"
 _PLATFORM_LABELS: list[tuple[MediaPlatform, str, str]] = [
     (MediaPlatform.YOUTUBE, "YouTube", "▶️"),
     (MediaPlatform.TWITCH, "Twitch", "🟣"),
-    (MediaPlatform.TIKTOK, "TikTok", "🎵"),
     (MediaPlatform.REDDIT, "Reddit", "👽"),
 ]
 
@@ -66,9 +65,8 @@ _PLATFORM_OPTIONS = _build_platform_options()
 class AddConnectionModal(discord.ui.Modal):
     """Saisie d'une connexion. YouTube et Twitch passent par leur
     Provider réel (validation + pré-remplissage via l'API, cf.
-    _submit_youtube / _submit_twitch) ; TikTok/Reddit restent en saisie
-    manuelle tant que leurs Providers sont des stubs (cf. _submit_manual,
-    et note en tête de fichier)."""
+    _submit_youtube / _submit_twitch) ; Reddit reste en saisie manuelle
+    tant que son Provider est un stub (cf. _submit_manual)."""
 
     def __init__(self, *, guild_id: int, owner_id: int, platform: str):
         self.guild_id = guild_id
@@ -294,8 +292,8 @@ class AddConnectionView(BaseLayoutView):
         container.add_item(
             TextDisplay(
                 "-# YouTube et Twitch : vérifiés automatiquement (nom et "
-                "avatar récupérés depuis le compte). TikTok, Reddit : "
-                "bientôt disponibles."
+                "avatar récupérés depuis le compte). Reddit : "
+                "bientôt disponible."
             )
         )
         container.add_item(Separator())
