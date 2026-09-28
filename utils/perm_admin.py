@@ -35,4 +35,21 @@ def is_admin(interaction: discord.Interaction) -> bool:
         or member.id == interaction.guild.owner_id
     )
 
+
 async def check_admin(interaction: discord.Interaction, action: str = "effectuer cette action") -> bool:
+    """Vérifie les permissions admin et gère le cas MP."""
+    
+    if interaction.guild is None:
+        msg = (
+            "Cette commande ne peut être __utilisée__ "
+            "que dans un **serveur Discord**."
+        )
+        await send_ephemeral(interaction, error_container(msg))
+        return False
+
+    if is_admin(interaction):
+        return True
+
+    msg = f"Vous devez être **Administrateur** pour {action}."
+    await send_ephemeral(interaction, error_container(msg))
+    return False
