@@ -42,3 +42,4 @@ numpy>=1.26
 
 # Machine Learning
 torch>=2.7
+nltk>=3.9
