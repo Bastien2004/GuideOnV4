@@ -347,8 +347,8 @@ class TemplateEditView(BaseLayoutView):
         container.add_item(Separator())
 
         config = self.template.get("container_config") or {}
-        title = config.get("title") or "*(aucun)*"
-        description = config.get("description") or "*(aucune)*"
+        title = config.get("title") or "Aucun"
+        description = config.get("description") or "Aucune"
         accent_color = config.get("accent_color")
         color_str = f"`#{accent_color:06X}`" if isinstance(accent_color, int) else "*(par défaut)*"
 
@@ -370,6 +370,8 @@ class TemplateEditView(BaseLayoutView):
                 accessory=edit_container_btn,
             )
         )
+
+        container.add_item(Separator())
 
         thumbnail_enabled = bool(config.get("thumbnail_enabled"))
         toggle_btn = Button(
