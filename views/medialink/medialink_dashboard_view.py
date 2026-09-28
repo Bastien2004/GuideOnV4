@@ -98,8 +98,6 @@ class MediaLinkHubView(BaseLayoutView):
                          description="Gérer les types d'événements configurés."),
             SelectOption(label="Annonces", value="templates", emoji="<:annonce:1552028020896698398>",
                          description="Gérer les templates d'annonce."),
-            SelectOption(label="Logs", value="logs", emoji="<:fichier_i:1539608464324567040>",
-                         description="Consulter votre historique du système."),
         ]
         nav_select = Select(placeholder="Choisir une catégorie...", options=nav_options, min_values=1, max_values=1)
         nav_select.callback = self._cb_nav_select
@@ -121,7 +119,6 @@ class MediaLinkHubView(BaseLayoutView):
             "platforms": self._cb_open_platforms,
             "events": self._cb_open_events,
             "templates": self._cb_open_templates,
-            "logs": self._cb_open_logs,
         }
         handler = handlers.get(value)
         if handler is not None:
@@ -141,12 +138,6 @@ class MediaLinkHubView(BaseLayoutView):
         from views.medialink.medialink_announcement_view import TemplateListView
 
         view = await TemplateListView.build(guild_id=self.guild_id, owner_id=self.owner_id)
-        await self.push_update(interaction, view=view)
-
-    async def _cb_open_logs(self, interaction: discord.Interaction) -> None:
-        from views.medialink.medialink_logs_view import MediaLinkLogsView
-
-        view = await MediaLinkLogsView.build(guild=interaction.guild, owner_id=self.owner_id)
         await self.push_update(interaction, view=view)
 
 
@@ -178,8 +169,7 @@ class MediaLinkDashboardView(BaseLayoutView):
             container.add_item(
                 TextDisplay(
                     "### 📭 Aucune connexion\n"
-                    "> Aucun compte n'est lié pour le moment.\n\n"
-                    "-# Cliquez sur **Ajouter une connexion** ci-dessous pour lier YouTube, Twitch ou Reddit."
+                    "> Aucun compte n'est lié pour le moment."
                 )
             )
         else:
