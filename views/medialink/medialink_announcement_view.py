@@ -318,7 +318,8 @@ class TemplateEditView(BaseLayoutView):
 
         template_name = self.template.get("name", "Sans nom")
         container.add_item(TextDisplay(f"# <:modifier:1495444144712192003> Édition de `{template_name}`"))
-        
+        container.add_item(Separator())
+
         placeholders_help = "  ".join(f"`{{{p}}}`" for p in PLACEHOLDER_FIELDS)
         container.add_item(
             TextDisplay(
@@ -362,8 +363,8 @@ class TemplateEditView(BaseLayoutView):
             Section(
                 TextDisplay(
                     "### 🎨 Encadré & Apparence\n"
-                    f"• **Titre :** {title}\n"
-                    f"• **Description :** {description}\n"
+                    f"• **Titre :** `{title}`\n"
+                    f"• **Description :**\n ```{description}```\n"
                     f"• **Couleur d'accent :** {color_str}"
                 ),
                 accessory=edit_container_btn,
