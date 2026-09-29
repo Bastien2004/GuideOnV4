@@ -6,7 +6,11 @@ Remplace l'ancien stockage JSON V3 (config_invite_<guild>.json + invite_data_<gu
 Trois tables :
 
 - InviteConfig : 1 ligne par serveur (PK = guild_id). Config du système :
-  activé/désactivé, rôle-récompense, seuil. Équivalent de bienvenue_configs.
+  activé/désactivé, rôle-récompense, seuil, et désormais l'annonce
+  permanente "qui a invité qui" à l'arrivée (announce_*, Paul, 2026-09-28 :
+  "Ajouter une configuration au système d'invite pour envoyer un message
+  permanent de qui à invité la personne qui vient de rejoindre"). Équivalent
+  de bienvenue_configs.
 
 - InviteStat : 1 ligne par (serveur, membre). Compteurs d'invitations
   (regular / fake / bonus / left). Le `total` n'est PAS stocké : il est
@@ -24,13 +28,21 @@ Tous les IDs Discord (snowflakes) sont en BigInteger.
 """
 from __future__ import annotations
 
-from sqlalchemy import BigInteger, Boolean, Index, Integer, String
+from sqlalchemy import BigInteger, Boolean, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from utils.db.base import Base, TimestampMixin
 
 # Valeurs par défaut de la config (reprises de la V3).
 DEFAULT_REWARD_THRESHOLD = 10
+
+# Message par défaut de l'annonce "qui a invité qui" (Paul, 2026-09-28).
+# {inviter}/{inviter_mention} retombent sur un texte neutre quand
+# inviter_id est None (vanity/externe/ambigu — voir cogs/events/invite_listener.py).
+DEFAULT_ANNOUNCE_MESSAGE = (
+    "{mention} a été invité par {inviter} sur le serveur, "
+    "nous sommes maintenant **{member_count}**."
+)
 
 
 class InviteConfig(Base, TimestampMixin):
@@ -51,12 +63,24 @@ class InviteConfig(Base, TimestampMixin):
         Integer, default=DEFAULT_REWARD_THRESHOLD, nullable=False
     )
 
+    announce_active: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", nullable=False,
+    )
+    announce_channel_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    announce_message: Mapped[str] = mapped_column(
+        Text, default=DEFAULT_ANNOUNCE_MESSAGE,
+        server_default=DEFAULT_ANNOUNCE_MESSAGE, nullable=False,
+    )
+
     def to_dict(self) -> dict:
         """Représentation dict de la config (clés stables pour la View/manager)."""
         return {
             "enabled": self.enabled,
             "reward_role_id": self.reward_role_id,
             "reward_threshold": self.reward_threshold,
+            "announce_active": self.announce_active,
+            "announce_channel_id": self.announce_channel_id,
+            "announce_message": self.announce_message,
         }
 
     def __repr__(self) -> str:  # pragma: no cover - debug only

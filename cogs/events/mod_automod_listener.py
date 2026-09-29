@@ -108,6 +108,26 @@ def _missing_send_permissions(channel, guild: discord.Guild) -> list[str]:
     return [name for name in _REQUIRED_ALERT_PERMS if not getattr(perms, name, True)]
 
 
+def _forwarded_snapshots(message: discord.Message) -> list[discord.MessageSnapshot]:
+    """Snapshots d'un message transféré ("Forward" Discord), ou [] sinon.
+
+    Un message transféré a son VRAI contenu dans message.message_snapshots
+    (une liste, en pratique toujours 0 ou 1 élément), pas dans
+    message.content qui est souvent vide (sauf commentaire ajouté par
+    l'expéditeur en plus du forward) — Paul, 2026-09-28."""
+    return list(getattr(message, "message_snapshots", None) or [])
+
+
+def _analyzable_contents(message: discord.Message, snapshots: list[discord.MessageSnapshot]) -> list[str]:
+    """Tous les textes à faire passer dans les détecteurs basés sur le
+    contenu (banword, antifullcaps, nolink, antilink, antiflood, antispam
+    emoji) : le texte du message lui-même PLUS celui de chaque snapshot
+    transféré. Ne renvoie jamais une liste vide (au moins "")."""
+    contents = [message.content] if message.content else []
+    contents.extend(snap.content for snap in snapshots if snap.content)
+    return contents or [""]
+
+
 # ============================================================
 # 🧩 Cog
 # ============================================================
@@ -127,6 +147,58 @@ class ModAutomodListener(commands.Cog):
         if message.author.guild_permissions.administrator:
             return
 
+        await self._analyze_and_act(message)
+
+    @commands.Cog.listener()
+    async def on_raw_message_edit(self, payload: discord.RawMessageUpdateEvent) -> None:
+        """Re-passe un message ÉDITÉ dans l'analyse automod.
+
+        on_message ne se déclenche qu'à la création : un membre pouvait
+        jusqu'ici poster un message propre puis l'éditer pour y glisser un
+        mot banni/lien/etc. sans jamais être détecté (Paul, 2026-09-28).
+        On utilise l'event RAW (pas on_message_edit) pour ne pas dépendre
+        du cache messages du bot — indépendant de cogs/events/mod_log_messages.py
+        dont le on_message_edit est purement journalisation (diff avant/après)
+        et n'a jamais été branché sur l'automod.
+        """
+        if payload.guild_id is None:
+            return
+
+        # Discord n'inclut la clé "content" dans le payload MESSAGE_UPDATE
+        # que si le texte a réellement changé (un simple unfurl de lien qui
+        # ajoute un embed après coup ne la contient pas) : on évite ainsi
+        # de re-analyser un message à chaque mise à jour non textuelle.
+        if "content" not in payload.data:
+            return
+
+        guild = self.bot.get_guild(payload.guild_id)
+        if guild is None:
+            return
+        channel = guild.get_channel_or_thread(payload.channel_id)
+        if channel is None:
+            return
+
+        try:
+            message = await channel.fetch_message(payload.message_id)
+        except (discord.NotFound, discord.Forbidden, discord.HTTPException) as exc:
+            log.debug(
+                "[AUTOMOD] Message édité introuvable/inaccessible channel=%s message=%s erreur=%s",
+                payload.channel_id, payload.message_id, exc,
+            )
+            return
+
+        if message.author.bot:
+            return
+        if not isinstance(message.author, discord.Member):
+            return
+        if message.author.guild_permissions.administrator:
+            return
+
+        await self._analyze_and_act(message)
+
+    async def _analyze_and_act(self, message: discord.Message) -> None:
+        """Factorise le pipeline analyse -> action, partagé par on_message
+        (nouveaux messages) et on_raw_message_edit (messages édités)."""
         try:
             hit = await self._analyze_message(message)
         except Exception:
@@ -151,43 +223,72 @@ class ModAutomodListener(commands.Cog):
         guild_id = message.guild.id
         content = message.content or ""
 
+        # 📨 Message transféré ("Forward") : message.content est en général
+        # VIDE (le vrai texte est dans message.message_snapshots), donc tous
+        # les détecteurs basés sur le texte doivent aussi scanner le(s)
+        # snapshot(s), pas seulement message.content (Paul, 2026-09-28).
+        snapshots = _forwarded_snapshots(message)
+        contents = _analyzable_contents(message, snapshots)
+        attachment_filenames = [a.filename for a in message.attachments]
+        attachment_filenames.extend(
+            a.filename for snap in snapshots for a in snap.attachments
+        )
+
         # ── Ban word ──
         bw_cfg = await banword_mgr.load_config(guild_id)
         if bw_cfg.get("enabled"):
             words = await banword_mgr.list_words(guild_id)
             if words:
-                match = banword_detector.detect(content, words)
-                if match is not None:
-                    return ("banword", match)
+                for text in contents:
+                    match = banword_detector.detect(text, words)
+                    if match is not None:
+                        return ("banword", match)
 
         # ── Anti Full Maj ──
         fc_cfg = await antifullcaps_mgr.load_config(guild_id)
         if fc_cfg.get("enabled"):
-            match = antifullcaps_detector.detect(
-                content,
-                min_length=fc_cfg.get("min_length", 10),
-                ratio_threshold=fc_cfg.get("ratio_threshold", 0.7),
-            )
-            if match is not None:
-                return ("antifullcaps", match)
+            for text in contents:
+                match = antifullcaps_detector.detect(
+                    text,
+                    min_length=fc_cfg.get("min_length", 10),
+                    ratio_threshold=fc_cfg.get("ratio_threshold", 0.7),
+                )
+                if match is not None:
+                    return ("antifullcaps", match)
 
         # ── Anti Spam Mention ──
         m_cfg = await antispam_mention_mgr.load_config(guild_id)
         if m_cfg.get("enabled"):
+            max_mentions = m_cfg.get("max_mentions", 5)
             match = antispam_mention_detector.detect(
-                message, max_mentions=m_cfg.get("max_mentions", 5),
+                message, max_mentions=max_mentions,
             )
+            if match is None:
+                # Un snapshot transféré n'a pas de .mentions résolus (pas de
+                # Member) — on retombe sur un comptage brut (raw_mentions /
+                # raw_role_mentions + @everyone/@here textuel) pour ne pas
+                # laisser passer un forward qui abuse des mentions.
+                for snap in snapshots:
+                    count = (
+                        len(snap.raw_mentions)
+                        + len(snap.raw_role_mentions)
+                        + (1 if ("@everyone" in snap.content or "@here" in snap.content) else 0)
+                    )
+                    if count > max_mentions:
+                        match = f"{count} mentions"
+                        break
             if match is not None:
                 return ("antispam_mention", match)
 
         # ── Anti Spam Emoji ──
         e_cfg = await antispam_emoji_mgr.load_config(guild_id)
         if e_cfg.get("enabled"):
-            match = antispam_emoji_detector.detect(
-                content, max_emoji=e_cfg.get("max_emoji", 10),
-            )
-            if match is not None:
-                return ("antispam_emoji", match)
+            for text in contents:
+                match = antispam_emoji_detector.detect(
+                    text, max_emoji=e_cfg.get("max_emoji", 10),
+                )
+                if match is not None:
+                    return ("antispam_emoji", match)
 
         # ── No Link ──
         nl_cfg = await nolink_mgr.load_config(guild_id)
@@ -199,23 +300,29 @@ class ModAutomodListener(commands.Cog):
                 channel_id = message.channel.parent_id
 
             if not await nolink_mgr.is_whitelisted(guild_id, channel_id):
-                match = nolink_detector.detect(
-                    content, bypass_gif=nl_cfg.get("bypass_gif", False),
-                )
-                if match is not None:
-                    return ("nolink", match)
+                for text in contents:
+                    match = nolink_detector.detect(
+                        text, bypass_gif=nl_cfg.get("bypass_gif", False),
+                    )
+                    if match is not None:
+                        return ("nolink", match)
 
         # ── Anti Link ──
         al_cfg = await antilink_mgr.load_config(guild_id)
         if al_cfg.get("enabled"):
             extensions = await antilink_mgr.list_extensions(guild_id)
             if extensions:
-                filenames = [a.filename for a in message.attachments]
-                match = antilink_detector.detect(content, filenames, extensions)
-                if match is not None:
-                    return ("antilink", match)
+                for text in contents:
+                    match = antilink_detector.detect(text, attachment_filenames, extensions)
+                    if match is not None:
+                        return ("antilink", match)
 
         # ── Anti Spam Message ──
+        # Volontairement limité à message.content (pas aux snapshots) : ce
+        # détecteur traque la répétition d'un texte TAPÉ par le membre, pas
+        # le contenu d'un message transféré — élargir son périmètre créerait
+        # des faux positifs si plusieurs forwards différents partagent un
+        # même passage cité (Paul, 2026-09-28, décision de scope).
         sm_cfg = await antispam_msg_mgr.load_config(guild_id)
         if sm_cfg.get("enabled"):
             occurrences = antispam_msg_buffer.register_and_count(
@@ -231,13 +338,14 @@ class ModAutomodListener(commands.Cog):
         # ── Anti Flood ──
         af_cfg = await antiflood_mgr.load_config(guild_id)
         if af_cfg.get("enabled"):
-            match = antiflood_detector.detect(
-                content,
-                min_length=af_cfg.get("min_length", 20),
-                min_vowel_ratio=af_cfg.get("min_vowel_ratio", 0.2),
-            )
-            if match is not None:
-                return ("antiflood", match)
+            for text in contents:
+                match = antiflood_detector.detect(
+                    text,
+                    min_length=af_cfg.get("min_length", 20),
+                    min_vowel_ratio=af_cfg.get("min_vowel_ratio", 0.2),
+                )
+                if match is not None:
+                    return ("antiflood", match)
 
         return None
 
@@ -271,13 +379,21 @@ class ModAutomodListener(commands.Cog):
         )
         is_recidive = recent >= 1
 
+        # Un message transféré a souvent message.content vide (le texte est
+        # dans les snapshots) : on retombe dessus pour que l'enregistrement
+        # de l'infraction garde une trace lisible du contenu réel incriminé.
+        snapshots = _forwarded_snapshots(message)
+        record_content = message.content or "\n".join(
+            snap.content for snap in snapshots if snap.content
+        ) or None
+
         try:
             await infr_mgr.register_infraction(
                 guild_id=guild_id, user_id=user_id,
                 channel_id=message.channel.id,
                 system_key=system_key,
                 matched_term=matched_term,
-                message_content=message.content,
+                message_content=record_content,
             )
 
         except Exception:

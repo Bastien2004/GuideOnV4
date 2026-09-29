@@ -161,11 +161,12 @@ def build_stafflist_view(members: list[dict], *, server: str) -> list[LayoutView
         scored_containers.extend(_split_block_into_containers(emoji, label, lines, _PAGE_CHAR_BUDGET))
 
     # ── Répartition gloutonne des Container sur les pages ─────────────────
-    # Marge pessimiste pour le header (réservée même avant de savoir le
-    # nombre total de pages, ex. " (12/12)") et le footer, comptés sur
-    # chaque page.
-    header_reserve = len(f"# {header_emoji} Effectif Staff {display_name}") + len(" (99/99)")
-    footer_reserve = len(_FOOTER_TEXT)
+    # Marge pessimiste pour le header et le footer (réservée même avant de
+    # savoir le nombre total de pages) — la pagination "(12/12)" est
+    # affichée dans le FOOTER, à côté de "GuideOn Studio" (Paul,
+    # 2026-09-28 : elle était auparavant dans le titre du header).
+    header_reserve = len(f"# {header_emoji} Effectif Staff {display_name}")
+    footer_reserve = len(_FOOTER_TEXT) + len(" (99/99)")
     base_reserve = header_reserve + footer_reserve
 
     pages_containers: list[list[Container]] = [[]]
@@ -187,8 +188,6 @@ def build_stafflist_view(members: list[dict], *, server: str) -> list[LayoutView
 
         header = Container()
         title = f"# {header_emoji} Effectif Staff {display_name}"
-        if total_pages > 1:
-            title += f" ({page_no}/{total_pages})"
         header.add_item(TextDisplay(title))
         view.add_item(header)
 
@@ -196,7 +195,10 @@ def build_stafflist_view(members: list[dict], *, server: str) -> list[LayoutView
             view.add_item(c)
 
         footer = Container()
-        footer.add_item(TextDisplay(_FOOTER_TEXT))
+        footer_text = _FOOTER_TEXT
+        if total_pages > 1:
+            footer_text += f" ({page_no}/{total_pages})"
+        footer.add_item(TextDisplay(footer_text))
         view.add_item(footer)
 
         views.append(view)

@@ -251,6 +251,10 @@ class CreateTicketModal(discord.ui.Modal):
                 ephemeral=True,
             )
 
+        log.info("[TICKET] Ouverture | guild=%s panel=%s channel=%s(%s) numero=%s créateur=%s(%s)",
+            guild_id, self.panel_id, channel.name, channel.id, ticket_num, user, user.id,
+        )
+
         await interaction.followup.send(
             view=success_container(f"Ticket ouvert : {channel.mention}"),
             ephemeral=True,

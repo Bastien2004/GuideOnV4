@@ -12,6 +12,7 @@ from discord import ButtonStyle, Interaction
 from discord.ui import ActionRow, Button, Container, Section, Separator, TextDisplay
 
 from utils.container_universel import error_container
+from utils.db.models.invite import DEFAULT_ANNOUNCE_MESSAGE
 from utils.managers.invite_manager import load_invite_config, save_invite_config
 
 from views._components.base_view import BaseLayoutView
@@ -43,6 +44,14 @@ def _role_label(role_id: Optional[int], guild: discord.Guild) -> str:
     return role.mention if role is not None else f"`Rôle supprimé (ID {role_id})`"
 
 
+def _channel_label(channel_id: Optional[int], guild: discord.Guild) -> str:
+    """Gestion affichage du salon d'annonce."""
+    if channel_id is None:
+        return "`Non configuré`"
+    channel = guild.get_channel(channel_id)
+    return channel.mention if channel is not None else f"`Salon supprimé (ID {channel_id})`"
+
+
 # ============================================================
 # 🧩 Construction de l'interface
 # ============================================================
@@ -59,6 +68,8 @@ async def create_invite_view(guild_id: int, bot, author_id: Optional[int] = None
     enabled = cfg.get("enabled", False)
     reward_role_id = cfg.get("reward_role_id")
     threshold = cfg.get("reward_threshold", 10)
+    announce_active = cfg.get("announce_active", False)
+    announce_channel_id = cfg.get("announce_channel_id")
 
     view = BaseLayoutView(owner_id=author_id, timeout=600)
     container = Container()
@@ -97,6 +108,43 @@ async def create_invite_view(guild_id: int, bot, author_id: Optional[int] = None
             f"-# Actuel : **{threshold}**"
         ),
         accessory=btn_threshold,
+    ))
+    container.add_item(Separator())
+
+    btn_announce = _state_btn(announce_active)
+    btn_announce.callback = _cb_toggle_announce(guild_id, bot, author_id)
+    container.add_item(Section(
+        TextDisplay(
+            "**📨 Annonce \"qui a invité qui\"**\n"
+            "-# Message permanent posté à l'arrivée d'un membre."
+        ),
+        accessory=btn_announce,
+    ))
+    container.add_item(Separator())
+
+    if announce_channel_id is not None:
+        announce_channel_btn = Button(label="Retirer", style=ButtonStyle.danger, emoji="<:supprimer:1495444051623809075>")
+        announce_channel_btn.callback = _cb_clear_announce_channel(guild_id, bot, author_id)
+    else:
+        announce_channel_btn = Button(label="Modifier", style=ButtonStyle.secondary, emoji="<:modifier:1495444144712192003>")
+        announce_channel_btn.callback = _cb_pick_announce_channel(guild_id, bot, author_id)
+    container.add_item(Section(
+        TextDisplay(
+            f"**📢 Salon d'annonce**\n-# Salon où poster le message d'arrivée.\n"
+            f"-# Actuel : {_channel_label(announce_channel_id, guild)}"
+        ),
+        accessory=announce_channel_btn,
+    ))
+    container.add_item(Separator())
+
+    btn_announce_msg = Button(label="Modifier", style=ButtonStyle.secondary, emoji="<:modifier:1495444144712192003>")
+    btn_announce_msg.callback = _cb_edit_announce_message(guild_id, bot, author_id)
+    container.add_item(Section(
+        TextDisplay(
+            "**✏️ Message d'annonce**\n"
+            "-# Variables : {mention} {user} {inviter} {server} {member_count}"
+        ),
+        accessory=btn_announce_msg,
     ))
     container.add_item(Separator())
 
@@ -215,6 +263,104 @@ def _cb_pick_role(guild_id, bot, author_id):
                 validate=_validate_role_for_invite,
             )
         )
+    return cb
+
+
+def _cb_toggle_announce(guild_id, bot, author_id):
+    """Gère le bouton d'activation de l'annonce "qui a invité qui"."""
+    check = _guard(author_id)
+    async def cb(interaction: Interaction):
+        if not await check(interaction):
+            return
+        current = (await load_invite_config(guild_id)).get("announce_active", False)
+        await save_invite_config(guild_id, {"announce_active": not current})
+        await _rerender(interaction, guild_id, bot, author_id)
+    return cb
+
+
+def _cb_clear_announce_channel(guild_id, bot, author_id):
+    """Gère le bouton de suppression du salon d'annonce."""
+    check = _guard(author_id)
+    async def cb(interaction: Interaction):
+        if not await check(interaction):
+            return
+        await save_invite_config(guild_id, {"announce_channel_id": None})
+        await _rerender(interaction, guild_id, bot, author_id)
+    return cb
+
+
+async def _validate_channel_for_announce(interaction: Interaction, channel_id: int) -> Optional[str]:
+    """Vérification du salon (mêmes permissions que bienvenue : envoi + lecture)."""
+    guild = interaction.guild
+    channel = guild.get_channel(channel_id) if guild else None
+    if isinstance(channel, discord.TextChannel) and guild.me is not None:
+        perms = channel.permissions_for(guild.me)
+        if not (perms.send_messages and perms.view_channel):
+            return f"Je ne peux pas écrire dans {channel.mention}."
+    return None
+
+
+def _cb_pick_announce_channel(guild_id, bot, author_id):
+    """Gère le bouton de sélection du salon d'annonce."""
+    check = _guard(author_id)
+    async def cb(interaction: Interaction):
+        if not await check(interaction):
+            return
+
+        cfg = await load_invite_config(guild_id)
+
+        async def _on_save(channel_id: int) -> None:
+            await save_invite_config(guild_id, {"announce_channel_id": channel_id})
+
+        async def _build_return_view():
+            return await create_invite_view(guild_id, bot, author_id)
+
+        await interaction.response.edit_message(
+            view=SelectPageView(
+                kind="channel",
+                title="📢 Salon d'annonce",
+                description="-# Salon où poster le message \"qui a invité qui\".",
+                current_value=cfg.get("announce_channel_id"),
+                owner_id=author_id,
+                on_save=_on_save,
+                build_return_view=_build_return_view,
+                validate=_validate_channel_for_announce,
+            )
+        )
+    return cb
+
+
+def _cb_edit_announce_message(guild_id, bot, author_id):
+    """Gère le bouton d'édition du template du message d'annonce."""
+    check = _guard(author_id)
+    async def cb(interaction: Interaction):
+        if not await check(interaction):
+            return
+
+        current = (await load_invite_config(guild_id)).get("announce_message", DEFAULT_ANNOUNCE_MESSAGE)
+
+        async def on_submit(inter: Interaction, value: str):
+            value = value.strip()
+            if not value:
+                await inter.response.send_message(
+                    view=error_container("Le message ne peut pas être **vide**."),
+                    ephemeral=True,
+                )
+                return
+            await save_invite_config(guild_id, {"announce_message": value})
+            await _rerender(inter, guild_id, bot, author_id)
+
+        modal = TextModal(
+            title="✏️ Message d'annonce",
+            label="Variables : {mention} {user} {inviter} {server} {member_count}",
+            placeholder=DEFAULT_ANNOUNCE_MESSAGE,
+            default=current,
+            min_length=1,
+            max_length=500,
+            style=discord.TextStyle.paragraph,
+            on_submit=on_submit,
+        )
+        await interaction.response.send_modal(modal)
     return cb
 
 

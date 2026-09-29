@@ -18,6 +18,9 @@ Logique métier (V4) :
     5. record_join() : crée le lien membre→inviteur + incrémente regular/fake
     6. met à jour le cache
     7. si inviter atteint le seuil et système activé → attribue le rôle-récompense
+    8. si announce_active et announce_channel_id configurés → poste le message
+       permanent "qui a invité qui" dans le salon configuré (Paul, 2026-09-28 :
+       indépendant du rôle-récompense, posté même si inviter_id est None)
 - on_member_remove :
     1. ignore les bots / si système désactivé / si lien absent ou déjà compté
     2. règle V3 : pénalité "left" uniquement si départ < 24h après l'arrivée
@@ -57,6 +60,8 @@ from typing import Optional
 import discord
 from discord.ext import commands
 
+from utils.db.models.invite import DEFAULT_ANNOUNCE_MESSAGE
+from utils.invite_render import build_announce_view, render_announce_template
 from utils.managers.invite_manager import (
     get_link,
     load_invite_config,
@@ -73,6 +78,11 @@ LEFT_PENALTY_WINDOW = timedelta(days=1)
 # Durée pendant laquelle une invite tout juste supprimée reste consultable
 # pour l'attribution d'un join (voir _recent_deletes ci-dessous).
 RECENT_DELETE_TTL_SECONDS = 15.0
+
+# Ré-édition de réparation de mention (même délai/rationale que
+# cogs/events/bienvenue_listener.py : Discord ne résout pas toujours fiable
+# une mention au premier rendu Components V2).
+REPAIR_MENTION_DELAY_SECONDS = 5.0
 
 InviteSnapshot = dict  # {"uses": int, "max_uses": int, "inviter_id": int | None, "inviter_is_bot": bool}
 
@@ -94,6 +104,10 @@ class InviteListener(commands.Cog):
         self._recent_deletes: dict[int, dict[str, InviteSnapshot]] = {}
         # Lock par guild pour sérialiser cache_invites ↔ on_member_join ↔ on_invite_delete.
         self._guild_locks: dict[int, asyncio.Lock] = {}
+        # Tâches de ré-édition de réparation de mention pour l'annonce
+        # "qui a invité qui" (même pattern que BienvenueListener) — gardées
+        # en référence forte pour ne pas être ramassées par le GC avant la fin.
+        self._mention_repair_tasks: set[asyncio.Task] = set()
 
     # ------------------------------------------------------------------
     # Helpers
@@ -273,6 +287,79 @@ class InviteListener(commands.Cog):
             )
 
     # ------------------------------------------------------------------
+    # 📨 Annonce "qui a invité qui" (Paul, 2026-09-28)
+    # ------------------------------------------------------------------
+
+    async def _send_join_announce(
+        self, guild: discord.Guild, member: discord.Member, inviter_id: Optional[int], cfg: dict,
+    ) -> None:
+        """Poste le message permanent "qui a invité qui" dans le salon
+        configuré, si l'annonce est activée. `inviter_id` est celui déjà
+        résolu par on_member_join (aucun nouvel appel guild.invites() ici :
+        on ne veut surtout pas ajouter de requête Discord supplémentaire
+        sur cette voie chaude, cf. docstring du module sur le risque de
+        rate-limit en cas d'arrivées massives)."""
+        if not cfg.get("announce_active"):
+            return
+        channel_id = cfg.get("announce_channel_id")
+        if not channel_id:
+            return
+
+        channel = guild.get_channel(channel_id)
+        if channel is None:
+            try:
+                channel = await guild.fetch_channel(channel_id)
+            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                channel = None
+
+        if not isinstance(channel, discord.TextChannel):
+            log.warning(
+                "[Invite] Salon d'annonce %s introuvable/invalide (guild=%s)",
+                channel_id, guild.id,
+            )
+            return
+
+        me = guild.me
+        if me is not None:
+            perms = channel.permissions_for(me)
+            if not (perms.send_messages and perms.view_channel):
+                log.warning(
+                    "[Invite] Permissions insuffisantes dans #%s pour l'annonce d'invitation (guild=%s)",
+                    channel.name, guild.id,
+                )
+                return
+
+        template = cfg.get("announce_message") or DEFAULT_ANNOUNCE_MESSAGE
+        rendered = render_announce_template(template, member=member, inviter_id=inviter_id, guild=guild)
+        view = build_announce_view(rendered)
+
+        try:
+            sent = await channel.send(view=view)
+        except discord.Forbidden:
+            log.warning(
+                "[Invite] Forbidden en envoyant l'annonce d'invitation dans #%s (guild=%s)",
+                channel.name, guild.id,
+            )
+            return
+        except discord.HTTPException:
+            log.exception("[Invite] Erreur HTTP en envoyant l'annonce d'invitation (guild=%s)", guild.id)
+            return
+
+        self._schedule_mention_repair(sent, view)
+
+    def _schedule_mention_repair(self, message: discord.Message, view: discord.ui.LayoutView) -> None:
+        task = asyncio.create_task(self._repair_mention(message, view))
+        self._mention_repair_tasks.add(task)
+        task.add_done_callback(self._mention_repair_tasks.discard)
+
+    async def _repair_mention(self, message: discord.Message, view: discord.ui.LayoutView) -> None:
+        await asyncio.sleep(REPAIR_MENTION_DELAY_SECONDS)
+        try:
+            await message.edit(view=view)
+        except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+            log.debug("[Invite] Ré-édition de réparation de mention impossible (message %s).", message.id)
+
+    # ------------------------------------------------------------------
     # Listeners
     # ------------------------------------------------------------------
 
@@ -393,6 +480,11 @@ class InviteListener(commands.Cog):
             await self._maybe_grant_reward(
                 guild, inviter_id, inviter_stats.get("total", 0), cfg
             )
+
+        # Annonce permanente "qui a invité qui" (indépendante du système de
+        # récompense — postée même si inviter_id est None : le message
+        # retombe alors sur un texte neutre plutôt que d'être sauté).
+        await self._send_join_announce(guild, member, inviter_id, cfg)
 
     @staticmethod
     def _is_fake_account(member: discord.Member) -> bool:

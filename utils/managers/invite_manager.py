@@ -11,6 +11,7 @@ from typing import Optional
 from sqlalchemy import delete, select
 
 from utils.db.models.invite import (
+    DEFAULT_ANNOUNCE_MESSAGE,
     DEFAULT_REWARD_THRESHOLD,
     InviteConfig,
     InviteLink,
@@ -28,6 +29,10 @@ DEFAULT_CONFIG: dict = {
     "enabled": False,
     "reward_role_id": None,
     "reward_threshold": DEFAULT_REWARD_THRESHOLD,
+    # Annonce permanente "qui a invité qui" à l'arrivée (Paul, 2026-09-28).
+    "announce_active": False,
+    "announce_channel_id": None,
+    "announce_message": DEFAULT_ANNOUNCE_MESSAGE,
 }
 
 _config_cache: dict[int, tuple[dict, float]] = {}
