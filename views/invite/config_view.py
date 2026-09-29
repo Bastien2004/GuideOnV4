@@ -12,6 +12,7 @@ from discord import ButtonStyle, Interaction
 from discord.ui import ActionRow, Button, Container, Section, Separator, TextDisplay
 
 from utils.container_universel import error_container
+from utils.perm_admin import is_admin
 from utils.db.models.invite import DEFAULT_ANNOUNCE_MESSAGE
 from utils.managers.invite_manager import load_invite_config, save_invite_config
 
@@ -171,7 +172,7 @@ def _guard(author_id: Optional[int]):
             )
             return False
         member = interaction.user
-        if not isinstance(member, discord.Member) or not member.guild_permissions.administrator:
+        if not is_admin(interaction):
             await interaction.response.send_message(
                 view=error_container("Vous devez être **Administrateur** pour effectuer cette **action**."),
                 ephemeral=True,

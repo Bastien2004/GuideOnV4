@@ -12,6 +12,7 @@ from discord import ButtonStyle, Interaction, SelectOption
 from discord.ui import ActionRow, Button, Container, Select, Separator, TextDisplay
 
 from utils.container_universel import error_container
+from utils.perm_admin import is_admin
 from utils.managers.mod_permission_manager import PERMISSION_KEYS, get_all_for_guild, get_permission_key, set_roles
 
 from views._components.base_view import BaseLayoutView
@@ -118,7 +119,7 @@ def _guard(author_id: Optional[int]):
             return False
 
         member = interaction.user
-        if not isinstance(member, discord.Member) or not member.guild_permissions.administrator:
+        if not is_admin(interaction):
             await interaction.response.send_message(
                 view=error_container("Vous devez être **Administrateur** pour réaliser cette action."),
                 ephemeral=True,

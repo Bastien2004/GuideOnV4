@@ -35,17 +35,16 @@ ONU_HORAIRES = {
     "omega":   "Samedi à 17h30",
     "delta":   "Dimanche à 17h30",
     "epsilon": "Dimanche à 15h30",
+    "iris":    "XXXXXXXX à XXhXX",
     "blue":    "Samedi à 17h",
-    "orange":  "Samedi à 16h30",
-    "yellow":  "Dimanche à 16h30",
     "white":   "Dimanche à 17h",
     "black":   "Dimanche à 16h",
     "cyan":    "Dimanche à 17h30",
     "lime":    "Samedi à 17h30",
     "coral":   "Samedi à 16h",
-    "red":     "Samedi à 18h",
     "mocha":   "Samedi à 15h30",
     "jade":    "Dimanche à 15h",
+    "ruby":    "Samedi à 15h",
 }
 
 
@@ -82,9 +81,9 @@ def build_onu_view(serveur: str, horaire: str) -> tuple[LayoutView, discord.File
 
     file = None
     if os.path.exists(IMAGE_PATH):
-        file = discord.File(IMAGE_PATH, filename="onu.png")
+        file = discord.File(IMAGE_PATH, filename="onu.webp")
         info.add_item(Separator())
-        info.add_item(MediaGallery(MediaGalleryItem(media="attachment://onu.png")))
+        info.add_item(MediaGallery(MediaGalleryItem(media="attachment://onu.webp")))
 
     view.add_item(info)
 
