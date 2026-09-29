@@ -167,11 +167,6 @@ async def autel(interaction: Interaction, version: str):
     view, file = build_view(version, coords_text)
 
     # ✉️ Envoi final
-    #
-    # ⚠️ Ne JAMAIS passer file=file directement quand `file` peut valoir
-    # None (cf. build_image_block : None si l'image est absente/corrompue).
-    # discord.py traite un file=None explicite comme une vraie pièce
-    # jointe et plante sur `None.to_dict()` -> AttributeError.
     if file is not None:
         await interaction.followup.send(view=view, file=file)
     else:

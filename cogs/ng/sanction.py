@@ -92,7 +92,7 @@ async def sanction(interaction: Interaction, serveur: str):
 
     # 🕒 Defer
     try:
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
     except (discord.NotFound, discord.HTTPException):
         return
 

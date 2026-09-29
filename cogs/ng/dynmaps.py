@@ -101,13 +101,6 @@ async def dynmaps(interaction: Interaction, serveur: app_commands.Choice[str]):
     view, file = build_dynmap_view(serveur.name, serveur.value)
 
     # ✉️ Envoi du résultat.
-    #
-    # ⚠️ Ne JAMAIS passer file=file directement quand `file` peut valoir
-    # None (cf. build_dynmap_view : None si source/map_ng.webp est absent).
-    # discord.py distingue "paramètre omis" (sentinel MISSING) de
-    # "paramètre valant None" : file=None passé explicitement est traité
-    # comme une vraie pièce jointe et plante plus loin sur `None.to_dict()`
-    # -> AttributeError("'NoneType' object has no attribute 'to_dict'").
     if file is not None:
         await interaction.followup.send(view=view, file=file)
     else:
