@@ -16,8 +16,7 @@ SERVER_CHOICES_DATA: list[tuple[str, str]] = [
     ("🩶 Omega", "omega"),
     ("💛 Delta", "delta"),
     ("💙 Epsilon", "epsilon"),
-    ("🫐 Iris", "iris")
-
+    ("🫐 Iris", "iris"),
     ("🫧 Blue", "blue"),
     ("❄️ White", "white"),
     ("✒️ Black", "black"),

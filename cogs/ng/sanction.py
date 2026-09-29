@@ -28,7 +28,7 @@ from utils.ng_server_choice import SERVER_CHOICES
 log = logging.getLogger(__name__)
 
 VIEW_TIMEOUT   = 1000
-IMAGES_DIR     = "Source"
+IMAGES_DIR     = "source"
 SERVEURS_SANS_TABLEAU = {"jade"}
 
 

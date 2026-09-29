@@ -27,7 +27,7 @@ from utils.ng_server_choice import SERVER_CHOICES
 log = logging.getLogger(__name__)
 
 VIEW_TIMEOUT = 1000
-IMAGE_PATH   = os.path.join("source", "onu.png")
+IMAGE_PATH   = os.path.join("source", "onu.webp")
 
 ONU_HORAIRES = {
     "alpha":   "Dimanche à 17h",
@@ -125,7 +125,15 @@ async def onu(interaction: Interaction, serveur: str):
         return
 
     view, file = build_onu_view(serveur, horaire)
-    await interaction.followup.send(view=view, file=file)
+
+    # ⚠️ Ne JAMAIS passer file=file directement quand `file` peut valoir
+    # None (cf. build_onu_view : None si source/onu.webp est absent).
+    # discord.py traite un file=None explicite comme une vraie pièce
+    # jointe et plante sur `None.to_dict()` -> AttributeError.
+    if file is not None:
+        await interaction.followup.send(view=view, file=file)
+    else:
+        await interaction.followup.send(view=view)
 
 
 # ============================================================

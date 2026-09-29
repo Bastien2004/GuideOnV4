@@ -26,7 +26,7 @@ from utils.ng_server_choice import SERVER_CHOICES
 log = logging.getLogger(__name__)
 
 VIEW_TIMEOUT = 600
-IMAGE_PATH   = os.path.join("source", "map_ng.png")
+IMAGE_PATH   = os.path.join("source", "map_ng.webp")
 
 BEDROCK_SERVERS = {"alpha", "sigma", "omega", "delta", "epsilon", "iris"}
 JAVA_SERVERS    = {"blue", "white", "black", "cyan", "lime", "coral", "mocha", "jade", "ruby"}
@@ -84,8 +84,9 @@ async def dynmaps(interaction: Interaction, serveur: app_commands.Choice[str]):
     if not await verifier_ban_utilisateur(interaction):
         return
 
+    # 🕒 Defer
     try:
-        await interaction.response.defer
+        await interaction.response.defer()
     except (discord.NotFound, discord.HTTPException):
         return
 
@@ -95,17 +96,22 @@ async def dynmaps(interaction: Interaction, serveur: app_commands.Choice[str]):
 
     # 📊 Tracking
     await tracker_commande(interaction, "ng_dynmaps")
+
+    # 🧩 Construction view
     view, file = build_dynmap_view(serveur.name, serveur.value)
 
+    # ✉️ Envoi du résultat.
+    #
+    # ⚠️ Ne JAMAIS passer file=file directement quand `file` peut valoir
+    # None (cf. build_dynmap_view : None si source/map_ng.webp est absent).
+    # discord.py distingue "paramètre omis" (sentinel MISSING) de
+    # "paramètre valant None" : file=None passé explicitement est traité
+    # comme une vraie pièce jointe et plante plus loin sur `None.to_dict()`
+    # -> AttributeError("'NoneType' object has no attribute 'to_dict'").
     if file is not None:
-        await interaction.channel.send(view=view, file=file)
+        await interaction.followup.send(view=view, file=file)
     else:
-        await interaction.channel.send(view=view)
-
-    try:
-        await interaction.delete_original_response()
-    except (discord.NotFound, discord.HTTPException):
-        pass
+        await interaction.followup.send(view=view)
 
 
 # ============================================================
