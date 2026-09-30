@@ -20,6 +20,7 @@ from discord import ui
 from discord.ui import Button, LayoutView, Modal, TextInput
 
 from utils.container_universel import error_container, success_container
+from utils.perm_admin import is_admin
 from utils.managers import ticket_manager as tm
 from views.ticket.panel_public_view import PanelPublicView
 
@@ -67,7 +68,7 @@ def _check_complete(ctx: dict) -> tuple[bool, list]:
 
 
 async def _check_admin(interaction: discord.Interaction) -> bool:
-    if not interaction.user.guild_permissions.administrator:
+    if not is_admin(interaction):
         await interaction.response.send_message(
             view=error_container("Vous devez être administrateur pour cette action."),
             ephemeral=True,

@@ -26,10 +26,10 @@ from utils.ng_server_choice import SERVER_CHOICES
 log = logging.getLogger(__name__)
 
 VIEW_TIMEOUT = 600
-IMAGE_PATH   = os.path.join("source", "map_ng.png")
+IMAGE_PATH   = os.path.join("source", "map_ng.webp")
 
-BEDROCK_SERVERS = {"alpha", "sigma", "omega", "delta", "epsilon"}
-JAVA_SERVERS    = {"blue", "orange", "yellow", "white", "black", "cyan", "lime", "coral", "red", "mocha", "jade"}
+BEDROCK_SERVERS = {"alpha", "sigma", "omega", "delta", "epsilon", "iris"}
+JAVA_SERVERS    = {"blue", "white", "black", "cyan", "lime", "coral", "mocha", "jade", "ruby"}
 
 
 # ============================================================
@@ -57,9 +57,9 @@ def build_dynmap_view(serveur_name: str, serveur_value: str) -> tuple[LayoutView
 
     file = None
     if os.path.exists(IMAGE_PATH):
-        file = discord.File(IMAGE_PATH, filename="map_ng.png")
+        file = discord.File(IMAGE_PATH, filename="map_ng.webp")
         container.add_item(Separator())
-        container.add_item(MediaGallery(MediaGalleryItem("attachment://map_ng.png")))
+        container.add_item(MediaGallery(MediaGalleryItem("attachment://map_ng.webp")))
 
     container.add_item(Separator())
     container.add_item(TextDisplay("-# GuideOn Studio"))
@@ -100,7 +100,11 @@ async def dynmaps(interaction: Interaction, serveur: app_commands.Choice[str]):
     # 🧩 Construction view
     view, file = build_dynmap_view(serveur.name, serveur.value)
 
-    await interaction.followup.send(view=view, file=file)
+    # ✉️ Envoi du résultat.
+    if file is not None:
+        await interaction.followup.send(view=view, file=file)
+    else:
+        await interaction.followup.send(view=view)
 
 
 # ============================================================

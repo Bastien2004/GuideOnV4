@@ -1,6 +1,5 @@
 """
-views/medialink/medialink_platforms_view.py — ajout/suppression d'une
-connexion (compte/chaîne suivi sur une plateforme), §6.
+views/medialink/medialink_platforms_view.py — ajout et suppression d'une connexion.
 """
 
 from __future__ import annotations
@@ -31,19 +30,31 @@ from views._components.base_view import BaseLayoutView
 
 log = logging.getLogger(__name__)
 
+
+# ============================================================
+# 🤣 Emojis
+# ============================================================
+
 EMOJI_BACK = "<:retour:1515658955190308995>"
 
+
+# ============================================================
+# 🔩 Paramètres
+# ============================================================
 
 _VERIFIED_PLATFORMS = (MediaPlatform.YOUTUBE.value, MediaPlatform.TWITCH.value)
 _UNAVAILABLE_PREFIX = "__unavailable__"
 
 _PLATFORM_LABELS: list[tuple[MediaPlatform, str, str]] = [
-    (MediaPlatform.YOUTUBE, "YouTube", "▶️"),
-    (MediaPlatform.TWITCH, "Twitch", "🟣"),
-    (MediaPlatform.TIKTOK, "TikTok", "🎵"),
-    (MediaPlatform.REDDIT, "Reddit", "👽"),
+    (MediaPlatform.YOUTUBE, "YouTube", "<:Youtube2:1545107295975772180>"),
+    (MediaPlatform.TWITCH, "Twitch", "<:Twitch2:1545053682129961081>"),
+    (MediaPlatform.REDDIT, "Reddit", "<:Reddit:1545053589020483724>"),
 ]
 
+
+# ============================================================
+# 🛠️ Fonctions utilitaires
+# ============================================================
 
 def _build_platform_options() -> list[SelectOption]:
     options: list[SelectOption] = []
@@ -63,12 +74,12 @@ def _build_platform_options() -> list[SelectOption]:
 _PLATFORM_OPTIONS = _build_platform_options()
 
 
+# ============================================================
+# 🛠️ Fonctions utilitaires
+# ============================================================
+
 class AddConnectionModal(discord.ui.Modal):
-    """Saisie d'une connexion. YouTube et Twitch passent par leur
-    Provider réel (validation + pré-remplissage via l'API, cf.
-    _submit_youtube / _submit_twitch) ; TikTok/Reddit restent en saisie
-    manuelle tant que leurs Providers sont des stubs (cf. _submit_manual,
-    et note en tête de fichier)."""
+    """Ajout d'une connexion depuis un modal."""
 
     def __init__(self, *, guild_id: int, owner_id: int, platform: str):
         self.guild_id = guild_id
@@ -77,9 +88,6 @@ class AddConnectionModal(discord.ui.Modal):
 
         if platform == MediaPlatform.YOUTUBE.value:
             super().__init__(title="Ajouter une chaîne YouTube")
-            # Un seul champ : get_account() (appelé dans _submit_youtube)
-            # valide le compte ET renvoie nom/avatar/URL — plus besoin de
-            # les faire saisir à la main pour cette plateforme.
             self.external_id_input = discord.ui.TextInput(
                 label="ID de chaîne ou @handle YouTube",
                 placeholder="Ex : UCxxxxxxxxxxxxxxxxxxxxxx ou @NomDeChaine",
@@ -88,10 +96,9 @@ class AddConnectionModal(discord.ui.Modal):
             )
             self.username_input = None
             self.add_item(self.external_id_input)
+
         elif platform == MediaPlatform.TWITCH.value:
             super().__init__(title="Ajouter un compte Twitch")
-            # Idem YouTube : get_account() (cf. _submit_twitch) résout le
-            # pseudo en ID numérique et renvoie nom/avatar/URL.
             self.external_id_input = discord.ui.TextInput(
                 label="Pseudo Twitch",
                 placeholder="Ex : ninja ou @ninja",
@@ -157,7 +164,7 @@ class AddConnectionModal(discord.ui.Modal):
                 interaction,
                 error_container(
                     "Aucune chaîne YouTube trouvée pour cet identifiant. "
-                    "Vérifie l'ID de chaîne (commence par `UC`) ou le `@handle`."
+                    "Vérifie l'ID de chaîne ou le `@handle`."
                 ),
             )
             return
@@ -165,18 +172,13 @@ class AddConnectionModal(discord.ui.Modal):
             log.error("[MEDIALINK] YouTube ProviderAuthError (clé API invalide/quota épuisé) | guild=%d", self.guild_id)
             await send_ephemeral(
                 interaction,
-                error_container(
-                    "La clé API YouTube du bot est invalide ou son quota "
-                    "quotidien est épuisé — réessaie plus tard ou préviens "
-                    "un développeur."
-                ),
-            )
+                error_container("Impossible de vérifier la **connexion**, réessaie plus tard."))
             return
         except httpx.HTTPError:
             log.exception("[MEDIALINK] Erreur réseau YouTube API | guild=%d", self.guild_id)
             await send_ephemeral(
                 interaction,
-                error_container("Impossible de contacter l'API YouTube pour le moment — réessaie plus tard."),
+                error_container("Impossible de contacter l'**API YouTube**, réessaie plus tard."),
             )
             return
         finally:
@@ -223,25 +225,21 @@ class AddConnectionModal(discord.ui.Modal):
         except TwitchNotFoundError:
             await send_ephemeral(
                 interaction,
-                error_container("Aucun compte Twitch trouvé pour ce pseudo. Vérifie l'orthographe."),
+                error_container("Aucun **compte Twitch** ne correspond à ce **pseudo**."),
             )
             return
         except TwitchAuthError:
             log.error("[MEDIALINK] Twitch ProviderAuthError (client_id/secret invalide) | guild=%d", self.guild_id)
             await send_ephemeral(
                 interaction,
-                error_container(
-                    "L'authentification Twitch du bot a échoué "
-                    "(client_id/secret invalide) — réessaie plus tard ou "
-                    "préviens un développeur."
-                ),
-            )
+                error_container("L'**authentification Twitch** a échoué, réessaie plus tard."))
             return
+
         except httpx.HTTPError:
             log.exception("[MEDIALINK] Erreur réseau Twitch API | guild=%d", self.guild_id)
             await send_ephemeral(
                 interaction,
-                error_container("Impossible de contacter l'API Twitch pour le moment — réessaie plus tard."),
+                error_container("Impossible de contacter l'**API Twitch**, réessaie plus tard."),
             )
             return
         finally:
@@ -291,15 +289,8 @@ class AddConnectionView(BaseLayoutView):
     def _build(self) -> None:
         container = Container()
         container.add_item(TextDisplay("# ➕ Ajouter une connexion"))
-        container.add_item(
-            TextDisplay(
-                "-# YouTube et Twitch : vérifiés automatiquement (nom et "
-                "avatar récupérés depuis le compte). TikTok, Reddit : "
-                "bientôt disponibles."
-            )
-        )
         container.add_item(Separator())
-        container.add_item(TextDisplay("**Choisis la plateforme à connecter :**"))
+        container.add_item(TextDisplay("**Choisis la plateforme à lier :**"))
 
         select = Select(placeholder="Plateforme", options=_PLATFORM_OPTIONS)
         select.callback = self._cb_platform_chosen

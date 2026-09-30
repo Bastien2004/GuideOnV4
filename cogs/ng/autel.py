@@ -167,7 +167,10 @@ async def autel(interaction: Interaction, version: str):
     view, file = build_view(version, coords_text)
 
     # ✉️ Envoi final
-    await interaction.followup.send(view=view, file=file)
+    if file is not None:
+        await interaction.followup.send(view=view, file=file)
+    else:
+        await interaction.followup.send(view=view)
 
 
 # ============================================================

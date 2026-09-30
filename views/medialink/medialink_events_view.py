@@ -24,7 +24,6 @@ from views._components.channel_select import ChannelSelect
 _PLATFORM_EMOJI = {
     "youtube": "<:Youtube2:1545107295975772180>",
     "twitch": "<:Twitch2:1545053682129961081>",
-    "tiktok": "<:TikTok:1545107255727235113>",
     "reddit": "<:Reddit:1545053589020483724>",
 }
 

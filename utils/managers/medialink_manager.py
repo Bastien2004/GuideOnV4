@@ -7,17 +7,17 @@ from __future__ import annotations
 import time
 from datetime import datetime, timezone
 
-from sqlalchemy import case, delete, func, select
+from sqlalchemy import delete, func, select
 
 from utils.db.models.medialink_connection import MediaConnection
-from utils.db.models.medialink_event import MediaEventRecord, MediaEventStatus
+from utils.db.models.medialink_event import MediaEventRecord
 from utils.db.models.medialink_rule import MediaRule
 from utils.db.models.medialink_template import MediaTemplate
 from utils.db.session import get_session
 
 # Plateformes
-KNOWN_PLATFORMS = ("youtube", "twitch", "tiktok", "reddit")
-BLOCKED_PLATFORMS = ("tiktok", "reddit")
+KNOWN_PLATFORMS = ("youtube", "twitch", "reddit")
+BLOCKED_PLATFORMS = ("reddit",)
 
 # ═══ Cache connexions (par guild) ═══════════════════════════════════
 _CONN_TTL = 60
@@ -307,9 +307,8 @@ async def list_all_rules(guild_id: int) -> list[dict]:
 # ═══ Hub — statistiques agrégées ═════════════════════════════════════
 # Chiffres affichés sur l'écran d'accueil de /medialink config (§6.2) :
 # des COMPTAGES directs sur les tables existantes (media_connections/
-# media_rules/media_events), PAS l'écran "Statistiques" détaillé
-# (get_detailed_stats ci-dessous / medialink_statistics_view.py). Ici on
-# ne montre qu'un instantané courant, aucune table dédiée requise.
+# media_rules/media_events). Ici on ne montre qu'un instantané courant,
+# aucune table dédiée requise.
 
 async def get_hub_stats(guild_id: int) -> dict:
     async with get_session() as session:
@@ -352,81 +351,3 @@ async def get_hub_stats(guild_id: int) -> dict:
         "sent": sent,
         "errors": errors,
     }
-
-
-# ═══ Écran Statistiques — détail par connexion ══════════════════════
-
-async def get_detailed_stats(guild_id: int) -> dict:
-    """Statistiques détaillées d'une guild : totaux globaux + détail par
-    connexion (événements envoyés/échoués/ignorés/en attente, taux de
-    succès, règles actives). Connexions sans le moindre événement
-    incluses avec des compteurs à 0 (pas "cachées" faute de données)."""
-    async with get_session() as session:
-        connections = (
-            await session.execute(
-                select(MediaConnection)
-                .where(MediaConnection.guild_id == guild_id)
-                .order_by(MediaConnection.platform, MediaConnection.id)
-            )
-        ).scalars().all()
-
-        event_rows = await session.execute(
-            select(MediaEventRecord.connection_id, MediaEventRecord.status, func.count(MediaEventRecord.id))
-            .join(MediaConnection, MediaEventRecord.connection_id == MediaConnection.id)
-            .where(MediaConnection.guild_id == guild_id)
-            .group_by(MediaEventRecord.connection_id, MediaEventRecord.status)
-        )
-        counts_by_connection: dict[int, dict[str, int]] = {}
-        for connection_id, status, count in event_rows.all():
-            counts_by_connection.setdefault(connection_id, {})[status] = count
-
-        rule_rows = await session.execute(
-            select(
-                MediaRule.connection_id,
-                func.count(MediaRule.id),
-                func.sum(case((MediaRule.enabled.is_(True), 1), else_=0)),
-            )
-            .join(MediaConnection, MediaRule.connection_id == MediaConnection.id)
-            .where(MediaConnection.guild_id == guild_id)
-            .group_by(MediaRule.connection_id)
-        )
-        rules_by_connection = {
-            connection_id: {"total_rules": total or 0, "active_rules": int(active or 0)}
-            for connection_id, total, active in rule_rows.all()
-        }
-
-    by_connection: list[dict] = []
-    totals = {"sent": 0, "failed": 0, "skipped": 0, "pending": 0}
-
-    for connection in connections:
-        counts = counts_by_connection.get(connection.id, {})
-        sent = counts.get(MediaEventStatus.SENT.value, 0)
-        failed = counts.get(MediaEventStatus.FAILED.value, 0)
-        skipped = counts.get(MediaEventStatus.SKIPPED.value, 0)
-        pending = counts.get(MediaEventStatus.PENDING.value, 0) + counts.get(MediaEventStatus.PROCESSING.value, 0)
-
-        totals["sent"] += sent
-        totals["failed"] += failed
-        totals["skipped"] += skipped
-        totals["pending"] += pending
-
-        rules = rules_by_connection.get(connection.id, {"total_rules": 0, "active_rules": 0})
-        attempted = sent + failed
-
-        by_connection.append({
-            "connection_id": connection.id,
-            "platform": connection.platform,
-            "label": connection.external_username or connection.external_id,
-            "status": connection.status,
-            "sent": sent,
-            "failed": failed,
-            "skipped": skipped,
-            "pending": pending,
-            "success_rate": (sent / attempted) if attempted else None,
-            **rules,
-        })
-
-    attempted_total = totals["sent"] + totals["failed"]
-    totals["success_rate"] = (totals["sent"] / attempted_total) if attempted_total else None
-
-    return {"totals": totals, "by_connection": by_connection}

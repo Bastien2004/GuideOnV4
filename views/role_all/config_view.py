@@ -13,6 +13,7 @@ from discord import ButtonStyle, Interaction
 from discord.ui import ActionRow, Button, Container, LayoutView, Section, Separator, TextDisplay
 
 from utils.container_universel import error_container
+from utils.perm_admin import is_admin
 from views._components.role_select import RoleSelect
 
 log = logging.getLogger(__name__)
@@ -176,7 +177,7 @@ def _guard(author_id: Optional[int]):
             )
             return False
         member = interaction.user
-        if not isinstance(member, discord.Member) or not member.guild_permissions.administrator:
+        if not is_admin(interaction):
             await interaction.response.send_message(
                 view=error_container("Vous devez être **Administrateur**."),
                 ephemeral=True,

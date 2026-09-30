@@ -16,6 +16,7 @@ from discord import ButtonStyle, Interaction
 from discord.ui import ActionRow, Button, Container, LayoutView, Section, Separator, TextDisplay
 
 from utils.container_universel import error_container, warning_container
+from utils.perm_admin import is_admin
 from utils.managers import mod_automod_antiflood_manager as mgr
 from utils.settings import settings
 from views._components.text_modal import TextModal
@@ -111,7 +112,7 @@ def _guard(author_id: Optional[int]):
             )
             return False
         m = interaction.user
-        if not isinstance(m, discord.Member) or not m.guild_permissions.administrator:
+        if not is_admin(interaction):
             await interaction.response.send_message(
                 view=error_container("Vous devez être **Administrateur**."), ephemeral=True,
             )

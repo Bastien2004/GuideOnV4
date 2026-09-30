@@ -21,6 +21,7 @@ from discord.ui import (
 )
 
 from utils.container_universel import error_container, info_container, success_container
+from utils.perm_admin import is_admin
 from utils.managers.giveaway_manager import (
     add_to_blacklist,
     get_blacklist,
@@ -82,7 +83,7 @@ class BlacklistView(LayoutView):
                 ephemeral=True,
             )
             return False
-        if not isinstance(interaction.user, discord.Member) or not interaction.user.guild_permissions.administrator:
+        if not is_admin(interaction):
             await interaction.response.send_message(
                 view=error_container("Vous devez être **Administrateur**."),
                 ephemeral=True,

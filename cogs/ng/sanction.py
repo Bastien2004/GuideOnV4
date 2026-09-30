@@ -28,7 +28,7 @@ from utils.ng_server_choice import SERVER_CHOICES
 log = logging.getLogger(__name__)
 
 VIEW_TIMEOUT   = 1000
-IMAGES_DIR     = "Source"
+IMAGES_DIR     = "source"
 SERVEURS_SANS_TABLEAU = {"jade"}
 
 
@@ -92,7 +92,7 @@ async def sanction(interaction: Interaction, serveur: str):
 
     # 🕒 Defer
     try:
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
     except (discord.NotFound, discord.HTTPException):
         return
 

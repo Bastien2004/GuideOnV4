@@ -11,10 +11,24 @@ Flux :
     Ajouter  → UserSelect → _AddOptionsView (grade + statuts, une seule
                étape) → TextModal(pseudo + emoji [+ second pseudo par
                statut concerné]) → save
-    Modifier → UserSelect → Options (pseudo|grade|emoji|statuts) →
-               TextModal/Grade buttons/_StatutManageView → save
-    Supprimer→ UserSelect → Confirmation (liste les statuts détenus) →
-               delete + retrait de tous ses statuts
+    Modifier → _MemberSearchModal (recherche par pseudo) → résultats →
+               Options (pseudo|grade|emoji|statuts) → TextModal/Grade
+               buttons/_StatutManageView → save
+    Supprimer→ _MemberSearchModal (recherche par pseudo) → résultats →
+               Confirmation (liste les statuts détenus) → delete +
+               retrait de tous ses statuts
+
+  Modifier/Supprimer ciblent volontairement un membre déjà présent dans
+  la stafflist par une recherche EN BASE (pseudo_jeu), jamais via le
+  UserSelect natif de Discord (Paul, 2026-09-28, retour utilisateur avec
+  capture d'écran) : un membre dont le compte Discord a depuis été
+  supprimé apparaît dans le UserSelect natif comme "@utilisateur-inconnu"
+  et sa sélection échoue silencieusement côté client Discord (payload de
+  résolution vide/invalide pour un compte disparu) — l'interaction ne
+  déclenche même pas notre code, donc rien à corriger côté callback,
+  seulement éviter de dépendre de Discord pour désigner QUI on cible.
+  "Ajouter" reste sur UserSelect : on n'ajoute jamais un compte qui
+  n'existe plus.
 
 Statuts (Paul, 2026-08-23, retour utilisateur — 2e itération : fusionner
 grade+statuts dans "Ajouter" au lieu d'une action "🎖️ Statuts" séparée qui
@@ -189,24 +203,40 @@ class EditListView(LayoutView):
         ))
 
     async def _on_modify(self, interaction: Interaction) -> None:
-        await interaction.response.edit_message(view=_UserSelectView(
+        await interaction.response.send_modal(_MemberSearchModal(
             guild_id=self.guild_id,
             owner_id=self.owner_id,
-            title="## ✏️ Modifier un membre",
-            desc="Sélectionnez le membre dont vous souhaitez modifier les informations.",
-            on_select=self._after_select_modify,
             server=self.server,
+            title="✏️ Modifier un membre",
+            on_results=self._make_search_handler(
+                title="## ✏️ Modifier un membre", on_pick=self._after_select_modify,
+            ),
         ))
 
     async def _on_remove(self, interaction: Interaction) -> None:
-        await interaction.response.edit_message(view=_UserSelectView(
+        await interaction.response.send_modal(_MemberSearchModal(
             guild_id=self.guild_id,
             owner_id=self.owner_id,
-            title="## ➖ Supprimer un membre",
-            desc="Sélectionnez le membre à retirer de la liste staff.",
-            on_select=self._after_select_remove,
             server=self.server,
+            title="➖ Supprimer un membre",
+            on_results=self._make_search_handler(
+                title="## ➖ Supprimer un membre", on_pick=self._after_select_remove,
+            ),
         ))
+
+    def _make_search_handler(self, *, title: str, on_pick):
+        """Fabrique le on_results d'un _MemberSearchModal : 1 seule
+        correspondance → saute direct sur on_pick (même contrat qu'un
+        ancien UserSelect : liste d'UN seul discord_id) ; 0 ou plusieurs
+        → affiche _MemberSearchResultsView pour choisir/affiner."""
+
+        async def handler(interaction: Interaction, matches: list[dict], query: str) -> None:
+            await _handle_search_results(
+                interaction, matches, query,
+                guild_id=self.guild_id, owner_id=self.owner_id, server=self.server,
+                title=title, on_pick=on_pick,
+            )
+        return handler
 
     # ── Callbacks post-UserSelect ─────────────────────────────
 
@@ -232,6 +262,14 @@ class EditListView(LayoutView):
         grade: str | None, pseudo: str, emoji: str,
         selected_keys: set[str], second_pseudos: dict[str, str],
     ) -> None:
+        # ⏱️ Deferred AVANT tout travail (DB + refresh_staff_message peut
+        # désormais éditer/envoyer PLUSIEURS messages Discord depuis le
+        # correctif de pagination — largement de quoi dépasser la fenêtre
+        # de 3s Discord pour la 1re réponse à une interaction, d'où
+        # "Unknown interaction" en prod). deferred_message_update (défaut
+        # pour un modal_submit/component) n'affiche aucun indicateur visible
+        # — UX identique, juste sans risque de timeout (Paul, 2026-09-27).
+        await interaction.response.defer()
         pseudo = pseudo.strip()
         already = await get_staff_member(self.server, discord_id)
         if already:
@@ -253,7 +291,7 @@ class EditListView(LayoutView):
         from utils.managers.ng_stafflist_manager import refresh_staff_message
         await refresh_staff_message(interaction.client, self.guild_id, server=self.server)
         members = await list_staff(self.server)
-        await interaction.response.edit_message(
+        await interaction.edit_original_response(
             view=EditListView(self.guild_id, self.owner_id, members, server=self.server)
         )
         log.info("[EDIT STAFFLIST] %s : %s (%s) ajouté/mis à jour — %s", self.server, pseudo, discord_id, label)
@@ -325,6 +363,135 @@ class _UserSelectView(LayoutView):
         c.add_item(ActionRow(btn_back))
         c.add_item(TextDisplay("-# GuideOn Studio"))
         self.add_item(c)
+
+    async def _on_back(self, interaction: Interaction) -> None:
+        await _back_to_main(interaction, self.owner_id, self.server)
+
+
+# ════════════════════════════════════════════════════════════
+# 🔎 Recherche d'un membre EXISTANT (Modifier/Supprimer) — par pseudo,
+# jamais via le UserSelect natif de Discord (voir docstring de module).
+# ════════════════════════════════════════════════════════════
+
+class _MemberSearchModal(discord.ui.Modal):
+    """Recherche un membre déjà présent dans la stafflist, par pseudo_jeu
+    (recherche insensible à la casse, sous-chaîne). Ne dépend que de la
+    base — fonctionne donc même pour un membre dont le compte Discord a
+    été supprimé depuis."""
+
+    def __init__(self, *, guild_id: int, owner_id: int, server: str, title: str, on_results) -> None:
+        super().__init__(title=title[:45])
+        self.guild_id = guild_id
+        self.owner_id = owner_id
+        self.server = server
+        self._on_results = on_results
+
+        self.query = discord.ui.TextInput(
+            label="Pseudo Minecraft (ou une partie)",
+            placeholder="Ex : Zion",
+            min_length=1, max_length=64, required=True,
+        )
+        self.add_item(self.query)
+
+    async def on_submit(self, interaction: Interaction) -> None:
+        query = self.query.value.strip().lower()
+        members = await list_staff(self.server)
+        matches = [m for m in members if query in (m["pseudo_jeu"] or "").lower()]
+        await self._on_results(interaction, matches, self.query.value.strip())
+
+
+async def _handle_search_results(
+    interaction: Interaction, matches: list[dict], query: str, *,
+    guild_id: int, owner_id: int, server: str, title: str, on_pick,
+) -> None:
+    """Point commun de traitement des résultats d'une _MemberSearchModal
+    (recherche initiale ou "Nouvelle recherche" depuis les résultats) :
+    UNE seule correspondance → direct sur on_pick (même contrat qu'un
+    ancien UserSelect : liste d'un seul discord_id) ; 0 ou plusieurs →
+    affiche _MemberSearchResultsView pour choisir/affiner."""
+    if len(matches) == 1:
+        await on_pick(interaction, [matches[0]["discord_id"]])
+        return
+    await interaction.response.edit_message(view=_MemberSearchResultsView(
+        guild_id, owner_id, server, matches, query, title, on_pick,
+    ))
+
+
+class _MemberSearchResultsView(LayoutView):
+    """Résultats d'une recherche _MemberSearchModal. `on_pick` est appelé
+    avec `(interaction, [discord_id])` une fois un membre choisi — même
+    contrat qu'un ancien UserSelect (liste d'un seul id), pour ne rien
+    changer en aval (_after_select_modify/_after_select_remove)."""
+
+    MAX_RESULTS = 25  # limite native d'un discord.ui.Select
+
+    def __init__(
+        self, guild_id: int, owner_id: int, server: str,
+        matches: list[dict], query: str, title: str, on_pick,
+    ) -> None:
+        super().__init__(timeout=120)
+        self.guild_id = guild_id
+        self.owner_id = owner_id
+        self.server = server
+        self.matches = matches
+        self.query = query
+        self.title = title
+        self._on_pick = on_pick
+        self._build()
+
+    async def interaction_check(self, interaction: Interaction) -> bool:
+        return interaction.user.id == self.owner_id
+
+    def _build(self) -> None:
+        c = Container()
+        c.add_item(TextDisplay(self.title))
+        c.add_item(Separator())
+
+        if not self.matches:
+            c.add_item(TextDisplay(f"*Aucun membre de la stafflist ne correspond à « {self.query} ».*"))
+        elif len(self.matches) > self.MAX_RESULTS:
+            c.add_item(TextDisplay(
+                f"**{len(self.matches)} résultats** pour « {self.query} » — trop pour être "
+                f"affichés en une fois (max {self.MAX_RESULTS}). Affinez votre recherche."
+            ))
+        else:
+            options = [
+                discord.SelectOption(
+                    label=(m["pseudo_jeu"] or f"ID {m['discord_id']}")[:100],
+                    value=str(m["discord_id"]),
+                    description=(GRADE_LABELS.get(m["grade"], m["grade"]) if m["grade"] else "Sans grade")[:100],
+                )
+                for m in self.matches
+            ]
+            select = Select(placeholder="Choisir le membre...", options=options)
+            select.callback = self._on_select_result
+            c.add_item(ActionRow(select))
+
+        c.add_item(Separator())
+        btn_retry = Button(label="🔎 Nouvelle recherche", style=ButtonStyle.secondary, custom_id="msr_retry")
+        btn_retry.callback = self._on_retry
+        btn_back = Button(label="↩️ Retour", style=ButtonStyle.secondary, custom_id="msr_back")
+        btn_back.callback = self._on_back
+        c.add_item(ActionRow(btn_retry, btn_back))
+        c.add_item(TextDisplay("-# GuideOn Studio"))
+        self.add_item(c)
+
+    async def _on_select_result(self, interaction: Interaction) -> None:
+        discord_id = int(interaction.data["values"][0])
+        await self._on_pick(interaction, [discord_id])
+
+    async def _on_retry(self, interaction: Interaction) -> None:
+        async def on_results(inter: Interaction, matches: list[dict], query: str) -> None:
+            await _handle_search_results(
+                inter, matches, query,
+                guild_id=self.guild_id, owner_id=self.owner_id, server=self.server,
+                title=self.title, on_pick=self._on_pick,
+            )
+
+        await interaction.response.send_modal(_MemberSearchModal(
+            guild_id=self.guild_id, owner_id=self.owner_id, server=self.server,
+            title=self.title, on_results=on_results,
+        ))
 
     async def _on_back(self, interaction: Interaction) -> None:
         await _back_to_main(interaction, self.owner_id, self.server)
@@ -695,11 +862,14 @@ class _ModifyOptionsView(LayoutView):
         await interaction.response.send_modal(modal)
 
     async def _save_pseudo(self, interaction: Interaction, value: str) -> None:
+        # ⏱️ Voir _finalize_add : defer avant tout travail, refresh_staff_message
+        # peut désormais dépasser la fenêtre de 3s (pagination multi-messages).
+        await interaction.response.defer()
         await update_staff_member(self.server, self.data["discord_id"], pseudo_jeu=value.strip())
         from utils.managers.ng_stafflist_manager import refresh_staff_message
         await refresh_staff_message(interaction.client, self.guild_id, server=self.server)
         members = await list_staff(self.server)
-        await interaction.response.edit_message(
+        await interaction.edit_original_response(
             view=EditListView(self.guild_id, self.owner_id, members, server=self.server)
         )
 
@@ -718,11 +888,14 @@ class _ModifyOptionsView(LayoutView):
     async def _save_grade(
         self, interaction: Interaction, discord_id: int, member_name: str, grade: str | None
     ) -> None:
+        # ⏱️ Voir _finalize_add : defer avant tout travail, refresh_staff_message
+        # peut désormais dépasser la fenêtre de 3s (pagination multi-messages).
+        await interaction.response.defer()
         await update_staff_member(self.server, discord_id, grade=grade)
         from utils.managers.ng_stafflist_manager import refresh_staff_message
         await refresh_staff_message(interaction.client, self.guild_id, server=self.server)
         members = await list_staff(self.server)
-        await interaction.response.edit_message(
+        await interaction.edit_original_response(
             view=EditListView(self.guild_id, self.owner_id, members, server=self.server)
         )
 
@@ -739,11 +912,16 @@ class _ModifyOptionsView(LayoutView):
         await interaction.response.send_modal(modal)
 
     async def _save_emoji(self, interaction: Interaction, value: str) -> None:
+        # ⏱️ Voir _finalize_add : defer avant tout travail — c'est précisément
+        # ce chemin qui a crashé en prod sur Iris (2026-09-27, "Unknown
+        # interaction" 404/10062) : refresh_staff_message dépassait la
+        # fenêtre de 3s avant la 1re réponse à l'interaction du modal.
+        await interaction.response.defer()
         await update_staff_member(self.server, self.data["discord_id"], skin_head_emoji=value.strip())
         from utils.managers.ng_stafflist_manager import refresh_staff_message
         await refresh_staff_message(interaction.client, self.guild_id, server=self.server)
         members = await list_staff(self.server)
-        await interaction.response.edit_message(
+        await interaction.edit_original_response(
             view=EditListView(self.guild_id, self.owner_id, members, server=self.server)
         )
 
@@ -849,6 +1027,10 @@ class _StatutManageView(LayoutView):
         held = {s["key"] for s in self.data.get("statuts", [])}
 
         if key in held:
+            # ⏱️ Voir _save_emoji plus haut dans ce fichier : _refresh appelle
+            # refresh_staff_message, qui peut désormais dépasser la fenêtre
+            # de 3s Discord pour la 1re réponse (pagination multi-messages).
+            await interaction.response.defer()
             await revoke_statut(self.server, self.data["discord_id"], key)
             return await self._refresh(interaction)
 
@@ -874,12 +1056,19 @@ class _StatutManageView(LayoutView):
         # grant_statut, ng_statut_manager.py).
         if statut_def["requires_second_pseudo"] and self.data["grade"] is not None:
             async def on_submit(inter: Interaction, value: str) -> None:
+                # ⏱️ Voir _save_emoji plus haut : ce modal débouche sur
+                # _refresh (refresh_staff_message), qui peut désormais
+                # dépasser la fenêtre de 3s Discord pour la 1re réponse à
+                # CETTE interaction (le modal_submit, distincte de celle qui
+                # l'a ouvert) — deferred_message_update, invisible pour
+                # l'utilisateur.
+                await inter.response.defer()
                 try:
                     await grant_statut(self.server, self.data["discord_id"], key, second_pseudo=value.strip())
                 except NGStatutError as e:
                     fresh_defs = await list_statut_defs(self.server)
                     fresh_data = await get_staff_member(self.server, self.data["discord_id"])
-                    return await inter.response.edit_message(
+                    return await inter.edit_original_response(
                         view=_StatutManageView(
                             self.guild_id, self.owner_id, fresh_data, fresh_defs,
                             server=self.server, error_message=e.message,
@@ -895,10 +1084,14 @@ class _StatutManageView(LayoutView):
             )
             return await interaction.response.send_modal(modal)
 
+        # ⏱️ Voir _save_emoji plus haut : ce chemin débouche sur _refresh
+        # (refresh_staff_message), qui peut désormais dépasser la fenêtre de
+        # 3s Discord pour la 1re réponse à l'interaction.
+        await interaction.response.defer()
         try:
             await grant_statut(self.server, self.data["discord_id"], key)
         except NGStatutError as e:
-            return await interaction.response.edit_message(
+            return await interaction.edit_original_response(
                 view=_StatutManageView(
                     self.guild_id, self.owner_id, self.data, self.statut_defs,
                     server=self.server, error_message=e.message,
@@ -907,11 +1100,15 @@ class _StatutManageView(LayoutView):
         await self._refresh(interaction)
 
     async def _refresh(self, interaction: Interaction) -> None:
+        """Toujours appelée sur une interaction déjà deferred par l'appelant
+        (voir chaque site d'appel ci-dessus) — jamais un edit_message direct
+        ici, refresh_staff_message est trop lent depuis la pagination pour
+        rester sous la fenêtre de 3s de la 1re réponse."""
         from utils.managers.ng_stafflist_manager import refresh_staff_message
         await refresh_staff_message(interaction.client, self.guild_id, server=self.server)
         data = await get_staff_member(self.server, self.data["discord_id"])
         statut_defs = await list_statut_defs(self.server)
-        await interaction.response.edit_message(
+        await interaction.edit_original_response(
             view=_StatutManageView(self.guild_id, self.owner_id, data, statut_defs, server=self.server)
         )
 
@@ -1000,6 +1197,11 @@ class _ConfirmRemoveView(LayoutView):
         self.add_item(c)
 
     async def _on_confirm(self, interaction: Interaction) -> None:
+        # ⏱️ Voir _save_emoji (edit_list_view.py, plus haut) : defer avant
+        # tout travail — refresh_staff_message peut désormais dépasser la
+        # fenêtre de 3s Discord pour la 1re réponse (pagination
+        # multi-messages).
+        await interaction.response.defer()
         await remove_staff_member(self.server, self.data["discord_id"])
         # 🧹 NGStaffStatut n'a pas de FK vers ng_staff (seulement vers
         # ng_statut_defs, cascade sur suppression de statut) — sans cet
@@ -1009,7 +1211,7 @@ class _ConfirmRemoveView(LayoutView):
         from utils.managers.ng_stafflist_manager import refresh_staff_message
         await refresh_staff_message(interaction.client, self.guild_id, server=self.server)
         members = await list_staff(self.server)
-        await interaction.response.edit_message(
+        await interaction.edit_original_response(
             view=EditListView(self.guild_id, self.owner_id, members, server=self.server)
         )
 
