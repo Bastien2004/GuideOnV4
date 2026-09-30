@@ -1213,7 +1213,6 @@
 
         "recompense": [
             "20 membres maximum",
-            "5 relations maximum",
             "10 parcelles"
         ],
 
@@ -1235,7 +1234,6 @@
 
         "recompense": [
             "30 membres maximum",
-            "10 relations maximum",
             "3 officiers maximum"
         ],
 
@@ -1257,7 +1255,6 @@
 
         "recompense": [
             "40 membres maximum",
-            "15 relations maximum",
             "50 parcelles",
             "5 panneaux solaires/chunk",
             "Accès coffre de pays"
@@ -1276,13 +1273,12 @@
             "Payer 10.000$",
             "10 niveaux de pays",
             "50.000$ de PIB",
-            "Déposer 5 onyx"
+            "Déposer 1 Magnesium"
         ],
 
 
         "recompense": [
             "50 membres maximum",
-            "20 relations maximum",
             "1 image galerie",
             "Pouvoir vendre 1 action de pays"
         ],
@@ -1324,14 +1320,12 @@
         "condition": [
             "1 entreprise dans le pays",
             "Top 100 notations",
-            "3 Officiers",
-            "Participer aux notations"
+            "3 Officiers"
         ],
 
 
         "recompense": [
             "80 membres maximum",
-            "25 relations maximum",
             "100 parcelles",
             "4 images galerie",
             "1 warp de pays"
@@ -1380,9 +1374,8 @@
         "recompens": [
             "150 membres maximum",
             "2 warp de pays",
-            "30 relations maximum",
             "Pouvoir renommer les rôles de pays",
-            "Accès au catalog 'Meubles'"
+            "Accès au catalog pays"
         ],
 
 
@@ -1452,7 +1445,6 @@
             "Possèder une fusée spatiale",
             "60 Niveaux de pays",
             "250.000$ en banque",
-            "Acheter 2 actions de pays",
             "Top 75 notations",
             "100.000 minutes de jeu (ATM)",
             "Note de beauté globale > 1"
@@ -1488,7 +1480,6 @@
 
         "recompense": [
             "200 membres maximum",
-            "45 relations maximum",
             "10 images galerie",
             "36 slots coffre pays",
             "Pouvoir vendre 5 Actions de pays"
@@ -1540,7 +1531,6 @@
 
 
         "recompense": [
-            "50 relations maximum",
             "600 parcelles",
             "4 Warps de pays",
             "25 panneaux solaires/chunk",
@@ -1632,115 +1622,159 @@
 
         "recompense": [
           "Déclarer 3 guerres",
-          "Débloquage craft plateforme T1"  
+          "Débloquage craft plateforme T1",
+          "Utilisation platefome T1"  
         ],
 
 
         "temps_recherche": [
-
+          "1 heure"
         ] 
       },
 
 
       "4": {
         "condition": [
-
+          "Crafter une plateforme T1",
+          "Contester la warzone",
+          "Casser 200 obsidiennes",
+          "Donner 10 boissons espion",
+          "Donner 50 boissons energisantes"
         ],
 
 
-
         "recompense": [
-            
+            "+5% effets de potion positive",
+            "+10% de précision missile",
+            "Débloquage craft reinforced concrete"
         ],
 
 
         "temps_recherche": [
-
+          "2 heures"
         ] 
       },
 
 
       "5": {
         "condition": [
-
+          "Palier 5 R&D Industrie",
+          "Donner 3 attractive missile",
+          "Possèder 50 MMR",
+          "Capturer 1 warzone",
+          "Donner 32 TNT"
         ],
 
 
-
         "recompense": [
-            
+          "Réparation de pays",
+          "+1 Point missile",
+          "Utilisation plateforme 2"
         ],
 
 
         "temps_recherche": [
-
+          "3 heures"
         ] 
       },
 
 
       "6": {
         "condition": [
-
+          "TOP 10 warzone quotidien",
+          "Effectuer 25 kills",
+          "Possèder 90 MMR",
+          "Déposer 100 potions de poison",
+          "Crafter 80 ogives de Tier II",
+          "Possèder 100 powerboost warzone"
         ],
 
 
-
         "recompense": [
-            
+            "Annonce d'intrusion",
+            "Recevoir des missiles Tier III"
         ],
 
 
         "temps_recherche": [
-
+          "6 heures"
         ] 
       },
 
 
       "7": {
         "condition": [
-
+          "Réparer 500 blocs (réparation de pays)",
+          "Gagner 25 assauts",
+          "TOP 10 warzone hebdomadaire",
+          "10.000 warzone hebdomadaire",
+          "Possèder 110 MMR",
+          "Payer 50.000$",
+          "Déposer 300 potions de poison"
         ],
 
 
-
         "recompense": [
-            
+            "Debloquage craft missile Tier II",
+            "Débloquage craft plateforme Tier II",
+            "Possibilité de déclarer 5 guerres",
+            "-5% de dégats défensif",
+            "-10% coût de réparation de pays"
         ],
 
 
         "temps_recherche": [
-
+          "10 heures"
         ] 
       },
 
 
       "8": {
         "condition": [
-
+          "Gagner 1 guerre",
+          "Effectuer 45 kills",
+          "TO¨P 5 warzone quotidien",
+          "Tirer 5 missile Sonic",
+          "Tirer 5 missiles EMP",
+          "Tirer 5 missiles Cluster",
+          "100 power disponible",
+          "Déposer 600 TNT",
+          "Déposer 100 boissons énergisantes"
         ],
 
 
-
         "recompense": [
-            
+            "Utilisation du rocket launcher",
+            "-5% durée d'effets des potions négatives",
+            "+20 blocs de rayon de porté pour l'EMP",
+            "Débloquage de la réplique Tier III"
         ],
 
 
         "temps_recherche": [
-
+          "16 heures"
         ] 
       },
 
 
       "9": {
         "condition": [
-
+          "3 guerres actives",
+          "50.000 blocs détruits (missile)",
+          "TOP 5 warzone hebdomadaire",
+          "Gagner 30 assauts",
+          "Gagner 2 guerres",
+          "Crafter 2 missiles Cluster",
+          "Déposer 800 potions de poison",
+          "Tirer 5 missiles Breaching",
+          "Note de beauté globale > 2"
         ],
 
 
-
         "recompense": [
-            
+            "Pouvoir lancer des missiles Tier III",
+            "Débloquage craft tourelle anti-missile",
+            "Débloquage craft missile Contageous",
         ],
 
 
