@@ -46,6 +46,12 @@ _UNICODE_EMOJI_RE = re.compile(
 # (ce ne sont pas des emojis à eux seuls — juste des modificateurs).
 _IGNORE_CODEPOINTS = {"\ufe0f", "\u200d"}
 
+# Symboles non-ASCII fréquents classés "So" par Unicode mais qui ne sont
+# PAS des emojis (typographie courante : degré, copyright, marque...).
+# Ajoutés le 2026-10-01 suite à un faux positif signalé par Paul (voir
+# note ASCII ci-dessous pour le cas principal — backticks).
+_NON_EMOJI_SYMBOLS = {"\u00b0", "\u00a9", "\u00ae", "\u2122"}  # degré, copyright, R, TM
+
 
 def _count_unicode_emojis_fallback(text: str) -> int:
     """
@@ -53,10 +59,25 @@ def _count_unicode_emojis_fallback(text: str) -> int:
     (Symbol, Modifier). Complémentaire de la regex : capture les cas rares
     manqués. Ne double-compte pas avec la regex (appelé sur texte déjà
     stripped de ce qu'elle a matché — voir detect()).
+
+    ⚠️ Exclut les codepoints ASCII (< 0x80) : aucun emoji n'est encodé en
+    ASCII, mais plusieurs signes de ponctuation ASCII très courants sont
+    classés "Sk"/"So" par Unicode sans être des emojis — notamment le
+    backtick (utilisé pour le code inline en Markdown, catégorie "Sk") et
+    l'accent circonflexe isolé. Sans cette exclusion, un message citant
+    plusieurs commandes entre backticks (ex: code /ngstaff config code)
+    se faisait sanctionner par l'antispam emoji alors qu'il ne contient
+    aucun emoji — bug remonté par Paul le 2026-10-01 (6 commandes citées
+    entre backticks = 12 backticks = "12 emojis" détectés à tort).
+    Exclut aussi quelques symboles non-ASCII fréquents et non-pictographiques
+    (degré, copyright, marque déposée) qui partagent la même catégorie
+    Unicode pour la même raison.
     """
     count = 0
     for ch in text:
-        if ch in _IGNORE_CODEPOINTS:
+        if ch in _IGNORE_CODEPOINTS or ch in _NON_EMOJI_SYMBOLS:
+            continue
+        if ord(ch) < 0x80:
             continue
         cat = unicodedata.category(ch)
         if cat in ("So", "Sk"):
