@@ -11,7 +11,7 @@ import logging
 import discord
 from discord.ext import commands
 
-from utils.managers.mod_log_manager import send_log
+from utils.managers.mod_log_manager import is_event_enabled, send_log
 
 log = logging.getLogger(__name__)
 
@@ -21,6 +21,15 @@ log = logging.getLogger(__name__)
 # ============================================================
 
 _AUDIT_LOOKUP_ATTEMPTS = 3
+# 2026-10-01 (Paul) : voice_move/voice_disconnect n'ont, contrairement à
+# mute/deaf, AUCUN signal préalable indiquant qu'un modérateur est impliqué
+# (avant/après ne diffèrent pas selon la cause du changement de salon). Dans
+# l'immense majorité des cas (changement de salon volontaire, Join to
+# Create, déconnexion normale) il n'y a donc rien à trouver dans l'audit
+# log, et chaque tentative coûte un vrai appel REST. On ne retente qu'une
+# fois (au lieu de 3) pour ces deux cas précis, afin de réduire la pression
+# sur GET /guilds/{id}/audit-logs — voir _AUDIT_LOOKUP_ATTEMPTS_LOW ci-dessous.
+_AUDIT_LOOKUP_ATTEMPTS_LOW = 1
 _AUDIT_LOOKUP_DELAY = 0.6
 _SINCE_SAFETY_MARGIN = datetime.timedelta(seconds=2)
 
@@ -62,7 +71,8 @@ class ModVoiceLogListener(commands.Cog):
             log.exception("[MODLOG VOICE] Erreur traitement voice_state_update guild=%s membre=%s", guild.id, member.id)
 
 
-    async def _find_moderator(self, guild: discord.Guild, action: discord.AuditLogAction, *, match, since: datetime.datetime) -> discord.abc.User | None:
+    async def _find_moderator(self, guild: discord.Guild, action: discord.AuditLogAction, *, match, since: datetime.datetime,
+        attempts: int = _AUDIT_LOOKUP_ATTEMPTS) -> discord.abc.User | None:
         """Récupère l'auteur de l'action de modération."""
 
         if guild.me is None or not guild.me.guild_permissions.view_audit_log:
@@ -70,7 +80,7 @@ class ModVoiceLogListener(commands.Cog):
 
         threshold = since - _SINCE_SAFETY_MARGIN
 
-        for attempt in range(_AUDIT_LOOKUP_ATTEMPTS):
+        for attempt in range(attempts):
             try:
                 async for entry in guild.audit_logs(action=action, limit=5):
                     if entry.created_at < threshold:
@@ -85,7 +95,7 @@ class ModVoiceLogListener(commands.Cog):
                 )
                 return None
             
-            if attempt < _AUDIT_LOOKUP_ATTEMPTS - 1:
+            if attempt < attempts - 1:
                 await asyncio.sleep(_AUDIT_LOOKUP_DELAY)
         return None
 
@@ -98,6 +108,10 @@ class ModVoiceLogListener(commands.Cog):
     # ============================================================
 
     async def _log_mute(self, guild: discord.Guild, member: discord.Member, *, muted: bool, since: datetime.datetime) -> None:
+        # Pas de pack actif couvrant cet évènement → inutile d'interroger
+        # l'audit log Discord, send_log ignorerait le résultat de toute façon.
+        if not await is_event_enabled(guild.id, "voice_mute"):
+            return
 
         moderator = await self._find_moderator(
             guild, discord.AuditLogAction.member_update,
@@ -132,6 +146,8 @@ class ModVoiceLogListener(commands.Cog):
     # ============================================================
 
     async def _log_deaf(self, guild: discord.Guild, member: discord.Member, *, deafened: bool, since: datetime.datetime) -> None:
+        if not await is_event_enabled(guild.id, "voice_deaf"):
+            return
 
         moderator = await self._find_moderator(
             guild, discord.AuditLogAction.member_update,
@@ -167,6 +183,8 @@ class ModVoiceLogListener(commands.Cog):
 
     async def _log_move(self, guild: discord.Guild, member: discord.Member, before_channel: discord.abc.GuildChannel,
         after_channel: discord.abc.GuildChannel, *, since: datetime.datetime) -> None:
+        if not await is_event_enabled(guild.id, "voice_move"):
+            return
 
         moderator = await self._find_moderator(
             guild, discord.AuditLogAction.member_move,
@@ -175,6 +193,10 @@ class ModVoiceLogListener(commands.Cog):
                 and e.extra.channel.id == after_channel.id
             ),
             since=since,
+            # Changement de salon volontaire ou Join to Create = immense
+            # majorité des cas, sans entrée d'audit log correspondante.
+            # Une seule tentative : pas la peine de retenter 3x pour rien.
+            attempts=_AUDIT_LOOKUP_ATTEMPTS_LOW,
         )
         if moderator is None:
             return
@@ -199,11 +221,16 @@ class ModVoiceLogListener(commands.Cog):
 
     async def _log_disconnect(self, guild: discord.Guild, member: discord.Member,
         before_channel: discord.abc.GuildChannel, *, since: datetime.datetime) -> None:
+        if not await is_event_enabled(guild.id, "voice_disconnect"):
+            return
 
         moderator = await self._find_moderator(
             guild, discord.AuditLogAction.member_disconnect,
             match=lambda e: True,
             since=since,
+            # Déconnexion volontaire = immense majorité des cas (y compris
+            # la fin d'un salon Join to Create) : une seule tentative.
+            attempts=_AUDIT_LOOKUP_ATTEMPTS_LOW,
         )
 
         if moderator is None:

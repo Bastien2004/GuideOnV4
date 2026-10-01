@@ -79,6 +79,15 @@ LEFT_PENALTY_WINDOW = timedelta(days=1)
 # pour l'attribution d'un join (voir _recent_deletes ci-dessous).
 RECENT_DELETE_TTL_SECONDS = 15.0
 
+# 2026-10-01 (Paul) : pause entre deux guildes lors du peuplement du cache
+# au on_ready. Sans ça, un bot présent sur beaucoup de serveurs envoie une
+# rafale de GET /guilds/{id}/invites quasi simultanée à chaque (re)connexion
+# (reconnexion = resume/reconnect Discord, pas juste un démarrage à froid),
+# ce qui déclenche du 429 en cascade sur cet endpoint. Valeur volontairement
+# modeste : juste assez pour étaler la rafale, pas pour ralentir le démarrage
+# de façon perceptible.
+READY_REFRESH_DELAY_SECONDS = 0.5
+
 # Ré-édition de réparation de mention (même délai/rationale que
 # cogs/events/bienvenue_listener.py : Discord ne résout pas toujours fiable
 # une mention au premier rendu Components V2).
@@ -365,11 +374,30 @@ class InviteListener(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self) -> None:
-        """Peuple le cache des invites pour chaque guild au démarrage."""
+        """Peuple le cache des invites pour chaque guild au démarrage.
+
+        Ne rafraîchit QUE les guildes où le système d'invitations est activé
+        (`cfg["enabled"]`) : avant ce correctif, on appelait guild.invites()
+        pour TOUTES les guildes du bot à chaque on_ready, y compris celles
+        qui n'utilisent pas la fonctionnalité — le gros des 429 observés sur
+        GET /guilds/{id}/invites venait de là (voir aussi les warnings
+        "Permission 'Gérer le serveur' manquante" juste avant/après : même
+        signe, on interrogeait des guildes qui n'ont même pas activé/donné
+        la permission pour ce système). On étale aussi les appels restants
+        (READY_REFRESH_DELAY_SECONDS) pour éviter une rafale simultanée sur
+        un bot présent sur beaucoup de serveurs actifs.
+        """
+        refreshed = 0
         for guild in self.bot.guilds:
+            cfg = await load_invite_config(guild.id)
+            if not cfg.get("enabled"):
+                continue
             await self._refresh_cache(guild)
+            refreshed += 1
+            await asyncio.sleep(READY_REFRESH_DELAY_SECONDS)
         log.info(
-            "[Invite] Cache initialisé pour %d guild(s)", len(self._invite_cache)
+            "[Invite] Cache initialisé pour %d guild(s) (système activé) sur %d guild(s) au total",
+            refreshed, len(self.bot.guilds),
         )
 
     @commands.Cog.listener()

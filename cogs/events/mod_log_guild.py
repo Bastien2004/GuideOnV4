@@ -10,7 +10,7 @@ import logging
 import discord
 from discord.ext import commands
 
-from utils.managers.mod_log_manager import bind_bot, send_log
+from utils.managers.mod_log_manager import bind_bot, is_event_enabled, send_log
 
 log = logging.getLogger(__name__)
 
@@ -71,6 +71,10 @@ class ModLogGuild(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_channel_create(self, channel: discord.abc.GuildChannel) -> None:
+        # Pas de pack actif couvrant cet évènement → inutile d'interroger
+        # l'audit log Discord, send_log ignorerait le résultat de toute façon.
+        if not await is_event_enabled(channel.guild.id, "channel_create"):
+            return
         actor = await _resolve_actor(channel.guild, discord.AuditLogAction.channel_create, target_id=channel.id)
         fields = [
             ("Salon", f"{channel.mention} (`{channel.name}`)", True),
@@ -83,6 +87,8 @@ class ModLogGuild(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel) -> None:
+        if not await is_event_enabled(channel.guild.id, "channel_delete"):
+            return
         actor = await _resolve_actor(channel.guild, discord.AuditLogAction.channel_delete, target_id=channel.id)
         fields = [
             ("Salon", f"`#{channel.name}` (`{channel.id}`)", True),
@@ -102,6 +108,8 @@ class ModLogGuild(commands.Cog):
             changes.append(("Catégorie", f"`{before_cat}` → `{after_cat}`", False))
         if not changes:
             return
+        if not await is_event_enabled(after.guild.id, "channel_update"):
+            return
 
         actor = await _resolve_actor(after.guild, discord.AuditLogAction.channel_update, target_id=after.id)
         fields = [("Salon", after.mention, True), ("Par", actor, True), *changes]
@@ -112,6 +120,8 @@ class ModLogGuild(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_role_create(self, role: discord.Role) -> None:
+        if not await is_event_enabled(role.guild.id, "role_create"):
+            return
         actor = await _resolve_actor(role.guild, discord.AuditLogAction.role_create, target_id=role.id)
         fields = [
             ("Rôle", f"{role.mention} (`{role.name}`)", True),
@@ -122,6 +132,8 @@ class ModLogGuild(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_role_delete(self, role: discord.Role) -> None:
+        if not await is_event_enabled(role.guild.id, "role_delete"):
+            return
         actor = await _resolve_actor(role.guild, discord.AuditLogAction.role_delete, target_id=role.id)
         fields = [
             ("Rôle", f"`{role.name}` (`{role.id}`)", True),
@@ -138,6 +150,8 @@ class ModLogGuild(commands.Cog):
             changes.append(("Couleur", f"`{before.color}` → `{after.color}`", False))
         if not changes:
             return
+        if not await is_event_enabled(after.guild.id, "role_update"):
+            return
 
         actor = await _resolve_actor(after.guild, discord.AuditLogAction.role_update, target_id=after.id)
         fields = [("Rôle", after.mention, True), ("Par", actor, True), *changes]
@@ -149,6 +163,8 @@ class ModLogGuild(commands.Cog):
     @commands.Cog.listener()
     async def on_guild_update(self, before: discord.Guild, after: discord.Guild) -> None:
         if before.name == after.name and before.icon == after.icon:
+            return
+        if not await is_event_enabled(after.id, "guild_update"):
             return
 
         actor = await _resolve_actor(after, discord.AuditLogAction.guild_update, target_id=after.id)
@@ -168,6 +184,12 @@ class ModLogGuild(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_emojis_update(self, guild: discord.Guild, before: list[discord.Emoji], after: list[discord.Emoji]) -> None:
+        # emoji_create/delete/update sont toujours du même palier de pack
+        # (espion) : un seul check suffit pour éviter toute la boucle
+        # (et ses audit lookups) quand ce palier n'est pas actif.
+        if not await is_event_enabled(guild.id, "emoji_create"):
+            return
+
         before_ids = {e.id: e for e in before}
         after_ids = {e.id: e for e in after}
 
@@ -200,6 +222,11 @@ class ModLogGuild(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_stickers_update(self, guild: discord.Guild, before: list[discord.GuildSticker], after: list[discord.GuildSticker]) -> None:
+        # sticker_create/delete/update sont toujours du même palier de pack
+        # (espion) : un seul check suffit (cf. on_guild_emojis_update).
+        if not await is_event_enabled(guild.id, "sticker_create"):
+            return
+
         before_ids = {s.id: s for s in before}
         after_ids = {s.id: s for s in after}
 
