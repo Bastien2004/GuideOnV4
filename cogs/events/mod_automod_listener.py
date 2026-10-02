@@ -151,41 +151,15 @@ class ModAutomodListener(commands.Cog):
 
     @commands.Cog.listener()
     async def on_raw_message_edit(self, payload: discord.RawMessageUpdateEvent) -> None:
-        """Re-passe un message ÉDITÉ dans l'analyse automod.
+        """Analyse les messages édités."""
 
-        on_message ne se déclenche qu'à la création : un membre pouvait
-        jusqu'ici poster un message propre puis l'éditer pour y glisser un
-        mot banni/lien/etc. sans jamais être détecté (Paul, 2026-09-28).
-        On utilise l'event RAW (pas on_message_edit) pour ne pas dépendre
-        du cache messages du bot — indépendant de cogs/events/mod_log_messages.py
-        dont le on_message_edit est purement journalisation (diff avant/après)
-        et n'a jamais été branché sur l'automod.
-        """
         if payload.guild_id is None:
             return
-
-        # Discord n'inclut la clé "content" dans le payload MESSAGE_UPDATE
-        # que si le texte a réellement changé (un simple unfurl de lien qui
-        # ajoute un embed après coup ne la contient pas) : on évite ainsi
-        # de re-analyser un message à chaque mise à jour non textuelle.
+            
         if "content" not in payload.data:
             return
 
-        guild = self.bot.get_guild(payload.guild_id)
-        if guild is None:
-            return
-        channel = guild.get_channel_or_thread(payload.channel_id)
-        if channel is None:
-            return
-
-        try:
-            message = await channel.fetch_message(payload.message_id)
-        except (discord.NotFound, discord.Forbidden, discord.HTTPException) as exc:
-            log.debug(
-                "[AUTOMOD] Message édité introuvable/inaccessible channel=%s message=%s erreur=%s",
-                payload.channel_id, payload.message_id, exc,
-            )
-            return
+        message = payload.message
 
         if message.author.bot:
             return
