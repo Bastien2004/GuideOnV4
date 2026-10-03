@@ -105,14 +105,14 @@ async def generate_transcripts(channel: discord.TextChannel, ticket: dict) -> tu
     async for msg in channel.history(limit=1000, oldest_first=True):
         content_escaped = html.escape(msg.clean_content) if msg.clean_content else ""
         messages_data.append({
-            "author": str(msg.author),
+            "author": html.escape(str(msg.author)),
             "author_id": msg.author.id,
-            "avatar": str(msg.author.display_avatar.url),
+            "avatar": html.escape(str(msg.author.display_avatar.url), quote=True),
             "timestamp": msg.created_at.strftime("%d/%m/%Y %H:%M"),
             "content": content_escaped,
             "attachments": [
                 {
-                    "url": a.url,
+                    "url": html.escape(a.url, quote=True),
                     "is_img": (a.content_type.startswith("image") if a.content_type else False),
                 }
                 for a in msg.attachments
@@ -121,7 +121,8 @@ async def generate_transcripts(channel: discord.TextChannel, ticket: dict) -> tu
 
     ticket_num = ticket.get("ticket_number", "0000")
     base_name = f"ticket-{ticket_num}"
-    pseudo = ticket.get("pseudo") or str(ticket.get("creator_id", "?"))
+    pseudo = html.escape(ticket.get("pseudo") or str(ticket.get("creator_id", "?")))
+    raison_html = html.escape(ticket.get("raison") or "Non précisée")
 
     json_bytes = io.BytesIO(
         json.dumps(
@@ -157,11 +158,11 @@ async def generate_transcripts(channel: discord.TextChannel, ticket: dict) -> tu
         </div>"""
 
     html_content = HTML_TEMPLATE.format(
-        base_name=base_name,
-        ticket_num=ticket_num,
+        base_name=html.escape(base_name),
+        ticket_num=html.escape(str(ticket_num)),
         pseudo=pseudo,
-        creator_id=ticket.get("creator_id", "?"),
-        raison=ticket.get("raison", "Non précisée"),
+        creator_id=html.escape(str(ticket.get("creator_id", "?"))),
+        raison=raison_html,
         date_now=datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
         rows=rows,
     )

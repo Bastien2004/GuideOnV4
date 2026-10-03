@@ -5,6 +5,7 @@ cogs/events/mod_automod_listener.py — Gestion automod.
 from __future__ import annotations
 
 import logging
+import time
 from datetime import timedelta
 
 import discord
@@ -43,6 +44,17 @@ log = logging.getLogger(__name__)
 _MUTE_DURATION = timedelta(days=28)
 
 _REQUIRED_ALERT_PERMS: tuple[str, ...] = ("view_channel", "send_messages", "embed_links", "attach_files")
+
+# 2026-10-03 (Paul) : fenêtre de déduplication par message pour _apply_action.
+# Sur un serveur où un AUTRE bot (ou l'AutoMod natif Discord) a aussi un
+# automod actif sur les mêmes règles, les deux systèmes peuvent détecter et
+# réagir au même message en parallèle. Discord ne nous protège pas non plus
+# contre un double-traitement interne : un même message peut nous arriver
+# deux fois (on_message ET on_raw_message_edit s'il est édité juste après
+# sa création, ou un replay d'évènement après une reconnexion Gateway).
+# Sans garde-fou, ça double la sanction (2 DM, 2 lignes d'infraction en DB,
+# 2 tentatives de timeout, 2 alertes staff) pour UNE seule vraie infraction.
+_DEDUP_WINDOW_SECONDS = 30.0
 
 
 # ============================================================
@@ -135,6 +147,35 @@ def _analyzable_contents(message: discord.Message, snapshots: list[discord.Messa
 class ModAutomodListener(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
+        # message_id -> horodatage (time.monotonic()) de la dernière action
+        # appliquée pour ce message. Voir _DEDUP_WINDOW_SECONDS ci-dessus et
+        # _already_handled_recently() plus bas.
+        self._recent_actions: dict[int, float] = {}
+
+    def _already_handled_recently(self, message_id: int) -> bool:
+        """True si _apply_action a déjà traité ce message il y a moins de
+        _DEDUP_WINDOW_SECONDS — dans ce cas l'appelant doit s'abstenir pour
+        éviter de sanctionner deux fois la même infraction (cf. note sur
+        _DEDUP_WINDOW_SECONDS : double évènement interne OU conflit avec un
+        autre bot/système de modération qui aurait, lui, déjà fait réagir
+        notre propre pipeline une première fois sur ce message)."""
+        now = time.monotonic()
+
+        # Purge opportuniste des entrées expirées pour ne pas laisser le
+        # dict grossir indéfiniment (le bot tourne sur beaucoup de serveurs
+        # avec un volume de messages conséquent).
+        expired = [
+            mid for mid, ts in self._recent_actions.items()
+            if now - ts > _DEDUP_WINDOW_SECONDS
+        ]
+        for mid in expired:
+            self._recent_actions.pop(mid, None)
+
+        if message_id in self._recent_actions:
+            return True
+
+        self._recent_actions[message_id] = now
+        return False
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
@@ -151,15 +192,29 @@ class ModAutomodListener(commands.Cog):
 
     @commands.Cog.listener()
     async def on_raw_message_edit(self, payload: discord.RawMessageUpdateEvent) -> None:
-        """Analyse les messages édités."""
-
+        """Re-passe un message ÉDITÉ dans l'analyse automod."""
+        
         if payload.guild_id is None:
             return
-            
+
         if "content" not in payload.data:
             return
 
-        message = payload.message
+        guild = self.bot.get_guild(payload.guild_id)
+        if guild is None:
+            return
+        channel = guild.get_channel_or_thread(payload.channel_id)
+        if channel is None:
+            return
+
+        try:
+            message = await channel.fetch_message(payload.message_id)
+        except (discord.NotFound, discord.Forbidden, discord.HTTPException) as exc:
+            log.debug(
+                "[AUTOMOD] Message édité introuvable/inaccessible channel=%s message=%s erreur=%s",
+                payload.channel_id, payload.message_id, exc,
+            )
+            return
 
         if message.author.bot:
             return
@@ -336,11 +391,25 @@ class ModAutomodListener(commands.Cog):
         display = meta.get("display_name", system_key)
         emoji = meta.get("emoji", "⚠️")
 
+        if self._already_handled_recently(message.id):
+            log.info(
+                "[AUTOMOD] Message %s déjà traité très récemment (guild=%s, system=%s) — "
+                "action ignorée pour éviter un double traitement.",
+                message.id, guild_id, system_key,
+            )
+            return
 
         log.info("[AUTOMOD] Infraction détectée | guild=%s user=%s system=%s terme=%r", guild_id, user_id, system_key, matched_term)
 
         try:
             await message.delete()
+
+        except discord.NotFound:
+            log.info(
+                "[AUTOMOD] Message déjà supprimé avant nous (probablement un autre bot/l'AutoMod natif "
+                "Discord/un modérateur) | guild=%s channel=%s message=%s",
+                guild_id, message.channel.id, message.id,
+            )
 
         except (discord.Forbidden, discord.HTTPException) as exc:
             log.warning("[AUTOMOD] Suppression de l'infraction échouée | guild=%s channel=%s message=%s erreur=%s", guild_id, message.channel.id, message.id, exc)
@@ -353,9 +422,6 @@ class ModAutomodListener(commands.Cog):
         )
         is_recidive = recent >= 1
 
-        # Un message transféré a souvent message.content vide (le texte est
-        # dans les snapshots) : on retombe dessus pour que l'enregistrement
-        # de l'infraction garde une trace lisible du contenu réel incriminé.
         snapshots = _forwarded_snapshots(message)
         record_content = message.content or "\n".join(
             snap.content for snap in snapshots if snap.content

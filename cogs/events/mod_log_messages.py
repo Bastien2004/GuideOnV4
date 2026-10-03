@@ -11,7 +11,7 @@ import logging
 import discord
 from discord.ext import commands
 
-from utils.managers.mod_log_manager import send_log
+from utils.managers.mod_log_manager import is_event_enabled, send_log
 
 log = logging.getLogger(__name__)
 
@@ -134,6 +134,9 @@ class ModLogMessages(commands.Cog):
     ) -> None:
         guild = channel.guild
         if guild is None:
+            return
+
+        if not await is_event_enabled(guild.id, "message_pin"):
             return
 
         event_key, actor = await _resolve_pin_action(guild, channel)
