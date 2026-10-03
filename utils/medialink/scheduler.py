@@ -4,6 +4,7 @@ utils/medialink/scheduler.py — Transite du MediaEventdéclenche vers le proces
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 import discord
@@ -26,10 +27,20 @@ _PROVIDER_CLASSES: dict[str, type[BaseMediaProvider]] = {
     "twitch": TwitchProvider,
 }
 
+# 2026-10-03 (Paul) : petite pause entre deux connexions pollées. Le cycle
+# complet tourne toutes les POLL_INTERVAL_MINUTES=5 minutes (cf.
+# cogs/medialink/medialink_scheduler.py) : même avec ce délai, on reste très
+# loin de manger tout le budget de temps entre deux cycles, et ça évite
+# d'envoyer toutes les requêtes YouTube/Twitch d'un coup si le nombre de
+# connexions MEDIALINK grossit — même pattern de rafale-sans-pacing que
+# celui déjà corrigé côté Discord (audit-logs, invites).
+_POLL_PACING_SECONDS = 1.0
+
 
 async def run_once(bot: discord.Client) -> None:
     connections = await medialink_mgr.list_all_connections()
 
+    first = True
     for connection in connections:
         if connection["status"] == ConnectionStatus.DISABLED.value:
             continue
@@ -37,6 +48,10 @@ async def run_once(bot: discord.Client) -> None:
         provider_cls = _PROVIDER_CLASSES.get(connection["platform"])
         if provider_cls is None:
             continue
+
+        if not first:
+            await asyncio.sleep(_POLL_PACING_SECONDS)
+        first = False
 
         await _poll_connection(bot, connection, provider_cls)
 

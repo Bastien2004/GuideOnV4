@@ -27,6 +27,30 @@ _buffer: dict[tuple[int, int], list[tuple[float, str]]] = {}
 
 _MAX_PER_KEY: Final[int] = 50
 
+# 2026-10-03 (Paul) : même fuite mémoire que utils.automod.recidive_tracker
+# (même audit, même cause) — une clé (guild_id, user_id) n'est jamais
+# retirée tant que register_and_count() n'est pas rappelée sur ce même
+# utilisateur après expiration de sa fenêtre. Un utilisateur qui n'envoie
+# qu'un seul message pendant que l'anti-spam message est actif laisse une
+# entrée permanente. Purge périodique et amortie, même logique que
+# recidive_tracker.py.
+_PURGE_INTERVAL_SECONDS: Final[float] = 300.0
+_STALE_KEY_CEILING_SECONDS: Final[float] = 900.0
+_last_purge: float = 0.0
+
+
+def _purge_stale_keys(now: float) -> None:
+    global _last_purge
+    if now - _last_purge < _PURGE_INTERVAL_SECONDS:
+        return
+    _last_purge = now
+    stale_keys = [
+        key for key, entries in _buffer.items()
+        if not entries or now - entries[-1][0] > _STALE_KEY_CEILING_SECONDS
+    ]
+    for key in stale_keys:
+        _buffer.pop(key, None)
+
 
 def _normalize(content: str) -> str:
     """Normalise le contenu pour comparaison (espaces superflus + casse ignorés)."""
@@ -54,6 +78,7 @@ def register_and_count(guild_id: int, user_id: int, content: str, *, window_seco
 
     key = (guild_id, user_id)
     now = time.monotonic()
+    _purge_stale_keys(now)
     current = _prune(_buffer.get(key, []), now, window_seconds)
 
     current.append((now, normalized))

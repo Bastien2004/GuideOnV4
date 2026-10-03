@@ -15,6 +15,7 @@ toucher d'ici là, ces deux classes ne sont utilisées que par ce provider).
 """
 from __future__ import annotations
 
+import logging
 import re
 from datetime import datetime
 
@@ -27,6 +28,8 @@ from utils.medialink.providers.base import (
     ProviderCapabilities,
 )
 from utils.settings import settings
+
+log = logging.getLogger(__name__)
 
 _API_BASE_URL = "https://www.googleapis.com/youtube/v3"
 
@@ -44,7 +47,19 @@ _DURATION_RE = re.compile(
 
 class ProviderAuthError(Exception):
     """Auth invalide/refusée par la plateforme (clé API mauvaise/révoquée,
-    quota épuisé) — TEMPORAIRE ici, cf. note en tête de fichier."""
+    quota épuisé) — TEMPORAIRE ici, cf. note en tête de fichier.
+
+    `reason` porte la valeur `error.errors[0].reason` renvoyée par Google
+    quand elle est présente (ex: "quotaExceeded", "forbidden", "keyInvalid"),
+    `status_code` le code HTTP (401 ou 403). Les deux sont None si le corps
+    de réponse n'a pas pu être parsé — voir _get() et le commentaire dans
+    fetch_events() sur pourquoi cette distinction compte (2026-10-03,
+    Paul)."""
+
+    def __init__(self, message: str, *, reason: str | None = None, status_code: int | None = None) -> None:
+        super().__init__(message)
+        self.reason = reason
+        self.status_code = status_code
 
 
 class ProviderNotFoundError(Exception):
@@ -119,10 +134,23 @@ class YouTubeProvider(BaseMediaProvider):
         response = await client.get(f"/{endpoint}", params=query)
         if response.status_code in (401, 403):
             # 403 est aussi utilisé par Google pour "quotaExceeded", pas
-            # seulement pour une clé invalide — on les traite pareil ici.
+            # seulement pour une clé invalide. Le corps JSON porte en plus
+            # souvent error.errors[0].reason, qui permet à l'appelant (voir
+            # fetch_events()) de distinguer une vraie panne d'auth/quota
+            # d'un 403 isolé et non pertinent (ex: le "myRating" ci-dessous).
+            reason = None
+            try:
+                payload = response.json()
+                errors = (payload.get("error") or {}).get("errors") or []
+                if errors:
+                    reason = errors[0].get("reason")
+            except Exception:
+                pass
             raise ProviderAuthError(
                 f"YouTube API a refusé la requête sur {endpoint} "
-                f"(status={response.status_code}): {response.text}"
+                f"(status={response.status_code}, reason={reason!r}): {response.text}",
+                reason=reason,
+                status_code=response.status_code,
             )
         response.raise_for_status()
         return response.json()
@@ -239,13 +267,41 @@ class YouTubeProvider(BaseMediaProvider):
 
         videos_by_id: dict[str, dict] = {}
         for chunk in _chunked(video_ids, 50):
-            videos_data = await self._get(
-                "videos",
-                {
-                    "part": "snippet,contentDetails,liveStreamingDetails",
-                    "id": ",".join(chunk),
-                },
-            )
+            try:
+                videos_data = await self._get(
+                    "videos",
+                    {
+                        "part": "snippet,contentDetails,liveStreamingDetails",
+                        "id": ",".join(chunk),
+                    },
+                )
+            except ProviderAuthError as exc:
+                # 2026-10-03 (Paul) : vu en prod — YouTube renvoie parfois,
+                # sans rapport avec notre requête (qui ne demande JAMAIS
+                # `myRating` ni rien nécessitant OAuth — vérifié : `part`
+                # ci-dessus est fixe, statique, et n'a jamais contenu
+                # "myRating" dans ce fichier, cf. historique), un 403
+                # "The request cannot access user rating information (...)
+                # myRating parameter" pour un simple appel videos.list en
+                # lecture publique. C'est un quirk/bug connu côté API
+                # Google, pas une vraie panne d'auth chez nous.
+                #
+                # Sans ce garde-fou, UN SEUL de ces 403 aléatoires faisait
+                # échouer tout fetch_events() et marquait la connexion
+                # "en erreur" (ConnectionStatus.ERROR) dans run_once(),
+                # alors que la chaîne et la clé API sont parfaitement
+                # valides. On ne tolère ça QUE pour un 403 dont le motif
+                # Google n'est ni "quotaExceeded" ni un vrai 401 : ces deux
+                # cas restent remontés normalement, parce que là il y a
+                # vraiment quelque chose à corriger/surveiller côté clé API.
+                if exc.status_code == 401 or exc.reason == "quotaExceeded":
+                    raise
+                log.warning(
+                    "[MEDIALINK][youtube] Lot de %d vidéo(s) ignoré (403 inattendu "
+                    "sans rapport avec la requête, probable quirk API YouTube) : %s",
+                    len(chunk), exc,
+                )
+                continue
             for video in videos_data.get("items", []):
                 videos_by_id[video["id"]] = video
 

@@ -7,6 +7,7 @@ stockage change (EXP lue via utils.managers.exp_manager, DB, plus JSON).
 """
 from __future__ import annotations
 
+import asyncio
 import io
 import logging
 import os
@@ -65,8 +66,33 @@ class ExpImageBuilder:
         self.total_exp = total_exp
 
     async def build(self) -> io.BytesIO:
+        """Récupère l'avatar (réseau, async) puis délègue tout le rendu PIL
+        (CPU-bound, bloquant) à un thread — voir _render() ci-dessous.
+
+        ⚠️ 2026-10-03 (Paul) : avant ce correctif, tout le rendu (ouverture
+        du fond, compositing, dessin du texte, barre de progression pixel
+        par pixel...) tournait directement dans cette coroutine, donc dans
+        la boucle d'évènements asyncio du bot. PIL est entièrement
+        synchrone : pendant tout le temps de rendu d'UNE image /rank, le
+        bot entier (TOUS les serveurs, pas seulement celui qui a demandé la
+        commande) était gelé — plus aucun autre évènement/commande traité,
+        et risque de heartbeat Gateway manqué sous charge. `asyncio.to_thread`
+        déporte ce travail dans un thread séparé : le rendu reste aussi
+        lent, mais il ne bloque plus le reste du bot pendant ce temps.
+        """
         stats = level_progress(self.total_exp)
 
+        async with aiohttp.ClientSession() as session:
+            async with session.get(self.member.display_avatar.url) as resp:
+                avatar_bytes = await resp.read()
+
+        return await asyncio.to_thread(
+            self._render, avatar_bytes=avatar_bytes, stats=stats,
+        )
+
+    def _render(self, *, avatar_bytes: bytes, stats: dict) -> io.BytesIO:
+        """Rendu PIL pur (synchrone, CPU-bound) — exécuté dans un thread par
+        build() ci-dessus, jamais directement dans la boucle asyncio."""
         fond_path = os.path.join(SOURCE_PATH, BACKGROUND_FILENAME)
         if os.path.exists(fond_path):
             background = Image.open(fond_path).convert("RGBA")
@@ -88,10 +114,8 @@ class ExpImageBuilder:
         background = Image.alpha_composite(background, overlay)
 
         # ── Avatar (taille relative a la hauteur, centrage vertical) ──
-        async with aiohttp.ClientSession() as session:
-            async with session.get(self.member.display_avatar.url) as resp:
-                avatar_bytes = await resp.read()
-
+        # (avatar_bytes déjà récupéré en async par build() avant d'entrer
+        # dans ce thread — voir ci-dessus.)
         avatar_size = int(height * 0.62)
         avatar = Image.open(io.BytesIO(avatar_bytes)).convert("RGBA")
         avatar = avatar.resize((avatar_size, avatar_size), Image.Resampling.LANCZOS)

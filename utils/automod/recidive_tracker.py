@@ -29,6 +29,40 @@ _buffer: dict[tuple[int, int, str], list[float]] = {}
 # si un spammer envoie 10000 messages/seconde).
 _MAX_PER_KEY: Final[int] = 100
 
+# 2026-10-03 (Paul) : fuite mémoire trouvée en audit — une clé n'était
+# retirée de _buffer QUE si count_recent() était rappelée sur ce même
+# triplet (guild, user, system) et la trouvait vide. Un utilisateur qui ne
+# déclenche l'automod qu'UNE fois laisse donc une entrée permanente en
+# mémoire pour toujours (count_recent n'est jamais rappelée tant qu'il ne
+# récidive pas). Sur un bot présent sur beaucoup de serveurs actifs dans la
+# durée, _buffer grossit sans fin. Purge périodique et amortie (pas un
+# balayage à chaque appel : juste un passage en plus toutes les
+# _PURGE_INTERVAL_SECONDS) qui retire les clés inactives depuis plus de
+# _STALE_KEY_CEILING_SECONDS — une marge large et volontairement bien
+# au-delà de toute fenêtre de récidive réaliste (documentée ci-dessus comme
+# "max 3min"), pour ne jamais purger une clé encore pertinente pour UNE
+# guild dont la fenêtre configurée serait inhabituellement longue.
+_PURGE_INTERVAL_SECONDS: Final[float] = 300.0
+_STALE_KEY_CEILING_SECONDS: Final[float] = 900.0
+_last_purge: float = 0.0
+
+
+def _purge_stale_keys(now: float) -> None:
+    """Retire du buffer toute clé dont le timestamp le plus récent dépasse
+    _STALE_KEY_CEILING_SECONDS. Amorti par _PURGE_INTERVAL_SECONDS : ne fait
+    réellement le balayage complet du dict que de temps en temps, pas à
+    chaque infraction."""
+    global _last_purge
+    if now - _last_purge < _PURGE_INTERVAL_SECONDS:
+        return
+    _last_purge = now
+    stale_keys = [
+        key for key, timestamps in _buffer.items()
+        if not timestamps or now - timestamps[-1] > _STALE_KEY_CEILING_SECONDS
+    ]
+    for key in stale_keys:
+        _buffer.pop(key, None)
+
 
 def _prune(timestamps: list[float], now: float, window: float) -> list[float]:
     """Retire les timestamps plus vieux que la fenêtre."""
@@ -40,6 +74,7 @@ def record_infraction(guild_id: int, user_id: int, system_key: str) -> None:
     """Enregistre une infraction avec timestamp courant."""
     key = (guild_id, user_id, system_key)
     now = time.monotonic()
+    _purge_stale_keys(now)
     current = _buffer.get(key, [])
     current.append(now)
     if len(current) > _MAX_PER_KEY:
