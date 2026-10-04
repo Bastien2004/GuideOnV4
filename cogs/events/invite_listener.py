@@ -61,7 +61,7 @@ import discord
 from discord.ext import commands
 
 from utils.db.models.invite import DEFAULT_ANNOUNCE_MESSAGE
-from utils.invite_render import build_announce_view, render_announce_template
+from utils.invite_render import render_announce_template
 from utils.managers.invite_manager import (
     get_link,
     load_invite_config,
@@ -88,10 +88,15 @@ RECENT_DELETE_TTL_SECONDS = 15.0
 # de façon perceptible.
 READY_REFRESH_DELAY_SECONDS = 0.5
 
-# Ré-édition de réparation de mention (même délai/rationale que
-# cogs/events/bienvenue_listener.py : Discord ne résout pas toujours fiable
-# une mention au premier rendu Components V2).
-REPAIR_MENTION_DELAY_SECONDS = 5.0
+# 2026-10-04 (Paul) : une tentative de ré-essai sur guild.invites() dans le
+# join (voie chaude). Sans ça, un simple échec HTTP transitoire (ex: 429 —
+# "encore beaucoup de rate limite" côté Paul ; discord.py abandonne parfois
+# ses propres ré-essais internes sous forte pression plutôt que d'attendre
+# un délai jugé trop long, cf. discord/http.py) rendait l'attribution
+# totalement impossible pour CE join — y compris pour un lien d'invitation
+# parfaitement normal, pas seulement les cas vanity/externe — et retombait
+# sur le même texte de repli que ces derniers.
+INVITES_FETCH_RETRY_DELAY_SECONDS = 1.5
 
 InviteSnapshot = dict  # {"uses": int, "max_uses": int, "inviter_id": int | None, "inviter_is_bot": bool}
 
@@ -113,10 +118,6 @@ class InviteListener(commands.Cog):
         self._recent_deletes: dict[int, dict[str, InviteSnapshot]] = {}
         # Lock par guild pour sérialiser cache_invites ↔ on_member_join ↔ on_invite_delete.
         self._guild_locks: dict[int, asyncio.Lock] = {}
-        # Tâches de ré-édition de réparation de mention pour l'annonce
-        # "qui a invité qui" (même pattern que BienvenueListener) — gardées
-        # en référence forte pour ne pas être ramassées par le GC avant la fin.
-        self._mention_repair_tasks: set[asyncio.Task] = set()
 
     # ------------------------------------------------------------------
     # Helpers
@@ -151,13 +152,32 @@ class InviteListener(commands.Cog):
         for code in expired:
             recent.pop(code, None)
 
+    @staticmethod
+    async def _fetch_invites_with_retry(guild: discord.Guild) -> list[discord.Invite]:
+        """guild.invites() avec UNE tentative de ré-essai en cas d'échec HTTP
+        transitoire (voir INVITES_FETCH_RETRY_DELAY_SECONDS ci-dessus). Lève
+        discord.Forbidden tel quel (permanent, inutile de ré-essayer) ;
+        discord.HTTPException n'est levée qu'après le ré-essai."""
+        try:
+            return await guild.invites()
+        except discord.Forbidden:
+            # Permanent (permission manquante) : aucune raison de ré-essayer.
+            raise
+        except discord.HTTPException:
+            log.warning(
+                "[Invite] Échec récupération invites guild=%s, nouvelle tentative dans %.1fs",
+                guild.id, INVITES_FETCH_RETRY_DELAY_SECONDS,
+            )
+            await asyncio.sleep(INVITES_FETCH_RETRY_DELAY_SECONDS)
+            return await guild.invites()
+
     async def _refresh_cache(self, guild: discord.Guild) -> dict[str, InviteSnapshot] | None:
         """
         Récupère les invites Discord et écrit le cache de la guild. Renvoie le
         nouveau cache, ou None si on n'a pas la permission de lire les invites.
         """
         try:
-            invites = await guild.invites()
+            invites = await self._fetch_invites_with_retry(guild)
         except discord.Forbidden:
             log.warning(
                 "[Invite] Permission 'Gérer le serveur' manquante → cache impossible "
@@ -166,7 +186,7 @@ class InviteListener(commands.Cog):
             )
             return None
         except discord.HTTPException:
-            log.exception("[Invite] Échec récupération invites guild %s", guild.id)
+            log.exception("[Invite] Échec récupération invites guild %s (après ré-essai)", guild.id)
             return None
 
         cache = {invite.code: self._snapshot_invite(invite) for invite in invites}
@@ -296,7 +316,8 @@ class InviteListener(commands.Cog):
             )
 
     # ------------------------------------------------------------------
-    # 📨 Annonce "qui a invité qui" (Paul, 2026-09-28)
+    # 📨 Annonce "qui a invité qui" (Paul, 2026-09-28 ; message brut depuis
+    # le 2026-10-04 — voir utils/invite_render.py)
     # ------------------------------------------------------------------
 
     async def _send_join_announce(
@@ -307,7 +328,10 @@ class InviteListener(commands.Cog):
         résolu par on_member_join (aucun nouvel appel guild.invites() ici :
         on ne veut surtout pas ajouter de requête Discord supplémentaire
         sur cette voie chaude, cf. docstring du module sur le risque de
-        rate-limit en cas d'arrivées massives)."""
+        rate-limit en cas d'arrivées massives). Message brut (texte simple,
+        pas de Container/LayoutView Components V2) : plus besoin de
+        ré-édition de réparation de mention, une mention dans `content` est
+        toujours résolue dès le premier envoi."""
         if not cfg.get("announce_active"):
             return
         channel_id = cfg.get("announce_channel_id")
@@ -340,10 +364,12 @@ class InviteListener(commands.Cog):
 
         template = cfg.get("announce_message") or DEFAULT_ANNOUNCE_MESSAGE
         rendered = render_announce_template(template, member=member, inviter_id=inviter_id, guild=guild)
-        view = build_announce_view(rendered)
 
         try:
-            sent = await channel.send(view=view)
+            await channel.send(
+                content=rendered,
+                allowed_mentions=discord.AllowedMentions(users=True, roles=False, everyone=False),
+            )
         except discord.Forbidden:
             log.warning(
                 "[Invite] Forbidden en envoyant l'annonce d'invitation dans #%s (guild=%s)",
@@ -353,20 +379,6 @@ class InviteListener(commands.Cog):
         except discord.HTTPException:
             log.exception("[Invite] Erreur HTTP en envoyant l'annonce d'invitation (guild=%s)", guild.id)
             return
-
-        self._schedule_mention_repair(sent, view)
-
-    def _schedule_mention_repair(self, message: discord.Message, view: discord.ui.LayoutView) -> None:
-        task = asyncio.create_task(self._repair_mention(message, view))
-        self._mention_repair_tasks.add(task)
-        task.add_done_callback(self._mention_repair_tasks.discard)
-
-    async def _repair_mention(self, message: discord.Message, view: discord.ui.LayoutView) -> None:
-        await asyncio.sleep(REPAIR_MENTION_DELAY_SECONDS)
-        try:
-            await message.edit(view=view)
-        except (discord.NotFound, discord.Forbidden, discord.HTTPException):
-            log.debug("[Invite] Ré-édition de réparation de mention impossible (message %s).", message.id)
 
     # ------------------------------------------------------------------
     # Listeners
@@ -438,9 +450,13 @@ class InviteListener(commands.Cog):
             return
 
         async with self._lock_for(guild.id):
-            # Récupération des invites actuelles
+            # Récupération des invites actuelles (avec ré-essai sur échec
+            # HTTP transitoire, cf. INVITES_FETCH_RETRY_DELAY_SECONDS plus
+            # haut : sans ça, un join via un lien parfaitement normal retombe
+            # sur le même texte de repli "vanity/externe" dès que cet appel
+            # échoue une seule fois).
             try:
-                current_list = await guild.invites()
+                current_list = await self._fetch_invites_with_retry(guild)
             except discord.Forbidden:
                 log.warning(
                     "[Invite] Pas de permission pour lire les invites (guild=%s) "
@@ -449,7 +465,7 @@ class InviteListener(commands.Cog):
                 )
                 current_list = []
             except discord.HTTPException:
-                log.exception("[Invite] Erreur récup invites (guild=%s)", guild.id)
+                log.exception("[Invite] Erreur récup invites (guild=%s, après ré-essai)", guild.id)
                 current_list = []
 
             current_by_code = {inv.code: inv for inv in current_list}

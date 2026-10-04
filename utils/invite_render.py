@@ -1,12 +1,19 @@
 """
 utils/invite_render.py — Rendu du message d'annonce "qui a invité qui" à
 l'arrivée d'un membre.
+
+2026-10-04 (Paul) : message brut (texte simple), plus de Container/LayoutView
+Components V2. Avant, le rendu passait par un TextDisplay V2 — Discord ne
+résout/affiche pas toujours de façon fiable une mention au premier rendu
+d'un message Components V2 (c'est ce quirk qui avait motivé la ré-édition
+de réparation différée dans InviteListener._repair_mention, retirée en
+même temps que ce changement puisqu'un message en contenu texte brut ne
+souffre pas de ce problème : une mention dans `content` est toujours
+résolue/notifiée dès le premier envoi).
 """
 from __future__ import annotations
 
 import discord
-from discord.ui import Container, LayoutView, Separator, TextDisplay
-
 
 FALLBACK_INVITER_TEXT = "un lien inconnu (invitation vanity/externe)"
 
@@ -35,16 +42,3 @@ def render_announce_template(
         .replace("{member_count}", str(guild.member_count or 0))
         .replace("{inviter}", inviter_text)
     )
-
-
-def build_announce_view(rendered: str) -> LayoutView:
-    """Container V2, cohérent avec utils.bienvenue_render.build_bienvenue_view."""
-    view = LayoutView(timeout=None)
-    container = Container()
-    container.add_item(TextDisplay("# 📨 Nouvelle invitation"))
-    container.add_item(Separator())
-    container.add_item(TextDisplay(rendered or "_(message vide)_"))
-    container.add_item(Separator())
-    container.add_item(TextDisplay("-# GuideOn Studio"))
-    view.add_item(container)
-    return view
