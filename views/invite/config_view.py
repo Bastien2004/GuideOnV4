@@ -360,10 +360,11 @@ def _cb_edit_announce_message(guild_id, bot, author_id):
             # modal avec un 400 "Invalid Form Body ... label: Must be
             # between 1 and 45 in length" à CHAQUE clic sur "Modifier" : le
             # modal ne s'ouvrait jamais, impossible de changer le message
-            # d'annonce. Raccourci à 3 variables (les plus utiles) pour
-            # rester sous la limite ; {user} et {member_count} restent
-            # utilisables, juste plus listées ici.
-            label="Variables : {mention} {inviter} {server}",
+            # d'annonce. Raccourci pour rester sous la limite ; {user},
+            # {server} et {member_count} restent utilisables, juste plus
+            # listés ici (2026-10-05 : {nombre_invite} ajouté à la place
+            # de {server} pour rester sous les 45 caractères).
+            label="Vars: {mention} {inviter} {nombre_invite}",
             placeholder=DEFAULT_ANNOUNCE_MESSAGE,
             default=current,
             min_length=1,

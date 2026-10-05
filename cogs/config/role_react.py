@@ -17,6 +17,7 @@ from utils.perm_admin import check_admin
 from utils.container_universel import error_container
 from utils.error_handler import handle_app_command_error
 
+from utils.managers.reaction_role_manager import nettoyer_messages_supprimes
 from views.reaction_role.config_view import create_reaction_role_view
 
 log = logging.getLogger(__name__)
@@ -51,6 +52,18 @@ async def role_reaction(interaction: discord.Interaction) -> None:
 
     # 📊 Tracking.
     await tracker_commande(interaction, "config_role_reaction")
+
+    # 🧹 Nettoyage des messages supprimés : fait UNE SEULE FOIS ici, à
+    # l'ouverture du panel (pas à chaque ré-affichage, cf.
+    # views/reaction_role/config_view.py::create_reaction_role_view — 2026-10-05,
+    # correctif rate limit).
+    try:
+        await nettoyer_messages_supprimes(interaction.guild.id, interaction.client)
+    except Exception:
+        log.exception(
+            "[Rôle-Réaction] Nettoyage des messages non bloquant échoué (guild=%s)",
+            interaction.guild.id,
+        )
 
     # 🧩 Création et envoi de l'interface.
     try:

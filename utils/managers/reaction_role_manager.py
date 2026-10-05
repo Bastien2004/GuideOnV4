@@ -162,18 +162,33 @@ async def obtenir_role_par_message_emoji(guild_id: int, message_id: int, emoji: 
 # ================== NETTOYAGE =========================
 # ======================================================
 
+# 2026-10-05 (Paul, rate limit prod) : pause entre deux fetch_message() dans
+# la boucle de nettoyage ci-dessous. Sans ça, une guild avec une quinzaine de
+# messages rôle-réaction configurés envoie une rafale de GET
+# /channels/{id}/messages/{id} quasi simultanée sur CE SEUL appel, largement
+# de quoi déclencher du 429 en cascade sur ce bucket (même pattern que les
+# correctifs déjà appliqués ailleurs — audit-logs, invites, medialink).
+_CLEANUP_PACING_SECONDS = 0.3
+
+
 async def nettoyer_messages_supprimes(guild_id: int, bot) -> int:
     """Supprime de la DB les messages qui n'existent plus sur Discord."""
 
     messages = await _get_guild_messages_cached(guild_id)
     supprimes = 0
 
+    first = True
     for message_id, data in list(messages.items()):
         channel = bot.get_channel(data.get("channel_id"))
         if not channel:
             await supprimer_message_reaction(guild_id, int(message_id))
             supprimes += 1
             continue
+
+        if not first:
+            await asyncio.sleep(_CLEANUP_PACING_SECONDS)
+        first = False
+
         try:
             await channel.fetch_message(int(message_id))
         except discord.NotFound:

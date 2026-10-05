@@ -322,6 +322,7 @@ class InviteListener(commands.Cog):
 
     async def _send_join_announce(
         self, guild: discord.Guild, member: discord.Member, inviter_id: Optional[int], cfg: dict,
+        inviter_total: int = 0,
     ) -> None:
         """Poste le message permanent "qui a invité qui" dans le salon
         configuré, si l'annonce est activée. `inviter_id` est celui déjà
@@ -331,7 +332,9 @@ class InviteListener(commands.Cog):
         rate-limit en cas d'arrivées massives). Message brut (texte simple,
         pas de Container/LayoutView Components V2) : plus besoin de
         ré-édition de réparation de mention, une mention dans `content` est
-        toujours résolue dès le premier envoi."""
+        toujours résolue dès le premier envoi. `inviter_total` (variable
+        {nombre_invite}) est le total déjà calculé par record_join() — pas
+        de requête supplémentaire non plus."""
         if not cfg.get("announce_active"):
             return
         channel_id = cfg.get("announce_channel_id")
@@ -363,7 +366,9 @@ class InviteListener(commands.Cog):
                 return
 
         template = cfg.get("announce_message") or DEFAULT_ANNOUNCE_MESSAGE
-        rendered = render_announce_template(template, member=member, inviter_id=inviter_id, guild=guild)
+        rendered = render_announce_template(
+            template, member=member, inviter_id=inviter_id, guild=guild, inviter_total=inviter_total,
+        )
 
         try:
             await channel.send(
@@ -528,7 +533,9 @@ class InviteListener(commands.Cog):
         # Annonce permanente "qui a invité qui" (indépendante du système de
         # récompense — postée même si inviter_id est None : le message
         # retombe alors sur un texte neutre plutôt que d'être sauté).
-        await self._send_join_announce(guild, member, inviter_id, cfg)
+        await self._send_join_announce(
+            guild, member, inviter_id, cfg, inviter_total=inviter_stats.get("total", 0),
+        )
 
     @staticmethod
     def _is_fake_account(member: discord.Member) -> bool:

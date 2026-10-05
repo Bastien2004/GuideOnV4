@@ -18,7 +18,6 @@ from views._components.base_view import BaseLayoutView
 from views._components.select_page import SelectPageView
 from utils.managers.reaction_role_manager import (
     creer_message_reaction,
-    nettoyer_messages_supprimes,
     obtenir_limite_couples,
     obtenir_limite_messages,
     obtenir_tous_messages,
@@ -224,13 +223,8 @@ def build_sent_message_view(text: str, guild: discord.Guild, couples: list[dict[
 # ============================================================
 
 async def create_reaction_role_view(guild_id: int, bot, page: str = "main", data: Optional[dict[str, Any]] = None, author_id: Optional[int] = None) -> Optional[BaseLayoutView]:
-    """Constrution de l'interface de création."""
-
-    try:
-        await nettoyer_messages_supprimes(guild_id, bot)
-    except Exception:
-        log.exception("[Rôle-Réaction] Nettoyage des messages non bloquant échoué (guild=%s)", guild_id)
-
+    """Constrution de l'interface de configuration."""
+    
     if data is None:
         data = {"text": DEFAULT_TEXT, "couples": [], "channel": None}
     else:

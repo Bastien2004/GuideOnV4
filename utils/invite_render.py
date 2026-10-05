@@ -20,6 +20,7 @@ FALLBACK_INVITER_TEXT = "un lien inconnu (invitation vanity/externe)"
 
 def render_announce_template(
     template: str, *, member: discord.Member, inviter_id: int | None, guild: discord.Guild,
+    inviter_total: int = 0,
 ) -> str:
     """Remplace les variables du template d'annonce d'invitation.
 
@@ -29,6 +30,12 @@ def render_announce_template(
     appel API (pas de guild.invites()/fetch_member) : c'est celui déjà
     déterminé par InviteListener.on_member_join au moment du join, pour ne
     jamais ajouter de requête Discord supplémentaire sur cette voie chaude.
+
+    2026-10-05 (Paul) : {nombre_invite} — nombre total d'invitations de
+    l'inviteur APRÈS ce join. Même logique que `inviter_id` : c'est le total
+    déjà calculé par record_join() au moment du join (InviteListener.
+    on_member_join), jamais recalculé ici. Vaut 0 quand il n'y a pas
+    d'inviteur identifié (inviter_id is None — vanity/externe/ambigu).
     """
     inviter_text = f"<@{inviter_id}>" if inviter_id is not None else FALLBACK_INVITER_TEXT
 
@@ -41,4 +48,5 @@ def render_announce_template(
         .replace("{server}", guild.name)
         .replace("{member_count}", str(guild.member_count or 0))
         .replace("{inviter}", inviter_text)
+        .replace("{nombre_invite}", str(inviter_total))
     )
