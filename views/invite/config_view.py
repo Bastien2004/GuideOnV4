@@ -353,7 +353,17 @@ def _cb_edit_announce_message(guild_id, bot, author_id):
 
         modal = TextModal(
             title="✏️ Message d'annonce",
-            label="Variables : {mention} {user} {inviter} {server} {member_count}",
+            # 2026-10-04 (Paul, bug prod) : discord.ui.TextInput.label est
+            # limité à 45 caractères par l'API Discord — l'ancien libellé
+            # ("Variables : {mention} {user} {inviter} {server}
+            # {member_count}", 62 caractères) faisait échouer l'ouverture du
+            # modal avec un 400 "Invalid Form Body ... label: Must be
+            # between 1 and 45 in length" à CHAQUE clic sur "Modifier" : le
+            # modal ne s'ouvrait jamais, impossible de changer le message
+            # d'annonce. Raccourci à 3 variables (les plus utiles) pour
+            # rester sous la limite ; {user} et {member_count} restent
+            # utilisables, juste plus listées ici.
+            label="Variables : {mention} {inviter} {server}",
             placeholder=DEFAULT_ANNOUNCE_MESSAGE,
             default=current,
             min_length=1,
