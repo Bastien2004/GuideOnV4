@@ -31,13 +31,21 @@ class ReactionRoleMessage(Base, TimestampMixin):
     )
 
     def to_dict(self) -> dict:
-        """Crée une représentation dict du message."""
+        """Crée une représentation dict du message.
+
+        2026-10-05 (Paul) : expose `created_at` (déjà posé par TimestampMixin
+        à l'insertion en DB, donc gratuit) pour que l'affichage de la page
+        "Messages actifs" (views/reaction_role/config_view.py::_build_list)
+        n'ait plus besoin de faire un fetch_message() juste pour lire une
+        date de création — une des deux sources de rate-limit corrigées ici.
+        """
 
         return {
             "message_id": self.message_id,
             "guild_id": self.guild_id,
             "channel_id": self.channel_id,
             "description": self.description,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
             "reactions": [
                 {"emoji": c.emoji, "role_id": c.role_id}
                 for c in sorted(self.couples, key=lambda c: c.id)

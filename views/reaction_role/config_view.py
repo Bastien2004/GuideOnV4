@@ -4,6 +4,7 @@ views/reaction_role/config_view.py — Interface de configuration du système de
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime
 from typing import Any, Awaitable, Callable, Optional
@@ -223,8 +224,16 @@ def build_sent_message_view(text: str, guild: discord.Guild, couples: list[dict[
 # ============================================================
 
 async def create_reaction_role_view(guild_id: int, bot, page: str = "main", data: Optional[dict[str, Any]] = None, author_id: Optional[int] = None) -> Optional[BaseLayoutView]:
-    """Constrution de l'interface de configuration."""
-    
+    """Constrution de l'interface de création.
+
+    2026-10-05 (Paul) : nettoyer_messages_supprimes() a été retiré d'ici —
+    cette fonction est appelée à CHAQUE clic dans le panel (retour, création,
+    liste, suppression de couple...), donc le nettoyage y tournait aussi à
+    chaque clic, déclenchant une rafale de fetch_message() par message
+    rôle-réaction du serveur à chaque interaction. Il n'est désormais
+    appelé qu'une fois, à l'ouverture de la commande (cogs/config/role_react.py).
+    """
+
     if data is None:
         data = {"text": DEFAULT_TEXT, "couples": [], "channel": None}
     else:
@@ -615,6 +624,31 @@ async def _build_create(container, guild, guild_id, bot, data, is_gold_server, l
 # 📋 Interface liste message
 # ============================================================
 
+async def _count_utilisations(bot, channel, msg_id: int) -> Optional[int]:
+    """Nombre de réactions sur le message (hors réaction du bot lui-même).
+
+    2026-10-05 (Paul) : c'est la seule donnée de cette page qui a vraiment
+    besoin d'un appel Discord (le nombre de réactions n'est pas stocké en
+    DB). On tente d'abord le cache interne de discord.py (bot.get_message,
+    aucune requête réseau) avant de retomber sur fetch_message(). Renvoie
+    None (affiché "—") plutôt que de faire disparaître toute la ligne si
+    l'appel échoue (429, message supprimé entre-temps, etc.) — avant, un
+    simple HTTPException faisait "continue" et cachait un message pourtant
+    toujours valide.
+    """
+    message = bot.get_message(msg_id)
+    if message is None:
+        try:
+            message = await channel.fetch_message(msg_id)
+        except discord.HTTPException:
+            return None
+
+    total = 0
+    for reaction in message.reactions:
+        total += max(reaction.count - 1, 0)
+    return total
+
+
 async def _build_list(container, guild_id, bot, author_id):
     container.add_item(TextDisplay(
         "# 📋 Messages actifs\n-# Tous les messages rôle-réaction de ce serveur"
@@ -627,25 +661,31 @@ async def _build_list(container, guild_id, bot, author_id):
             "### 📭 Aucun message configuré\n-# Retournez sur l'accueil pour en créer un."
         ))
     else:
+        first = True
         for msg_id, data_msg in messages.items():
             channel = bot.get_channel(data_msg["channel_id"])
             if not channel:
                 continue
-            try:
-                message = await channel.fetch_message(int(msg_id))
-            except discord.HTTPException:
-                continue
 
-            created_at = message.created_at.strftime("%d/%m/%Y à %H:%M")
+            # ⏱️ Petite pause entre les messages (hors cache) pour ne pas
+            # rafaler le salon si plusieurs messages RR y sont postés — le
+            # plafond est de 5 messages/serveur (LIMITE_MESSAGES_GOLD), donc
+            # le coût ajouté reste négligeable pour une page dev peu cliquée.
+            if not first:
+                await asyncio.sleep(0.25)
+            first = False
+
+            created_at_raw = data_msg.get("created_at")
+            if created_at_raw:
+                created_at = datetime.fromisoformat(created_at_raw).strftime("%d/%m/%Y à %H:%M")
+            else:
+                created_at = "date inconnue"
+
             reactions = data_msg.get("reactions", [])
             couples_count = len(reactions)
 
-            utilisations = 0
-            try:
-                for reaction in message.reactions:
-                    utilisations += max(reaction.count - 1, 0)
-            except Exception:
-                pass
+            utilisations = await _count_utilisations(bot, channel, int(msg_id))
+            utilisations_text = f"{utilisations} utilisation(s)" if utilisations is not None else "— utilisation(s)"
 
             preview = "  ·  ".join(r["emoji"] for r in reactions[:3])
             if len(reactions) > 3:
@@ -658,8 +698,9 @@ async def _build_list(container, guild_id, bot, author_id):
                 try:
                     ch = bot.get_channel(ch_id)
                     if ch:
-                        m = await ch.fetch_message(int(mid))
-                        await m.delete()
+                        # get_partial_message : pas de fetch_message() préalable,
+                        # juste la requête DELETE elle-même.
+                        await ch.get_partial_message(int(mid)).delete()
                 except discord.HTTPException:
                     pass
                 new_view = await create_reaction_role_view(guild_id, bot, "list", author_id=author_id)
@@ -674,7 +715,7 @@ async def _build_list(container, guild_id, bot, author_id):
             container.add_item(Section(
                 TextDisplay(
                     f"**#{channel.name}** — créé le {created_at}\n"
-                    f"-# {couples_count} couple(s)  ·  {utilisations} utilisation(s)"
+                    f"-# {couples_count} couple(s)  ·  {utilisations_text}"
                     + (f"  ·  {preview}" if preview else "")
                     + f"  ·  [Voir le message]({url})"
                 ),

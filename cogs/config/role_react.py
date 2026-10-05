@@ -53,17 +53,14 @@ async def role_reaction(interaction: discord.Interaction) -> None:
     # 📊 Tracking.
     await tracker_commande(interaction, "config_role_reaction")
 
-    # 🧹 Nettoyage des messages supprimés : fait UNE SEULE FOIS ici, à
-    # l'ouverture du panel (pas à chaque ré-affichage, cf.
-    # views/reaction_role/config_view.py::create_reaction_role_view — 2026-10-05,
-    # correctif rate limit).
+    # 🧹 Nettoyage des messages supprimés — une seule fois, à l'ouverture
+    # de la commande (voir views/reaction_role/config_view.py : ça ne doit
+    # plus tourner à chaque clic dans le panel, c'était la cause des rafales
+    # de fetch_message() sur le salon rôle-réaction).
     try:
         await nettoyer_messages_supprimes(interaction.guild.id, interaction.client)
     except Exception:
-        log.exception(
-            "[Rôle-Réaction] Nettoyage des messages non bloquant échoué (guild=%s)",
-            interaction.guild.id,
-        )
+        log.exception("[Rôle-Réaction] Nettoyage des messages non bloquant échoué (guild=%s)", interaction.guild.id)
 
     # 🧩 Création et envoi de l'interface.
     try:
