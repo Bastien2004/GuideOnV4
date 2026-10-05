@@ -1,7 +1,7 @@
 """
 utils/health.py — Collecte des métriques de santé du bot (système, DB, API,
-environnement), extraite de cogs/dev/health.py — même traitement que
-utils/guild_info.py.
+environnement, activité), extraite de cogs/dev/health.py — même traitement
+que utils/guild_info.py.
 
 Corrige au passage un bug : l'uptime lisait un attribut `bot.start_time`
 qui n'était posé nulle part sur le bot -> toujours None -> "Non disponible"
@@ -10,9 +10,13 @@ Utilise maintenant utils.uptime.uptime_seconds(), fiable puisque
 utils/uptime.py pose START_TIME à l'import du module (donc au démarrage du
 bot, indépendamment de tout attribut à poser manuellement ailleurs).
 
-Ajouts par rapport à la version d'origine : latence mesurée pour les checks
-DB et API (pas juste OK/KO), nombre de threads du process, version Python
-et version discord.py.
+2026-10-06 (Paul, refonte /dev health) : ajoute une section "Activité" —
+usage global des commandes (command_stats_manager) et bans actifs
+(bot_ban_manager) — pour que le panel reflète les "nouvelles informations
+dont on dispose" en plus des métriques système/Discord déjà présentes.
+Ces lectures sont de simples requêtes DB (pas de cache TTL, contrairement
+aux managers de config par serveur) mais /dev health est une commande dev
+peu fréquente : le coût est négligeable et acceptable ici.
 """
 from __future__ import annotations
 
@@ -20,7 +24,7 @@ import asyncio
 import logging
 import platform
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta
 
 import discord
@@ -30,6 +34,7 @@ from sqlalchemy import text
 
 from utils.datetime_utils import format_duration
 from utils.db.session import get_session
+from utils.managers import bot_ban_manager, command_stats_manager
 from utils.settings import settings
 from utils.uptime import uptime_seconds
 
@@ -60,6 +65,11 @@ class HealthData:
     db_ms: float | None
     api_ok: bool
     api_ms: float | None
+    # ── Activité (nouveau) ──────────────────────────────────────
+    commands_grand_total: int = 0
+    commands_podium: list[dict] = field(default_factory=list)
+    active_guilds_7d: int = 0
+    active_bans_count: int = 0
 
 
 def status_emoji(ok: bool) -> str:
@@ -114,8 +124,22 @@ async def gather_health_data(bot: discord.Client) -> HealthData:
     cpu_percent = _process.cpu_percent(interval=None)
     thread_count = _process.num_threads()
 
-    # ── Checks DB + API (en parallèle pour ne pas cumuler les latences) ──
-    (db_ok, db_ms), (api_ok, api_ms) = await asyncio.gather(check_database(), check_api())
+    # ── Checks DB + API + activité (en parallèle) ──────────────
+    (
+        (db_ok, db_ms),
+        (api_ok, api_ms),
+        commands_grand_total,
+        commands_podium,
+        active_guilds_7d,
+        active_bans,
+    ) = await asyncio.gather(
+        check_database(),
+        check_api(),
+        command_stats_manager.get_grand_total(),
+        command_stats_manager.get_podium(3),
+        command_stats_manager.get_active_guilds_count(7),
+        bot_ban_manager.list_active_bans(),
+    )
 
     return HealthData(
         uptime_str=uptime_str,
@@ -133,4 +157,8 @@ async def gather_health_data(bot: discord.Client) -> HealthData:
         db_ms=db_ms,
         api_ok=api_ok,
         api_ms=api_ms,
+        commands_grand_total=commands_grand_total,
+        commands_podium=commands_podium,
+        active_guilds_7d=active_guilds_7d,
+        active_bans_count=len(active_bans),
     )
