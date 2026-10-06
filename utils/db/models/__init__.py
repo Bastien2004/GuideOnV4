@@ -32,6 +32,7 @@ from utils.db.models.ng_server import NGServer
 from utils.db.models.ng_staff import NGStaffMember
 from utils.db.models.ng_statut import NGStaffStatut, NGStatutDef
 from utils.db.models.permission_rbac import PermissionCategory, PermissionGrade, PermissionGradeInclude, PermissionGradeMember
+from utils.db.models.qr_code import QRCode
 from utils.db.models.reaction_role import ReactionRoleCouple, ReactionRoleMessage
 from utils.db.models.staff import StaffConfig
 from utils.db.models.ticket import Ticket, TicketPanel, TicketPanelStaffRole
@@ -101,6 +102,7 @@ __all__ = [
     "PermissionGrade",
     "PermissionGradeInclude",
     "PermissionGradeMember",
+    "QRCode",
     "ReactionRoleCouple",
     "ReactionRoleMessage",
     "Sanction",

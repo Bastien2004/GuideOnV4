@@ -26,6 +26,8 @@ log = logging.getLogger(__name__)
 # 🔳 /qr generate
 # ============================================================
 
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 10)
 @app_commands.command(name="generate", description="🔳 Crée un QR code à partir d'un lien")
 @app_commands.describe(lien="Le lien (ou texte) à encoder en QR code")
 async def qr_generate(interaction: discord.Interaction, lien: str) -> None:
@@ -58,7 +60,7 @@ async def qr_generate(interaction: discord.Interaction, lien: str) -> None:
 
     # 🧩 Génération et envoi.
     try:
-        view, file = build_qr_generate_view(lien)
+        view, file = build_qr_generate_view(lien, owner_id=interaction.user.id)
         await interaction.followup.send(view=view, files=[file], ephemeral=True)
 
     except Exception:
@@ -66,9 +68,9 @@ async def qr_generate(interaction: discord.Interaction, lien: str) -> None:
         await interaction.followup.send(view=error_container("Impossible de générer le **QR code**."), ephemeral=True)
         return
 
-    # 💾 Sauvegarde en base.
+    # 💾 Sauvegarde en base (scopée au serveur courant — voir utils/db/models/qr_code.py).
     try:
-        await save_qr(interaction.user.id, lien)
+        await save_qr(interaction.user.id, interaction.guild.id, lien)
     except Exception:
         log.exception("[QRC GENERATE] Sauvegarde du QRCode échouée (user=%s)", interaction.user.id)
 

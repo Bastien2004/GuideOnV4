@@ -6,42 +6,50 @@ from __future__ import annotations
 
 from typing import Optional
 
-import discord
-from discord.ui import Container, LayoutView, Separator, TextDisplay
+from discord.ui import Container, Separator, TextDisplay
 
-from views.qr._shared import format_date
+from views._components.base_view import BaseLayoutView
+from views.qr._shared import format_date, truncate
 
 
 # ============================================================
 # 🎨 View — /qr scan
 # ============================================================
 
-def build_qr_scan_view(contenu: str, origine: Optional[object]) -> LayoutView:
+class QRScanResultView(BaseLayoutView):
+    """Résultat compact d'un scan : contenu décodé + origine (sur ce serveur)."""
+
+    def __init__(self, contenu: str, origine: Optional[object], *, owner_id: int) -> None:
+        super().__init__(owner_id=owner_id, timeout=300)
+        self.contenu = contenu
+        self.origine = origine
+        self._build()
+
+    def _build(self) -> None:
+        c = Container()
+        c.add_item(TextDisplay("# 🔍 QR code scanné"))
+        c.add_item(Separator())
+
+        c.add_item(TextDisplay(f"**Contenu détecté**\n`{truncate(self.contenu, 300)}`"))
+        c.add_item(Separator())
+
+        if self.origine is not None:
+            date = format_date(self.origine.created_at)
+            c.add_item(TextDisplay(
+                f"✅ **Généré sur ce serveur** par <@{self.origine.user_id}> — <t:{date}:R>"
+            ))
+        else:
+            c.add_item(TextDisplay("ℹ️ Pas généré via GuideOn sur ce serveur."))
+
+        c.add_item(Separator())
+        c.add_item(TextDisplay("-# GuideOn Studio"))
+        self.add_item(c)
+
+
+def build_qr_scan_view(contenu: str, origine: Optional[object], *, owner_id: int) -> QRScanResultView:
     """Construit la vue de résultat après décodage d'un QR code scanné.
 
     `origine` est un QRCode (modèle DB) si le contenu correspond à un QR
-    déjà généré via /qr generate, sinon None.
+    déjà généré via /qr generate SUR CE SERVEUR, sinon None.
     """
-
-    view = LayoutView(timeout=300)
-    container = Container()
-
-    container.add_item(TextDisplay("# 🔍 __QR Code scanné__"))
-    container.add_item(Separator())
-
-    contenu_affiche = contenu if len(contenu) <= 300 else contenu[:297] + "..."
-    container.add_item(TextDisplay(f"**Contenu détecté :**\n`{contenu_affiche}`"))
-
-    if origine is not None:
-        date = format_date(origine.created_at)
-        container.add_item(TextDisplay(
-            f"\n-# ✅ Ce QR code a été généré ici par <@{origine.user_id}> — <t:{date}:R>"
-        ))
-    else:
-        container.add_item(TextDisplay("\n-# ℹ️ Ce QR code n'a pas été généré via ce bot."))
-
-    container.add_item(Separator())
-    container.add_item(TextDisplay("-# GuideOn Studio"))
-
-    view.add_item(container)
-    return view
+    return QRScanResultView(contenu, origine, owner_id=owner_id)

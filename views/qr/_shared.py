@@ -60,3 +60,10 @@ def generate_qr_bytes(contenu: str) -> io.BytesIO:
 def format_date(dt: datetime) -> int:
     """Convertit une date en timestamp Discord (secondes) pour <t:...:R>."""
     return int(dt.timestamp())
+
+
+def truncate(texte: str, longueur: int) -> str:
+    """Raccourcit un texte à `longueur` caractères, avec "…" si coupé —
+    centralise un pattern dupliqué dans les 3 views /qr (chacune avec sa
+    propre longueur max d'affichage)."""
+    return texte if len(texte) <= longueur else texte[: longueur - 1] + "…"

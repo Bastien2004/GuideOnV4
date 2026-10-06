@@ -18,7 +18,7 @@ from utils.error_handler import handle_app_command_error
 from utils.container_universel import error_container
 from utils.managers.qr_manager import list_qr_by_user
 
-from views.qr.list_view import build_qr_list_view
+from views.qr.list_view import QRListView
 
 log = logging.getLogger(__name__)
 
@@ -27,9 +27,11 @@ log = logging.getLogger(__name__)
 # 📋 /qr list
 # ============================================================
 
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 10)
 @app_commands.command(name="list", description="📋 Liste les QR codes générés par un utilisateur")
-@app_commands.describe(utilisateur="L'utilisateur concerné (toi par défaut)")
-async def qr_list(interaction: discord.Interaction, utilisateur: Optional[discord.User] = None) -> None:
+@app_commands.describe(membre="Le membre concerné (toi par défaut)")
+async def qr_list(interaction: discord.Interaction, membre: Optional[discord.Member] = None) -> None:
 
     # 🛡️ Vérification ban utilisateur.
     if not await verifier_ban_utilisateur(interaction):
@@ -45,21 +47,45 @@ async def qr_list(interaction: discord.Interaction, utilisateur: Optional[discor
     if not await verifier_commande(interaction, "qr_list"):
         return
 
+    cible = membre or interaction.user
+
+    # 🔐 Consulter l'historique d'un AUTRE membre est réservé à "Gérer le
+    # serveur" — le contenu d'un QR est un texte/lien choisi par la personne,
+    # potentiellement privé (contrairement à un simple compteur public comme
+    # /invite user), donc pas ouvert par défaut à tout le monde.
+    if cible.id != interaction.user.id:
+        if not interaction.user.guild_permissions.manage_guild:
+            await interaction.followup.send(
+                view=error_container(
+                    "Il faut la permission **Gérer le serveur** pour consulter "
+                    "l'historique QR d'un **autre membre**."
+                ),
+                ephemeral=True,
+            )
+            return
+
     # 📊 Tracking.
     await tracker_commande(interaction, "qr_list")
 
-    cible = utilisateur or interaction.user
-
-    # 📖 Lecture de l'historique.
+    # 📖 Lecture de l'historique (scopée au serveur courant).
     try:
-        historique = await list_qr_by_user(cible.id)
+        historique = await list_qr_by_user(cible.id, interaction.guild.id)
     except Exception:
         log.exception("[QRC LIST] Récupération de la liste des QRCode échouée (user=%s)", cible.id)
         await interaction.followup.send(view=error_container("Impossible de récupérer la **liste**."), ephemeral=True)
         return
 
     # 💻 Envoie de la view.
-    view = build_qr_list_view(cible, historique)
+    # Suppression activable seulement sur SON PROPRE historique (pas celui
+    # consulté par un modérateur sur un autre membre).
+    peut_supprimer = cible.id == interaction.user.id
+    view = QRListView(
+        historique,
+        cible=cible,
+        guild_id=interaction.guild.id,
+        owner_id=interaction.user.id,
+        peut_supprimer=peut_supprimer,
+    )
     await interaction.followup.send(view=view, ephemeral=True)
 
 

@@ -9,9 +9,10 @@ from typing import Tuple
 
 import discord
 from discord import ButtonStyle, Interaction, MediaGalleryItem
-from discord.ui import ActionRow, Button, Container, LayoutView, MediaGallery, Separator, TextDisplay
+from discord.ui import ActionRow, Button, Container, MediaGallery, Separator, TextDisplay
 
-from views.qr._shared import FILENAME, generate_qr_bytes
+from views._components.base_view import BaseLayoutView
+from views.qr._shared import FILENAME, generate_qr_bytes, truncate
 
 log = logging.getLogger(__name__)
 
@@ -20,47 +21,59 @@ log = logging.getLogger(__name__)
 # 🎨 View — /qr generate
 # ============================================================
 
-def build_qr_generate_view(lien: str) -> Tuple[LayoutView, discord.File]:
-    """Construit la vue de résultat après génération d'un QR code."""
+class QRGenerateResultView(BaseLayoutView):
+    """Résultat compact d'une génération de QR code : aperçu + accès rapide
+    à l'historique personnel."""
 
-    buffer = generate_qr_bytes(lien)
-    file = discord.File(buffer, filename=FILENAME)
+    def __init__(self, lien: str, *, owner_id: int) -> None:
+        super().__init__(owner_id=owner_id, timeout=600)
+        self.lien = lien
+        self._build()
 
-    view = LayoutView(timeout=600)
-    container = Container()
+    def _build(self) -> None:
+        c = Container()
+        c.add_item(TextDisplay("# 🔳 QR code généré"))
+        c.add_item(Separator())
 
-    container.add_item(TextDisplay("# 🔳 __QR Code généré__"))
-    container.add_item(Separator())
+        c.add_item(TextDisplay(f"**Lien encodé**\n`{truncate(self.lien, 100)}`"))
+        c.add_item(MediaGallery(MediaGalleryItem(media=f"attachment://{FILENAME}")))
+        c.add_item(Separator())
 
-    lien_affiche = lien if len(lien) <= 100 else lien[:97] + "..."
-    container.add_item(TextDisplay(f"**Lien encodé :**\n`{lien_affiche}`"))
+        hist_btn = Button(label="Mon historique", style=ButtonStyle.secondary, emoji="📋")
+        hist_btn.callback = self._on_history
+        c.add_item(ActionRow(hist_btn))
 
-    container.add_item(MediaGallery(MediaGalleryItem(media=f"attachment://{FILENAME}")))
-    container.add_item(Separator())
+        c.add_item(Separator())
+        c.add_item(TextDisplay("-# GuideOn Studio"))
+        self.add_item(c)
 
-    hist_btn = Button(label="Mon historique", style=ButtonStyle.secondary, emoji="📋")
-
-    async def hist_callback(interaction: Interaction) -> None:
-        # Imports locaux pour éviter tout import circulaire entre les vues /qr
+    async def _on_history(self, interaction: Interaction) -> None:
+        # Imports locaux pour éviter tout import circulaire entre les vues /qr.
         from utils.managers.qr_manager import list_qr_by_user
-        from views.qr.list_view import build_qr_list_view
+        from views.qr.list_view import QRListView
 
         try:
-            historique = await list_qr_by_user(interaction.user.id)
+            historique = await list_qr_by_user(interaction.user.id, interaction.guild.id)
         except Exception:
             log.exception("Lecture historique QR échouée (user=%s)", interaction.user.id)
             historique = []
 
-        new_view = build_qr_list_view(interaction.user, historique)
+        new_view = QRListView(
+            historique,
+            cible=interaction.user,
+            guild_id=interaction.guild.id,
+            owner_id=self.owner_id,
+            peut_supprimer=True,
+        )
         try:
             await interaction.response.edit_message(view=new_view, attachments=[])
         except (discord.NotFound, discord.HTTPException):
             log.warning("[QR] Édition (historique) échouée (user=%s)", interaction.user.id)
 
-    hist_btn.callback = hist_callback
-    container.add_item(ActionRow(hist_btn))
 
-    container.add_item(TextDisplay("-# GuideOn Studio"))
+def build_qr_generate_view(lien: str, *, owner_id: int) -> Tuple[QRGenerateResultView, discord.File]:
+    """Construit la vue de résultat après génération d'un QR code."""
 
-    view.add_item(container)
-    return view, file
+    buffer = generate_qr_bytes(lien)
+    file = discord.File(buffer, filename=FILENAME)
+    return QRGenerateResultView(lien, owner_id=owner_id), file
