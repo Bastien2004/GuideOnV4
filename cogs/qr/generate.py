@@ -12,11 +12,13 @@ from discord import app_commands
 from utils.botbancmd import verifier_ban_utilisateur
 from utils.track_commande import tracker_commande
 from utils.control_admin import verifier_commande
+from utils.boutique.vip_manager import is_vip
 
 from utils.error_handler import handle_app_command_error
 from utils.container_universel import error_container
-from utils.managers.qr_manager import save_qr
+from utils.managers.qr_manager import count_qr_by_user, save_qr
 
+from views.qr._shared import MAX_QR_USER_DEFAULT, MAX_QR_USER_VIP
 from views.qr.generate_view import build_qr_generate_view
 
 log = logging.getLogger(__name__)
@@ -55,6 +57,30 @@ async def qr_generate(interaction: discord.Interaction, lien: str) -> None:
         await interaction.followup.send(view=error_container("Le **lien** est trop long (2000 caractères max)."), ephemeral=True)
         return
 
+    # 🔒 Limite de génération (historique global, tous serveurs confondus —
+    # voir utils/managers/qr_manager.py). 3 par défaut, 10 pour les VIP.
+    max_qr = MAX_QR_USER_VIP if is_vip(interaction.user.id) else MAX_QR_USER_DEFAULT
+    try:
+        nb_actuel = await count_qr_by_user(interaction.user.id)
+    except Exception:
+        log.exception("[QRC GENERATE] Comptage de l'historique échoué (user=%s)", interaction.user.id)
+        nb_actuel = 0
+
+    if nb_actuel >= max_qr:
+        hint = (
+            "" if max_qr == MAX_QR_USER_VIP else
+            "\n-# 💎 Passe **VIP** pour débloquer jusqu'à 10 QR codes."
+        )
+        await interaction.followup.send(
+            view=error_container(
+                f"Tu as déjà **{nb_actuel}** QR code(s) dans ton historique.\n"
+                f"-# Limite : {max_qr} QR code(s) — supprime une ancienne entrée via `/qr list`."
+                f"{hint}"
+            ),
+            ephemeral=True,
+        )
+        return
+
     # 📊 Tracking.
     await tracker_commande(interaction, "qr_generate")
 
@@ -68,7 +94,7 @@ async def qr_generate(interaction: discord.Interaction, lien: str) -> None:
         await interaction.followup.send(view=error_container("Impossible de générer le **QR code**."), ephemeral=True)
         return
 
-    # 💾 Sauvegarde en base (scopée au serveur courant — voir utils/db/models/qr_code.py).
+    # 💾 Sauvegarde en base (guild_id conservé pour /qr scan — voir qr_manager.py).
     try:
         await save_qr(interaction.user.id, interaction.guild.id, lien)
     except Exception:

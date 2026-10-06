@@ -53,18 +53,12 @@ class QRGenerateResultView(BaseLayoutView):
         from views.qr.list_view import QRListView
 
         try:
-            historique = await list_qr_by_user(interaction.user.id, interaction.guild.id)
+            historique = await list_qr_by_user(interaction.user.id)
         except Exception:
             log.exception("Lecture historique QR échouée (user=%s)", interaction.user.id)
             historique = []
 
-        new_view = QRListView(
-            historique,
-            cible=interaction.user,
-            guild_id=interaction.guild.id,
-            owner_id=self.owner_id,
-            peut_supprimer=True,
-        )
+        new_view = QRListView(historique, owner_id=self.owner_id)
         try:
             await interaction.response.edit_message(view=new_view, attachments=[])
         except (discord.NotFound, discord.HTTPException):

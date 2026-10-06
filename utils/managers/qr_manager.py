@@ -1,10 +1,13 @@
 """
 utils/managers/qr_manager.py — Accès DB pour l'historique des QR codes.
 
-2026-10-06 (Paul) : toutes les requêtes sont désormais cloisonnées par
-`guild_id` (voir utils/db/models/qr_code.py pour le détail du problème
-corrigé) — un utilisateur ne peut plus faire remonter/retrouver un QR code
-généré sur un AUTRE serveur que celui où la commande est exécutée.
+2026-10-06 (Paul) : `guild_id` est conservé en écriture (save_qr) et pour
+/qr scan (find_qr_by_content — on ne veut PAS attribuer un QR scanné à
+quelqu'un d'un autre serveur, ça reste une fuite d'identité cross-serveur).
+En revanche, à la demande de Paul, l'historique personnel d'un membre
+(/qr list, et donc list_qr_by_user/count_qr_by_user/delete_qr) n'est PLUS
+cloisonné par serveur : un membre doit retrouver TOUS ses QR codes, générés
+sur n'importe quel serveur où tourne GuideOn, pas seulement celui courant.
 """
 
 from __future__ import annotations
@@ -12,7 +15,7 @@ from __future__ import annotations
 import logging
 from typing import Optional, Sequence
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 
 from utils.db.models.qr_code import QRCode
 from utils.db.session import get_session
@@ -25,7 +28,10 @@ log = logging.getLogger(__name__)
 # ============================================================
 
 async def save_qr(user_id: int, guild_id: int, contenu: str) -> QRCode:
-    """Enregistre un nouveau QR code généré par un utilisateur sur ce serveur.
+    """Enregistre un nouveau QR code généré par un utilisateur.
+
+    `guild_id` reste enregistré (utile pour /qr scan, voir plus bas) même
+    si l'historique personnel (list_qr_by_user) ne filtre plus dessus.
 
     get_session() commit automatiquement en sortie de bloc (succès) et rollback
     sur exception — pas besoin d'appeler session.commit() ici. Le flush() sert
@@ -41,19 +47,17 @@ async def save_qr(user_id: int, guild_id: int, contenu: str) -> QRCode:
     return qr
 
 
-async def delete_qr(entry_id: int, *, user_id: int, guild_id: int) -> bool:
+async def delete_qr(entry_id: int, *, user_id: int) -> bool:
     """Supprime UNE entrée d'historique, seulement si elle appartient bien à
-    `user_id` sur `guild_id` (double vérification faite en SQL, pas juste côté
-    appelant) — évite qu'un id arbitraire permette de supprimer l'entrée d'un
-    autre utilisateur. Renvoie True si une ligne a bien été supprimée."""
+    `user_id` (vérifié en SQL, pas juste côté appelant) — évite qu'un id
+    arbitraire permette de supprimer l'entrée d'un autre utilisateur. Pas de
+    filtre serveur : l'historique est désormais global, un membre peut
+    supprimer n'importe laquelle de ses propres entrées. Renvoie True si une
+    ligne a bien été supprimée."""
 
     async with get_session() as session:
         result = await session.execute(
-            delete(QRCode).where(
-                QRCode.id == entry_id,
-                QRCode.user_id == user_id,
-                QRCode.guild_id == guild_id,
-            )
+            delete(QRCode).where(QRCode.id == entry_id, QRCode.user_id == user_id)
         )
         return result.rowcount > 0
 
@@ -62,26 +66,40 @@ async def delete_qr(entry_id: int, *, user_id: int, guild_id: int) -> bool:
 # 📖 Lecture
 # ============================================================
 
-async def list_qr_by_user(user_id: int, guild_id: int, limit: int = 100) -> Sequence[QRCode]:
-    """Renvoie les derniers QR codes générés par un utilisateur SUR CE SERVEUR
-    (plus récents en premier). `limit` est volontairement généreux (100) —
-    la pagination côté view (views/qr/list_view.py) se charge de l'affichage
-    page par page, pas cette requête."""
+async def list_qr_by_user(user_id: int, limit: int = 100) -> Sequence[QRCode]:
+    """Renvoie TOUS les derniers QR codes générés par un utilisateur, tous
+    serveurs confondus (plus récents en premier). `limit` est volontairement
+    généreux (100) — la pagination côté view (views/qr/list_view.py) se
+    charge de l'affichage page par page, pas cette requête."""
 
     async with get_session() as session:
         result = await session.execute(
             select(QRCode)
-            .where(QRCode.user_id == user_id, QRCode.guild_id == guild_id)
+            .where(QRCode.user_id == user_id)
             .order_by(QRCode.created_at.desc())
             .limit(limit)
         )
         return result.scalars().all()
 
 
+async def count_qr_by_user(user_id: int) -> int:
+    """Nombre total de QR codes actuellement dans l'historique d'un
+    utilisateur (tous serveurs confondus) — utilisé pour la limite de
+    génération (voir cogs/qr/generate.py : 3 par défaut, 10 pour les VIP)."""
+
+    async with get_session() as session:
+        result = await session.execute(
+            select(func.count()).select_from(QRCode).where(QRCode.user_id == user_id)
+        )
+        return result.scalar_one()
+
+
 async def find_qr_by_content(contenu: str, guild_id: int) -> Optional[QRCode]:
     """Retrouve l'entrée correspondant à un contenu de QR scanné SUR CE
     SERVEUR (le plus récent match) — jamais un match généré sur un autre
-    serveur."""
+    serveur (seule requête qui reste cloisonnée : révéler l'auteur d'un QR
+    identique généré ailleurs serait une fuite d'identité cross-serveur,
+    indépendante de la question de l'historique personnel)."""
 
     async with get_session() as session:
         result = await session.execute(

@@ -13,6 +13,13 @@ from PIL import Image
 LOGO_PATH = "assets/logo_guideon.png"  # Incrusté au centre, ignoré silencieusement si absent
 FILENAME = "qrcode.png"
 
+# 2026-10-06 (Paul) : limite du nombre de QR codes qu'un utilisateur peut
+# avoir dans son historique (tous serveurs confondus, voir qr_manager.py).
+# Même pattern que les limites tickets/VIP (views/ticket/_helpers.py +
+# panel_public_view.py) : is_vip(user_id) → plafond étendu.
+MAX_QR_USER_DEFAULT = 3
+MAX_QR_USER_VIP = 10
+
 
 # ============================================================
 # 🧩 Génération d'image QR
