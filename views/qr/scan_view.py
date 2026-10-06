@@ -27,19 +27,13 @@ class QRScanResultView(BaseLayoutView):
 
     def _build(self) -> None:
         c = Container()
-        c.add_item(TextDisplay("# 🔍 QR code scanné"))
+        c.add_item(TextDisplay("# <:lien:1552027533032034394> QR code scanné"))
         c.add_item(Separator())
 
-        c.add_item(TextDisplay(f"**Contenu détecté**\n`{truncate(self.contenu, 300)}`"))
+        c.add_item(TextDisplay(f"**Contenu détecté**\n➥ `{truncate(self.contenu, 300)}`"))
         c.add_item(Separator())
 
-        if self.origine is not None:
-            date = format_date(self.origine.created_at)
-            c.add_item(TextDisplay(
-                f"✅ **Généré sur ce serveur** par <@{self.origine.user_id}> — <t:{date}:R>"
-            ))
-        else:
-            c.add_item(TextDisplay("ℹ️ Pas généré via GuideOn sur ce serveur."))
+        c.add_item(TextDisplay("-# GuideOn n'est pas responsable du contenu de ces liens."))
 
         c.add_item(Separator())
         c.add_item(TextDisplay("-# GuideOn Studio"))
@@ -47,9 +41,6 @@ class QRScanResultView(BaseLayoutView):
 
 
 def build_qr_scan_view(contenu: str, origine: Optional[object], *, owner_id: int) -> QRScanResultView:
-    """Construit la vue de résultat après décodage d'un QR code scanné.
+    """Construit l'interface de résultat d'un scan QR code."""
 
-    `origine` est un QRCode (modèle DB) si le contenu correspond à un QR
-    déjà généré via /qr generate SUR CE SERVEUR, sinon None.
-    """
     return QRScanResultView(contenu, origine, owner_id=owner_id)
