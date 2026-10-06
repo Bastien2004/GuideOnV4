@@ -1,14 +1,22 @@
 """
-utils/db/models/boutique.py — Modèle boutique (VIP + Gold+).
+utils/db/models/boutique.py — Modèle boutique (VIP + Gold+ + Avatar Perso).
 
-Table unique `shop_entries` pour les deux types d'abonnement :
-- VIP   : rattaché à un utilisateur Discord (discord_id = user_id)
-- Gold+ : rattaché à un serveur Discord (discord_id = guild_id)
+Table unique `shop_entries` pour les différents types d'abonnement/add-on :
+- VIP           : rattaché à un utilisateur Discord (discord_id = user_id)
+- Gold+         : rattaché à un serveur Discord (discord_id = guild_id)
+- Avatar Perso  : rattaché à un serveur Discord (discord_id = guild_id)
 
 On stocke discord_id en String : les IDs Discord sont des snowflakes 64 bits
 qui dépassent l'INT signé de PostgreSQL et qu'on manipule en str partout
 ailleurs dans le bot (compat V3). Une seule table = un seul endroit à migrer,
 un seul refresh de cache, un seul endpoint d'écriture.
+
+2026-10-06 (Paul) : ajout de ShopRole.AVATAR_PERSO — nouvel add-on boutique
+indépendant de Gold+ (pas de lien entre les deux), pour l'offre "avatar de
+bot personnalisé par serveur". Comme pour Gold+, l'achat se fait hors bot
+(Paul applique manuellement via /dev avatar_bot après paiement) — cette
+entrée ne sert qu'à garder une trace de "qui a payé cet add-on", pas à
+déclencher quoi que ce soit automatiquement.
 """
 from __future__ import annotations
 
@@ -25,6 +33,7 @@ class ShopRole(str, enum.Enum):
 
     VIP = "VIP"
     GOLD_PLUS = "Gold+"
+    AVATAR_PERSO = "Avatar Perso"
 
 
 class ShopEntry(Base, TimestampMixin):
@@ -32,8 +41,9 @@ class ShopEntry(Base, TimestampMixin):
     Une entrée = (role, discord_id).
 
     Exemples :
-        ShopEntry(role=ShopRole.VIP,       discord_id="930821995787091988")
-        ShopEntry(role=ShopRole.GOLD_PLUS, discord_id="1411296579528294402")
+        ShopEntry(role=ShopRole.VIP,           discord_id="930821995787091988")
+        ShopEntry(role=ShopRole.GOLD_PLUS,      discord_id="1411296579528294402")
+        ShopEntry(role=ShopRole.AVATAR_PERSO,   discord_id="1411296579528294402")
     """
 
     __tablename__ = "shop_entries"

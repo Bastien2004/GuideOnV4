@@ -143,6 +143,11 @@ def is_gold_id(guild_id: int | str) -> bool:
     return _sync_contains(ShopRole.GOLD_PLUS, str(guild_id))
 
 
+def is_avatar_perso_id(guild_id: int | str) -> bool:
+    """True si le serveur a payé l'add-on Avatar Perso. Lecture sync instantanée."""
+    return _sync_contains(ShopRole.AVATAR_PERSO, str(guild_id))
+
+
 def get_ids_sync(role: ShopRole) -> list[str]:
     """Renvoie la liste des discord_id d'un rôle (copie, depuis le cache)."""
     return sorted(_cache[role])

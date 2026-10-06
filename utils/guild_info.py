@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 
 import discord
 
+from utils.boutique.avatar_perso_manager import is_avatar_perso
 from utils.boutique.gold_manager import is_gold
 from utils.managers.autorole_manager import load_autorole_config
 from utils.managers.bienvenue_manager import load_bienvenue_config
@@ -314,8 +315,22 @@ async def _category_engagement(guild: discord.Guild) -> SystemCategory:
 async def _category_extra(guild: discord.Guild) -> SystemCategory:
     guild_id = guild.id
     gold = is_gold(guild_id)
+
+    avatar_perso = is_avatar_perso(guild_id)
+    # guild.me.guild_avatar : lecture pure depuis le cache discord.py, aucun
+    # appel API — None si aucun avatar personnalisé n'est actuellement
+    # appliqué sur ce serveur (cf. utils/managers/bot_avatar_manager.py).
+    avatar_applique = guild.me is not None and guild.me.guild_avatar is not None
+    if avatar_perso and avatar_applique:
+        avatar_detail = "add-on actif, avatar appliqué"
+    elif avatar_perso:
+        avatar_detail = "add-on actif, mais aucun avatar appliqué (/dev avatar_bot)"
+    else:
+        avatar_detail = "non souscrit"
+
     entries = [
         SystemEntry("Boutique Gold+", enabled=gold, detail="serveur Gold+" if gold else "serveur standard"),
+        SystemEntry("Avatar Perso (add-on)", enabled=avatar_perso, detail=avatar_detail),
     ]
 
     ng_server = get_server_by_guild(guild_id)
