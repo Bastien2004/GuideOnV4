@@ -4,6 +4,7 @@ cogs/events/mod_automod_listener.py — Gestion automod.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from datetime import timedelta
@@ -55,6 +56,16 @@ _REQUIRED_ALERT_PERMS: tuple[str, ...] = ("view_channel", "send_messages", "embe
 # Sans garde-fou, ça double la sanction (2 DM, 2 lignes d'infraction en DB,
 # 2 tentatives de timeout, 2 alertes staff) pour UNE seule vraie infraction.
 _DEDUP_WINDOW_SECONDS = 30.0
+
+# 2026-10-06 (Paul) : rate limit observé en prod le 06/10 — plusieurs salons
+# ont déclenché des rafales de 429 sur GET /messages/{id}, toutes issues
+# d'évènements d'édition de message (voir on_raw_message_edit ci-dessous).
+# Filet de sécurité en plus du filtre payload/cache plus bas : borne le
+# nombre de fetch_message() concurrents déclenchés par CE listener, pour
+# qu'une rafale d'éditions simultanées (plusieurs messages édités dans la
+# même seconde) ne parte pas en N requêtes simultanées avant même que le
+# bucket Discord ait eu l'occasion de nous renvoyer un retry_after.
+_EDIT_FETCH_SEMAPHORE = asyncio.Semaphore(2)
 
 
 # ============================================================
@@ -192,8 +203,29 @@ class ModAutomodListener(commands.Cog):
 
     @commands.Cog.listener()
     async def on_raw_message_edit(self, payload: discord.RawMessageUpdateEvent) -> None:
-        """Re-passe un message ÉDITÉ dans l'analyse automod."""
-        
+        """Re-passe un message ÉDITÉ dans l'analyse automod.
+
+        2026-10-06 (Paul) : AVANT, le filtre "auteur = bot/admin → on ignore"
+        n'arrivait qu'APRÈS un fetch_message() complet — donc CHAQUE édition
+        de contenu dans TOUS les salons déclenchait un appel Discord, même
+        pour un message de bot (le nôtre qui rafraîchit un panel, ou un
+        autre bot du serveur) ou d'un admin, qu'on jetait juste après coup.
+        Sur un salon où ça arrive souvent (bot qui édite ses propres
+        messages, salon très actif où les membres corrigent des fautes...),
+        ça part en rafale de GET /messages non cadencée → 429 (c'est
+        exactement ce qu'on a vu dans les logs du 06/10 sur plusieurs
+        salons, avec des dizaines de messages différents fetchés en
+        quelques secondes).
+
+        Le correctif filtre maintenant sur l'auteur SANS appel réseau :
+        pour une vraie édition de contenu (pas une mise à jour embed-only,
+        déjà exclue par le "content in payload.data" ci-dessous), Discord
+        envoie l'auteur complet dans le payload brut du gateway — gratuit.
+        On ne fetch (et seulement via le cache interne discord.py en
+        premier, lui aussi gratuit) que pour les messages qui ont encore
+        une chance d'être analysés par l'automod après ce filtre.
+        """
+
         if payload.guild_id is None:
             return
 
@@ -207,14 +239,33 @@ class ModAutomodListener(commands.Cog):
         if channel is None:
             return
 
+        # 🔎 Filtre auteur gratuit (payload brut du gateway) — évite le
+        # fetch_message() pour tout message de bot/admin, sans requête.
+        raw_author = payload.data.get("author") or {}
         try:
-            message = await channel.fetch_message(payload.message_id)
-        except (discord.NotFound, discord.Forbidden, discord.HTTPException) as exc:
-            log.debug(
-                "[AUTOMOD] Message édité introuvable/inaccessible channel=%s message=%s erreur=%s",
-                payload.channel_id, payload.message_id, exc,
-            )
-            return
+            raw_author_id = int(raw_author["id"]) if "id" in raw_author else None
+        except (TypeError, ValueError):
+            raw_author_id = None
+
+        if raw_author_id is not None:
+            if raw_author.get("bot"):
+                return
+            member = guild.get_member(raw_author_id)
+            if member is not None and member.guild_permissions.administrator:
+                return
+
+        # 🗄️ Cache interne discord.py (gratuit) avant fetch_message().
+        message = payload.cached_message
+        if message is None:
+            async with _EDIT_FETCH_SEMAPHORE:
+                try:
+                    message = await channel.fetch_message(payload.message_id)
+                except (discord.NotFound, discord.Forbidden, discord.HTTPException) as exc:
+                    log.debug(
+                        "[AUTOMOD] Message édité introuvable/inaccessible channel=%s message=%s erreur=%s",
+                        payload.channel_id, payload.message_id, exc,
+                    )
+                    return
 
         if message.author.bot:
             return

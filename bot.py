@@ -486,11 +486,6 @@ class GuideONBot(commands.Bot):
 
     async def on_ready(self) -> None:
 
-        if not hasattr(self, "_ready_done"):
-            self._ready_done = True
-
-            await self._set_guild_avatars()
-
         log.info("[READY] Connecté en tant que %s (%s)", self.user, self.user.id if self.user else "?")
         log.info("[READY] %d serveurs connectés", len(self.guilds))
 
@@ -502,38 +497,6 @@ class GuideONBot(commands.Bot):
                 name=f"👀 {len(self.users)} utilisateurs accompagnés"
             )
         )
-
-
-    # ============================================================
-    # 🖼️ Avatar personalisé par seveur
-    # ============================================================
-
-    async def _set_guild_avatars(self):
-
-        GUILD_AVATARS = {
-            751903718135431188 : "source/GuideON Staff.webp",
-            948880111753625642 : "source/GuideON VIP.webp",
-            1499029929029926982 : "source/logo_iris.webp",
-        }
-
-        for guild_id, avatar_path in GUILD_AVATARS.items():
-            guild = self.get_guild(guild_id)
-            if not guild:
-                log.warning(f"⚠️ [GUILD AVATAR] Serveur {guild_id} introuvable.")
-                continue
-            try:
-                with open(avatar_path, "rb") as f:
-                    image_data = f.read()
-
-                await guild.me.edit(avatar=image_data)
-                log.info(f"🖼️ [GUILD AVATAR] Avatar défini pour {guild.name} ({guild_id})")
-
-                await asyncio.sleep(3)
-
-            except FileNotFoundError:
-                log.error(f"❌ [GUILD AVATAR] Fichier introuvable : {avatar_path}")
-            except Exception as e:
-                log.error(f"❌ [GUILD AVATAR] Erreur pour {guild_id} : {e}")
 
 
     async def _load_cogs_from_directory(self, base: str) -> None:
