@@ -174,6 +174,7 @@ class GuideONBot(commands.Bot):
         from cogs.dev.setngversion import setngversion
         from cogs.dev.database import database
         from cogs.dev.command_visibility import command_visibility
+        from cogs.dev.avatar_bot import avatar_bot
 
         # ── IMPORT NG ──
         from cogs.ng.autel import autel
@@ -284,7 +285,7 @@ class GuideONBot(commands.Bot):
         self._groupDEV = groupeDEV()
         for cmd in [maintenance, permissions, delete_message, kick, stat_server, stat_cmd,
                     join_serv, health, guild_info, debug_cmd, botban, gold, vip, setngversion,
-                    database, command_visibility]:
+                    database, command_visibility, avatar_bot]:
             self._groupDEV.add_command(cmd)
 
         

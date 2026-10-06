@@ -1,29 +1,8 @@
 """
 utils/managers/bot_avatar_manager.py — Avatar de bot personnalisé par
 serveur ("Avatar Perso", add-on boutique).
-
-Discord permet, depuis l'ajout des "profils de membre par serveur", à une
-application de définir un avatar (+ banner/bio, non utilisés ici) différent
-de son avatar global pour CHAQUE serveur où elle est présente — via
-PATCH /guilds/{guild_id}/members/@me, exposé par discord.py comme
-`guild.me.edit(avatar=...)` (le paramètre `avatar` de `Member.edit()` n'est
-accepté QUE pour le membre du bot lui-même : discord.py lève ValueError
-sinon — https://discordpy.readthedocs.io/, voir Member.edit).
-
-Discord est la seule source de vérité pour l'avatar actuellement appliqué
-(`guild.me.guild_avatar`, None si pas d'avatar personnalisé sur ce serveur)
-— on ne duplique PAS cette donnée en DB ici. Ce qui EST suivi en DB, c'est
-l'entitlement boutique ("ce serveur a-t-il payé cet add-on ?"), via
-utils/managers/boutique_manager.py (ShopRole.AVATAR_PERSO) — tenu à jour
-par le cog (cogs/dev/avatar_bot.py), pas par ce module.
-
-2026-10-06 (Paul) : offre boutique "Avatar Perso" — flux entièrement manuel,
-pas de self-service pour les admins de serveur. Le client paie hors bot,
-Paul reçoit la confirmation, puis applique/retire l'avatar lui-même via
-/dev avatar_bot. Pas de cooldown interne ("je gérerai de mon côté") — on se
-contente de relayer proprement les erreurs Discord (format/taille refusés,
-429 éventuel) si elles surviennent.
 """
+
 from __future__ import annotations
 
 import logging
