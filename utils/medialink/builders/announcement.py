@@ -78,18 +78,27 @@ def _build_container(template: MediaTemplate, event: MediaEvent) -> Container | 
     container = Container(accent_color=accent_color) if accent_color is not None else Container()
 
     if has_text:
-        lines = []
-        if title:
-            lines.append(f"# {title}")
-        if description:
-            lines.append(description)
-        text_display = TextDisplay("\n".join(lines))
-
         thumbnail_url = event.thumbnail if thumbnail_enabled else None
-        if thumbnail_url:
-            container.add_item(Section(text_display, accessory=Thumbnail(thumbnail_url)))
+
+        if title and description:
+            title_display = TextDisplay(f"# {title}")
+
+            if thumbnail_url:
+                container.add_item(Section(title_display, accessory=Thumbnail(thumbnail_url)))
+            else:
+                container.add_item(title_display)
+
+            container.add_item(Separator())
+            container.add_item(TextDisplay(description))
+
         else:
-            container.add_item(text_display)
+            text_content = f"# {title}" if title else description
+            text_display = TextDisplay(text_content)
+
+            if thumbnail_url:
+                container.add_item(Section(text_display, accessory=Thumbnail(thumbnail_url)))
+            else:
+                container.add_item(text_display)
 
     link_buttons = [
         Button(style=ButtonStyle.link, label=btn["label"], url=btn["url"])

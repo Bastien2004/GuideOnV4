@@ -75,38 +75,7 @@ async def _persist_with_status(
 
 
 async def seed_baseline_events(connection_id: int, events: list[MediaEvent]) -> int:
-    """Immunise une connexion tout juste créée contre un envoi rétroactif.
-
-    BUG CORRIGÉ (2026-09, signalé par Paul) : rien n'appelait
-    fetch_events() au moment de la création d'une connexion — le premier
-    passage du Scheduler après coup trouvait donc TOUTES les vidéos déjà
-    publiées comme "nouvelles" (aucune ligne media_events pour cette
-    connexion) et les envoyait dès qu'une règle existait, alors que la
-    configuration ne doit JAMAIS être rétroactive.
-
-    À appeler UNE SEULE FOIS, juste après la création d'une
-    MediaConnection, avec les événements déjà existants côté plateforme
-    à cet instant (cf. views/medialink/medialink_platforms_view.py pour
-    YouTube). Ces événements sont enregistrés directement avec le statut
-    SKIPPED — même sémantique que processor.process() quand aucune règle
-    ne matche (cf. son commentaire) : "vus", mais volontairement jamais
-    routés/envoyés. On ne passe volontairement PAS par ingest() /
-    resolve_active_rules() / processor.process() : ces événements ne
-    doivent déclencher ni règle ni notification, seulement occuper la
-    contrainte unique (connection_id, external_event_id) pour que le
-    Scheduler les traite comme des doublons à TOUS les passages suivants
-    — qu'une règle existe déjà ou soit ajoutée après coup.
-
-    Volontairement PAS dans le contrat BaseMediaProvider (§8.1 : le Core
-    ne doit pas contenir de logique spécifique à une plateforme) — c'est
-    à l'appelant (la vue de configuration, au moment où elle vient
-    d'appeler connect() pour valider le compte) de décider s'il a besoin
-    d'un baseline, pas au Provider ni à l'Event Manager.
-
-    Renvoie le nombre d'événements effectivement enregistrés (un
-    événement déjà présent — cas normalement impossible pour une
-    connexion qui vient d'être créée, mais géré par simple prudence —
-    est silencieusement ignoré comme un doublon normal, sans lever)."""
+    """Immunise une connexion tout juste créée contre un envoi rétroactif."""
 
     now = datetime.now(timezone.utc)
     seeded = 0
