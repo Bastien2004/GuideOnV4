@@ -186,17 +186,33 @@ class ClearBuilderView(BaseLayoutView):
             )
             return
 
+        # 🕒 Defer AVANT le clear : channel.purge() sur un gros volume (et
+        # surtout avec un filtre par membre, qui doit parcourir potentiellement
+        # bien plus de messages que `amount` pour trouver ses correspondances)
+        # peut largement dépasser les 3 secondes dont on dispose pour la
+        # réponse initiale à une interaction. Sans ce defer, push_update()
+        # appelait interaction.response.edit_message() sur un token déjà expiré
+        # → "404 Unknown interaction" (le clear avait pourtant bien eu lieu,
+        # seule la mise à jour de l'interface échouait). Une fois déferré,
+        # push_update() bascule automatiquement sur edit_original_response()
+        # (valide ~15 min), donc plus de souci de délai ; les erreurs
+        # ci-dessous doivent du coup passer par followup, pas response.
+        try:
+            await interaction.response.defer()
+        except (discord.NotFound, discord.HTTPException):
+            return
+
         author_filter = self.guild.get_member(self.author_filter_id) if self.author_filter_id is not None else None
 
         try:
             deleted = await apply_clear(self.channel, self.amount, author_filter=author_filter)
         except ClearError as e:
             view = warning_container(e.message) if e.warning else error_container(e.message)
-            await interaction.response.send_message(view=view, ephemeral=True)
+            await interaction.followup.send(view=view, ephemeral=True)
             return
         except Exception:
             log.exception("[CLEAR_BUILDER] Échec inattendu guild=%s channel=%s", self.guild.id, self.channel.id)
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 view=error_container("Une erreur inattendue est survenue lors du **clear**."), ephemeral=True,
             )
             return

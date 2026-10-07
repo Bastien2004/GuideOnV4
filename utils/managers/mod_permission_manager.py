@@ -48,6 +48,7 @@ PERMISSION_KEYS: list[PermissionKey] = [
     # ---- Actions : outils ponctuels ----
     PermissionKey("mod_clear", "Clear", "Supprimer des messages en masse dans un salon.", "action"),
     PermissionKey("mod_lock", "Lock / Unlock", "Verrouiller ou déverrouiller un salon textuel.", "action"),
+    PermissionKey("mod_purge", "Purge salon", "Supprimer un salon et le recréer à l'identique (vide son historique).", "action"),
     PermissionKey("mod_voice_manage", "Gestion vocale", "Mute/déplacer/expulser tous les membres d'un vocal.", "action"),
 
     # ---- Config : panneaux ----
