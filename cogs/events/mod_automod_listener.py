@@ -45,26 +45,7 @@ log = logging.getLogger(__name__)
 _MUTE_DURATION = timedelta(days=28)
 
 _REQUIRED_ALERT_PERMS: tuple[str, ...] = ("view_channel", "send_messages", "embed_links", "attach_files")
-
-# 2026-10-03 (Paul) : fenêtre de déduplication par message pour _apply_action.
-# Sur un serveur où un AUTRE bot (ou l'AutoMod natif Discord) a aussi un
-# automod actif sur les mêmes règles, les deux systèmes peuvent détecter et
-# réagir au même message en parallèle. Discord ne nous protège pas non plus
-# contre un double-traitement interne : un même message peut nous arriver
-# deux fois (on_message ET on_raw_message_edit s'il est édité juste après
-# sa création, ou un replay d'évènement après une reconnexion Gateway).
-# Sans garde-fou, ça double la sanction (2 DM, 2 lignes d'infraction en DB,
-# 2 tentatives de timeout, 2 alertes staff) pour UNE seule vraie infraction.
 _DEDUP_WINDOW_SECONDS = 30.0
-
-# 2026-10-06 (Paul) : rate limit observé en prod le 06/10 — plusieurs salons
-# ont déclenché des rafales de 429 sur GET /messages/{id}, toutes issues
-# d'évènements d'édition de message (voir on_raw_message_edit ci-dessous).
-# Filet de sécurité en plus du filtre payload/cache plus bas : borne le
-# nombre de fetch_message() concurrents déclenchés par CE listener, pour
-# qu'une rafale d'éditions simultanées (plusieurs messages édités dans la
-# même seconde) ne parte pas en N requêtes simultanées avant même que le
-# bucket Discord ait eu l'occasion de nous renvoyer un retry_after.
 _EDIT_FETCH_SEMAPHORE = asyncio.Semaphore(2)
 
 
@@ -132,20 +113,12 @@ def _missing_send_permissions(channel, guild: discord.Guild) -> list[str]:
 
 
 def _forwarded_snapshots(message: discord.Message) -> list[discord.MessageSnapshot]:
-    """Snapshots d'un message transféré ("Forward" Discord), ou [] sinon.
-
-    Un message transféré a son VRAI contenu dans message.message_snapshots
-    (une liste, en pratique toujours 0 ou 1 élément), pas dans
-    message.content qui est souvent vide (sauf commentaire ajouté par
-    l'expéditeur en plus du forward) — Paul, 2026-09-28."""
+    """Gestion des messages transférés."""
     return list(getattr(message, "message_snapshots", None) or [])
 
 
 def _analyzable_contents(message: discord.Message, snapshots: list[discord.MessageSnapshot]) -> list[str]:
-    """Tous les textes à faire passer dans les détecteurs basés sur le
-    contenu (banword, antifullcaps, nolink, antilink, antiflood, antispam
-    emoji) : le texte du message lui-même PLUS celui de chaque snapshot
-    transféré. Ne renvoie jamais une liste vide (au moins "")."""
+    """Gestion de l'analyse du contenu."""
     contents = [message.content] if message.content else []
     contents.extend(snap.content for snap in snapshots if snap.content)
     return contents or [""]
@@ -158,23 +131,12 @@ def _analyzable_contents(message: discord.Message, snapshots: list[discord.Messa
 class ModAutomodListener(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
-        # message_id -> horodatage (time.monotonic()) de la dernière action
-        # appliquée pour ce message. Voir _DEDUP_WINDOW_SECONDS ci-dessus et
-        # _already_handled_recently() plus bas.
         self._recent_actions: dict[int, float] = {}
 
     def _already_handled_recently(self, message_id: int) -> bool:
-        """True si _apply_action a déjà traité ce message il y a moins de
-        _DEDUP_WINDOW_SECONDS — dans ce cas l'appelant doit s'abstenir pour
-        éviter de sanctionner deux fois la même infraction (cf. note sur
-        _DEDUP_WINDOW_SECONDS : double évènement interne OU conflit avec un
-        autre bot/système de modération qui aurait, lui, déjà fait réagir
-        notre propre pipeline une première fois sur ce message)."""
-        now = time.monotonic()
+        """Protection double sanction."""
 
-        # Purge opportuniste des entrées expirées pour ne pas laisser le
-        # dict grossir indéfiniment (le bot tourne sur beaucoup de serveurs
-        # avec un volume de messages conséquent).
+        now = time.monotonic()
         expired = [
             mid for mid, ts in self._recent_actions.items()
             if now - ts > _DEDUP_WINDOW_SECONDS
@@ -203,28 +165,7 @@ class ModAutomodListener(commands.Cog):
 
     @commands.Cog.listener()
     async def on_raw_message_edit(self, payload: discord.RawMessageUpdateEvent) -> None:
-        """Re-passe un message ÉDITÉ dans l'analyse automod.
-
-        2026-10-06 (Paul) : AVANT, le filtre "auteur = bot/admin → on ignore"
-        n'arrivait qu'APRÈS un fetch_message() complet — donc CHAQUE édition
-        de contenu dans TOUS les salons déclenchait un appel Discord, même
-        pour un message de bot (le nôtre qui rafraîchit un panel, ou un
-        autre bot du serveur) ou d'un admin, qu'on jetait juste après coup.
-        Sur un salon où ça arrive souvent (bot qui édite ses propres
-        messages, salon très actif où les membres corrigent des fautes...),
-        ça part en rafale de GET /messages non cadencée → 429 (c'est
-        exactement ce qu'on a vu dans les logs du 06/10 sur plusieurs
-        salons, avec des dizaines de messages différents fetchés en
-        quelques secondes).
-
-        Le correctif filtre maintenant sur l'auteur SANS appel réseau :
-        pour une vraie édition de contenu (pas une mise à jour embed-only,
-        déjà exclue par le "content in payload.data" ci-dessous), Discord
-        envoie l'auteur complet dans le payload brut du gateway — gratuit.
-        On ne fetch (et seulement via le cache interne discord.py en
-        premier, lui aussi gratuit) que pour les messages qui ont encore
-        une chance d'être analysés par l'automod après ce filtre.
-        """
+        """Re analyse un message édité."""
 
         if payload.guild_id is None:
             return
@@ -239,8 +180,6 @@ class ModAutomodListener(commands.Cog):
         if channel is None:
             return
 
-        # 🔎 Filtre auteur gratuit (payload brut du gateway) — évite le
-        # fetch_message() pour tout message de bot/admin, sans requête.
         raw_author = payload.data.get("author") or {}
         try:
             raw_author_id = int(raw_author["id"]) if "id" in raw_author else None
@@ -254,7 +193,6 @@ class ModAutomodListener(commands.Cog):
             if member is not None and member.guild_permissions.administrator:
                 return
 
-        # 🗄️ Cache interne discord.py (gratuit) avant fetch_message().
         message = payload.cached_message
         if message is None:
             async with _EDIT_FETCH_SEMAPHORE:
@@ -302,11 +240,6 @@ class ModAutomodListener(commands.Cog):
     async def _analyze_message(self, message: discord.Message) -> tuple[str, str | None] | None:
         guild_id = message.guild.id
         content = message.content or ""
-
-        # 📨 Message transféré ("Forward") : message.content est en général
-        # VIDE (le vrai texte est dans message.message_snapshots), donc tous
-        # les détecteurs basés sur le texte doivent aussi scanner le(s)
-        # snapshot(s), pas seulement message.content (Paul, 2026-09-28).
         snapshots = _forwarded_snapshots(message)
         contents = _analyzable_contents(message, snapshots)
         attachment_filenames = [a.filename for a in message.attachments]
@@ -344,10 +277,6 @@ class ModAutomodListener(commands.Cog):
                 message, max_mentions=max_mentions,
             )
             if match is None:
-                # Un snapshot transféré n'a pas de .mentions résolus (pas de
-                # Member) — on retombe sur un comptage brut (raw_mentions /
-                # raw_role_mentions + @everyone/@here textuel) pour ne pas
-                # laisser passer un forward qui abuse des mentions.
                 for snap in snapshots:
                     count = (
                         len(snap.raw_mentions)
@@ -398,11 +327,6 @@ class ModAutomodListener(commands.Cog):
                         return ("antilink", match)
 
         # ── Anti Spam Message ──
-        # Volontairement limité à message.content (pas aux snapshots) : ce
-        # détecteur traque la répétition d'un texte TAPÉ par le membre, pas
-        # le contenu d'un message transféré — élargir son périmètre créerait
-        # des faux positifs si plusieurs forwards différents partagent un
-        # même passage cité (Paul, 2026-09-28, décision de scope).
         sm_cfg = await antispam_msg_mgr.load_config(guild_id)
         if sm_cfg.get("enabled"):
             occurrences = antispam_msg_buffer.register_and_count(
@@ -557,11 +481,10 @@ class ModAutomodListener(commands.Cog):
                 channel.id, exc,
             )
 
-    async def _send_user_dm(
-        self, user: discord.User, guild: discord.Guild, *,
-        system_display: str, emoji: str, is_recidive: bool, user_msg: str,
-    ) -> None:
-        """MP au user : container V2. Best-effort (DM peuvent être fermés)."""
+    async def _send_user_dm(self, user: discord.User, guild: discord.Guild, *,
+        system_display: str, emoji: str, is_recidive: bool, user_msg: str) -> None:
+        """Envoi un message privé à l'utilisateur."""
+
         view = LayoutView(timeout=None)
         c = Container()
         c.add_item(TextDisplay(f"# {emoji} {system_display}"))
@@ -582,14 +505,12 @@ class ModAutomodListener(commands.Cog):
         try:
             await user.send(view=view)
         except (discord.Forbidden, discord.HTTPException):
-            # DM fermés ou bot bloqué : silencieux, c'est normal, pas un bug.
             pass
 
-    async def _send_light_alert(
-        self, alert_channel, *, user: discord.Member, message: discord.Message,
-        system_display: str, matched_term: str | None,
-    ) -> None:
-        """Log staff léger sur 1re infraction (pas de bouton)."""
+    async def _send_light_alert(self, alert_channel, *, user: discord.Member, message: discord.Message,
+        system_display: str, matched_term: str | None) -> None:
+        """Envoi log staff pour la première infraction."""
+
         view = LayoutView(timeout=None)
         c = Container()
         c.add_item(TextDisplay(f"# <:sanctionner:1495444382587949086> Alerte automod · {system_display}\n"))
@@ -615,16 +536,15 @@ class ModAutomodListener(commands.Cog):
         except (discord.Forbidden, discord.HTTPException) as exc:
             missing = _missing_send_permissions(alert_channel, message.guild)
             log.warning(
-                "[AUTOMOD] Log léger refusé alert_channel=%s erreur=%s permissions_manquantes=%s",
+                "[AUTOMOD] Log refusé alert_channel=%s erreur=%s permissions_manquantes=%s",
                 alert_channel.id, exc, missing or "aucune détectée",
             )
 
-    async def _send_full_alert(
-        self, alert_channel, *, guild: discord.Guild, user: discord.Member,
+    async def _send_full_alert(self, alert_channel, *, guild: discord.Guild, user: discord.Member,
         message: discord.Message, system_key: str, system_display: str,
-        matched_term: str | None, staff_role_id: int | None,
-    ) -> None:
-        """Alerte STAFF complète avec bouton 'Je m'en occupe' (persistante)."""
+        matched_term: str | None, staff_role_id: int | None) -> None:
+        """Alerte STAFF pour récidive."""
+
         excerpt = (message.content or "")[:500]
 
         temp_view = build_alert_container(
@@ -638,7 +558,6 @@ class ModAutomodListener(commands.Cog):
         )
 
         try:
-            # Ping du rôle staff si configuré : allowed_mentions accepte le ping.
             allowed = discord.AllowedMentions(roles=True) if staff_role_id else discord.AllowedMentions.none()
             sent_msg = await alert_channel.send(view=temp_view, allowed_mentions=allowed)
         except (discord.Forbidden, discord.HTTPException) as exc:
@@ -649,7 +568,6 @@ class ModAutomodListener(commands.Cog):
             )
             return
 
-        # 2. Enregistrement DB (récupère l'id).
         try:
             alert_id = await alert_mgr.create_alert(
                 guild_id=guild.id,
@@ -665,8 +583,6 @@ class ModAutomodListener(commands.Cog):
             log.exception("[AUTOMOD] Insertion alert DB échouée guild=%s", guild.id)
             return
 
-        # 3. Édition du message avec le vrai alert_id (pour que le bouton
-        # encode le bon id dans son custom_id).
         final_view = build_alert_container(
             system_display=system_display,
             user_id=user.id,
