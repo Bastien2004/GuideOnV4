@@ -49,11 +49,7 @@ class PurgeBuilderView(BaseLayoutView):
         self.clear_items()
 
         container = Container()
-        container.add_item(TextDisplay("#  Purge de salon"))
-        container.add_item(TextDisplay(
-            "-# Supprime le salon et le recrée à l'identique (nom, permissions, "
-            "catégorie). **Action irréversible** : tout l'historique est perdu."
-        ))
+        container.add_item(TextDisplay("# <:supprimer:1495444051623809075> Purge de salon")) 
         container.add_item(Separator())
 
         channel_display = self.channel.mention if self.channel is not None else "`Non sélectionné`"
@@ -169,6 +165,39 @@ class PurgeBuilderView(BaseLayoutView):
             self.guild.id, "Purge", self.moderator.id, new_channel, reason=self.reason,
         )
 
+        confirmation = f"✅ Salon purgé avec succès par {self.moderator.mention} — historique vidé."
+
+        # Si /mod purge a été lancé DANS le salon qu'on vient de purger (cas
+        # le plus courant), le message éphémère du panneau vivait dans ce
+        # salon : pour Discord, ce salon n'existe plus, donc ni
+        # edit_original_response ni followup.send ne peuvent plus l'atteindre
+        # (→ 404 "Unknown Message"). On confirme alors directement par un
+        # petit message en texte brut dans le NOUVEAU salon, plutôt que de
+        # laisser le modérateur sans retour.
+        if interaction.channel_id == old_channel.id:
+            try:
+                await new_channel.send(confirmation)
+            except discord.HTTPException:
+                log.exception(
+                    "[PURGE_BUILDER] Confirmation impossible dans le nouveau salon guild=%s channel=%s",
+                    self.guild.id, new_channel.id,
+                )
+            self.stop()
+            return
+
+        # Sinon (purge d'un AUTRE salon que celui où la commande a été
+        # lancée), le panneau éphémère est toujours valide : on le met à
+        # jour normalement, avec le même filet de sécurité au cas où il
+        # aurait disparu pour une autre raison.
         done_view = success_container(f"Salon purgé avec succès : {new_channel.mention}")
-        await self.push_update(interaction, view=done_view)
+        try:
+            await self.push_update(interaction, view=done_view)
+        except (discord.NotFound, discord.HTTPException):
+            try:
+                await new_channel.send(confirmation)
+            except discord.HTTPException:
+                log.exception(
+                    "[PURGE_BUILDER] Confirmation impossible dans le nouveau salon guild=%s channel=%s",
+                    self.guild.id, new_channel.id,
+                )
         self.stop()

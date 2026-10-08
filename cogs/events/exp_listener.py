@@ -31,7 +31,7 @@ from views.exp.levelup_view import build_levelup_view
 
 log = logging.getLogger(__name__)
 
-MESSAGE_COOLDOWN = 60  # Cooldown anti-spam (1 minute) entre deux gains par message.
+MESSAGE_COOLDOWN = 60
 
 
 class ExpListener(commands.Cog):
@@ -68,16 +68,9 @@ class ExpListener(commands.Cog):
     # ----------------------------------------------------
     # Notification de level-up (annonce permanente, salon dédié)
     # ----------------------------------------------------
-    async def _notify_level_up(
-        self, guild: discord.Guild, member: discord.Member, old_level: int, new_level: int, config: dict,
-    ) -> None:
-        """N'envoie RIEN par défaut : l'annonce est une option explicite
-        (`levelup_announce_enabled`) qui ne fait quoi que ce soit que si un
-        salon a en plus été configuré (`levelup_channel_id`) — cf.
-        views/exp/config_view.py. Appelée aussi bien depuis on_message que
-        depuis on_voice_state_update : un salon d'annonce dédié n'a
-        d'intérêt que s'il centralise TOUTES les montées de niveau, pas
-        seulement celles déclenchées par un message."""
+    async def _notify_level_up(self, guild: discord.Guild, member: discord.Member, old_level: int, new_level: int, config: dict) -> None:
+        """Gestion de l'annonce de level-up."""
+        
         if not config.get("levelup_announce_enabled"):
             return
 
