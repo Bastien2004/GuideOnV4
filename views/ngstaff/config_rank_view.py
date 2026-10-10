@@ -89,7 +89,8 @@ class ConfigRankView(LayoutView):
 
         c.add_item(TextDisplay(
             f"__**<:notifier:1495444487206604833> Pings**__\n"
-            f"➢ **Journaliste** *(optionnel)* : {_role(cfg.get('journaliste_ping_id'))}\n\n"
+            f"➢ **Journaliste** *(optionnel)* : {_role(cfg.get('journaliste_ping_id'))}\n"
+            f"➢ **Rank/Derank** *(optionnel)* : {_role(cfg.get('rank_ping_id'))}\n\n"
             f"-# Ping développeur : centralisé sur le serveur dev, plus ici."
         ))
         c.add_item(Separator())
@@ -308,6 +309,18 @@ class _PingsView(LayoutView):
         c.add_item(ActionRow(RoleSelect(
             placeholder="Choisir le rôle @Journaliste (optionnel)",
             on_select=lambda i, ids: self._save(i, "journaliste_ping_id", ids[0]),
+        )))
+
+        c.add_item(Separator())
+        c.add_item(TextDisplay(
+            f"**Ping rank/derank** *(optionnel)* : {_role(cfg.get('rank_ping_id'))}\n"
+            f"-# Rôle @mentionné directement dans le message public de "
+            f"rank/derank (celui posté dans le salon Rank/Derank — "
+            f"« Félicitations à... »/« Bienvenue à... »/« Merci à... »)."
+        ))
+        c.add_item(ActionRow(RoleSelect(
+            placeholder="Choisir le rôle à ping (optionnel)",
+            on_select=lambda i, ids: self._save(i, "rank_ping_id", ids[0]),
         )))
 
         c.add_item(Separator())

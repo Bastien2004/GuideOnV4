@@ -27,7 +27,7 @@ _lock = asyncio.Lock()
 
 _FIELDS = {
     "rank_channel_id", "journaliste_channel_id", "dev_channel_id",
-    "journaliste_ping_id", "dev_ping_id",
+    "journaliste_ping_id", "dev_ping_id", "rank_ping_id",
     "role_journaliste_id", "role_guide_id",
     "role_moderateur_test_id", "role_moderateur_confirme_id",
     "role_moderateur_plus_id", "role_super_moderateur_id", "role_administrateur_id",

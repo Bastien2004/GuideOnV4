@@ -81,6 +81,7 @@ def guard_message(
 def build_derank_announcement(
     membre: discord.Member, role: str, old_grade: str | None, *,
     emoji: str | None = None, statut_label: str | None = None, statut_badge: str | None = None,
+    ping_role_id: int | None = None,
 ) -> LayoutView:
     """Annonce publique de derank.
 
@@ -89,23 +90,28 @@ def build_derank_announcement(
     `statut_label`/`statut_badge` : libellé/emoji du NGStatutDef concerné
     (fournis par l'appelant, résolus via ng_statut_manager) quand `role` est
     la clé d'un statut secondaire plutôt que "complet"/"staff".
+    `ping_role_id` : rôle à @mentionner dans ce message, configuré par
+    serveur (NGRankConfig.rank_ping_id — même réglage que pour l'annonce de
+    rank, cf. views/ngstaff/rank_view.py::build_grade_announcement). Option
+    ajoutée le 2026-10-10 ; None/absent = pas de ping, comme avant.
     """
     prefix = f"{emoji} " if emoji else ""
+    ping = f"<@&{ping_role_id}> " if ping_role_id else ""
     view = LayoutView(timeout=None)
     c = Container()
 
     if role == "complet":
         label = GRADE_LABELS.get(old_grade, old_grade) if old_grade else "l'équipe"
-        c.add_item(TextDisplay(f"{prefix}Merci à <@{membre.id}> pour son travail en tant que **{label}** !"))
+        c.add_item(TextDisplay(f"{prefix}{ping}Merci à <@{membre.id}> pour son travail en tant que **{label}** !"))
 
     elif role == "staff":
         label = GRADE_LABELS.get(old_grade, old_grade) if old_grade else "Staff"
-        c.add_item(TextDisplay(f"{prefix}**Merci** à <@{membre.id}> pour son travail chez les **{label}** !"))
+        c.add_item(TextDisplay(f"{prefix}{ping}**Merci** à <@{membre.id}> pour son travail chez les **{label}** !"))
 
     else:
         badge = statut_badge or ""
         c.add_item(TextDisplay(
-            f"{prefix}**Merci** à <@{membre.id}> pour son travail chez les **{statut_label or role}** ! {badge}".rstrip()
+            f"{prefix}{ping}**Merci** à <@{membre.id}> pour son travail chez les **{statut_label or role}** ! {badge}".rstrip()
         ))
 
     view.add_item(c)
@@ -264,6 +270,7 @@ async def execute_derank(
             membre, role, grade, emoji=cfg.get("rank_emoji"),
             statut_label=statut_def["label"] if statut_def else None,
             statut_badge=statut_def.get("emoji") if statut_def else None,
+            ping_role_id=cfg.get("rank_ping_id"),
         ),
         cfg.get("rank_emoji"),
     )

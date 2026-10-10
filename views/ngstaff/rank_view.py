@@ -23,7 +23,7 @@ from utils.db.models.staff_grades import GRADE_LABELS
 
 def build_grade_announcement(
     membre: discord.Member, grade: str, is_promotion: bool, old_grade: str | None,
-    *, emoji: str | None = None,
+    *, emoji: str | None = None, ping_role_id: int | None = None,
 ) -> LayoutView:
     """Annonce publique pour un changement de grade (staff).
 
@@ -31,21 +31,26 @@ def build_grade_announcement(
     cf. /ngstaff config → Rank/Derank → Emoji annonce). Auparavant codé en
     dur sur l'emoji custom d'Alpha (<:Alpha:1500414179650048070>) pour tous
     les serveurs NG — corrigé (Paul, 2026-08-22). Absent/vide = pas de préfixe.
+    `ping_role_id` : rôle à @mentionner dans ce message, configuré par
+    serveur (NGRankConfig.rank_ping_id, cf. /ngstaff config → Rank/Derank →
+    Pings). Option ajoutée le 2026-10-10 ; None/absent = pas de ping, comme
+    avant.
     """
     label = GRADE_LABELS.get(grade, grade)
     old_label = GRADE_LABELS.get(old_grade, old_grade) if old_grade else None
     prefix = f"{emoji} " if emoji else ""
+    ping = f"<@&{ping_role_id}> " if ping_role_id else ""
 
     view = LayoutView(timeout=None)
     c = Container()
 
     if is_promotion and old_label:
         c.add_item(TextDisplay(
-            f"{prefix}Félicitations à <@{membre.id}> qui passe de **{old_label}** à **{label}** !"
+            f"{prefix}{ping}Félicitations à <@{membre.id}> qui passe de **{old_label}** à **{label}** !"
         ))
     else:
         c.add_item(TextDisplay(
-            f"{prefix}Bienvenue à <@{membre.id}> qui rejoint l'équipe en tant que **{label}** !"
+            f"{prefix}{ping}Bienvenue à <@{membre.id}> qui rejoint l'équipe en tant que **{label}** !"
         ))
 
     view.add_item(c)
@@ -54,6 +59,7 @@ def build_grade_announcement(
 
 def build_statut_announcement(
     membre: discord.Member, label: str, *, badge: str | None = None, emoji: str | None = None,
+    ping_role_id: int | None = None,
 ) -> LayoutView:
     """Annonce publique pour l'attribution d'un statut secondaire (statut
     librement défini par serveur, ex: journaliste/affilié/builder).
@@ -63,14 +69,17 @@ def build_statut_announcement(
     SECONDARY_STATUSES — généralisation multi-serveurs (Paul, 2026-08-22).
     `emoji` : voir build_grade_announcement — même correction (emoji configuré
     par serveur au lieu du logo Alpha en dur).
+    `ping_role_id` : voir build_grade_announcement — même rôle de ping
+    optionnel (NGRankConfig.rank_ping_id), même message public.
     """
     badge = badge or ""
     prefix = f"{emoji} " if emoji else ""
+    ping = f"<@&{ping_role_id}> " if ping_role_id else ""
 
     view = LayoutView(timeout=None)
     c = Container()
     c.add_item(TextDisplay(
-        f"{prefix}<@{membre.id}> rejoint l'équipe des **{label}** ! {badge}".rstrip()
+        f"{prefix}{ping}<@{membre.id}> rejoint l'équipe des **{label}** ! {badge}".rstrip()
     ))
     view.add_item(c)
     return view

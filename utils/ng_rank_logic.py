@@ -219,7 +219,10 @@ async def execute_grade_rank(bot: discord.Client, guild_id: int, membre: discord
 
     await _send_with_reaction(
         bot, cfg.get("rank_channel_id"),
-        build_grade_announcement(membre, new_grade, is_promotion, old_grade, emoji=cfg.get("rank_emoji")),
+        build_grade_announcement(
+            membre, new_grade, is_promotion, old_grade,
+            emoji=cfg.get("rank_emoji"), ping_role_id=cfg.get("rank_ping_id"),
+        ),
         cfg.get("rank_emoji"),
     )
 
@@ -357,6 +360,7 @@ async def execute_statut_rank(
         bot, cfg.get("rank_channel_id"),
         build_statut_announcement(
             membre, statut_def["label"], badge=statut_def.get("emoji"), emoji=cfg.get("rank_emoji"),
+            ping_role_id=cfg.get("rank_ping_id"),
         ),
         cfg.get("rank_emoji"),
     )

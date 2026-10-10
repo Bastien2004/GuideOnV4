@@ -41,6 +41,13 @@ class NGRankConfig(Base, TimestampMixin):
     journaliste_ping_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     dev_ping_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
+    # Ping (rôle) optionnel inclus directement dans l'annonce publique de
+    # rank/derank (celle postée dans rank_channel_id — "Félicitations à..."/
+    # "Bienvenue à..."/"Merci à..."). Distinct de journaliste_ping_id/
+    # dev_ping_id, qui pingent dans D'AUTRES salons (affiche/emoji), pas
+    # dans ce message-là. None = pas de ping (comportement actuel inchangé).
+    rank_ping_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+
     # ── Rôles Discord par grade ───────────────────────────────
     role_journaliste_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     role_guide_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
@@ -77,6 +84,7 @@ class NGRankConfig(Base, TimestampMixin):
             "dev_channel_id":              self.dev_channel_id,
             "journaliste_ping_id":         self.journaliste_ping_id,
             "dev_ping_id":                 self.dev_ping_id,
+            "rank_ping_id":                self.rank_ping_id,
             "role_journaliste_id":         self.role_journaliste_id,
             "role_guide_id":               self.role_guide_id,
             "role_moderateur_test_id":     self.role_moderateur_test_id,
