@@ -368,7 +368,7 @@ class GuideONBot(commands.Bot):
             groupECO.add_command(cmd)
 
 
-        for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY, groupGIVE, groupEXP, groupMOD, groupQR, groupMEDIALINK]:
+        for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY, groupGIVE, groupEXP, groupMOD, groupQR, groupMEDIALINK, groupECO]:
             self.tree.add_command(group)
 
         log.info("[SETUP_HOOK] ✅ Groupes de commandes enregistrés.")
