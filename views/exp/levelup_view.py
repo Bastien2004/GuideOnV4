@@ -14,15 +14,13 @@ def _avatar_url(member: discord.Member) -> str:
 
 
 def build_levelup_view(member: discord.Member, new_level: int, tier: str, *, tier_changed: bool = False) -> LayoutView:
-    """Construit l'annonce de level-up."""
-    
+    """Construit l'annonce de level-up avec avatar."""
+
     view = LayoutView(timeout=None)
     container = Container()
 
     header = "## 🏔️ Nouveau palier atteint !" if tier_changed else "## 🎉 Level Up !"
-    container.add_item(TextDisplay(header))
-    container.add_item(Separator())
-
+    
     if tier_changed:
         body = (
             f"{member.mention} passe au **niveau {new_level}** et rejoint "
@@ -30,6 +28,13 @@ def build_levelup_view(member: discord.Member, new_level: int, tier: str, *, tie
         )
     else:
         body = f"{member.mention} passe au **niveau {new_level}** — {tier} !"
+
+    section = Section(
+        TextDisplay(f"{header}\n\n{body}"),
+        accessory=Thumbnail(_avatar_url(member))
+    )
+    
+    container.add_item(section)
     container.add_item(Separator())
     container.add_item(TextDisplay("-# GuideOn Studio"))
 
