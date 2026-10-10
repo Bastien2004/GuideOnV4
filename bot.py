@@ -362,6 +362,12 @@ class GuideONBot(commands.Bot):
             groupMEDIALINK.add_command(cmd)
 
 
+        # 💰 ── ECONOMIE ──
+        groupECO = groupeECO()
+        for cmd in [eco_config, eco_gestion, eco_balance, eco_leaderboard, eco_daily]:
+            groupECO.add_command(cmd)
+
+
         for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY, groupGIVE, groupEXP, groupMOD, groupQR, groupMEDIALINK]:
             self.tree.add_command(group)
 

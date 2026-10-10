@@ -138,3 +138,11 @@ class GroupeMEDIALINK(app_commands.Group):
 
 def groupeMEDIALINK():
     return GroupeMEDIALINK()
+
+# Groupe économie
+class GroupeECO(app_commands.Group):
+    def __init__(self):
+        super().__init__(name="eco", description="Commandes économie")
+
+def groupeECO():
+    return GroupeECO()
