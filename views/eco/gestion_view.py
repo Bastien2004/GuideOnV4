@@ -71,7 +71,7 @@ async def create_gestion_view(
     view = BaseLayoutView(owner_id=author_id, timeout=600)
     container = Container()
 
-    container.add_item(TextDisplay("# <:fichier:1495446721520730242> Gestion Économie"))
+    container.add_item(TextDisplay("# <:investment:1558435075698327562> Gestion Économie"))
     container.add_item(Separator())
 
     container.add_item(TextDisplay(
@@ -82,7 +82,7 @@ async def create_gestion_view(
 
     if history:
         container.add_item(TextDisplay(
-            "### 🧾 Derniers mouvements\n" + "\n".join(_format_history_line(h) for h in history)
+            "### 🧾 __Dernières actions__ :\n" + "\n".join(_format_history_line(h) for h in history)
         ))
         container.add_item(Separator())
 

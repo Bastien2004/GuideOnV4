@@ -27,7 +27,7 @@ log = logging.getLogger(__name__)
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="daily", description="🎁 Réclame ta récompense quotidienne")
+@app_commands.command(name="daily", description="🎁 Récompense quotidienne")
 async def eco_daily(interaction: discord.Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.
@@ -52,7 +52,7 @@ async def eco_daily(interaction: discord.Interaction) -> None:
         await interaction.followup.send(
             view=success_container(
                 f"Tu as reçu **{format_amount(result.amount_applied)}** !\n"
-                f"-# Nouveau solde : **{format_amount(result.new_balance)}**"
+                f"-# ➥ Nouveau solde : **{format_amount(result.new_balance)}** !"
             ),
             ephemeral=True,
         )
@@ -61,16 +61,17 @@ async def eco_daily(interaction: discord.Interaction) -> None:
         next_at = datetime.now(timezone.utc) + exc.retry_after
         await interaction.followup.send(
             view=error_container(
-                "Tu as déjà réclamé ton `/eco daily` !\n"
-                f"-# Prochaine réclamation disponible <t:{int(next_at.timestamp())}:R>"
+                "Tu as déjà reçu ta **récompense quotidienne** !\n"
+                f"-# Prochaine récompense disponible <t:{int(next_at.timestamp())}:R>"
             ),
             ephemeral=True,
         )
 
     except Exception:
-        log.exception("[ECO DAILY] Échec de la réclamation (guild=%s, user=%s)", interaction.guild.id, interaction.user.id)
+        log.exception("[ECO_DAILY] Échec de la récompense quotidienne (guild=%s, user=%s)", interaction.guild.id, interaction.user.id)
+
         await interaction.followup.send(
-            view=error_container("Impossible de réclamer ta récompense **quotidienne**."),
+            view=error_container("Impossible de récupérer ta **récompense**."),
             ephemeral=True,
         )
 

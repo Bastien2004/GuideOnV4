@@ -61,7 +61,7 @@ async def eco_config(interaction: discord.Interaction) -> None:
         await interaction.followup.send(view=view, ephemeral=True)
 
     except Exception:
-        log.exception("[ECO CONFIG] Ouverture de l'interface de configuration échouée (guild=%s)", interaction.guild.id)
+        log.exception("[ECO_CONFIG] Ouverture de l'interface de configuration échouée (guild=%s)", interaction.guild.id)
         await interaction.followup.send(view=error_container("Impossible d'ouvrir l'interface de **configuration**."), ephemeral=True)
 
 

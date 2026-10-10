@@ -1,9 +1,7 @@
 """
 views/eco/leaderboard_view.py — Classement paginé /eco leaderboard.
-
-Hérite de PaginatedView (views/_components/paginated_view.py), même
-pattern que views/invite/leaderboard_view.py.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -20,14 +18,8 @@ MEDALS = {1: "🥇", 2: "🥈", 3: "🥉"}
 class EcoLeaderboardView(PaginatedView):
     """Classement paginé des soldes d'un serveur."""
 
-    def __init__(
-        self,
-        entries: list[tuple[int, dict]],
-        *,
-        guild: discord.Guild,
-        owner_id: int,
-        per_page: int = 10,
-    ):
+    def __init__(self, entries: list[tuple[int, dict]], *, guild: discord.Guild, owner_id: int, per_page: int = 10):
+
         items_with_rank = [(i + 1, uid, data) for i, (uid, data) in enumerate(entries)]
         self.guild = guild
         super().__init__(items_with_rank, per_page=per_page, owner_id=owner_id)
@@ -35,14 +27,12 @@ class EcoLeaderboardView(PaginatedView):
     def build_page_container(self, page_items: list) -> Container:
         container = Container()
 
-        container.add_item(TextDisplay(
-            f"# 🏆 Classement · Économie\n-# {self.guild.name}"
-        ))
+        container.add_item(TextDisplay("# 🏆 Classement Économie"))
         container.add_item(Separator())
 
         if not page_items:
             container.add_item(TextDisplay(
-                "-# 🤷 Aucun membre n'a encore de solde sur ce serveur."
+                "-# 🐦 Aucun membre n'a encore de solde sur ce serveur."
             ))
             return container
 
@@ -61,12 +51,9 @@ class EcoLeaderboardView(PaginatedView):
 # ====== COMPAT COMMANDE : build_leaderboard_view ======
 # ======================================================
 
-def build_leaderboard_view(
-    entries: list[tuple[int, dict]],
-    guild: discord.Guild,
-    owner_id: int,
-    per_page: int = 10,
-) -> Optional[EcoLeaderboardView]:
+def build_leaderboard_view(entries: list[tuple[int, dict]], guild: discord.Guild,
+    owner_id: int, per_page: int = 10) -> Optional[EcoLeaderboardView]:
+
     if not entries:
         return EcoLeaderboardView([], guild=guild, owner_id=owner_id, per_page=per_page)
     return EcoLeaderboardView(entries, guild=guild, owner_id=owner_id, per_page=per_page)

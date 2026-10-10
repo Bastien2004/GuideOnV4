@@ -54,7 +54,7 @@ async def eco_leaderboard(interaction: discord.Interaction) -> None:
         config = await load_eco_config(interaction.guild.id)
         if not config.get("leaderboard_enabled", True):
             await interaction.followup.send(
-                view=info_container("Le **classement** de l'économie est __désactivé__ sur ce serveur.")
+                view=info_container("Le **classement** économie est **masqué** par les __adminsitrateurs__.")
             )
             return
 
@@ -70,7 +70,7 @@ async def eco_leaderboard(interaction: discord.Interaction) -> None:
         await interaction.followup.send(view=view)
 
     except Exception:
-        log.exception("[ECO LEADERBOARD] Affichage du classement échoué (guild=%s)", interaction.guild.id)
+        log.exception("[ECO_LEADERBOARD] Affichage du classement échoué (guild=%s)", interaction.guild.id)
         await interaction.followup.send(view=error_container("Impossible d'afficher le **classement** économie."))
 
 

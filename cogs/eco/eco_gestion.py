@@ -71,7 +71,7 @@ async def eco_gestion(interaction: discord.Interaction, membre: discord.Member) 
         await interaction.followup.send(view=view, ephemeral=True)
 
     except Exception:
-        log.exception("[ECO GESTION] Ouverture de l'interface échouée (guild=%s, target=%s)", interaction.guild.id, membre.id)
+        log.exception("[ECO_GESTION] Ouverture de l'interface échouée (guild=%s, target=%s)", interaction.guild.id, membre.id)
         await interaction.followup.send(view=error_container("Impossible d'ouvrir l'interface de **gestion**."), ephemeral=True)
 
 
