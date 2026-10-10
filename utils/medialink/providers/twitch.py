@@ -286,6 +286,17 @@ class TwitchProvider(BaseMediaProvider):
                 # SESSION, jamais self._user_id.
                 external_id=stream["id"],
                 title=stream.get("title", ""),
+                # 2026-10-09 (fix) : Helix renvoie la catégorie/jeu en
+                # cours dans `game_name` — on la réutilise comme
+                # description de l'événement, exactement comme
+                # YouTubeProvider peuple `description` depuis
+                # snippet["description"]. Avant ce correctif,
+                # MediaEvent.description restait à None pour TOUS les
+                # événements Twitch, donc le placeholder {description}
+                # d'un template ciblant Twitch disparaissait toujours
+                # silencieusement (cf. règle "jamais vide" de
+                # placeholders.resolve()).
+                description=stream.get("game_name", ""),
                 url=f"https://www.twitch.tv/{stream.get('user_login', '')}",
                 thumbnail=thumbnail,
                 author=stream.get("user_name", ""),

@@ -23,7 +23,7 @@ from views.mod.purge_builder_view import PurgeBuilderView
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="purge", description="💣 Supprime un salon et le recrée (vide son historique)")
+@app_commands.command(name="purge", description="🧹 Nettoie complétement un salon")
 async def mod_purge(interaction: discord.Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.

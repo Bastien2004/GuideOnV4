@@ -57,7 +57,7 @@ class PurgeBuilderView(BaseLayoutView):
             placeholder="Choisir un salon", on_select=self._on_select_channel,
             channel_types=CHANNEL_TYPES,
         )
-        container.add_item(TextDisplay(f"**📌 Salon**\n-# {channel_display}"))
+        container.add_item(TextDisplay(f"**📌 Salon** : {channel_display}"))
         container.add_item(ActionRow(select))
         container.add_item(Separator())
 
@@ -65,7 +65,7 @@ class PurgeBuilderView(BaseLayoutView):
         btn_reason = Button(label="Modifier", style=ButtonStyle.secondary, emoji=ICON_MODIFIER)
         btn_reason.callback = self._on_click_reason
         container.add_item(Section(
-            TextDisplay(f"**📝 Raison (optionnelle)**\n-# {reason_display}"),
+            TextDisplay(f"**📝 Raison (optionnelle)** : {reason_display}"),
             accessory=btn_reason,
         ))
         container.add_item(Separator())
@@ -128,14 +128,7 @@ class PurgeBuilderView(BaseLayoutView):
                 ephemeral=True,
             )
             return
-
-        # 🕒 Defer AVANT la purge : clone() + edit(position=...) + delete()
-        # sont 3 appels HTTP Discord distincts qui peuvent, cumulés, dépasser
-        # les 3 secondes de la fenêtre de réponse initiale — exactement le
-        # même risque que celui corrigé sur /mod clear (cf.
-        # views/mod/clear_builder_view.py). Une fois déferré, push_update()
-        # bascule automatiquement sur edit_original_response() (valide
-        # ~15 min), donc les erreurs ci-dessous doivent passer par followup.
+        
         try:
             await interaction.response.defer()
         except (discord.NotFound, discord.HTTPException):
@@ -150,45 +143,28 @@ class PurgeBuilderView(BaseLayoutView):
             await interaction.followup.send(view=view, ephemeral=True)
             return
         except Exception:
-            log.exception(
-                "[PURGE_BUILDER] Échec inattendu guild=%s channel=%s",
-                self.guild.id, old_channel.id,
-            )
+            log.exception("[MOD_PURGE] Échec inattendu guild=%s channel=%s", self.guild.id, old_channel.id)
+
             await interaction.followup.send(
-                view=error_container("Une erreur inattendue est survenue lors de la **purge**."), ephemeral=True,
+                view=error_container("Une erreur inattendue est survenue lors de la **suppression**."), ephemeral=True,
             )
             return
 
-        # ⚠️ old_channel n'existe plus à partir d'ici : toute référence au
-        # salon (log, message de confirmation) doit utiliser new_channel.
         await log_channel_action(
             self.guild.id, "Purge", self.moderator.id, new_channel, reason=self.reason,
         )
 
-        confirmation = f"✅ Salon purgé avec succès par {self.moderator.mention} — historique vidé."
+        confirmation = f"✅ Salon nettoyé avec succès par {self.moderator.mention}."
 
-        # Si /mod purge a été lancé DANS le salon qu'on vient de purger (cas
-        # le plus courant), le message éphémère du panneau vivait dans ce
-        # salon : pour Discord, ce salon n'existe plus, donc ni
-        # edit_original_response ni followup.send ne peuvent plus l'atteindre
-        # (→ 404 "Unknown Message"). On confirme alors directement par un
-        # petit message en texte brut dans le NOUVEAU salon, plutôt que de
-        # laisser le modérateur sans retour.
         if interaction.channel_id == old_channel.id:
             try:
                 await new_channel.send(confirmation)
             except discord.HTTPException:
-                log.exception(
-                    "[PURGE_BUILDER] Confirmation impossible dans le nouveau salon guild=%s channel=%s",
-                    self.guild.id, new_channel.id,
-                )
+                log.exception("[MOD_PURGE] Erreur d'envoi du message de confirmation guild=%s channel=%s", self.guild.id, new_channel.id)
+
             self.stop()
             return
 
-        # Sinon (purge d'un AUTRE salon que celui où la commande a été
-        # lancée), le panneau éphémère est toujours valide : on le met à
-        # jour normalement, avec le même filet de sécurité au cas où il
-        # aurait disparu pour une autre raison.
         done_view = success_container(f"Salon purgé avec succès : {new_channel.mention}")
         try:
             await self.push_update(interaction, view=done_view)
@@ -196,8 +172,5 @@ class PurgeBuilderView(BaseLayoutView):
             try:
                 await new_channel.send(confirmation)
             except discord.HTTPException:
-                log.exception(
-                    "[PURGE_BUILDER] Confirmation impossible dans le nouveau salon guild=%s channel=%s",
-                    self.guild.id, new_channel.id,
-                )
+                log.exception("[MOD_PURGE] Confirmation impossible dans le nouveau salon guild=%s channel=%s", self.guild.id, new_channel.id)
         self.stop()
