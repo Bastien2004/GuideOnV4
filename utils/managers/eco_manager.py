@@ -1,7 +1,18 @@
 """
 utils/managers/eco_manager.py — Système d'économie (/eco).
-"""
 
+Base de la base V1 : config par serveur, solde par (serveur, membre),
+/eco daily avec cooldown glissant de 24h, historique append-only des
+mouvements. Pas de transferts entre joueurs ni de boutique pour l'instant
+(EcoTransactionType est conçu pour accueillir ces mouvements plus tard
+sans migration de structure).
+
+Concurrence : verrou asyncio PAR GUILD (comme utils.managers.exp_manager)
+pour les mutations lecture-modification-écriture (daily/admin_add/
+admin_remove) — un verrou par guild plutôt qu'un verrou global unique
+évite qu'un pic d'activité sur UN serveur ne bloque l'économie de tous
+les autres.
+"""
 from __future__ import annotations
 
 import asyncio
@@ -26,7 +37,7 @@ DAILY_COOLDOWN = timedelta(hours=24)
 
 
 class EcoError(Exception):
-    """Erreur métier /eco."""
+    """Erreur métier /eco destinée à être affichée telle quelle à l'utilisateur."""
 
 
 class DailyCooldownError(EcoError):
@@ -41,21 +52,39 @@ class DailyCooldownError(EcoError):
 
 @dataclass
 class EcoMutationResult:
-    """Résultat d'une mutation de solde."""
+    """Résultat d'une mutation de solde (daily/admin_add/admin_remove)."""
 
     guild_id: int
     user_id: int
     old_balance: int
     new_balance: int
-    amount_applied: int
+    amount_applied: int  # delta réellement appliqué (peut différer du montant demandé, cf. clamp à 0)
 
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def format_amount(amount: int) -> str:
+    """Formatage FR d'un montant monétaire : 98821 -> '98 821$' (-50 -> '-50$').
+
+    Partagé par toutes les views /eco pour un affichage cohérent partout
+    (balance, gestion, leaderboard).
+    """
+    sign = "-" if amount < 0 else ""
+    return f"{sign}{abs(amount):,}$".replace(",", " ")
+
+
 def _as_aware_utc(dt: datetime) -> datetime:
-    """Normalise un datetime pour le cooldown."""
+    """Normalise un datetime en aware-UTC.
+
+    En production (Postgres/asyncpg), une colonne DateTime(timezone=True)
+    revient toujours aware. Défense tout de même : certains backends/drivers
+    (ex: SQLite, utilisé par les tests) renvoient un datetime NAIVE même pour
+    une colonne déclarée timezone=True, ce qui casse `now - last_daily_at`
+    avec un TypeError. On traite un datetime naïf comme déjà en UTC plutôt
+    que de planter le calcul de cooldown.
+    """
     if dt.tzinfo is None:
         return dt.replace(tzinfo=timezone.utc)
     return dt

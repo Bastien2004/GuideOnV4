@@ -254,6 +254,13 @@ class GuideONBot(commands.Bot):
         from cogs.ngstaff.ngstaff_rank import ngstaff_rank
         from cogs.ngstaff.ngstaff_stafflist import ngstaff_stafflist
 
+        # ── IMPORT ECO ──
+        from cogs.eco.eco_config import eco_config
+        from cogs.eco.eco_gestion import eco_gestion
+        from cogs.eco.eco_balance import eco_balance
+        from cogs.eco.eco_leaderboard import eco_leaderboard
+        from cogs.eco.eco_daily import eco_daily
+
         # ── IMPORT QR ──
         from cogs.qr.generate import qr_generate
         from cogs.qr.list import qr_list
