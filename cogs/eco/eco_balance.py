@@ -38,7 +38,7 @@ async def eco_balance(interaction: discord.Interaction, membre: Optional[discord
 
     # 🕒 Defer.
     try:
-        await interaction.response.defer()
+        await interaction.response.defer(ephemeral=True)
     except (discord.NotFound, discord.HTTPException):
         return
 
@@ -53,7 +53,7 @@ async def eco_balance(interaction: discord.Interaction, membre: Optional[discord
 
     # 🚫 Refus des bots.
     if isinstance(target, discord.Member) and target.bot:
-        await interaction.followup.send(view=error_container("Les **bots** n'ont pas de solde."))
+        await interaction.followup.send(view=error_container("Les **bots** n'ont pas de solde."), ephemeral=True)
         return
 
     # 🧩 Récup solde, puis affichage.

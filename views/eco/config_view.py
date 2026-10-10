@@ -30,7 +30,7 @@ MAX_DAILY_AMOUNT = 1_000_000
 def _state_btn(active: bool) -> Button:
     """Gestion bouton d'état ON/OFF."""
     return Button(
-        label="Activé" if active else "Désactivé",
+        label="Activé" if active else "Masquer",
         style=ButtonStyle.success if active else ButtonStyle.danger,
         emoji="<:valider:1495444292867723284>" if active else "<:annuler:1495444256754761979>",
     )
@@ -55,16 +55,13 @@ async def create_eco_config_view(guild_id: int, bot, author_id: Optional[int] = 
     view = BaseLayoutView(owner_id=author_id, timeout=600)
     container = Container()
 
-    container.add_item(TextDisplay("# 💰 Configuration Économie"))
+    container.add_item(TextDisplay("# <:param:1552374201489297479> Configuration Économie"))
     container.add_item(Separator())
 
     btn_daily = Button(label="Modifier", style=ButtonStyle.secondary, emoji="<:modifier:1495444144712192003>")
     btn_daily.callback = _cb_edit_daily_amount(guild_id, bot, author_id)
     container.add_item(Section(
-        TextDisplay(
-            "**🎁 Montant du /eco daily**\n-# Somme reçue par réclamation (cooldown de 24h).\n"
-            f"-# Actuel : **{format_amount(daily_amount)}**"
-        ),
+        TextDisplay(f"**🎁 Montant du /eco daily** : \n ➥ `{format_amount(daily_amount)}`"),
         accessory=btn_daily,
     ))
     container.add_item(Separator())
@@ -73,8 +70,8 @@ async def create_eco_config_view(guild_id: int, bot, author_id: Optional[int] = 
     btn_lb.callback = _cb_toggle_leaderboard(guild_id, bot, author_id)
     container.add_item(Section(
         TextDisplay(
-            "**🏆 Classement (/eco leaderboard)**\n"
-            "-# Autorise ou masque le classement des soldes sur ce serveur."
+            "**🏆 Visibilité classement** :\n"
+            "-# Autorise ou masque le classement d'argent'."
         ),
         accessory=btn_lb,
     ))
