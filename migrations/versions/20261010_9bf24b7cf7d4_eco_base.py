@@ -1,0 +1,81 @@
+"""eco: base du système d'économie (/eco config, gestion, balance, leaderboard, daily)
+
+Revision ID: 9bf24b7cf7d4
+Revises: c7e1a3f9b4d2
+Create Date: 2026-10-10
+
+"""
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+
+
+revision: str = '9bf24b7cf7d4'
+down_revision: Union[str, None] = 'c7e1a3f9b4d2'
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+DEFAULT_DAILY_AMOUNT = 200
+
+
+def upgrade() -> None:
+    op.create_table(
+        'eco_configs',
+        sa.Column('guild_id', sa.BigInteger(), nullable=False),
+        sa.Column(
+            'daily_amount', sa.Integer(),
+            server_default=str(DEFAULT_DAILY_AMOUNT), nullable=False,
+        ),
+        sa.Column(
+            'leaderboard_enabled', sa.Boolean(),
+            server_default='true', nullable=False,
+        ),
+        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
+        sa.PrimaryKeyConstraint('guild_id'),
+    )
+
+    op.create_table(
+        'eco_accounts',
+        sa.Column('guild_id', sa.BigInteger(), nullable=False),
+        sa.Column('user_id', sa.BigInteger(), nullable=False),
+        sa.Column('balance', sa.BigInteger(), server_default='0', nullable=False),
+        sa.Column('last_daily_at', sa.DateTime(timezone=True), nullable=True),
+        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
+        sa.PrimaryKeyConstraint('guild_id', 'user_id'),
+    )
+    op.create_index('ix_eco_accounts_guild', 'eco_accounts', ['guild_id'])
+
+    op.create_table(
+        'eco_transaction_logs',
+        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column('guild_id', sa.BigInteger(), nullable=False),
+        sa.Column('user_id', sa.BigInteger(), nullable=False),
+        sa.Column(
+            'type',
+            sa.Enum('daily', 'admin_add', 'admin_remove', name='eco_transaction_type', native_enum=False, length=16),
+            nullable=False,
+        ),
+        sa.Column('amount', sa.BigInteger(), nullable=False),
+        sa.Column('balance_after', sa.BigInteger(), nullable=False),
+        sa.Column('actor_id', sa.BigInteger(), nullable=True),
+        sa.Column('reason', sa.Text(), nullable=True),
+        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
+        sa.PrimaryKeyConstraint('id'),
+    )
+    op.create_index('ix_eco_tx_guild_user', 'eco_transaction_logs', ['guild_id', 'user_id'])
+    op.create_index('ix_eco_tx_guild_created', 'eco_transaction_logs', ['guild_id', 'created_at'])
+
+
+def downgrade() -> None:
+    op.drop_index('ix_eco_tx_guild_created', table_name='eco_transaction_logs')
+    op.drop_index('ix_eco_tx_guild_user', table_name='eco_transaction_logs')
+    op.drop_table('eco_transaction_logs')
+
+    op.drop_index('ix_eco_accounts_guild', table_name='eco_accounts')
+    op.drop_table('eco_accounts')
+
+    op.drop_table('eco_configs')
