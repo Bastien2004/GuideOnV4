@@ -27,7 +27,7 @@ log = logging.getLogger(__name__)
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="piege", description="🍯 Configure le salon-piège anti-raid (HoneyPot)")
+@app_commands.command(name="piege", description="🍯 Configure le salon piège (HoneyPot)")
 async def mod_piege(interaction: discord.Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.

@@ -27,7 +27,7 @@ log = logging.getLogger(__name__)
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="gestion", description="🛠️ Ajuste manuellement le solde d'un membre")
+@app_commands.command(name="gestion", description="🛠️ Ajuste le solde d'un membre")
 @app_commands.describe(membre="Le membre dont tu veux gérer le solde")
 async def eco_gestion(interaction: discord.Interaction, membre: discord.Member) -> None:
 

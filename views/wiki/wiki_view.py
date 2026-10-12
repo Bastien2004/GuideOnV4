@@ -96,8 +96,10 @@ CATEGORIES: dict[str, dict] = {
         "available": True,
         "commands": [
             ("mod ban",         "🔨 Bannit un membre du serveur"),
-            ("mod clear",       "🧹 Supprime des messages en masse dans un salon"),
+            ("mod clear",       "🗑️ Supprime des messages en masse dans un salon"),
+            ("mod purge",       "🧹 Nettoie complétement un salon"),
             ("mod config",      "🛡️ Configure l'automod du serveur"),
+            ("mod piege",       "🍯 Configure le salon piège (HoneyPot)"),
             ("mod historique",  "📁 Affiche l'historique de sanction d'un membre"),
             ("mod kick",        "🍃 Expulse un membre du serveur"),
             ("mod lock",        "🔒 Verrouille un salon textuel"),
@@ -159,6 +161,18 @@ CATEGORIES: dict[str, dict] = {
             ("ticket wakeup",       "🔔 Relancer le créateur du ticket"),
         ],
     },
+    "économie": {
+            "name": "Économie", "emoji": "💰",
+            "description": "⇝ Instaure ton système d'économie !",
+            "available": True,
+            "commands": [
+                ("eco balance",          "💰 Affiche le solde d'un membre"),
+                ("eco config",           "💰 Configure le système d'économie"),
+                ("eco daily",            "🎁 Récompense quotidienne"),
+                ("eco gestion",          "🛠️ Ajuste le solde d'un membre"),
+                ("eco leaderboard",      "🏆 Affiche le classement d'argent du serveur"),
+            ],
+        },
 }
 
 
@@ -433,16 +447,25 @@ class WikipartnerView(BaseLayoutView):
         c.add_item(Separator())
 
         c.add_item(TextDisplay(
-            "➤ Retrouvez la liste des **partenaires GuideOn** :\n\n"
+            "## Retrouvez la liste des **partenaires GuideOn** :\n\n"
 
-            "- **[NationsGlory Alpha](https://discord.gg/hHvv5paB6j)**\n"
-            "-# Serveur Minecraft semi-rp.\n"
-            "- **[SwiftSky](https://discord.gg/zezkpMrD5e)**\n"
-            "-# Service de graphisme professionnel.\n"
-            "- **[GloryForProgress](https://discord.gg/SvwVJpTBCZ)**\n"
-            "-# Bot référent d'aide NationsGlory.\n"
-            "- **[Le Souk's](https://discord.gg/CAWsejVb7C)**\n"
-            "-# Serveur d'échange et de vente.\n"
+            "➤ **[NationsGlory Iris](https://discord.gg/kScRaURvfC)**\n"
+            "Serveur Minecraft semi-rp.\n\n"
+
+            "➤ **[NationsGlory Alpha](https://discord.gg/hHvv5paB6j)**\n"
+            "Serveur Minecraft semi-rp.\n\n"
+
+            "➤ **[NationsGlory Delta](https://discord.gg/nationsglory-delta-948880111753625642)**\n"
+            "Serveur Minecraft semi-rp.\n\n"
+
+            "➤ **[SwiftSky](https://discord.gg/zezkpMrD5e)**\n"
+            "Service de graphisme professionnel.\n\n"
+
+            "➤ **[GloryForProgress](https://discord.gg/SvwVJpTBCZ)**\n"
+            "Service d'aide au serveur NationsGlory.\n\n"
+
+            "➤ **[Le Souk's](https://discord.gg/CAWsejVb7C)**\n"
+            "Serveur d'échange et de vente.\n"
         ))
         c.add_item(Separator())
 

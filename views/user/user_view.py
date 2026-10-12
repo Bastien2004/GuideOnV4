@@ -1,16 +1,7 @@
 """
-views/user/user_view.py — Vue de profil utilisateur ("carte d'identité"
-Discord), extraite de la commande /id pour être partagée avec /user.
-
-Reste en LayoutView simple, PAS BaseLayoutView : les deux boutons présents
-("Télécharger la PP", "Ouvrir dans le navigateur") sont des boutons de type
-ButtonStyle.link — ils n'ont AUCUN callback côté bot, Discord ouvre l'URL
-directement côté client. Il n'y a donc rien à protéger (pas de owner_id à
-imposer), rien à capturer comme erreur de composant, et le message n'a pas
-de timeout à gérer puisqu'aucune interaction ne remonte jamais au bot.
-BaseLayoutView n'apporterait rien ici, même si la présence de Button peut
-laisser penser le contraire au premier coup d'œil.
+views/user/user_view.py — Vue de profil utilisateur.
 """
+
 from __future__ import annotations
 
 import re

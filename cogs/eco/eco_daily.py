@@ -34,7 +34,7 @@ async def eco_daily(interaction: discord.Interaction) -> None:
     if not await verifier_ban_utilisateur(interaction):
         return
 
-    # 🕒 Defer (éphémère : réclamation personnelle, pas d'intérêt pour le salon).
+    # 🕒 Defer.
     try:
         await interaction.response.defer(ephemeral=True)
     except (discord.NotFound, discord.HTTPException):

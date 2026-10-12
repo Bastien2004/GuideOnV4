@@ -266,6 +266,13 @@ class GuideONBot(commands.Bot):
         from cogs.qr.list import qr_list
         from cogs.qr.scan import qr_scan
 
+        # ── IMPORT RAPPEL ──
+        from cogs.rappel.rappel_annuler import rappel_annuler
+        from cogs.rappel.rappel_creer import rappel_creer
+        from cogs.rappel.rappel_lister import rappel_lister
+
+
+
         # ── IMPORT MEDIALINK ──
         from cogs.medialink.medialink_config import medialink_config
 
@@ -367,8 +374,13 @@ class GuideONBot(commands.Bot):
         for cmd in [eco_config, eco_gestion, eco_balance, eco_leaderboard, eco_daily]:
             groupECO.add_command(cmd)
 
+        # 🕐 ── RAPPEL ──
+        groupRAPPEL = groupeRAPPEL()
+        for cmd in [rappel_creer, rappel_lister, rappel_annuler]:
+            groupRAPPEL.add_command(cmd)
 
-        for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY, groupGIVE, groupEXP, groupMOD, groupQR, groupMEDIALINK, groupECO]:
+
+        for group in [groupCONFIG, groupNG, groupTICKET, groupINV, groupBIRTHDAY, groupGIVE, groupEXP, groupMOD, groupQR, groupMEDIALINK, groupECO, groupRAPPEL]:
             self.tree.add_command(group)
 
         log.info("[SETUP_HOOK] ✅ Groupes de commandes enregistrés.")

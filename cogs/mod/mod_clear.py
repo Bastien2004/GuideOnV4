@@ -23,7 +23,7 @@ from views.mod.clear_builder_view import ClearBuilderView
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="clear", description="🧹 Supprime des messages en masse dans un salon")
+@app_commands.command(name="clear", description="🗑️ Supprime des messages en masse dans un salon")
 async def mod_clear(interaction: discord.Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.

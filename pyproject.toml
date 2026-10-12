@@ -55,10 +55,5 @@ target-version = "py312"
 select = ["E", "F", "I", "N", "W", "B", "UP", "RUF"]
 ignore = ["E501"]
 
-# ====================================================================
-# Setuptools — on désactive la "package discovery" auto.
-# GuideON n'est pas un package publié, c'est une application multi-dossiers.
-# Cette config dit explicitement à setuptools "n'essaie pas de deviner".
-# ====================================================================
 [tool.setuptools]
 py-modules = []

@@ -29,7 +29,7 @@ LEADERBOARD_MAX = 100
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="leaderboard", description="🏆 Affiche le classement des soldes du serveur")
+@app_commands.command(name="leaderboard", description="🏆 Affiche le classement d'argent du serveur")
 async def eco_leaderboard(interaction: discord.Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.

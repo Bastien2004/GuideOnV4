@@ -146,3 +146,11 @@ class GroupeECO(app_commands.Group):
 
 def groupeECO():
     return GroupeECO()
+
+# Groupe rappel
+class GroupeRAPPEL(app_commands.Group):
+    def __init__(self):
+        super().__init__(name="rappel", description="Commandes rappel")
+
+def groupeRAPPEL():
+    return GroupeRAPPEL()
