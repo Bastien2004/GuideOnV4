@@ -1,9 +1,5 @@
 """
 utils/settings.py — Gestion des paramètres de configuration.
-
-Usage :
-    from utils.settings import settings
-    settings.discord_token
 """
 
 from typing import Literal
@@ -28,7 +24,7 @@ class Settings(BaseSettings):
 
     report_channel_id: int = 1488233511277297976
 
-    # Ping développeur (demande d'emoji "tête" pour un nouveau staff) —
+    # Ping développeur
     dev_ping_channel_id: int = 1540659694807552051
     dev_ping_role_id: int = 1400451664971960410
 

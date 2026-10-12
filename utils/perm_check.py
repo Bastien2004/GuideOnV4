@@ -4,13 +4,6 @@ utils/perm_check.py — Vérification des permissions RBAC.
 # 🔐 Vérification des permissions.
     if not await has_grade_check(interaction, "permission", "action"):
         return
-
-Exemple : 
-
-# 🔐 Vérification des permissions.
-if not await has_grade_check(interaction, "staff_alpha.op", "envoyer le tutoriel"):
-    return
-
 """
 
 from __future__ import annotations

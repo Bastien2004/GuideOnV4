@@ -1,20 +1,17 @@
 """
-utils/kick.py — Logique métier pour /dev kick : fait quitter GuideOn d'un
-serveur, extraite de cogs/dev/kick.py (même traitement que les autres
-commandes /dev).
+utils/kick.py — Logique métier du /dev kick.
 """
+
 from __future__ import annotations
 
 import logging
-
 import discord
 
 log = logging.getLogger(__name__)
 
 
 class KickError(Exception):
-    """Erreur métier à afficher à l'utilisateur (pas une exception technique) —
-    levée quand le départ du serveur échoue côté Discord."""
+    """Erreurà afficher à l'utilisateur."""
 
     def __init__(self, message: str) -> None:
         super().__init__(message)
@@ -22,10 +19,8 @@ class KickError(Exception):
 
 
 async def leave_guild(guild: discord.Guild) -> None:
-    """Fait quitter GuideOn du serveur donné.
-
-    Lève KickError si Discord refuse l'opération.
-    """
+    """Fait quitter GuideOn du serveur donné."""
+    
     try:
         await guild.leave()
     except discord.HTTPException:

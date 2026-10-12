@@ -1,9 +1,8 @@
 """
-utils/ping.py — Récupération et classification de la latence du bot,
-extrait de cogs/commande/ping.py.
+utils/ping.py — Récupération et classification de la latence du bot.
 """
-from __future__ import annotations
 
+from __future__ import annotations
 from discord.ext import commands
 
 

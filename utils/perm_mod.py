@@ -1,10 +1,7 @@
 """
 utils/perm_mod.py — Vérification des permissions granulaires du système /mod.
-
-Contrairement à perm_admin/perm_staff/perm_dev (rôles fixes, bot-wide),
-ce module vérifie une clé de permission configurable PAR SERVEUR via
-utils.managers.mod_permission_manager (/mod permissions).
 """
+
 from __future__ import annotations
 
 import discord
@@ -14,20 +11,20 @@ from utils.managers.mod_permission_manager import get_permission_key, has_permis
 
 
 def _get_member(interaction: discord.Interaction) -> discord.Member | None:
-    """Récupère interaction.user en Member. None si hors serveur."""
+    """Récupère l'auteur de l'action."""
+
     if interaction.guild is None:
         return None
+    
     if isinstance(interaction.user, discord.Member):
         return interaction.user
+    
     return interaction.guild.get_member(interaction.user.id)
 
 
 async def check_mod_permission(interaction: discord.Interaction, key: str) -> bool:
-    """
-    Vérifie que l'utilisateur a la permission d'utiliser la commande/le
-    panneau identifié par `key`. Gère le cas hors-serveur et répond une
-    erreur éphémère en cas de refus.
-    """
+    """Vérifie que l'utilisateur a la permission."""
+    
     if interaction.guild is None:
         msg = "Cette commande ne peut être __utilisée__ que dans un **serveur Discord**."
         await send_ephemeral(interaction, error_container(msg))

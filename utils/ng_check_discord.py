@@ -38,3 +38,16 @@ async def require_delta_guild(interaction: Interaction) -> bool:
         return False
     
     return True
+
+
+async def require_iris_guild(interaction: Interaction) -> bool:
+    """Protège les commandes /iris exécutée hors serveur Iris."""
+
+    guild_id = interaction.guild_id
+    server = get_server_by_guild(guild_id) if guild_id is not None else None
+
+    if server is None or server.name != "iris":
+        await send_ephemeral(interaction, error_container("Cette commande est **réservée** au Discord Iris."))
+        return False
+    
+    return True

@@ -1,5 +1,5 @@
 """
-utils/ng_staff_display.py — Affichage centralisé des grades secondaire stafflist.
+utils/ng_staff_display.py — Affichage centralisé des grades secondaire stafflist (NGSTAFF).
 """
 
 from __future__ import annotations

@@ -1,6 +1,7 @@
 """
 views/ticket/lifecycle.py — Logique de cycle de vie d'un ticket.
 """
+
 from __future__ import annotations
 
 import logging
@@ -32,14 +33,9 @@ DELCLOSED_PREFIX = "ticket_delclosed:"
 # 🔒 Fermeture
 # ============================================================
 
-async def handle_close(
-    interaction: discord.Interaction, channel_id: int, *, staff_only: bool = False
-) -> None:
-    """Ferme un ticket : vérifs → rename closed- → catégorie fermée → vue Réouvrir.
+async def handle_close(interaction: discord.Interaction, channel_id: int, *, staff_only: bool = False) -> None:
+    """Ferme un ticket."""
 
-    staff_only=True (commande /ticket close) : seul le staff peut fermer.
-    staff_only=False (bouton Fermer du welcome) : staff OU créateur, comme V3.
-    """
     if not interaction.response.is_done():
         await interaction.response.defer(ephemeral=True)
     guild_id = interaction.guild_id
@@ -49,6 +45,7 @@ async def handle_close(
         return await interaction.followup.send(
             view=error_container("Vous n'êtes pas dans un **ticket**."), ephemeral=True
         )
+    
     if ticket.get("closed"):
         return await interaction.followup.send(
             view=error_container("Ce ticket est déjà fermé."), ephemeral=True
@@ -59,9 +56,10 @@ async def handle_close(
         if staff_only
         else await is_staff_or_creator(interaction, ticket, guild_id)
     )
+
     if not allowed:
         return await interaction.followup.send(
-            view=error_container("Action non autorisée."), ephemeral=True
+            view=error_container("Vous n'êtes pas autorisé à réaliser cette action."), ephemeral=True
         )
 
     rem = rename_cooldown_remaining(ticket)
@@ -78,7 +76,6 @@ async def _close_ticket(interaction: discord.Interaction, ticket: dict, guild_id
     channel = interaction.channel
     panel = await tm.get_panel(guild_id, ticket["panel_id"])
 
-    # Masquer le créateur
     creator = interaction.guild.get_member(ticket["creator_id"])
     if creator:
         try:
@@ -88,7 +85,6 @@ async def _close_ticket(interaction: discord.Interaction, ticket: dict, guild_id
 
     await try_rename(channel, closed_name(ticket["original_name"]))
 
-    # Déplacer en catégorie fermée
     closed_cat = interaction.guild.get_channel(panel.get("closed_category_id")) if panel else None
     if closed_cat:
         try:
@@ -97,9 +93,6 @@ async def _close_ticket(interaction: discord.Interaction, ticket: dict, guild_id
             pass
 
     await tm.update_ticket(channel.id, closed=True, last_rename_at=int(time.time()))
-    # open_count est décrémenté à la suppression définitive (comme V3). À la
-    # fermeture on garde le ticket comptabilisé "ouvert" jusqu'au delete final.
-
     await interaction.followup.send(view=ReopenView(channel.id))
 
 
@@ -108,7 +101,7 @@ async def _close_ticket(interaction: discord.Interaction, ticket: dict, guild_id
 # ============================================================
 
 class ReopenView(LayoutView):
-    """Vue postée après fermeture : Réouvrir / Supprimer (persistante)."""
+    """Ré ouverture d'un ticket fermé."""
 
     def __init__(self, channel_id: int):
         super().__init__(timeout=None)
@@ -141,15 +134,17 @@ class ReopenButton(Button):
         ticket = await tm.get_ticket(self.channel_id)
         if not ticket:
             return await interaction.followup.send(
-                view=error_container("Ticket introuvable."), ephemeral=True
+                view=error_container("Le ticket est introuvable."), ephemeral=True
             )
+        
         if not ticket.get("closed"):
             return await interaction.followup.send(
                 view=error_container("Ce ticket est déjà ouvert."), ephemeral=True
             )
+        
         if not await is_staff(interaction, ticket, guild_id):
             return await interaction.followup.send(
-                view=error_container("La réouverture est réservée au staff."),
+                view=error_container("Vous n'avez pas la permission de réaliser cette action."),
                 ephemeral=True,
             )
 
@@ -190,7 +185,7 @@ class ReopenButton(Button):
             pass
 
         await interaction.followup.send(
-            view=success_container("Le ticket est réouvert.")
+            view=success_container("Le ticket est de nouveau **ouvert**.")
         )
 
 
@@ -232,7 +227,7 @@ class DeleteConfirmView(LayoutView):
         self.channel_id = channel_id
 
         c = Container()
-        c.add_item(TextDisplay("# ⚠️ Confirmation"))
+        c.add_item(TextDisplay("# <:erreur:1495443907281031359> Confirmation"))
         c.add_item(Separator())
         c.add_item(TextDisplay(
             "Supprimer définitivement ce ticket ?\n"
@@ -272,10 +267,9 @@ class _CancelDeleteBtn(Button):
 
 
 # ============================================================
-# 🔔 Wakeup (relance staff-only + cooldown 1h)
+# 🔔 Wakeup
 # ============================================================
 
-# {(channel_id, staff_id): ts} — cooldown mémoire (perte au redémarrage = ok)
 _wake_cooldowns: dict[tuple[int, int], int] = {}
 
 
@@ -289,6 +283,7 @@ async def handle_wakeup(interaction: discord.Interaction, channel_id: int) -> No
         return await interaction.followup.send(
             view=error_container("Ce ticket n'existe plus."), ephemeral=True
         )
+    
     if not await is_staff(interaction, ticket, guild_id):
         return await interaction.followup.send(
             view=error_container("Cette action est réservée aux staffs !"), ephemeral=True
@@ -298,7 +293,7 @@ async def handle_wakeup(interaction: discord.Interaction, channel_id: int) -> No
     last = _wake_cooldowns.get(key, 0)
     if (int(time.time()) - last) < WAKEUP_COOLDOWN_SECONDS:
         return await interaction.followup.send(
-            view=error_container("Veuillez patienter avant de relancer à nouveau."),
+            view=error_container("Veuillez patienter avant d'effectuer une nouvelle relance."),
             ephemeral=True,
         )
     _wake_cooldowns[key] = int(time.time())

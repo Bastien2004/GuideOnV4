@@ -25,6 +25,7 @@ log = logging.getLogger(__name__)
 
 def compute_nick_prefix(grade: str | None, secondary: dict[str, bool], statut_defs: list[dict] | None = None) -> str | None:
     """Détermine le préfixe de rename de pseudo Discord ("Guide", "Journaliste"...)."""
+
     if grade:
         return GRADE_PREFIXES.get(grade, grade)
 
@@ -195,8 +196,6 @@ async def execute_grade_rank(bot: discord.Client, guild_id: int, membre: discord
     await upsert_staff_member(server, membre.id, pseudo, new_grade)
 
     if statuses_stripped:
-        # 🚫 Grade incompatible (Admin/SM) : on retire réellement les statuts
-        # en DB (table ng_staff_statuts), pas seulement côté rôles Discord.
         for key, was_held in current_secondary.items():
             if was_held:
                 await revoke_statut(server, membre.id, key)
@@ -232,14 +231,12 @@ async def execute_grade_rank(bot: discord.Client, guild_id: int, membre: discord
     )
 
     if not is_promotion:
-        # 🛠️ Ping dev centralisé sur le serveur dev (settings), plus par-serveur
-        # NG — cf. utils/settings.py (Paul, 2026-08-22).
         await _send_to_channel(
             bot, settings.dev_ping_channel_id,
             build_dev_message(pseudo, settings.dev_ping_role_id),
         )
 
-    # 📋 Mise à jour de la liste staff (import local, évite un import circulaire de cog).
+    # 📋 Mise à jour de la stafflist
     from utils.managers.ng_stafflist_manager import refresh_staff_message
     await refresh_staff_message(bot, guild_id, server=server)
 
@@ -251,35 +248,9 @@ async def execute_grade_rank(bot: discord.Client, guild_id: int, membre: discord
     return RankResult(label=GRADE_LABELS[new_grade], new_nick=new_nick, extra_warning=extra)
 
 
-async def execute_statut_rank(
-    bot: discord.Client,
-    guild_id: int,
-    membre: discord.Member,
-    pseudo: str,
-    statut: str,
-    cfg: dict,
-    existing: dict | None,
-    second_pseudo: str | None,
-    *,
-    server: str,
-) -> RankResult:
-    """Attribue un statut secondaire (librement défini par serveur, ex :
-    journaliste/affilié/builder) cumulable : DB, rôles, annonces,
-    stafflist.
-
-    `statut` est la `key` d'un NGStatutDef existant pour ce serveur (résolu
-    via ng_statut_manager, plus l'ancien dict figé SECONDARY_STATUSES —
-    Paul, 2026-08-22). `second_pseudo` généralise l'ancien paramètre
-    `pseudo_jeu_builder` : requis uniquement si le statut a
-    `requires_second_pseudo=True` (n'importe quel statut peut désormais
-    porter ce besoin, pas seulement Builder) ET que le membre a déjà un
-    grade (Paul, 2026-08-23) — sans grade, son pseudo IG habituel fait déjà
-    office de pseudo builder.
-
-    Lève RankValidationError si la demande doit être refusée (statut
-    inconnu pour ce serveur, grade incompatible, statut déjà attribué,
-    second pseudo manquant).
-    """
+async def execute_statut_rank(bot: discord.Client, guild_id: int, membre: discord.Member, pseudo: str, statut: str,
+    cfg: dict, existing: dict | None, second_pseudo: str | None, *, server: str) -> RankResult:
+    """Attribue un statut secondaire."""
 
     statut_def = await get_statut_def(server, statut)
     if statut_def is None:
@@ -287,9 +258,6 @@ async def execute_statut_rank(
 
     current_grade = existing["grade"] if existing else None
 
-    # ❌ Incompatibilité Admin/SM — refus net, pas de retrait automatique
-    # (ce sens-là n'a jamais été demandé : seul grade→Admin/SM strip les
-    # statuts, jamais l'inverse).
     if current_grade in STATUT_INCOMPATIBLE_GRADES:
         raise RankValidationError(
             f"**{existing['pseudo_jeu']}** est **{GRADE_LABELS.get(current_grade, current_grade)}** : "
@@ -304,13 +272,7 @@ async def execute_statut_rank(
             warning=True,
         )
 
-    # 🔁 Second pseudo (généralisation de pseudo_jeu_builder) : requis
-    # uniquement si CE statut le demande ET que le membre a déjà un grade
-    # (staff qui est *aussi* builder, avec un compte dédié différent de son
-    # pseudo staff). Pour un membre sans grade, son pseudo IG habituel EST
-    # déjà son pseudo builder — pas de second champ à imposer (Paul,
-    # 2026-08-23, retour utilisateur ; même règle dans grant_statut, voir
-    # ng_statut_manager.py, qui reste la vérification faisant foi).
+    # 🔁 Gestion du second pseudo
     second_pseudo_clean: str | None = None
     if statut_def["requires_second_pseudo"] and current_grade is not None:
         if not second_pseudo or not second_pseudo.strip():
@@ -324,7 +286,6 @@ async def execute_statut_rank(
         second_pseudo_clean = second_pseudo.strip()
 
     if not existing:
-        # Statut "pur" — pas de grade existant : on crée la ligne de base.
         await upsert_staff_member(server, membre.id, pseudo, None)
 
     await grant_statut(server, membre.id, statut, second_pseudo=second_pseudo_clean)
@@ -341,11 +302,6 @@ async def execute_statut_rank(
         reason=f"Rank {get_server_display_name(server)} : {statut_def['label']}",
     )
 
-    # Le grade prime toujours sur le pseudo (s'il y en a un, le pseudo n'est
-    # jamais retouché ici). Sans grade, le préfixe suit l'ordre de
-    # `position` des statuts du serveur (voir compute_nick_prefix),
-    # recalculé sur l'état COMPLET des statuts (pas seulement celui qu'on
-    # vient d'activer), pour rester correct en cas de cumul.
     new_nick = None
     if current_grade is None:
         prefix = compute_nick_prefix(None, target_secondary, statut_defs)
@@ -372,14 +328,12 @@ async def execute_statut_rank(
         )
 
     if not existing:
-        # 🛠️ Ping dev centralisé sur le serveur dev (settings), plus par-serveur
-        # NG — cf. utils/settings.py (Paul, 2026-08-22).
         await _send_to_channel(
             bot, settings.dev_ping_channel_id,
             build_dev_message(pseudo, settings.dev_ping_role_id),
         )
 
-    # 📋 Mise à jour de la liste staff (import local, évite un import circulaire de cog).
+    # 📋 Mise à jour de la stafflist
     from utils.managers.ng_stafflist_manager import refresh_staff_message
     await refresh_staff_message(bot, guild_id, server=server)
 

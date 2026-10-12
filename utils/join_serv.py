@@ -1,21 +1,17 @@
 """
-utils/join_serv.py — Recherche d'un salon utilisable et création d'une
-invitation Discord, extrait de cogs/dev/join_serv.py — même traitement que
-utils/delete_message.py.
+utils/join_serv.py — Création d'invitations pour rejoindre un serveur Discord.
 """
+
 from __future__ import annotations
 
 import logging
-
 import discord
 
 log = logging.getLogger(__name__)
 
 
 class JoinServError(Exception):
-    """Erreur à afficher à l'utilisateur (pas une exception technique) —
-    levée quand aucun salon n'autorise la création d'invitation, ou que
-    Discord refuse/échoue la création."""
+    """Erreur à afficher à l'utilisateur."""
 
     def __init__(self, message: str) -> None:
         super().__init__(message)
@@ -52,21 +48,12 @@ def find_invitable_channel(guild: discord.Guild) -> discord.TextChannel | None:
 # 🔗 Orchestration — extrait de cogs/dev/join_serv.py
 # ============================================================
 
-async def create_server_invite(
-    guild: discord.Guild,
-    requested_by: discord.abc.User,
-) -> tuple[discord.Invite, discord.TextChannel]:
-    """Trouve un salon utilisable et crée une invitation dessus.
+async def create_server_invite(guild: discord.Guild, requested_by: discord.abc.User) -> tuple[discord.Invite, discord.TextChannel]:
+    """Trouve un salon utilisable et crée une invitation dessus."""
 
-    Lève JoinServError si aucun salon n'autorise la création d'invitation,
-    ou si Discord refuse/échoue la création.
-    """
     channel = find_invitable_channel(guild)
     if channel is None:
-        raise JoinServError(
-            f"Aucun salon de **{guild.name}** ne permet à GuideOn de créer une invitation "
-            f"(permission `Créer une invitation` manquante partout)."
-        )
+        raise JoinServError(f"Impossible de créer une invitation pour le serveur **{guild.name}**.")
 
     try:
         invite = await channel.create_invite(
@@ -76,15 +63,15 @@ async def create_server_invite(
             unique=True,
             reason=f"Demandé par {requested_by} ({requested_by.id}) via /dev join_serv",
         )
+
     except discord.Forbidden:
         raise JoinServError(
             f"GuideOn n'a pas la permission de créer une invitation sur **{guild.name}**."
         ) from None
+    
     except discord.HTTPException:
         log.exception("[DEV_JOIN_SERV] Erreur create_invite guild=%d", guild.id)
-        raise JoinServError(
-            "Une **erreur Discord** est survenue lors de la création de l'invitation."
-        ) from None
+        raise JoinServError("Une **erreur Discord** est survenue lors de la création de l'invitation.") from None
 
     log.info(
         "[DEV_JOIN_SERV] Invitation créée pour %s (%d) | salon=%d | demandé par %d",

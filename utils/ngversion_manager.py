@@ -1,3 +1,7 @@
+"""
+utils/ngversion_manager.py — Gestion de la version de NationsGlory Bedrock.
+"""
+
 import json
 import logging
 import os
@@ -10,14 +14,18 @@ VERSION_FILE = "data/ng_json/ng_version.json"
 def lire_version():
     if not os.path.exists(VERSION_FILE):
         return "Version inconnue"
+    
     try:
         with open(VERSION_FILE, "r") as f:
             data = json.load(f)
+
     except (json.JSONDecodeError, OSError):
-        log.warning("[ngversion_manager] %s vide ou corrompu, valeur par défaut utilisée", VERSION_FILE)
+        log.warning("[NGVERSION MANAGER] %s vide ou corrompu, valeur par défaut utilisée", VERSION_FILE)
         return "Version inconnue"
+    
     if not isinstance(data, dict):
         return "Version inconnue"
+    
     return data.get("version", "Version inconnue")
 
 
