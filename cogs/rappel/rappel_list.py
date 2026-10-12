@@ -1,5 +1,5 @@
 """
-cogs/rappel/rappel_liste.py — Commande /rappel liste.
+cogs/rappel/rappel_liste.py — Liste les rappels en attente.
 """
 
 from __future__ import annotations
@@ -27,8 +27,8 @@ log = logging.getLogger(__name__)
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="liste", description="📋 Liste tes rappels en attente")
-async def rappel_lister(interaction: discord.Interaction) -> None:
+@app_commands.command(name="list", description="📋 Liste tes rappels en attente")
+async def rappel_list(interaction: discord.Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.
     if not await verifier_ban_utilisateur(interaction):
@@ -41,11 +41,11 @@ async def rappel_lister(interaction: discord.Interaction) -> None:
         return
 
     # ⚙️ Vérification maintenance.
-    if not await verifier_commande(interaction, "rappel_liste"):
+    if not await verifier_commande(interaction, "rappel_list"):
         return
 
     # 📊 Tracking.
-    await tracker_commande(interaction, "rappel_liste")
+    await tracker_commande(interaction, "rappel_list")
 
     try:
         reminders = await get_reminders_for_user(interaction.user.id)
@@ -64,6 +64,6 @@ async def rappel_lister(interaction: discord.Interaction) -> None:
 # ❌ Gestion des erreurs
 # ============================================================
 
-@rappel_lister.error
-async def rappel_lister_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
+@rappel_list.error
+async def rappel_list_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
     await handle_app_command_error(interaction, error)

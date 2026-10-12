@@ -173,6 +173,16 @@ CATEGORIES: dict[str, dict] = {
                 ("eco leaderboard",      "🏆 Affiche le classement d'argent du serveur"),
             ],
         },
+    "rappel": {
+                "name": "Rappel", "emoji": "🕐",
+                "description": "⇝ Planifie tes rappels facilement !",
+                "available": True,
+                "commands": [
+                    ("rappel create",          "⏰ Crée un rappel personnel"),
+                    ("rappel list",            "📋 Liste tes rappels en attente"),
+                    ("rappel delete",          "🗑️ Annule un rappel en attente"),
+                ],
+            },
 }
 
 

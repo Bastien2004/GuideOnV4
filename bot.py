@@ -267,9 +267,9 @@ class GuideONBot(commands.Bot):
         from cogs.qr.scan import qr_scan
 
         # ── IMPORT RAPPEL ──
-        from cogs.rappel.rappel_annuler import rappel_annuler
-        from cogs.rappel.rappel_creer import rappel_creer
-        from cogs.rappel.rappel_lister import rappel_lister
+        from cogs.rappel.rappel_delete import rappel_delete
+        from cogs.rappel.rappel_create import rappel_create
+        from cogs.rappel.rappel_list import rappel_list
 
 
 
@@ -376,7 +376,7 @@ class GuideONBot(commands.Bot):
 
         # 🕐 ── RAPPEL ──
         groupRAPPEL = groupeRAPPEL()
-        for cmd in [rappel_creer, rappel_lister, rappel_annuler]:
+        for cmd in [rappel_create, rappel_list, rappel_delete]:
             groupRAPPEL.add_command(cmd)
 
 

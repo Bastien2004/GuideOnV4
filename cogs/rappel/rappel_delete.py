@@ -1,5 +1,5 @@
 """
-cogs/rappel/rappel_annuler.py — Commande /rappel annuler <id>.
+cogs/rappel/rappel_delete.py — Commande /rappel delete <id>.
 """
 
 from __future__ import annotations
@@ -25,9 +25,9 @@ log = logging.getLogger(__name__)
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="annuler", description="❌ Annule un rappel en attente")
-@app_commands.describe(id="L'identifiant du rappel (visible via /rappel liste)")
-async def rappel_annuler(interaction: discord.Interaction, id: int) -> None:
+@app_commands.command(name="delete", description="🗑️ Annule un rappel en attente")
+@app_commands.describe(id="L'identifiant du rappel (/rappel list)")
+async def rappel_delete(interaction: discord.Interaction, id: int) -> None:
 
     # 🛡️ Vérification ban utilisateur.
     if not await verifier_ban_utilisateur(interaction):
@@ -40,11 +40,11 @@ async def rappel_annuler(interaction: discord.Interaction, id: int) -> None:
         return
 
     # ⚙️ Vérification maintenance.
-    if not await verifier_commande(interaction, "rappel_annuler"):
+    if not await verifier_commande(interaction, "rappel_delete"):
         return
 
     # 📊 Tracking.
-    await tracker_commande(interaction, "rappel_annuler")
+    await tracker_commande(interaction, "rappel_delete")
 
     try:
         await cancel_reminder(id, interaction.user.id)
@@ -74,6 +74,6 @@ async def rappel_annuler(interaction: discord.Interaction, id: int) -> None:
 # ❌ Gestion des erreurs
 # ============================================================
 
-@rappel_annuler.error
-async def rappel_annuler_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
+@rappel_delete.error
+async def rappel_delete_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
     await handle_app_command_error(interaction, error)
