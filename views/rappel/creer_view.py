@@ -11,6 +11,16 @@ texte, bouton d'état pour le choix binaire).
 
 Champs : exactement ceux définis avec Paul pour la V1 (/rappel créer) —
 temps (durée), message, destination (MP ou salon). Rien de plus.
+
+⚠️ Le champ texte du rappel est stocké sous `self.reminder_message`, PAS
+`self.message` : `BaseLayoutView` réserve déjà `self.message` pour le
+`discord.Message` du panneau (posé par `interaction_check`, utilisé par
+`on_timeout` pour désactiver les composants à l'expiration). Nommer un
+champ d'état `self.message` dans une sous-classe de `BaseLayoutView` est
+silencieusement écrasé dès la première interaction composant — c'est
+exactement le bug corrigé le 2026-10-12 (TypeError côté Discord dès le
+1er clic sur un bouton "Modifier", car `self.message` devenait l'objet
+`discord.Message` du panneau au lieu du texte saisi).
 """
 from __future__ import annotations
 
@@ -53,7 +63,7 @@ class RappelCreerView(BaseLayoutView):
         self.channel_id = channel_id
 
         self.duration_seconds: int | None = None
-        self.message: str | None = None
+        self.reminder_message: str | None = None
         self.destination: str = "mp"
 
         self._build()
@@ -63,7 +73,7 @@ class RappelCreerView(BaseLayoutView):
     # ------------------------------------------------------------------
 
     def _is_complete(self) -> bool:
-        return self.duration_seconds is not None and bool(self.message)
+        return self.duration_seconds is not None and bool(self.reminder_message)
 
     def _build(self) -> None:
         self.clear_items()
@@ -86,7 +96,7 @@ class RappelCreerView(BaseLayoutView):
         container.add_item(Separator())
 
         # ── Message ────────────────────────────────────────
-        message_display = f"« {_truncate(self.message)} »" if self.message else "`Non défini`"
+        message_display = f"« {_truncate(self.reminder_message)} »" if self.reminder_message else "`Non défini`"
         btn_message = Button(label="Modifier", style=ButtonStyle.secondary, emoji=ICON_MODIFIER)
         btn_message.callback = self._on_click_message
         container.add_item(Section(
@@ -184,14 +194,14 @@ class RappelCreerView(BaseLayoutView):
                     ephemeral=True,
                 )
                 return
-            self.message = value
+            self.reminder_message = value
             await self._refresh(inter)
 
         modal = TextModal(
             title="Message du rappel",
             label="Texte du rappel",
             placeholder="Ex : Penser à relancer le client X",
-            default=self.message or "",
+            default=self.reminder_message or "",
             min_length=1,
             max_length=MAX_MESSAGE_LENGTH,
             style=discord.TextStyle.paragraph,
@@ -223,7 +233,7 @@ class RappelCreerView(BaseLayoutView):
                 guild_id=self.guild_id,
                 channel_id=self.channel_id,
                 destination=self.destination,
-                message=self.message,
+                message=self.reminder_message,
                 due_at=due_at,
             )
         except ReminderLimitError as exc:
