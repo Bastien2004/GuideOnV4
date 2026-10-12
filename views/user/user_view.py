@@ -45,19 +45,35 @@ def get_creation_date(user: discord.User) -> str:
 # 📌 Section informations utilisateur
 # ============================================================
 
+def get_server_tag(user: discord.User) -> str | None:
+    """Retourne le tag de serveur affiché par l'utilisateur."""
+
+    primary_guild = user.primary_guild
+    if not primary_guild or not primary_guild.tag:
+        return None
+    if primary_guild.identity_enabled is False:
+        return None
+    return primary_guild.tag
+
+
 def build_user_infos_section(container: Container, user: discord.User, created_at: str) -> None:
     """Création de la section informations utilisateur."""
-    container.add_item(
-        TextDisplay(
-            "## <:info:1495443961144152094> Informations\n"
-            f"**Pseudo :** `{user}`\n"
-            f"**Nom affiché :** `{user.display_name}`\n"
-            f"**ID :** `{user.id}`\n"
-            f"**Bot :** `{'Oui' if user.bot else 'Non'}`\n"
-            f"**Compte créé le :** {created_at}"
-        )
-    )
+    
+    lines = [
+        "## <:info:1495443961144152094> Informations",
+        f"**Pseudo :** `{user}`",
+        f"**Nom affiché :** `{user.display_name}`",
+        f"**ID :** `{user.id}`",
+        f"**Bot :** `{'Oui' if user.bot else 'Non'}`",
+    ]
 
+    server_tag = get_server_tag(user)
+    if server_tag:
+        lines.append(f"**Tag de serveur :** `{server_tag}`")
+
+    lines.append(f"**Compte créé le :** {created_at}")
+
+    container.add_item(TextDisplay("\n".join(lines)))
     container.add_item(Separator())
 
 
