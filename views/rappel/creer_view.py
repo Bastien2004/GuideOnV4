@@ -73,7 +73,7 @@ class RappelCreerView(BaseLayoutView):
         container = Container()
         container.add_item(TextDisplay("# <:time:1559978913739047052> Création nouveau rappel"))
         container.add_item(Separator())
-        container.add_item(TextDisplay(f"-# <:AI:1547703102273093633> Limité à **{self.max_pending}** rappels simultanés·"))
+        container.add_item(TextDisplay(f"-# <:AI:1547703102273093633> Limité à **{self.max_pending}** rappels simultanés"))
         container.add_item(Separator())
 
         # ── Temps ──────────────────────────────────────────
@@ -94,7 +94,7 @@ class RappelCreerView(BaseLayoutView):
         btn_message = Button(label="Modifier", style=ButtonStyle.secondary, emoji=ICON_MODIFIER)
         btn_message.callback = self._on_click_message
         container.add_item(Section(
-            TextDisplay(f"** Message**\n-# {message_display}"),
+            TextDisplay(f"**<:dialoguer:1495444451244511403> Message**\n-# {message_display}"),
             accessory=btn_message,
         ))
         container.add_item(Separator())
