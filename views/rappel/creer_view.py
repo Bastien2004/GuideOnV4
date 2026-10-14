@@ -1,27 +1,7 @@
 """
-views/rappel/creer_view.py — Panneau interactif pour /rappel créer.
-
-Remplace les anciens paramètres de commande (temps/message/destination) par
-un panneau Components V2 entièrement piloté par l'interface : "aucun
-attribut de commande" (demande de Paul, même décision que pour les
-sanctions /mod, cf. views/mod/sanction_builder_view.py — ce fichier en
-reprend le patron à l'identique : BaseLayoutView, _build()/_refresh(),
-Section(TextDisplay, accessory=Button) par champ, TextModal pour la saisie
-texte, bouton d'état pour le choix binaire).
-
-Champs : exactement ceux définis avec Paul pour la V1 (/rappel créer) —
-temps (durée), message, destination (MP ou salon). Rien de plus.
-
-⚠️ Le champ texte du rappel est stocké sous `self.reminder_message`, PAS
-`self.message` : `BaseLayoutView` réserve déjà `self.message` pour le
-`discord.Message` du panneau (posé par `interaction_check`, utilisé par
-`on_timeout` pour désactiver les composants à l'expiration). Nommer un
-champ d'état `self.message` dans une sous-classe de `BaseLayoutView` est
-silencieusement écrasé dès la première interaction composant — c'est
-exactement le bug corrigé le 2026-10-12 (TypeError côté Discord dès le
-1er clic sur un bouton "Modifier", car `self.message` devenait l'objet
-`discord.Message` du panneau au lieu du texte saisi).
+views/rappel/creer_view.py — Interface de création de rappel.
 """
+
 from __future__ import annotations
 
 import logging
@@ -39,12 +19,14 @@ from views._components.text_modal import TextModal
 
 log = logging.getLogger(__name__)
 
+# ============================================================
+# 🔩 Paramètres
+# ============================================================
+
 MIN_REMINDER_SECONDS = 10
-MAX_REMINDER_SECONDS = 31_536_000  # 1 an — même plafond de bon sens que les sanctions temporaires.
+MAX_REMINDER_SECONDS = 31_536_000
 MAX_MESSAGE_LENGTH = 500
 
-# Icônes maison — cohérence avec views/mod/sanction_builder_view.py,
-# views/bienvenue/config_view.py, views/autorole/config_view.py.
 ICON_MODIFIER = "<:modifier:1495444144712192003>"
 ICON_VALIDER = "<:valider:1495444292867723284>"
 
