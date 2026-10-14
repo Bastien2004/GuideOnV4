@@ -26,7 +26,7 @@ def build_user_stats_view(target: discord.abc.User, stats: dict, link: Optional[
     container.add_item(Separator())
 
     container.add_item(TextDisplay(
-        "### <:Stat:1547703142466982039> Compteurs :\n"
+        "### <:Stat:1547703142466982039> __Compteurs__ :\n"
         f"➤ Régulières : **{stats['regular']}**\n"
         f"➤ Fausses : **{stats['fake']}**\n"
         f"➤ Bonus : **{stats['bonus']}**\n"
@@ -35,12 +35,11 @@ def build_user_stats_view(target: discord.abc.User, stats: dict, link: Optional[
     container.add_item(Separator())
 
     container.add_item(TextDisplay(
-        f"### <:AI:1547703102273093633> Score total :\n **{stats['total']}** invitation"
+        f"### <:AI:1547703102273093633> __Score total__ :\n **{stats['total']}** invitation"
         f"{'s' if stats['total'] != 1 and stats['total'] != -1 else ''}"
     ))
     container.add_item(Separator())
 
-    # --- Bloc "invité par" ---
     if link is None:
         if guild.me is not None and not guild.me.guild_permissions.manage_guild:
             invited_by = ("-# <:erreur:1495443907281031359> Suivi impossible (permission manquante).")
@@ -53,7 +52,7 @@ def build_user_stats_view(target: discord.abc.User, stats: dict, link: Optional[
             invited_by = "-# <:annuler:1495444256754761979> Inviteur inconnu ..."
         else:
             inviter = guild.get_member(inviter_id)
-            inviter_txt = inviter.mention if inviter else f"`utilisateur {inviter_id}`"
+            inviter_txt = f"@{inviter.display_name}" if inviter else f"`utilisateur {inviter_id}`"
             extras = []
             if link.get("is_fake"):
                 extras.append("compte considéré comme récent")
@@ -62,7 +61,7 @@ def build_user_stats_view(target: discord.abc.User, stats: dict, link: Optional[
             suffix = f" *( {', '.join(extras)} )*" if extras else ""
             invited_by = f"-# <:valider:1495444292867723284> Invité par {inviter_txt}{suffix}"
 
-    container.add_item(TextDisplay(f"### <:lien:1552027533032034394> Origine du membre :\n{invited_by}"))
+    container.add_item(TextDisplay(f"### <:lien:1552027533032034394> __Origine du membre__ :\n{invited_by}"))
     container.add_item(Separator())
     container.add_item(TextDisplay("-# GuideOn Studio"))
 

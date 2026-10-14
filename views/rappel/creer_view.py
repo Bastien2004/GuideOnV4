@@ -1,5 +1,5 @@
 """
-views/rappel/creer_view.py — Interface de création de rappel.
+views/rappel/creer_view.py — Interface de création d'un rappel personnel.
 """
 
 from __future__ import annotations
@@ -13,18 +13,25 @@ from discord.ui import ActionRow, Button, Container, Section, Separator, TextDis
 
 from utils.container_universel import error_container, send_ephemeral, success_container, warning_container
 from utils.datetime_utils import format_duration, now_utc, parse_duration
-from utils.managers.reminder_manager import ReminderLimitError, create_reminder
 from views._components.base_view import BaseLayoutView
 from views._components.text_modal import TextModal
+from utils.managers.reminder_manager import (
+    ReminderDurationError,
+    ReminderLimitError,
+    create_reminder,
+    max_duration_seconds_for,
+    max_pending_for,
+)
+
 
 log = logging.getLogger(__name__)
+
 
 # ============================================================
 # 🔩 Paramètres
 # ============================================================
 
 MIN_REMINDER_SECONDS = 10
-MAX_REMINDER_SECONDS = 31_536_000
 MAX_MESSAGE_LENGTH = 500
 
 ICON_MODIFIER = "<:modifier:1495444144712192003>"
@@ -35,8 +42,12 @@ def _truncate(s: str, n: int = 100) -> str:
     return s if len(s) <= n else s[: n - 1] + "…"
 
 
+# ============================================================
+# 🧩 Class principale
+# ============================================================
+
 class RappelCreerView(BaseLayoutView):
-    """Panneau unique de création d'un rappel personnel ponctuel."""
+    """Interface de création d'un rappel personnel."""
 
     def __init__(self, *, user_id: int, guild_id: int, channel_id: int):
         super().__init__(owner_id=user_id, timeout=300)
@@ -48,11 +59,10 @@ class RappelCreerView(BaseLayoutView):
         self.reminder_message: str | None = None
         self.destination: str = "mp"
 
-        self._build()
+        self.max_duration_seconds: int = max_duration_seconds_for(user_id)
+        self.max_pending: int = max_pending_for(user_id)
 
-    # ------------------------------------------------------------------
-    # Construction
-    # ------------------------------------------------------------------
+        self._build()
 
     def _is_complete(self) -> bool:
         return self.duration_seconds is not None and bool(self.reminder_message)
@@ -61,7 +71,9 @@ class RappelCreerView(BaseLayoutView):
         self.clear_items()
 
         container = Container()
-        container.add_item(TextDisplay("# ⏰ Nouveau rappel"))
+        container.add_item(TextDisplay("# <:time:1559978913739047052> Création nouveau rappel"))
+        container.add_item(Separator())
+        container.add_item(TextDisplay(f"-# <:AI:1547703102273093633> Limité à **{self.max_pending}** rappels simultanés·"))
         container.add_item(Separator())
 
         # ── Temps ──────────────────────────────────────────
@@ -72,7 +84,7 @@ class RappelCreerView(BaseLayoutView):
         btn_temps = Button(label="Modifier", style=ButtonStyle.secondary, emoji=ICON_MODIFIER)
         btn_temps.callback = self._on_click_temps
         container.add_item(Section(
-            TextDisplay(f"**⏳ Dans combien de temps ?**\n-# {temps_display}"),
+            TextDisplay(f"**<:time2:1559978943564619786> Dans combien de temps ?**\n-# {temps_display}"),
             accessory=btn_temps,
         ))
         container.add_item(Separator())
@@ -82,12 +94,12 @@ class RappelCreerView(BaseLayoutView):
         btn_message = Button(label="Modifier", style=ButtonStyle.secondary, emoji=ICON_MODIFIER)
         btn_message.callback = self._on_click_message
         container.add_item(Section(
-            TextDisplay(f"**📝 Message**\n-# {message_display}"),
+            TextDisplay(f"** Message**\n-# {message_display}"),
             accessory=btn_message,
         ))
         container.add_item(Separator())
 
-        # ── Destination (bouton d'état, cf. config_view.py Embed/Texte) ──
+        # ── Destination ──
         is_mp = self.destination == "mp"
         btn_mp = Button(
             label="MP", style=ButtonStyle.primary if is_mp else ButtonStyle.secondary,
@@ -99,7 +111,7 @@ class RappelCreerView(BaseLayoutView):
         )
         btn_mp.callback = self._make_cb_set_destination("mp")
         btn_salon.callback = self._make_cb_set_destination("salon")
-        container.add_item(TextDisplay("**📨 Destination**"))
+        container.add_item(TextDisplay("**<:envoyer:1495444217718374580> Destination**"))
         container.add_item(ActionRow(btn_mp, btn_salon))
         container.add_item(Separator())
 
@@ -137,10 +149,11 @@ class RappelCreerView(BaseLayoutView):
                     ephemeral=True,
                 )
                 return
-            if duration_seconds < MIN_REMINDER_SECONDS or duration_seconds > MAX_REMINDER_SECONDS:
+            if duration_seconds < MIN_REMINDER_SECONDS or duration_seconds > self.max_duration_seconds:
+                max_label = format_duration(timedelta(seconds=self.max_duration_seconds))
                 await inter.response.send_message(
                     view=warning_container(
-                        f"La durée doit être comprise entre **{MIN_REMINDER_SECONDS} secondes** et **1 an**."
+                        f"La durée doit être comprise entre **{MIN_REMINDER_SECONDS} secondes** et **{max_label}**."
                     ),
                     ephemeral=True,
                 )
@@ -222,14 +235,19 @@ class RappelCreerView(BaseLayoutView):
             await send_ephemeral(
                 interaction,
                 error_container(
-                    f"Tu as déjà **{exc.limit} rappels** en attente — annule-en un avec `/rappel annuler` avant d'en créer un nouveau."
+                    f"Limite de rappel atteinte, patiente avant d'en créer un nouveau."
                 ),
             )
             return
-        except Exception:
-            log.exception(
-                "[RAPPEL CRÉER] Échec de création (guild=%s, user=%s)", self.guild_id, self.user_id,
+        except ReminderDurationError as exc:
+            max_label = format_duration(timedelta(seconds=exc.max_seconds))
+            await send_ephemeral(
+                interaction,
+                error_container(f"La durée maximale autorisée est de **{max_label}**."),
             )
+            return
+        except Exception:
+            log.exception("[RAPPEL CRÉER] Échec de création (guild=%s, user=%s)", self.guild_id, self.user_id)
             await send_ephemeral(interaction, error_container("Impossible de créer ce **rappel**."))
             return
 
