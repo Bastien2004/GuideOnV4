@@ -176,6 +176,17 @@ class InviteLink(Base, TimestampMixin):
             "is_fake": self.is_fake,
             "counted_left": self.counted_left,
             "created_at": self.created_at,
+            # updated_at (TimestampMixin, onupdate=_utcnow) est rafraîchi par
+            # CHAQUE UPDATE de la ligne — y compris la branche rejoin de
+            # record_join(), qui ne touche jamais created_at (figé au tout
+            # premier INSERT). C'est donc updated_at, pas created_at, qui
+            # reflète la date du DERNIER (ré)arrivée — voir son usage dans
+            # on_member_remove (fenêtre de pénalité "left" de 24h), corrigé le
+            # 2026-10-14 : avant ça, un membre qui rejoignait puis repartait
+            # vite après un rejoin pouvait voir la pénalité "left" ignorée à
+            # tort, le calcul se basant sur la date du tout premier join,
+            # potentiellement vieille de plusieurs mois.
+            "updated_at": self.updated_at,
         }
 
     def __repr__(self) -> str:  # pragma: no cover - debug only

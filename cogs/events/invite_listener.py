@@ -215,17 +215,44 @@ class InviteListener(commands.Cog):
         ou None si ambigu/indétectable. `inviter_id` est déjà filtré (bot /
         auto-invitation exclus).
 
-        Deux sources de candidats :
+        Deux sources de candidats, PAS équivalentes en fiabilité :
+
         1. Invite toujours présente dans `current`, avec uses incrémenté par
            rapport à `before` (invite à usages multiples, y compris illimitée).
+           Signal direct : ce compteur ne peut avoir bougé QUE via un join sur
+           CE code, pendant la fenêtre avant/après lue par CET appel.
+
         2. Invite connue (dans `before` OU `recent_deleted`) mais absente de
            `current`, qui était sur le point d'atteindre son max_uses — c'est
            la signature d'une invite à usage unique (ou dernier usage
            disponible) qui vient d'être consommée puis supprimée par Discord.
-        """
-        candidates: list[tuple[str, Optional[int]]] = []
+           Signal indirect/heuristique : `recent_deleted` couvre une fenêtre de
+           RECENT_DELETE_TTL_SECONDS (15s) qui peut très bien contenir la
+           suppression d'une invite SANS AUCUN RAPPORT avec ce join précis —
+           une révocation manuelle par un admin (y compris d'un lien jamais
+           utilisé : uses=0, max_uses=1 déclenche trivialement `uses+1 >=
+           max_uses`), ou la consommation d'un lien à usage unique par un
+           AUTRE membre quelques secondes plus tôt. Fusionner aveuglément ces
+           candidats avec ceux du mécanisme 1 créait une fausse ambiguïté :
+           un join par ailleurs parfaitement identifiable (mécanisme 1, un
+           seul candidat) perdait toute attribution dès qu'une invite à usage
+           limité disparaissait pour une raison totalement indépendante dans
+           les 15 secondes précédentes. Bug confirmé par
+           test_detect_used_code.py (cas 3 et 4, 2026-10-14).
 
-        # 1) Compteur incrémenté sur une invite toujours en vie.
+        Pour corriger ça sans réintroduire de mauvaise attribution dans le cas
+        inverse (deux joins réellement simultanés sur deux codes différents,
+        where mécanisme 1 trouve déjà 2 candidats et reste ambigu comme
+        avant) : si le mécanisme 1 (direct) trouve EXACTEMENT un candidat, on
+        le retourne immédiatement, sans même consulter le mécanisme 2
+        (heuristique). Le mécanisme 2 n'est consulté que si le mécanisme 1 n'a
+        rien trouvé — c'est exactement le cas qu'il a été conçu pour couvrir
+        (lien à usage unique disparu AVANT que `current` ne soit lu, donc
+        aucun candidat possible côté mécanisme 1).
+        """
+        primary_candidates: list[tuple[str, Optional[int]]] = []
+
+        # 1) Compteur incrémenté sur une invite toujours en vie — signal direct.
         for code, invite in current.items():
             old = before.get(code)
             new_uses = invite.uses or 0
@@ -237,11 +264,25 @@ class InviteListener(commands.Cog):
                 # Invite apparue entre deux events (race) : si uses >= 1 et le
                 # cache ne la connaissait pas encore, on la considère candidate.
                 if new_uses >= 1:
-                    candidates.append((code, cls._resolve_inviter(inviter_id, inviter_is_bot, joining_member_id)))
+                    primary_candidates.append((code, cls._resolve_inviter(inviter_id, inviter_is_bot, joining_member_id)))
             elif new_uses > old.get("uses", 0):
-                candidates.append((code, cls._resolve_inviter(inviter_id, inviter_is_bot, joining_member_id)))
+                primary_candidates.append((code, cls._resolve_inviter(inviter_id, inviter_is_bot, joining_member_id)))
 
-        # 2) Invite disparue (usage unique consommé, ou dernier usage atteint).
+        if len(primary_candidates) == 1:
+            # Signal direct et non-ambigu pour CE join : on fait confiance au
+            # mécanisme 1 sans laisser une suppression indépendante (mécanisme
+            # 2, voir ci-dessus) venir créer une fausse ambiguïté.
+            return primary_candidates[0]
+        if len(primary_candidates) > 1:
+            # Déjà ambigu entre plusieurs candidats directs (vraie race sur
+            # deux codes différents) : le mécanisme 2 ne peut rien désambiguïser
+            # ici, inutile de l'interroger.
+            return None
+
+        # Mécanisme 1 muet (aucune invite encore en vie n'a vu son compteur
+        # bouger) : on retombe sur le mécanisme 2, heuristique, qui couvre le
+        # cas "lien à usage unique déjà disparu de `current`".
+        fallback_candidates: list[tuple[str, Optional[int]]] = []
         known_gone_sources: dict[str, InviteSnapshot] = {**before, **recent_deleted}
         for code, snap in known_gone_sources.items():
             if code in current:
@@ -252,15 +293,15 @@ class InviteListener(commands.Cog):
             # ne disparaît jamais "d'usure", donc on ne considère ce cas que
             # pour une invite à usages limités sur le point d'être épuisée.
             if max_uses and uses + 1 >= max_uses:
-                candidates.append((
+                fallback_candidates.append((
                     code,
                     cls._resolve_inviter(
                         snap.get("inviter_id"), snap.get("inviter_is_bot", False), joining_member_id,
                     ),
                 ))
 
-        if len(candidates) == 1:
-            return candidates[0]
+        if len(fallback_candidates) == 1:
+            return fallback_candidates[0]
         return None  # ambigu ou aucun
 
     async def _maybe_grant_reward(
@@ -558,7 +599,20 @@ class InviteListener(commands.Cog):
             return
 
         # Règle V3 : pénalité uniquement si départ < 24h après l'arrivée.
-        joined_at = link.get("created_at")
+        #
+        # ⚠️ 2026-10-14 (bug corrigé) : on utilise `updated_at`, PAS
+        # `created_at`. `created_at` (TimestampMixin) n'est posé qu'une seule
+        # fois, au tout premier INSERT de la ligne InviteLink pour ce membre —
+        # il ne bouge plus jamais, même après un rejoin (la branche rejoin de
+        # record_join() ne fait que modifier des colonnes sur la ligne
+        # existante). `updated_at`, lui, est rafraîchi par SQLAlchemy
+        # (onupdate=_utcnow) à CHAQUE UPDATE de la ligne, donc à chaque
+        # rejoin. Avec `created_at`, un membre qui rejoint puis repart
+        # rapidement après un rejoin (bien après son tout premier join,
+        # parfois des mois plus tôt) voyait `elapsed` calculé depuis cette
+        # date figée — largement > 24h — et la pénalité "left" de l'inviteur
+        # était silencieusement SAUTÉE alors qu'elle aurait dû s'appliquer.
+        joined_at = link.get("updated_at") or link.get("created_at")
         if joined_at is not None:
             # Sur PostgreSQL avec DateTime(timezone=True), joined_at est tz-aware.
             # Sur SQLite ou en cas de driver non-tz-aware, il peut être naïf :

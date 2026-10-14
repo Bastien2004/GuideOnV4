@@ -78,6 +78,11 @@ async def create_invite_view(guild_id: int, bot, author_id: Optional[int] = None
     container.add_item(TextDisplay(f"# 📨 Configuration Invitations"))
     container.add_item(Separator())
 
+    if guild.me is not None and not guild.me.guild_permissions.manage_guild:
+        container.add_item(TextDisplay(
+            "## <:erreur:1495443907281031359> Permission (**Gérer le serveur**) manquante."))
+        container.add_item(Separator())
+
     btn_sys = _state_btn(enabled)
     btn_sys.callback = _cb_toggle(guild_id, bot, author_id)
     container.add_item(Section(
