@@ -6,6 +6,16 @@ déplacement) choisis dans l'interface. Trois actions indépendantes,
 appliquées instantanément (même pattern que views/bienvenue/config_view.py
 ::_state_btn pour le mute, boutons d'action directs pour déplacer/expulser),
 icônes maison.
+
+Après chaque action, un message éphémère confirme le résultat (nombre de
+membres réellement affectés, ou avertissement si 0 — cf. send_ephemeral en
+fin de _on_toggle_mute/_on_move/_on_disconnect) : même convention que
+views/mod/clear_builder_view.py et views/mod/purge_builder_view.py, qui
+affichent toujours un succès explicite après leur action finale (audit
+2026-10-15 — avant ce correctif, le panneau se contentait de se rafraîchir
+silencieusement, sans jamais dire au modérateur combien de membres avaient
+réellement été affectés, ni s'il y en avait eu zéro à cause d'un salon vide
+ou d'une permission manquante).
 """
 from __future__ import annotations
 
@@ -15,9 +25,12 @@ import discord
 from discord import ButtonStyle
 from discord.ui import ActionRow, Button, Container, Section, Separator, TextDisplay
 
-from utils.container_universel import error_container, warning_container
+from utils.container_universel import error_container, send_ephemeral, success_container, warning_container
 from utils.managers.mod_log_manager import log_channel_action
-from utils.managers.mod_voice_manager import VoiceManageError, is_channel_muted
+from utils.managers.mod_voice_manager import (
+    VoiceManageError,
+    is_channel_muted,
+)
 from utils.managers.mod_voice_manager import disconnect_all as apply_disconnect_all
 from utils.managers.mod_voice_manager import move_all as apply_move_all
 from utils.managers.mod_voice_manager import mute_all as apply_mute_all
@@ -97,11 +110,18 @@ class VoiceManageBuilderView(BaseLayoutView):
         ))
         container.add_item(Separator())
 
+        # Un salon source vide n'a personne à muter/déplacer/expulser : on désactive
+        # directement les 3 boutons d'action plutôt que de laisser cliquer pour
+        # découvrir "0 membre affecté" (même logique que can_move ci-dessous, qui
+        # désactive déjà "Déplacer" quand source == destination).
+        has_source_members = self.source is not None and len(self.source.members) > 0
+
         if self.source is None:
             btn_mute = _mute_btn(False)
             btn_mute.disabled = True
         else:
             btn_mute = _mute_btn(is_channel_muted(self.source))
+            btn_mute.disabled = not has_source_members
         btn_mute.callback = self._on_toggle_mute
         container.add_item(Section(
             TextDisplay("**🔇 Mute serveur**\n-# Mute/démute tous les membres présents dans le salon source."),
@@ -109,7 +129,11 @@ class VoiceManageBuilderView(BaseLayoutView):
         ))
         container.add_item(Separator())
 
-        can_move = self.source is not None and self.destination is not None and self.source.id != self.destination.id
+        can_move = (
+            has_source_members
+            and self.destination is not None
+            and self.source.id != self.destination.id
+        )
         btn_move = Button(label="Déplacer tous", style=ButtonStyle.primary, disabled=not can_move)
         btn_move.callback = self._on_move
         container.add_item(Section(
@@ -119,7 +143,7 @@ class VoiceManageBuilderView(BaseLayoutView):
         container.add_item(Separator())
 
         btn_disconnect = Button(
-            label="Expulser tous", style=ButtonStyle.danger, emoji=ICON_SUPPRIMER, disabled=self.source is None,
+            label="Expulser tous", style=ButtonStyle.danger, emoji=ICON_SUPPRIMER, disabled=not has_source_members,
         )
         btn_disconnect.callback = self._on_disconnect
         container.add_item(Section(
@@ -190,12 +214,22 @@ class VoiceManageBuilderView(BaseLayoutView):
                 view=warning_container("Veuillez sélectionner un salon source avant de continuer."), ephemeral=True,
             )
             return
+        if not self.source.members:
+            # Filet de sécurité : le bouton est normalement déjà désactivé dans ce
+            # cas (cf. has_source_members dans _build), mais le message affiché
+            # peut être légèrement périmé si tout le monde vient de quitter.
+            await interaction.response.send_message(
+                view=warning_container(f"Le salon {self.source.mention} est vide : personne à muter/démuter."),
+                ephemeral=True,
+            )
+            return
 
-        target_mute = not is_channel_muted(self.source)
+        channel = self.source
+        target_mute = not is_channel_muted(channel)
         try:
-            count = await apply_mute_all(self.source, mute=target_mute, reason=self.reason)
+            count = await apply_mute_all(channel, mute=target_mute, reason=self.reason)
         except Exception:
-            log.exception("[VOICE_BUILDER] Échec mute guild=%s channel=%s", self.guild.id, self.source.id)
+            log.exception("[VOICE_BUILDER] Échec mute guild=%s channel=%s", self.guild.id, channel.id)
             await interaction.response.send_message(
                 view=error_container("Une erreur inattendue est survenue pendant le mute."), ephemeral=True,
             )
@@ -203,10 +237,26 @@ class VoiceManageBuilderView(BaseLayoutView):
 
         action_label = "Mute vocal de masse" if target_mute else "Démute vocal de masse"
         await log_channel_action(
-            self.guild.id, action_label, self.moderator_id, self.source,
+            self.guild.id, action_label, self.moderator_id, channel,
             reason=self.reason, extra=f"{count} membre(s) affecté(s)",
         )
         await self._refresh(interaction)
+
+        # Confirmation explicite du résultat (même convention que /mod clear et
+        # /mod purge) : sans ça, un modérateur dont l'action échoue entièrement
+        # (permission manquante) n'avait aucun moyen de le savoir — le panneau se
+        # rafraîchissait silencieusement comme en cas de succès.
+        verbe = "mutés" if target_mute else "démutés"
+        if count > 0:
+            await send_ephemeral(interaction, success_container(f"✅ **{count}** membre(s) {verbe} dans {channel.mention}."))
+        else:
+            await send_ephemeral(
+                interaction,
+                warning_container(
+                    f"Aucun membre n'a pu être {'mute' if target_mute else 'démute'} dans {channel.mention} — "
+                    f"vérifie ma permission **Muter les membres** dans ce salon."
+                ),
+            )
 
     async def _on_move(self, interaction: discord.Interaction) -> None:
         if self.source is None or self.destination is None:
@@ -214,25 +264,44 @@ class VoiceManageBuilderView(BaseLayoutView):
                 view=warning_container("Veuillez sélectionner un salon source et un salon destination."), ephemeral=True,
             )
             return
+        if not self.source.members:
+            # Filet de sécurité, cf. _on_toggle_mute.
+            await interaction.response.send_message(
+                view=warning_container(f"Le salon {self.source.mention} est vide : personne à déplacer."),
+                ephemeral=True,
+            )
+            return
 
+        channel, destination = self.source, self.destination
         try:
-            count = await apply_move_all(self.source, self.destination, reason=self.reason)
+            count = await apply_move_all(channel, destination, reason=self.reason)
         except VoiceManageError as e:
             view = warning_container(e.message) if e.warning else error_container(e.message)
             await interaction.response.send_message(view=view, ephemeral=True)
             return
         except Exception:
-            log.exception("[VOICE_BUILDER] Échec déplacement guild=%s channel=%s", self.guild.id, self.source.id)
+            log.exception("[VOICE_BUILDER] Échec déplacement guild=%s channel=%s", self.guild.id, channel.id)
             await interaction.response.send_message(
                 view=error_container("Une erreur inattendue est survenue pendant le déplacement."), ephemeral=True,
             )
             return
 
         await log_channel_action(
-            self.guild.id, "Déplacement vocal de masse", self.moderator_id, self.source,
-            reason=self.reason, extra=f"{count} membre(s) déplacé(s) vers {self.destination.mention}",
+            self.guild.id, "Déplacement vocal de masse", self.moderator_id, channel,
+            reason=self.reason, extra=f"{count} membre(s) déplacé(s) vers {destination.mention}",
         )
         await self._refresh(interaction)
+
+        if count > 0:
+            await send_ephemeral(interaction, success_container(f"✅ **{count}** membre(s) déplacé(s) vers {destination.mention}."))
+        else:
+            await send_ephemeral(
+                interaction,
+                warning_container(
+                    f"Aucun membre n'a pu être déplacé vers {destination.mention} — vérifie ma permission "
+                    f"**Déplacer les membres**, ou si le salon destination est plein."
+                ),
+            )
 
     async def _on_disconnect(self, interaction: discord.Interaction) -> None:
         if self.source is None:
@@ -240,18 +309,37 @@ class VoiceManageBuilderView(BaseLayoutView):
                 view=warning_container("Veuillez sélectionner un salon source avant de continuer."), ephemeral=True,
             )
             return
+        if not self.source.members:
+            # Filet de sécurité, cf. _on_toggle_mute.
+            await interaction.response.send_message(
+                view=warning_container(f"Le salon {self.source.mention} est vide : personne à expulser."),
+                ephemeral=True,
+            )
+            return
 
+        channel = self.source
         try:
-            count = await apply_disconnect_all(self.source, reason=self.reason)
+            count = await apply_disconnect_all(channel, reason=self.reason)
         except Exception:
-            log.exception("[VOICE_BUILDER] Échec expulsion guild=%s channel=%s", self.guild.id, self.source.id)
+            log.exception("[VOICE_BUILDER] Échec expulsion guild=%s channel=%s", self.guild.id, channel.id)
             await interaction.response.send_message(
                 view=error_container("Une erreur inattendue est survenue pendant l'expulsion."), ephemeral=True,
             )
             return
 
         await log_channel_action(
-            self.guild.id, "Expulsion vocale de masse", self.moderator_id, self.source,
+            self.guild.id, "Expulsion vocale de masse", self.moderator_id, channel,
             reason=self.reason, extra=f"{count} membre(s) déconnecté(s)",
         )
         await self._refresh(interaction)
+
+        if count > 0:
+            await send_ephemeral(interaction, success_container(f"✅ **{count}** membre(s) déconnecté(s) de {channel.mention}."))
+        else:
+            await send_ephemeral(
+                interaction,
+                warning_container(
+                    f"Aucun membre n'a pu être déconnecté de {channel.mention} — vérifie ma permission "
+                    f"**Déplacer les membres** dans ce salon."
+                ),
+            )

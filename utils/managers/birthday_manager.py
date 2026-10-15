@@ -158,6 +158,34 @@ async def all_active_configs() -> list[dict]:
     return out
 
 
+async def all_configs_with_role() -> list[dict]:
+    """Récupère la configuration de tous les serveurs ayant un **rôle anniversaire**
+    configuré — INDÉPENDAMMENT du statut `enabled`.
+
+    Utilisé par le retrait de minuit (cogs/events/birthday_scheduler.py) : si on se
+    basait sur all_active_configs() comme pour la tâche du matin, un admin qui
+    désactive le système (ou le serveur qui le désactive) entre 7h00 et minuit
+    ferait disparaître sa config de la liste traitée à minuit, et le rôle resterait
+    accroché indéfiniment aux membres qui l'ont reçu le matin (bug identifié lors de
+    l'audit du 2026-10-15 — le retrait du rôle ne doit jamais dépendre de l'état
+    'activé/désactivé' du système, seulement de la présence d'un rôle configuré).
+    """
+
+    async with get_session() as session:
+        rows = (
+            await session.execute(
+                select(BirthdayConfig).where(BirthdayConfig.role_id.is_not(None))
+            )
+        ).scalars().all()
+
+    out = []
+    for r in rows:
+        d = r.to_dict()
+        d["guild_id"] = r.guild_id
+        out.append(d)
+    return out
+
+
 # ======================================================
 # ======================= USERS ========================
 # ======================================================

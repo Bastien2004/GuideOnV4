@@ -11,7 +11,13 @@ from zoneinfo import ZoneInfo
 import discord
 from discord.ext import commands, tasks
 
-from utils.managers.birthday_manager import all_active_configs, get_birthdays_today, save_birthday_config
+from utils.birthday import strip_birthday_role
+from utils.managers.birthday_manager import (
+    all_active_configs,
+    all_configs_with_role,
+    get_birthdays_today,
+    save_birthday_config,
+)
 
 log = logging.getLogger(__name__)
 
@@ -88,27 +94,6 @@ class BirthdayScheduler(commands.Cog):
         if guild is None:
             return
 
-        channel_id = cfg.get("channel_id")
-        if channel_id is None:
-            log.warning("[LISTENER BIRTHDAY] Salon non configuré | guild=%s", guild_id)
-            return
-
-        channel = guild.get_channel(channel_id)
-        if channel is None:
-            log.warning("[LISTENER BIRTHDAY] Salon %s introuvable pour guild=%s", channel_id, guild_id)
-
-            try:
-                await save_birthday_config(guild_id, {"enabled": False, "channel_id": None})
-
-            except Exception:
-                log.exception("[LISTENER BIRTHDAY] Échec de la désactivation automatique | guild=%s", guild_id)
-            return
-
-        me = guild.me
-        if me is None or not channel.permissions_for(me).send_messages:
-            log.warning("[LISTENER BIRTHDAY] Permission inssufisante d'écrire | #%s guild=%s", channel_id, guild_id)
-            return
-
         users = await get_birthdays_today(guild_id, today)
         if not users:
             return
@@ -129,6 +114,45 @@ class BirthdayScheduler(commands.Cog):
         if not valid:
             return
 
+        # 📢 Annonce dans le salon configuré et 🎈 attribution du rôle anniversaire :
+        # DEUX fonctionnalités indépendantes (le panneau de config permet de régler
+        # l'une sans l'autre), donc l'une ne doit jamais bloquer l'autre — avant ce
+        # correctif (audit 2026-10-15), l'absence de salon faisait sortir la fonction
+        # avant même de regarder le rôle, qui n'était alors JAMAIS attribué si un
+        # admin configurait uniquement le rôle sans salon d'annonce.
+        await self._announce(guild, guild_id, cfg.get("channel_id"), valid)
+        await self._grant_role(guild, guild_id, cfg.get("role_id"), valid)
+
+    async def _announce(
+        self,
+        guild: discord.Guild,
+        guild_id: int,
+        channel_id: int | None,
+        valid: list[tuple[dict, discord.Member]],
+    ) -> None:
+        """Envoie le message d'anniversaire dans le salon configuré (best-effort)."""
+
+        if channel_id is None:
+            # Configuration valide : un admin peut n'activer que le rôle, sans salon.
+            return
+
+        channel = guild.get_channel(channel_id)
+        if channel is None:
+            log.warning("[LISTENER BIRTHDAY] Salon %s introuvable pour guild=%s — nettoyage de la config", channel_id, guild_id)
+            try:
+                # On retire uniquement la référence au salon : on ne désactive plus
+                # tout le système (le rôle anniversaire, lui, reste indépendant et
+                # continue de fonctionner normalement — cf. docstring _process_morning).
+                await save_birthday_config(guild_id, {"channel_id": None})
+            except Exception:
+                log.exception("[LISTENER BIRTHDAY] Échec du nettoyage du salon | guild=%s", guild_id)
+            return
+
+        me = guild.me
+        if me is None or not channel.permissions_for(me).send_messages:
+            log.warning("[LISTENER BIRTHDAY] Permission insuffisante d'écrire | #%s guild=%s", channel_id, guild_id)
+            return
+
         mentions = [m.mention for _, m in valid]
         message = _build_birthday_message(mentions)
         try:
@@ -136,31 +160,39 @@ class BirthdayScheduler(commands.Cog):
                 message,
                 allowed_mentions=discord.AllowedMentions(users=True),
             )
-
             log.info("[LISTENER BIRTHDAY] Message envoyé guild=%s — %d membre(s) fêté(s)", guild_id, len(valid))
-
         except discord.Forbidden:
             log.warning("[LISTENER BIRTHDAY] Forbidden envoi message guild=%s salon=%s", guild_id, channel_id)
-            return
-        
         except discord.HTTPException:
             log.exception("[LISTENER BIRTHDAY] Erreur HTTP envoi message guild=%s", guild_id)
-            return
 
-        role_id = cfg.get("role_id")
+    async def _grant_role(
+        self,
+        guild: discord.Guild,
+        guild_id: int,
+        role_id: int | None,
+        valid: list[tuple[dict, discord.Member]],
+    ) -> None:
+        """Attribue le rôle anniversaire aux membres fêtés aujourd'hui (best-effort)."""
+
         if role_id is None:
             return
-        
+
         role = guild.get_role(role_id)
         if role is None:
-            log.warning("[LISTENER BIRTHDAY] Rôle %s introuvable guild=%s", role_id, guild_id)
+            log.warning("[LISTENER BIRTHDAY] Rôle %s introuvable guild=%s — nettoyage de la config", role_id, guild_id)
+            try:
+                await save_birthday_config(guild_id, {"role_id": None})
+            except Exception:
+                log.exception("[LISTENER BIRTHDAY] Échec du nettoyage du rôle | guild=%s", guild_id)
             return
-        
+
         if role.is_default() or role.managed:
             log.warning("[LISTENER BIRTHDAY] Rôle %s non attribuable (everyone/managed) guild=%s", role_id, guild_id)
             return
-        
-        if role >= me.top_role:
+
+        me = guild.me
+        if me is None or role >= me.top_role:
             log.warning("[LISTENER BIRTHDAY] Rôle %s au-dessus du bot guild=%s — skip", role_id, guild_id)
             return
 
@@ -169,10 +201,8 @@ class BirthdayScheduler(commands.Cog):
                 continue
             try:
                 await member.add_roles(role, reason="Anniversaire du jour")
-
             except discord.Forbidden:
                 log.warning("[LISTENER BIRTHDAY] Forbidden add_role %s → %s guild=%s", role.id, member.id, guild_id)
-
             except discord.HTTPException:
                 log.exception("[LISTENER BIRTHDAY] Erreur HTTP add_role %s → %s", role.id, member.id)
 
@@ -185,10 +215,14 @@ class BirthdayScheduler(commands.Cog):
         log.info("[LISTENER BIRTHDAY] Midnight task — retrait des rôles anniversaire")
 
         try:
-            configs = await all_active_configs()
+            # ⚠️ Volontairement all_configs_with_role() et PAS all_active_configs() :
+            # le retrait doit avoir lieu même si le système a été désactivé (bouton
+            # ON/OFF) entre 7h00 et minuit — sans quoi le rôle reste accroché aux
+            # membres indéfiniment (cf. docstring all_configs_with_role, audit 2026-10-15).
+            configs = await all_configs_with_role()
 
         except Exception:
-            log.exception("[LISTENER BIRTHDAY] midnight_task : échec all_active_configs")
+            log.exception("[LISTENER BIRTHDAY] midnight_task : échec all_configs_with_role")
             return
 
         for cfg in configs:
@@ -211,30 +245,10 @@ class BirthdayScheduler(commands.Cog):
         role_id = cfg.get("role_id")
         if role_id is None:
             return
-        role = guild.get_role(role_id)
-        if role is None:
-            return
 
-        me = guild.me
-        if me is not None and role >= me.top_role:
-            log.warning("[LISTENER BIRTHDAY] Rôle %s au-dessus du bot — retrait impossible guild=%s", role_id, guild_id)
-            return
-
-        members_with_role = list(role.members)
-        if not members_with_role:
-            return
-
-        log.info("[LISTENER BIRTHDAY] Retrait rôle %s à %d membre(s) guild=%s", role_id, len(members_with_role), guild_id)
-
-        for member in members_with_role:
-            try:
-                await member.remove_roles(role, reason="Fin de la journée d'anniversaire")
-
-            except discord.Forbidden:
-                log.warning("[LISTENER BIRTHDAY] Forbidden remove_role %s → %s guild=%s", role.id, member.id, guild_id)
-
-            except discord.HTTPException:
-                log.exception("[LISTENER BIRTHDAY] Erreur HTTP remove_role %s → %s", role.id, member.id)
+        removed = await strip_birthday_role(guild, role_id)
+        if removed:
+            log.info("[LISTENER BIRTHDAY] Retrait rôle %s : %d membre(s) guild=%s", role_id, removed, guild_id)
 
 
 # ============================================================

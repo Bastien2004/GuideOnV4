@@ -11,6 +11,7 @@ import discord
 from discord import ButtonStyle, Interaction
 from discord.ui import ActionRow, Button, Container, Section, Separator, TextDisplay
 
+from utils.birthday import strip_birthday_role
 from utils.container_universel import error_container
 from utils.perm_admin import is_admin
 from utils.managers.birthday_manager import (
@@ -78,7 +79,7 @@ async def create_birthday_view(guild_id: int, bot, author_id: Optional[int] = No
     view = BaseLayoutView(owner_id=author_id, timeout=600)
     container = Container()
 
-    container.add_item(TextDisplay(f"# 🎂 Configuration Anniversaires"))
+    container.add_item(TextDisplay("# 🎂 Configuration Anniversaires"))
     container.add_item(Separator())
 
     btn_sys = _state_btn(enabled)
@@ -98,7 +99,7 @@ async def create_birthday_view(guild_id: int, bot, author_id: Optional[int] = No
 
     container.add_item(Section(
         TextDisplay(
-            f"**📢 Salon d'annonce**\n-# Salon où les vœux sont postés à 7h00.\n"
+            f"**📢 Salon d'annonce**\n-# Salon où les vœux sont postés à **7h00**.\n"
             f"-# Actuel : {_channel_label(channel_id, guild)}"
         ),
         accessory=ch_btn,
@@ -164,7 +165,6 @@ def _guard(author_id: Optional[int]):
                 ephemeral=True,
             )
             return False
-        member = interaction.user
         if not is_admin(interaction):
             await interaction.response.send_message(
                 view=error_container("Vous devez être **Administrateur**."),
@@ -183,10 +183,10 @@ async def _rerender(interaction: Interaction, guild_id: int, bot, author_id):
             view=error_container("Serveur **introuvable**."), ephemeral=True
         )
         return
-    if interaction.response.is_done():
-        await interaction.edit_original_response(view=new_view)
-    else:
-        await interaction.response.edit_message(view=new_view)
+    # new_view est un BaseLayoutView : on réutilise sa propre logique de
+    # rafraîchissement (is_done() -> edit_original_response, sinon edit_message)
+    # au lieu de la dupliquer ici — même mécanique que partout ailleurs dans le bot.
+    await new_view.push_update(interaction)
 
 
 def _cb_toggle(guild_id, bot, author_id):
@@ -218,7 +218,18 @@ def _cb_clear_role(guild_id, bot, author_id):
     async def cb(interaction: Interaction):
         if not await check(interaction):
             return
+        cfg = await load_birthday_config(guild_id)
+        old_role_id = cfg.get("role_id")
         await save_birthday_config(guild_id, {"role_id": None})
+
+        # On retire tout de suite le rôle des membres qui le portent : une fois sa
+        # référence effacée de la config, le scheduler de minuit ne peut plus savoir
+        # quel rôle nettoyer — sans ce retrait immédiat il resterait accroché pour
+        # toujours (cf. utils.birthday.strip_birthday_role, audit 2026-10-15).
+        guild = bot.get_guild(guild_id)
+        if guild is not None and old_role_id is not None:
+            await strip_birthday_role(guild, old_role_id)
+
         await _rerender(interaction, guild_id, bot, author_id)
     return cb
 
@@ -255,7 +266,7 @@ def _cb_pick_channel(guild_id, bot, author_id):
             view=SelectPageView(
                 kind="channel",
                 title="📢 Salon d'annonce",
-                description="-# Sélectionne le salon où les vœux seront postés à 7h00.",
+                description="-# Sélectionne le salon où les vœux seront postés à **7h00**.",
                 current_value=cfg.get("channel_id"),
                 owner_id=author_id,
                 on_save=_on_save,
@@ -304,7 +315,7 @@ def _cb_pick_role(guild_id, bot, author_id):
             view=SelectPageView(
                 kind="role",
                 title="🎈 Rôle anniversaire",
-                description="-# Attribué automatiquement de 7h00 à 00h00 le jour J.",
+                description="-# Attribué automatiquement de **7h00** à **23h59** le jour J.",
                 current_value=cfg.get("role_id"),
                 owner_id=author_id,
                 on_save=_on_save,
@@ -440,7 +451,17 @@ def _cb_reset(guild_id, bot, author_id):
             return
 
         async def _on_confirm(inter: Interaction):
+            cfg = await load_birthday_config(guild_id)
+            old_role_id = cfg.get("role_id")
             await reset_birthday_config(guild_id)
+
+            # Même raison que _cb_clear_role : une fois role_id effacé, plus personne
+            # (ni le scheduler, ni la config) ne sait quel rôle retirer — on le fait
+            # donc tout de suite, pendant qu'on connaît encore sa valeur.
+            guild = bot.get_guild(guild_id)
+            if guild is not None and old_role_id is not None:
+                await strip_birthday_role(guild, old_role_id)
+
             await _rerender(inter, guild_id, bot, author_id)
 
         async def _on_cancel(inter: Interaction):
@@ -452,6 +473,7 @@ def _cb_reset(guild_id, bot, author_id):
         c.add_item(Separator())
         c.add_item(TextDisplay(
             "-# Cette action désactive le système et retire le salon et le rôle configurés.\n"
+            "-# Le rôle anniversaire en cours est immédiatement retiré aux membres qui le portent.\n"
             "-# Les dates déjà enregistrées par les membres ne sont **pas supprimées**."
         ))
         c.add_item(Separator())

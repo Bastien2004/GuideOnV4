@@ -8,6 +8,8 @@ import logging
 from dataclasses import dataclass
 from typing import Optional
 
+import discord
+
 from utils.managers.birthday_manager import get_user_birthday, set_user_birthday, validate_date
 
 log = logging.getLogger(__name__)
@@ -103,3 +105,49 @@ async def register_birthday(guild_id: int, user_id: int, date_str: str) -> Birth
         )
 
     return BirthdayResult(day=day, month=month, year=year)
+
+
+# ============================================================
+# 🎈 Rôle anniversaire — retrait partagé (scheduler + panneau config)
+# ============================================================
+
+async def strip_birthday_role(guild: discord.Guild, role_id: int) -> int:
+    """Retire le rôle anniversaire de tous les membres qui le portent actuellement.
+
+    Best-effort (Forbidden/HTTPException loggés et ignorés par membre). Partagé par :
+    - cogs/events/birthday_scheduler.py (retrait de minuit, tous les jours) ;
+    - views/birthday/config_view.py (dès qu'un admin retire le rôle de la config ou
+      réinitialise le système) — sans ça, un membre fêté le matin puis "déconfiguré"
+      en cours de journée garde le rôle pour toujours, puisque le scheduler de minuit
+      ne peut plus retrouver quel rôle retirer une fois sa référence effacée de la
+      configuration (bug identifié lors de l'audit du 2026-10-15).
+
+    Renvoie le nombre de membres à qui le rôle a été retiré avec succès.
+    """
+
+    role = guild.get_role(role_id)
+    if role is None:
+        return 0
+
+    me = guild.me
+    if me is not None and role >= me.top_role:
+        log.warning(
+            "[BIRTHDAY] Rôle %s au-dessus du bot — retrait impossible guild=%s", role_id, guild.id
+        )
+        return 0
+
+    removed = 0
+    for member in list(role.members):
+        try:
+            await member.remove_roles(role, reason="Anniversaire : rôle retiré")
+            removed += 1
+        except discord.Forbidden:
+            log.warning(
+                "[BIRTHDAY] Forbidden retrait rôle %s → %s guild=%s", role.id, member.id, guild.id
+            )
+        except discord.HTTPException:
+            log.exception(
+                "[BIRTHDAY] Erreur HTTP retrait rôle %s → %s guild=%s", role.id, member.id, guild.id
+            )
+
+    return removed

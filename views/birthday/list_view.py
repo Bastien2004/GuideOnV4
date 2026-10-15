@@ -21,7 +21,7 @@ MONTHS_FR = {
 def _format_days_until(d: date, today: date) -> str:
     days = (d - today).days
     if days == 0:
-        return "**Aujourd'hui** 🎉"
+        return "🎉 **Aujourd'hui** !"
     if days == 1:
         return "**Demain**"
     return f"Dans **{days}** jours"

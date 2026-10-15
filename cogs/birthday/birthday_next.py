@@ -27,7 +27,7 @@ PARIS_TZ = ZoneInfo("Europe/Paris")
 
 
 # ============================================================
-# 🎁 Commande : /birthday list
+# 🎁 Commande : /birthday next
 # ============================================================
 
 @app_commands.guild_only()
