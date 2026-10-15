@@ -141,6 +141,7 @@ class GuideONBot(commands.Bot):
         from cogs.config.role_all import role_all
         from cogs.config.role_react import role_reaction
         from cogs.config.join_to_create import join_to_create
+        from cogs.config.auto_fil import auto_fil
 
         # ── IMPORT TICKET ──
         from cogs.ticket.ticket_panel_create import ticket_panel_create
@@ -271,15 +272,14 @@ class GuideONBot(commands.Bot):
         from cogs.rappel.rappel_create import rappel_create
         from cogs.rappel.rappel_list import rappel_list
 
-
-
         # ── IMPORT MEDIALINK ──
         from cogs.medialink.medialink_config import medialink_config
 
 
+
          # 🔩 ── CONFIG ──
         groupCONFIG = groupeCONFIG()
-        for cmd in [bienvenue, autorole, role_all, role_reaction, join_to_create]:
+        for cmd in [bienvenue, autorole, role_all, role_reaction, join_to_create, auto_fil]:
             groupCONFIG.add_command(cmd)
 
         
