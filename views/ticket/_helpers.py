@@ -8,22 +8,12 @@ import time
 import discord
 
 from utils.managers import ticket_manager as tm
+from utils.ticket_limits import MAX_CHANNELS_PER_CATEGORY, RENAME_COOLDOWN_SECONDS
 
-# ============================================================
-# ⚙️ Constantes (reprises de la V3)
-# ============================================================
-
-TICKET_COOLDOWN_SECONDS = 30      # anti-spam ouverture
-RENAME_COOLDOWN_SECONDS = 600     # cooldown renommage (rate-limit Discord)
-WAKEUP_COOLDOWN_SECONDS = 3600    # cooldown relance par staff
-
-# Tickets simultanés par utilisateur (par panel)
-MAX_TICKETS_USER_DEFAULT = 1
-MAX_TICKETS_USER_VIP = 2
-
-# Tickets ouverts par panel
-MAX_TICKETS_PANEL_DEFAULT = 1000
-MAX_TICKETS_PANEL_GOLD = 100
+# NOTE : toutes les constantes numériques du système (cooldowns, maximums,
+# longueurs de champs…) vivent désormais dans utils/ticket_limits.py — seule
+# source de vérité, pour pouvoir les rééquilibrer facilement au même endroit.
+# Ce fichier ne garde que des fonctions utilitaires.
 
 
 # ============================================================
@@ -104,3 +94,46 @@ async def is_staff_or_creator(interaction: discord.Interaction, ticket: dict, gu
     if ticket and ticket.get("creator_id") == interaction.user.id:
         return True
     return await is_staff(interaction, ticket or {}, guild_id)
+
+
+# ============================================================
+# 📁 Choix de la catégorie de destination (avec secours)
+# ============================================================
+
+def _category_has_room(category) -> bool:
+    """True si `category` est une CategoryChannel valide et pas pleine."""
+
+    return (
+        isinstance(category, discord.CategoryChannel)
+        and len(category.channels) < MAX_CHANNELS_PER_CATEGORY
+    )
+
+
+def pick_ticket_category(
+    guild: discord.Guild, panel: dict
+) -> tuple[discord.CategoryChannel | None, bool]:
+    """
+    Choisit la catégorie où créer/rouvrir un ticket pour ce panel.
+
+    Essaie d'abord `ticket_category_id` (catégorie principale). Si elle est
+    pleine (cap Discord de MAX_CHANNELS_PER_CATEGORY salons) OU introuvable
+    (supprimée, mal configurée), retombe sur `backup_category_id` si elle a
+    été configurée ET qu'elle a elle aussi de la place.
+
+    Renvoie (catégorie, secours_utilisé) :
+      - (CategoryChannel, False) : catégorie principale disponible.
+      - (CategoryChannel, True)  : principale indisponible, secours utilisé.
+      - (None, False)            : aucune catégorie disponible nulle part —
+        l'appelant doit refuser l'action avec un message clair plutôt que de
+        laisser Discord échouer avec une erreur brute (salon plein).
+    """
+    primary = guild.get_channel(panel.get("ticket_category_id"))
+    if _category_has_room(primary):
+        return primary, False
+
+    backup_id = panel.get("backup_category_id")
+    backup = guild.get_channel(backup_id) if backup_id else None
+    if _category_has_room(backup):
+        return backup, True
+
+    return None, False

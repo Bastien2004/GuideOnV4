@@ -46,6 +46,17 @@ class TicketPanel(Base, TimestampMixin):
     transcript_channel_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     closed_category_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
+    # Catégorie de secours : utilisée pour créer/rouvrir un ticket quand
+    # ticket_category_id est pleine (cap Discord de 50 salons/catégorie) ou
+    # introuvable. Optionnelle — sans elle, un ticket ne peut simplement pas
+    # être créé tant que la catégorie principale est pleine.
+    backup_category_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+
+    # Emoji affiché sur le bouton "Ouvrir un ticket" et l'en-tête du panel
+    # public. Optionnel — fallback sur utils.ticket_limits.DEFAULT_PANEL_EMOJI
+    # si non défini (comportement identique à avant l'ajout de ce champ).
+    panel_emoji: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
     # Rôles (rôle ping à l'open + rôle ban ticket).
     ping_role_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     role_ban_ticket_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
@@ -95,6 +106,8 @@ class TicketPanel(Base, TimestampMixin):
             "ticket_category_id": self.ticket_category_id,
             "transcript_channel_id": self.transcript_channel_id,
             "closed_category_id": self.closed_category_id,
+            "backup_category_id": self.backup_category_id,
+            "panel_emoji": self.panel_emoji,
             "ping_role_id": self.ping_role_id,
             "role_ban_ticket_id": self.role_ban_ticket_id,
             "counter": self.counter,

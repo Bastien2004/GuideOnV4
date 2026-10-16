@@ -10,13 +10,14 @@ import time
 import discord
 from discord.ui import ActionRow, Button, Container, LayoutView, Separator, TextDisplay
 
-from utils.container_universel import error_container, info_container, success_container
+from utils.container_universel import error_container, info_container, success_container, warning_container
 from utils.managers import ticket_manager as tm
+from utils.ticket_limits import WAKEUP_COOLDOWN_SECONDS
 from views.ticket._helpers import (
-    WAKEUP_COOLDOWN_SECONDS,
     closed_name,
     is_staff,
     is_staff_or_creator,
+    pick_ticket_category,
     rename_cooldown_remaining,
     strip_closed_prefix,
     try_rename,
@@ -156,12 +157,30 @@ class ReopenButton(Button):
             )
 
         panel = await tm.get_panel(guild_id, ticket["panel_id"])
-        cat = interaction.guild.get_channel(panel.get("ticket_category_id")) if panel else None
-        if cat:
-            try:
-                await interaction.channel.edit(category=cat)
-            except discord.HTTPException:
-                pass
+
+        # Catégorie de destination (principale, ou secours si pleine/absente) —
+        # même logique de secours qu'à la création. Si le salon ne peut pas
+        # être replacé (aucune catégorie disponible, ou édition Discord
+        # refusée), on réouvre tout de même le ticket (permissions + renommage)
+        # mais on le signale clairement au staff plutôt que de laisser le
+        # salon rester silencieusement dans la catégorie fermée.
+        category = None
+        used_backup = False
+        move_status = "no_panel"  # no_panel | no_category | move_failed | ok
+        if panel:
+            category, used_backup = pick_ticket_category(interaction.guild, panel)
+            if category is None:
+                move_status = "no_category"
+            else:
+                try:
+                    await interaction.channel.edit(category=category)
+                    move_status = "ok"
+                except discord.HTTPException:
+                    log.exception(
+                        "[TICKET] Réouverture : édition de catégorie refusée par Discord "
+                        "guild=%s channel=%s category=%s", guild_id, self.channel_id, category.id,
+                    )
+                    move_status = "move_failed"
 
         await try_rename(interaction.channel, ticket["original_name"])
 
@@ -184,9 +203,30 @@ class ReopenButton(Button):
         except discord.HTTPException:
             pass
 
-        await interaction.followup.send(
-            view=success_container("Le ticket est de nouveau **ouvert**.")
-        )
+        if move_status == "ok" and used_backup:
+            log.warning(
+                "[TICKET] Réouverture : catégorie principale pleine/indisponible, "
+                "salon déplacé vers la catégorie de secours %s | guild=%s channel=%s",
+                category.id, guild_id, self.channel_id,
+            )
+            await interaction.followup.send(
+                view=warning_container(
+                    "Le ticket est de nouveau **ouvert**, mais la catégorie principale était "
+                    "pleine : il a été replacé dans la **catégorie de secours**."
+                )
+            )
+        elif move_status in ("no_category", "move_failed"):
+            await interaction.followup.send(
+                view=warning_container(
+                    "Le ticket est de nouveau **ouvert**, mais il n'a **pas pu être replacé** "
+                    "dans une catégorie de tickets (principale et secours pleines/indisponibles, "
+                    "ou modification refusée par Discord). Déplacez-le manuellement."
+                )
+            )
+        else:
+            await interaction.followup.send(
+                view=success_container("Le ticket est de nouveau **ouvert**.")
+            )
 
 
 # ============================================================

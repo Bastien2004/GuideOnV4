@@ -15,13 +15,16 @@ from utils.boutique.vip_manager import is_vip
 from utils.container_universel import error_container, success_container
 
 from utils.managers import ticket_manager as tm
-from views.ticket._helpers import (
+from utils.ticket_limits import (
+    DEFAULT_PANEL_EMOJI,
     MAX_TICKETS_PANEL_DEFAULT,
     MAX_TICKETS_PANEL_GOLD,
     MAX_TICKETS_USER_DEFAULT,
     MAX_TICKETS_USER_VIP,
     TICKET_COOLDOWN_SECONDS,
+    TICKET_RAISON_MAX_LENGTH,
 )
+from views.ticket._helpers import pick_ticket_category
 
 log = logging.getLogger(__name__)
 
@@ -37,20 +40,29 @@ _open_cooldowns: dict[tuple[int, str, int], int] = {}
 class PanelPublicView(LayoutView):
     """Vue persistante : titre + message + bouton d'ouverture."""
 
-    def __init__(self, panel_id: str, guild_id: int, title: str = "", message: str = ""):
+    def __init__(
+        self,
+        panel_id: str,
+        guild_id: int,
+        title: str = "",
+        message: str = "",
+        emoji: str | None = None,
+    ):
         super().__init__(timeout=None)
         self.panel_id = panel_id
         self.guild_id = guild_id
 
+        panel_emoji = emoji or DEFAULT_PANEL_EMOJI
+
         container = Container()
         if title:
-            container.add_item(TextDisplay(f"# 🎫 {title}"))
+            container.add_item(TextDisplay(f"# {panel_emoji} {title}"))
             container.add_item(Separator())
         if message:
             container.add_item(TextDisplay(message))
             container.add_item(Separator())
 
-        row = ActionRow(OpenTicketButton(panel_id))
+        row = ActionRow(OpenTicketButton(panel_id, emoji=panel_emoji))
         container.add_item(row)
         self.add_item(container)
 
@@ -62,17 +74,18 @@ class PanelPublicView(LayoutView):
             guild_id=panel["guild_id"],
             title=panel.get("title", "Support"),
             message=panel.get("panel_message", "Cliquez ci-dessous pour ouvrir un ticket."),
+            emoji=panel.get("panel_emoji"),
         )
 
 
 class OpenTicketButton(Button):
     """Bouton persistant d'ouverture. panel_id encodé dans le custom_id."""
 
-    def __init__(self, panel_id: str):
+    def __init__(self, panel_id: str, *, emoji: str | None = None):
         super().__init__(
             label="Ouvrir un ticket",
             style=discord.ButtonStyle.primary,
-            emoji="🎫",
+            emoji=emoji or DEFAULT_PANEL_EMOJI,
             custom_id=f"{OPEN_PREFIX}{panel_id}",
         )
         self.panel_id = panel_id
@@ -140,7 +153,7 @@ class CreateTicketModal(discord.ui.Modal):
             label="Raison",
             style=discord.TextStyle.paragraph,
             required=True,
-            max_length=500,
+            max_length=TICKET_RAISON_MAX_LENGTH,
         )
         self.add_item(self.raison)
 
@@ -168,6 +181,30 @@ class CreateTicketModal(discord.ui.Modal):
                     view=error_container("Vous êtes actuellement banni des tickets sur ce panel."),
                     ephemeral=True,
                 )
+
+        # ── Choix de la catégorie (principale, ou secours si pleine/absente) ──
+        # Vérifié AVANT de réserver un numéro de ticket : si aucune catégorie
+        # n'est disponible nulle part, inutile de consommer un numéro pour un
+        # ticket qui ne pourra pas être créé.
+        category, used_backup = pick_ticket_category(guild, panel)
+        if category is None:
+            log.warning(
+                "[TICKET] Aucune catégorie disponible (principale et secours pleines/absentes) "
+                "guild=%s panel=%s", guild_id, self.panel_id,
+            )
+            return await interaction.followup.send(
+                view=error_container(
+                    "Impossible d'ouvrir un ticket pour le moment : la catégorie de tickets "
+                    "est pleine et aucune catégorie de secours disponible n'est configurée.\n"
+                    "-# Merci de contacter un administrateur du serveur."
+                ),
+                ephemeral=True,
+            )
+        if used_backup:
+            log.warning(
+                "[TICKET] Catégorie principale pleine/indisponible, bascule sur la catégorie "
+                "de secours %s | guild=%s panel=%s", category.id, guild_id, self.panel_id,
+            )
 
         # ── Réservation du numéro de ticket ──
         ticket_num = await tm.reserve_ticket_number(guild_id, self.panel_id)
@@ -198,7 +235,6 @@ class CreateTicketModal(discord.ui.Modal):
                     view_channel=True, send_messages=True, attach_files=True,
                 )
 
-        category = guild.get_channel(panel.get("ticket_category_id"))
         try:
             channel = await guild.create_text_channel(
                 name=ticket_name, category=category, overwrites=overwrites

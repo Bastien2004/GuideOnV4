@@ -17,10 +17,9 @@ from utils.control_admin import verifier_commande
 from utils.perm_admin import check_admin
 from utils.error_handler import handle_app_command_error
 from utils.managers import ticket_manager as tm
+from utils.ticket_limits import DEFAULT_PANEL_EMOJI, MAX_PANELS_DISPLAY
 
 log = logging.getLogger(__name__)
-
-MAX_PANELS_DISPLAY = 17
 
 # ============================================================
 # 🧭 Commande principale : /ticket panel_list
@@ -68,13 +67,18 @@ async def ticket_panel_list(interaction: discord.Interaction) -> None:
         shown = panels[:MAX_PANELS_DISPLAY]
         for p in shown:
             title = p.get("title", p["panel_id"])
+            emoji = p.get("panel_emoji") or DEFAULT_PANEL_EMOJI
             created = max(0, p.get("counter", 1) - 1)
             opened = p.get("open_tickets_count", 0)
             treated = p.get("deleted_tickets_count", 0)
+            backup_line = (
+                f" · 🆘 Secours : <#{p['backup_category_id']}>"
+                if p.get("backup_category_id") else ""
+            )
             container.add_item(TextDisplay(
-                f"**{title}** — `{p['panel_id']}`\n"
+                f"**{emoji} {title}** — `{p['panel_id']}`\n"
                 f"📍 Salon : <#{p.get('channel_id', 0)}> | "
-                f"📁 Catégorie : <#{p.get('ticket_category_id', 0)}>\n"
+                f"📁 Catégorie : <#{p.get('ticket_category_id', 0)}>{backup_line}\n"
                 f"🎫 Créés : **{created}** · 🟢 En cours : **{opened}** · "
                 f"✅ Traités : **{treated}**"
             ))

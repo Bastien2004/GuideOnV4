@@ -91,6 +91,8 @@ async def ticket_panel_edit(interaction: discord.Interaction, lien_panel: str) -
         "ticket_category_id": panel["ticket_category_id"],
         "transcript_channel_id": panel["transcript_channel_id"],
         "closed_category_id": panel.get("closed_category_id"),
+        "backup_category_id": panel.get("backup_category_id"),
+        "panel_emoji": panel.get("panel_emoji"),
         "ping_role_id": panel.get("ping_role_id"),
         "role_ban_ticket_id": panel.get("role_ban_ticket_id"),
         "staff_roles": list(panel.get("staff_roles", [])),

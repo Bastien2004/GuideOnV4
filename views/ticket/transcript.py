@@ -12,14 +12,13 @@ import json
 import logging
 
 import discord
-from discord.ui import Container, LayoutView, Separator, TextDisplay
+from discord.ui import Container, File, LayoutView, Separator, TextDisplay
 
 from utils.container_universel import error_container, success_container
 from utils.managers import ticket_manager as tm
+from utils.ticket_limits import DELETE_DELAY_SECONDS, TRANSCRIPT_HISTORY_LIMIT
 
 log = logging.getLogger(__name__)
-
-DELETE_DELAY_SECONDS = 8
 
 # ============================================================
 # 🧱 Template HTML transcript
@@ -102,7 +101,7 @@ async def generate_transcripts(channel: discord.TextChannel, ticket: dict) -> tu
     """Renvoie ((html_bytes, html_name), (json_bytes, json_name))."""
     messages_data = []
 
-    async for msg in channel.history(limit=1000, oldest_first=True):
+    async for msg in channel.history(limit=TRANSCRIPT_HISTORY_LIMIT, oldest_first=True):
         content_escaped = html.escape(msg.clean_content) if msg.clean_content else ""
         messages_data.append({
             "author": html.escape(str(msg.author)),
@@ -194,24 +193,44 @@ async def do_delete_ticket(interaction: discord.Interaction, channel: discord.Te
             tc_id = panel.get("transcript_channel_id")
             tc = interaction.guild.get_channel(int(tc_id)) if tc_id else None
             if tc:
+                # Carte unique, compacte : les 2 fichiers (HTML lisible +
+                # export JSON brut) sont intégrés comme composants natifs
+                # « File » (chip compact avec icône de téléchargement),
+                # au lieu d'être postés en pièces jointes brutes dans un
+                # 2e message séparé (ancien rendu peu lisible, cf. audit
+                # 2026-10-16 — « ne pas afficher les fichiers, juste un
+                # bouton télécharger sur une interface moderne »).
                 log_view = LayoutView(timeout=None)
                 lc = Container()
-                lc.add_item(TextDisplay(f"# 📄 Transcript : Ticket #{ticket.get('ticket_number')}"))
+                lc.add_item(TextDisplay(f"# 📄 Transcript — Ticket #{ticket.get('ticket_number')}"))
                 lc.add_item(Separator())
                 lc.add_item(TextDisplay(
-                    f"**Utilisateur :** <@{ticket['creator_id']}>.\n"
-                    f"**Fermé par :** {interaction.user.mention}.\n"
-                    f"**Raison :** `{ticket.get('raison', 'Inconnue')}`."
+                    f"**Utilisateur :** <@{ticket['creator_id']}>\n"
+                    f"**Fermé par :** {interaction.user.mention}\n"
+                    f"**Raison :** `{ticket.get('raison', 'Inconnue')}`"
                 ))
+                lc.add_item(Separator())
+                lc.add_item(TextDisplay("-# 📥 Transcript (HTML)"))
+                lc.add_item(File(f"attachment://{h_name}"))
+                lc.add_item(TextDisplay("-# 🗂️ Export brut (JSON)"))
+                lc.add_item(File(f"attachment://{j_name}"))
                 lc.add_item(Separator())
                 lc.add_item(TextDisplay("-# GuideOn Studio"))
                 log_view.add_item(lc)
 
-                await tc.send(view=log_view)
-                await tc.send(files=[
-                    discord.File(fp=h_bytes, filename=h_name),
-                    discord.File(fp=j_bytes, filename=j_name),
-                ])
+                try:
+                    await tc.send(
+                        view=log_view,
+                        files=[
+                            discord.File(fp=h_bytes, filename=h_name),
+                            discord.File(fp=j_bytes, filename=j_name),
+                        ],
+                    )
+                except discord.HTTPException:
+                    log.exception(
+                        "[TICKET] Envoi du transcript au salon %s échoué (guild=%s, ticket=%s).",
+                        tc.id, guild_id, ticket.get("ticket_number"),
+                    )
             else:
                 log.warning("[TICKET] Salon transcript %s introuvable (guild=%s).", tc_id, guild_id)
 
