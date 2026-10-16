@@ -1,5 +1,5 @@
 """
-cogs/alpha/regle_interne.py — Gestion de l'interface des règles internes du Alpha.
+cogs/alpha/alpha_regle_interne.py — Gestion de l'interface des règles internes du Alpha.
 """
 
 from __future__ import annotations

@@ -1,5 +1,5 @@
 """
-cogs/config/role_all.py — Affiche l'interface de gestion du rôle all.
+cogs/config/config_autorole.py — Affiche l'interface de configuration du système d'auto-rôle.
 """
 
 from __future__ import annotations
@@ -17,26 +17,26 @@ from utils.perm_admin import check_admin
 from utils.container_universel import error_container
 from utils.error_handler import handle_app_command_error
 
-from views.role_all.config_view import create_role_all_view
+from views.autorole.config_view import create_autorole_view
 
 log = logging.getLogger(__name__)
 
 
 # ============================================================
-# 👥 Commande : /config role_all
+# 🧭 Commande : /config autorole
 # ============================================================
 
 @app_commands.guild_only()
-@app_commands.checks.cooldown(1, 15)
-@app_commands.command(name="role_all", description="👥 Attribue ou retire un rôle à tous les membres du serveur",)
-async def role_all(interaction: discord.Interaction) -> None:
+@app_commands.checks.cooldown(1, 10)
+@app_commands.command(name="autorole", description="🎭 Configure l'attribution automatique de rôles")
+async def autorole(interaction: discord.Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.
     if not await verifier_ban_utilisateur(interaction):
         return
 
     # 🔐 Vérification Administrateur.
-    if not await check_admin(interaction, "gérer les **rôles en masse**"):
+    if not await check_admin(interaction, "configurer l'**auto-rôle**"):
         return
 
     # 🕒 Defer.
@@ -46,26 +46,28 @@ async def role_all(interaction: discord.Interaction) -> None:
         return
 
     # ⚙️ Vérification maintenance.
-    if not await verifier_commande(interaction, "config_role_all"):
+    if not await verifier_commande(interaction, "config_autorole"):
         return
 
     # 📊 Tracking.
-    await tracker_commande(interaction, "config_role_all")
+    await tracker_commande(interaction, "config_autorole")
 
     # 🧩 Création et envoi de l'interface.
     try:
-        view = await create_role_all_view(
-            guild=interaction.guild,
+        view = await create_autorole_view(
+            guild_id=interaction.guild.id,
             bot=interaction.client,
             author_id=interaction.user.id,
-            page="main",
         )
+        if view is None:
+            return await interaction.followup.send(
+                view=error_container("Serveur introuvable."), ephemeral=True
+            )
         await interaction.followup.send(view=view, ephemeral=True)
-
     except Exception:
-        log.exception("[ROLE-ALL] Ouverture de l'interface de gestion échouée (guild=%s)", interaction.guild.id)
+        log.exception("[AUTOROLE] Ouverture de l'interface de configuration échouée (guild=%s)", interaction.guild.id)
         await interaction.followup.send(
-            view=error_container("**Impossible** d'ouvrir l'__interface de gestion__."),
+            view=error_container("Impossible d'ouvrir l'**interface de configuration**."),
             ephemeral=True,
         )
 
@@ -74,6 +76,6 @@ async def role_all(interaction: discord.Interaction) -> None:
 # ❌ Gestion des erreurs
 # ============================================================
 
-@role_all.error
-async def role_all_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
+@autorole.error
+async def autorole_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
     await handle_app_command_error(interaction, error)

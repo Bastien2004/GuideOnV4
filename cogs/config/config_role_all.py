@@ -1,5 +1,5 @@
 """
-cogs/config/bienvenue.py — Affiche l'interface de configuration du système de bienvenue.
+cogs/config/config_role_all.py — Affiche l'interface de gestion du rôle all.
 """
 
 from __future__ import annotations
@@ -10,35 +10,35 @@ import discord
 from discord import app_commands
 
 from utils.botbancmd import verifier_ban_utilisateur
-from utils.perm_admin import check_admin
 from utils.track_commande import tracker_commande
 from utils.control_admin import verifier_commande
 
+from utils.perm_admin import check_admin
 from utils.container_universel import error_container
 from utils.error_handler import handle_app_command_error
 
-from views.bienvenue.config_view import create_bienvenue_view
+from views.role_all.config_view import create_role_all_view
 
 log = logging.getLogger(__name__)
 
 
 # ============================================================
-# 🧭 Commande : /config bienvenue
+# 👥 Commande : /config role_all
 # ============================================================
 
 @app_commands.guild_only()
-@app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="bienvenue", description="👋 Configure le système de bienvenue")
-async def bienvenue(interaction: discord.Interaction) -> None:
+@app_commands.checks.cooldown(1, 15)
+@app_commands.command(name="role_all", description="👥 Attribue ou retire un rôle à tous les membres du serveur",)
+async def role_all(interaction: discord.Interaction) -> None:
 
     # 🛡️ Vérification ban utilisateur.
     if not await verifier_ban_utilisateur(interaction):
         return
-    
-    # 🔐 Verification Administrateur.
-    if not await check_admin(interaction, "configurer le système de **bienvenue**"):
+
+    # 🔐 Vérification Administrateur.
+    if not await check_admin(interaction, "gérer les **rôles en masse**"):
         return
-    
+
     # 🕒 Defer.
     try:
         await interaction.response.defer(ephemeral=True)
@@ -46,30 +46,26 @@ async def bienvenue(interaction: discord.Interaction) -> None:
         return
 
     # ⚙️ Vérification maintenance.
-    if not await verifier_commande(interaction, "config_bienvenue"):
+    if not await verifier_commande(interaction, "config_role_all"):
         return
-    
-    
-    # 📊 Tracking.
-    await tracker_commande(interaction, "config_bienvenue")
 
+    # 📊 Tracking.
+    await tracker_commande(interaction, "config_role_all")
 
     # 🧩 Création et envoi de l'interface.
     try:
-        view = await create_bienvenue_view(
-            guild_id=interaction.guild.id,
-            author_id=interaction.user.id,
+        view = await create_role_all_view(
+            guild=interaction.guild,
             bot=interaction.client,
+            author_id=interaction.user.id,
+            page="main",
         )
-        if view is None:
-            return await interaction.followup.send(
-                view=error_container("Serveur introuvable."), ephemeral=True
-            )
         await interaction.followup.send(view=view, ephemeral=True)
+
     except Exception:
-        log.exception("[BIENVENUE] Ouverture de l'interface de configuration echouée (guild=%s)", interaction.guild.id)
+        log.exception("[ROLE-ALL] Ouverture de l'interface de gestion échouée (guild=%s)", interaction.guild.id)
         await interaction.followup.send(
-            view=error_container("Impossible d'ouvrir l'**interface de configuration**."),
+            view=error_container("**Impossible** d'ouvrir l'__interface de gestion__."),
             ephemeral=True,
         )
 
@@ -78,6 +74,6 @@ async def bienvenue(interaction: discord.Interaction) -> None:
 # ❌ Gestion des erreurs
 # ============================================================
 
-@bienvenue.error
-async def bienvenue_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
+@role_all.error
+async def role_all_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
     await handle_app_command_error(interaction, error)

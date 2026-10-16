@@ -1,10 +1,8 @@
 """
-cogs/commande/wiki.py — Affichage du wiki de GuideOn Bot.
+cogs/commande/cmd_user.py — Affiche les informations d'un utilisateur.
 """
 
 from __future__ import annotations
-
-import logging
 
 import discord
 from discord import app_commands
@@ -12,27 +10,28 @@ from discord.ext import commands
 
 from utils.botbancmd import verifier_ban_utilisateur
 from utils.control_admin import verifier_commande
-from utils.error_handler import handle_app_command_error
 from utils.track_commande import tracker_commande
-from views.wiki.wiki_view import WikiHomeView
+from utils.error_handler import handle_app_command_error
 
-log = logging.getLogger(__name__)
+from views.user.user_view import build_user_view
 
 
 # ============================================================
-# 👤 Commande principale : /wiki
+# 👤 Commande principale : /user
 # ============================================================
 
-class Wiki(commands.Cog):
-    def __init__(self, bot: commands.Bot) -> None:
+class UserLookup(commands.Cog):
+
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     @app_commands.guild_only()
-    @app_commands.checks.cooldown(1, 5)
-    @app_commands.command(name="wiki", description="📖 Consulte le wiki de GuideOn Bot")
-    async def wiki(self, interaction: discord.Interaction) -> None:
+    @app_commands.checks.cooldown(1, 10)
+    @app_commands.command(name="user", description="👤 Affiche le profil d'un membre du serveur")
+    @app_commands.describe(membre="Le membre dont afficher le profil")
+    async def user_command(self, interaction: discord.Interaction, membre: discord.Member):
 
-        # 🛡️ Vérification ban.
+        # 🛡️ Vérification ban utilisateur.
         if not await verifier_ban_utilisateur(interaction):
             return
 
@@ -43,23 +42,22 @@ class Wiki(commands.Cog):
             return
 
         # ⚙️ Vérification maintenance.
-        if not await verifier_commande(interaction, "wiki_cmd"):
+        if not await verifier_commande(interaction, "user_cmd"):
             return
 
         # 📊 Tracking.
-        await tracker_commande(interaction, "wiki_cmd")
+        await tracker_commande(interaction, "user_cmd")
 
-        # 📖 Envoi du wiki.
-        view = WikiHomeView(bot=self.bot, owner_id=interaction.user.id)
-        await interaction.followup.send(view=view, ephemeral=True)
-
+        # 🧩 Construction + envoi (même vue que /id).
+        view = build_user_view(membre)
+        await interaction.followup.send(view=view)
 
     # ============================================================
     # ❌ Gestion des erreurs
     # ============================================================
 
-    @wiki.error
-    async def wiki_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
+    @user_command.error
+    async def user_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
         await handle_app_command_error(interaction, error)
 
 
@@ -67,5 +65,5 @@ class Wiki(commands.Cog):
 # 🚀 Setup du Cog
 # ============================================================
 
-async def setup(bot: commands.Bot) -> None:
-    await bot.add_cog(Wiki(bot))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(UserLookup(bot))

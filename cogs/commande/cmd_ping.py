@@ -1,10 +1,8 @@
 """
-cogs/commande/report.py — Permet de signaler un bug sur le bot.
+cogs/commande/cmd_ping.py — Affiche la latence du bot.
 """
 
 from __future__ import annotations
-
-import logging
 
 import discord
 from discord import app_commands
@@ -13,29 +11,26 @@ from discord.ext import commands
 from utils.botbancmd import verifier_ban_utilisateur
 from utils.control_admin import verifier_commande
 from utils.track_commande import tracker_commande
-
-from utils.container_universel import error_container
 from utils.error_handler import handle_app_command_error
 
-from utils.managers.bug_report_manager import clear_draft
-from views.report.config_view import home_view
-
-log = logging.getLogger(__name__)
+from utils.ping import get_latency_ms
+from views.ping.ping_view import build_ping_view
 
 
 # ============================================================
-# 👤 Commande principale : /report
+# 🏓 Commande principale : /ping
 # ============================================================
 
-class Report(commands.Cog):
+class Ping(commands.Cog):
+
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     @app_commands.guild_only()
     @app_commands.checks.cooldown(1, 10)
-    @app_commands.command(name="report", description="⚠️ Signale un bug ou un problème")
-    async def report_cmd(self, interaction: discord.Interaction) -> None:
-        
+    @app_commands.command(name="ping", description="🏓 Affiche la latence du bot")
+    async def ping_command(self, interaction: discord.Interaction):
+
         # 🛡️ Vérification ban utilisateur.
         if not await verifier_ban_utilisateur(interaction):
             return
@@ -47,30 +42,27 @@ class Report(commands.Cog):
             return
 
         # ⚙️ Vérification maintenance.
-        if not await verifier_commande(interaction, "report_cmd"):
+        if not await verifier_commande(interaction, "ping_cmd"):
             return
 
         # 📊 Tracking.
-        await tracker_commande(interaction, "report_cmd")
+        await tracker_commande(interaction, "ping_cmd")
 
-        # 🪟 Ouverture de l'interface.
-        clear_draft(interaction.user.id)
-        try:
-            await interaction.followup.send(view=home_view(), ephemeral=True)
+        # 📡 Calcul latence.
+        latency_ms = get_latency_ms(self.bot)
 
-        except discord.HTTPException:
-            log.exception("[Report] Ouverture /report échouée (user=%s)", interaction.user.id)
-            await interaction.followup.send(
-                view=error_container("**Impossible** d'ouvrir le formulaire de report."),
-                ephemeral=True,
-            )
+        # 🧩 Construction view.
+        view = build_ping_view(latency_ms)
+
+        # 🚀 Envoi.
+        await interaction.followup.send(view=view, ephemeral=True)
 
     # ============================================================
     # ❌ Gestion des erreurs
     # ============================================================
 
-    @report_cmd.error
-    async def report_cmd_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
+    @ping_command.error
+    async def ping_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
         await handle_app_command_error(interaction, error)
 
 
@@ -78,5 +70,5 @@ class Report(commands.Cog):
 # 🚀 Setup du Cog
 # ============================================================
 
-async def setup(bot: commands.Bot) -> None:
-    await bot.add_cog(Report(bot))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(Ping(bot))

@@ -136,12 +136,12 @@ class GuideONBot(commands.Bot):
         """Assemble les groupes de commandes."""
 
         # ── IMPORT CONFIG ──
-        from cogs.config.bienvenue import bienvenue
-        from cogs.config.autorole import autorole
-        from cogs.config.role_all import role_all
-        from cogs.config.role_react import role_reaction
-        from cogs.config.join_to_create import join_to_create
-        from cogs.config.auto_fil import auto_fil
+        from cogs.config.config_bienvenue import bienvenue
+        from cogs.config.config_autorole import autorole
+        from cogs.config.config_role_all import role_all
+        from cogs.config.config_role_react import role_reaction
+        from cogs.config.config_join_to_create import join_to_create
+        from cogs.config.config_auto_fil import auto_fil
 
         # ── IMPORT TICKET ──
         from cogs.ticket.ticket_panel_create import ticket_panel_create
@@ -246,6 +246,9 @@ class GuideONBot(commands.Bot):
         # ── IMPORT IRIS ──
         from cogs.iris.test import test_iris
         from cogs.iris.reglement import reglement
+
+        # ── IMPORT DELTA ──
+        from cogs.delta.delta_test import test_delta
 
         # ── IMPORT NGSTAFF ──
         from cogs.ngstaff.ngstaff_config import ngstaff_config
@@ -353,6 +356,12 @@ class GuideONBot(commands.Bot):
         self._groupIRIS = groupeIRIS()
         for cmd in [test_iris, reglement]:
             self._groupIRIS.add_command(cmd)
+
+        
+        # 🐥 ── DELTA ──
+        self._groupDELTA = groupeDELTA()
+        for cmd in [test_delta]:
+            self._groupDELTA.add_command(cmd)
 
 
         # 🚨 ── NGSTAFF ──

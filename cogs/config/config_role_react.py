@@ -1,5 +1,5 @@
 """
-cogs/config/role_react.py — Affiche l'interface de configuration et gestion du système de rôle réaction.
+cogs/config/config_role_react.py — Affiche l'interface de configuration et gestion du système de rôle réaction.
 """
 
 from __future__ import annotations

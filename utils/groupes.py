@@ -103,6 +103,14 @@ class GroupeIRIS(app_commands.Group):
 def groupeIRIS():
     return GroupeIRIS()
 
+# Groupe Delta
+class GroupeDELTA(app_commands.Group):
+    def __init__(self):
+        super().__init__(name="delta", description="Commandes Discord Delta")
+
+def groupeDELTA():
+    return GroupeDELTA()
+
 
 # Groupe Birthday
 class GroupeBIRTHDAY(app_commands.Group):

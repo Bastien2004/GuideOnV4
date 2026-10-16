@@ -1,5 +1,5 @@
 """
-cogs/alpha/index.py — Gère l'interface d'information "Index" du serveur Alpha.
+cogs/alpha/alpha_index.py — Gère l'interface d'information "Index" du serveur Alpha.
 """
 
 from __future__ import annotations

@@ -1,5 +1,5 @@
 """
-cogs/commande/timestamp.py — Convertit une date en timestamp Discord.
+cogs/commande/cmd_timestamp.py — Convertit une date en timestamp Discord.
 """
 
 from __future__ import annotations

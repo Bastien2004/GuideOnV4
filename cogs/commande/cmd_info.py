@@ -1,5 +1,5 @@
 """
-cogs/commande/info.py — Envoi la présentation du bot GuideON.
+cogs/commande/cmd_info.py — Envoi la présentation du bot GuideON.
 """
 
 from __future__ import annotations

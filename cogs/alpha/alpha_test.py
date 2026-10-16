@@ -1,5 +1,5 @@
 """
-cogs/alpha/test.py — Système de test de fonctionnalité du module Alpha.
+cogs/alpha/alpha_test.py — Système de test de fonctionnalité du module Alpha.
 """
 
 from __future__ import annotations

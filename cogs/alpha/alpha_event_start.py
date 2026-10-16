@@ -1,5 +1,5 @@
 """
-cogs/alpha/event_start.py — Annonce de début d'event M+ Alpha.
+cogs/alpha/alpha_event_start.py — Annonce de début d'event M+ Alpha.
 """
 
 from __future__ import annotations

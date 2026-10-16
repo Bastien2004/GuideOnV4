@@ -1,5 +1,5 @@
 """
-cogs/alpha/nous_rejoindre.py — Gestion de l'interface nous_rejoindre.
+cogs/alpha/alpha_nous_rejoindre.py — Gestion de l'interface nous_rejoindre.
 """
 
 from __future__ import annotations
