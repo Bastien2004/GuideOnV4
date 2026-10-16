@@ -235,13 +235,13 @@ class GuideONBot(commands.Bot):
         from cogs.exp.exp_info import exp_info
 
         # ── IMPORT ALPHA ──
-        from cogs.alpha.test import test_alpha
-        from cogs.alpha.regle_interne import regle_interne
-        from cogs.alpha.nous_rejoindre import nous_rejoindre
-        from cogs.alpha.index import index
-        from cogs.alpha.event_list import event_list
-        from cogs.alpha.event_regle import event_regle
-        from cogs.alpha.event_start import event_start
+        from cogs.alpha.alpha_test import test_alpha
+        from cogs.alpha.alpha_regle_interne import regle_interne
+        from cogs.alpha.alpha_nous_rejoindre import nous_rejoindre
+        from cogs.alpha.alpha_index import index
+        from cogs.alpha.alpha_event_list import event_list
+        from cogs.alpha.alpha_event_regle import event_regle
+        from cogs.alpha.alpha_event_start import event_start
 
         # ── IMPORT IRIS ──
         from cogs.iris.test import test_iris
