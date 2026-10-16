@@ -72,6 +72,12 @@ class VoiceManageBuilderView(BaseLayoutView):
         self.destination: discord.VoiceChannel | None = None
         self.reason: str | None = None
 
+        # État mute qu'on vient d'appliquer nous-mêmes, à préférer sur une lecture
+        # live de is_channel_muted() juste après une action (cf. _on_toggle_mute) :
+        # le cache de voice state peut être momentanément périmé. Réinitialisé dès
+        # qu'un nouveau salon source est choisi (cf. _on_select_source).
+        self._mute_override: bool | None = None
+
         self._build()
 
     def _build(self) -> None:
@@ -120,7 +126,8 @@ class VoiceManageBuilderView(BaseLayoutView):
             btn_mute = _mute_btn(False)
             btn_mute.disabled = True
         else:
-            btn_mute = _mute_btn(is_channel_muted(self.source))
+            muted = self._mute_override if self._mute_override is not None else is_channel_muted(self.source)
+            btn_mute = _mute_btn(muted)
             btn_mute.disabled = not has_source_members
         btn_mute.callback = self._on_toggle_mute
         container.add_item(Section(
@@ -172,6 +179,9 @@ class VoiceManageBuilderView(BaseLayoutView):
             )
             return
         self.source = channel
+        # Nouveau salon source : on resynchronise sur l'état réel (gateway) plutôt
+        # que de garder l'override d'un salon précédent.
+        self._mute_override = None
         await self._refresh(interaction)
 
     async def _on_select_destination(self, interaction: discord.Interaction, channel_id: int) -> None:
@@ -226,14 +236,35 @@ class VoiceManageBuilderView(BaseLayoutView):
 
         channel = self.source
         target_mute = not is_channel_muted(channel)
+
+        # 🕒 Defer AVANT le mute de masse : member.edit(mute=...) est un appel HTTP
+        # par membre, donc un salon avec beaucoup de membres peut largement dépasser
+        # les 3 secondes dont on dispose pour la réponse initiale à une interaction
+        # (même classe de bug que /mod clear, cf. clear_builder_view.py). Une fois
+        # déferré, push_update()/send_ephemeral() basculent automatiquement sur
+        # edit_original_response()/followup (valides ~15 min), donc plus de risque
+        # de "404 Unknown interaction" ; les erreurs ci-dessous passent par followup.
+        try:
+            await interaction.response.defer()
+        except (discord.NotFound, discord.HTTPException):
+            return
+
         try:
             count = await apply_mute_all(channel, mute=target_mute, reason=self.reason)
         except Exception:
             log.exception("[VOICE_BUILDER] Échec mute guild=%s channel=%s", self.guild.id, channel.id)
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 view=error_container("Une erreur inattendue est survenue pendant le mute."), ephemeral=True,
             )
             return
+
+        # On mémorise l'état qu'on vient d'appliquer plutôt que de relire
+        # is_channel_muted() tout de suite après : le cache de voice state (gateway)
+        # peut ne pas encore refléter le(s) member.edit() qu'on vient de faire,
+        # ce qui pouvait laisser le bouton affiché dans son ancien état ("Mute
+        # tous" au lieu de "Démute tous") juste après un mute réussi.
+        if count > 0:
+            self._mute_override = target_mute
 
         action_label = "Mute vocal de masse" if target_mute else "Démute vocal de masse"
         await log_channel_action(
@@ -273,15 +304,30 @@ class VoiceManageBuilderView(BaseLayoutView):
             return
 
         channel, destination = self.source, self.destination
+
+        # 🕒 Defer AVANT le déplacement de masse : member.move_to() est un appel
+        # HTTP par membre, donc un salon avec beaucoup de membres peut largement
+        # dépasser les 3 secondes dont on dispose pour la réponse initiale à une
+        # interaction → c'est exactement ce qui causait le "404 Unknown interaction"
+        # sur le push_update() qui suit (le déplacement avait pourtant bien eu
+        # lieu, seule la mise à jour de l'interface échouait). Une fois déferré,
+        # push_update()/send_ephemeral() basculent automatiquement sur
+        # edit_original_response()/followup ; les erreurs ci-dessous passent donc
+        # par followup, pas response.
+        try:
+            await interaction.response.defer()
+        except (discord.NotFound, discord.HTTPException):
+            return
+
         try:
             count = await apply_move_all(channel, destination, reason=self.reason)
         except VoiceManageError as e:
             view = warning_container(e.message) if e.warning else error_container(e.message)
-            await interaction.response.send_message(view=view, ephemeral=True)
+            await interaction.followup.send(view=view, ephemeral=True)
             return
         except Exception:
             log.exception("[VOICE_BUILDER] Échec déplacement guild=%s channel=%s", self.guild.id, channel.id)
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 view=error_container("Une erreur inattendue est survenue pendant le déplacement."), ephemeral=True,
             )
             return
@@ -318,11 +364,20 @@ class VoiceManageBuilderView(BaseLayoutView):
             return
 
         channel = self.source
+
+        # 🕒 Defer AVANT l'expulsion de masse, même raison que _on_move ci-dessus :
+        # member.move_to(None) est un appel HTTP par membre et peut dépasser les
+        # 3 secondes de délai de réponse initiale sur un salon bien rempli.
+        try:
+            await interaction.response.defer()
+        except (discord.NotFound, discord.HTTPException):
+            return
+
         try:
             count = await apply_disconnect_all(channel, reason=self.reason)
         except Exception:
             log.exception("[VOICE_BUILDER] Échec expulsion guild=%s channel=%s", self.guild.id, channel.id)
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 view=error_container("Une erreur inattendue est survenue pendant l'expulsion."), ephemeral=True,
             )
             return

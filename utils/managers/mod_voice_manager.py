@@ -47,6 +47,13 @@ async def move_all(
 
     count = 0
     for member in list(channel.members):
+        # Filet de sécurité : un membre déjà dans le salon destination (par ex.
+        # s'il a changé de salon entre temps, ou si source/destination pointaient
+        # en fait sur le même salon) ne doit jamais se voir appeler move_to() sur
+        # son propre salon actuel — Discord traite ça comme une déconnexion/
+        # reconnexion et déconnecte réellement le membre au lieu de ne rien faire.
+        if member.voice is not None and member.voice.channel is not None and member.voice.channel.id == destination.id:
+            continue
         try:
             await member.move_to(destination, reason=reason)
             count += 1
