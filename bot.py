@@ -412,7 +412,6 @@ class GuideONBot(commands.Bot):
 
         ALPHA_GUILDS = [
             751903718135431188,
-            1411296579528294402,
         ]
 
         for gid in ALPHA_GUILDS:
@@ -432,11 +431,10 @@ class GuideONBot(commands.Bot):
                 log.error(f"❌ Erreur ALPHA {gid}: {e}")
 
 
-        # Sync commande Alpha
+        # Sync commande Iris
 
         IRIS_GUILDS = [
             1499029929029926982,
-            1400451664946794618,
         ]
 
         for gid in IRIS_GUILDS:
@@ -454,6 +452,29 @@ class GuideONBot(commands.Bot):
 
             except Exception as e:
                 log.error(f"❌ Erreur IRIS {gid}: {e}")
+
+
+        # Sync commande Delta
+
+        DELTA_GUILDS = [
+            948880111753625642
+        ]
+
+        for gid in DELTA_GUILDS:
+            guild = discord.Object(id=gid)
+
+            try:
+                try:
+                    self.tree.add_command(self._groupDELTA, guild=guild)
+                except discord.app_commands.CommandAlreadyRegistered:
+                    pass
+
+                synced = await self.tree.sync(guild=guild)
+
+                log.info(f"🐥 Commandes DELTA synchronisées sur {gid} ({len(synced)} cmd)")
+
+            except Exception as e:
+                log.error(f"❌ Erreur DELTA {gid}: {e}")
 
 
         # Sync commande NGSTAFF
