@@ -1,8 +1,5 @@
 """
-cogs/dev/database.py — /dev database : explorateur générique et en LECTURE
-SEULE de toutes les tables de la base (menu de sélection + indices +
-aperçu/recherche), pour diagnostiquer sans avoir besoin d'un accès direct
-à la BDD (celle-ci n'étant accessible qu'au propriétaire du VPS d'hébergement).
+cogs/dev/dev_database.py — Explorateur de table de la base de données.
 """
 
 from __future__ import annotations
@@ -24,7 +21,7 @@ from views.dev.db_explorer_view import DBTableListView
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="database", description="🗄️ [DEV] Explore les tables de la base de données (lecture seule)")
+@app_commands.command(name="database", description="🗄️ [DEV] Explore les tables de la base de données")
 async def database(interaction: Interaction) -> None:
 
     # 🔐 Vérification des permissions.
@@ -44,7 +41,7 @@ async def database(interaction: Interaction) -> None:
     # 📊 Tracking.
     await tracker_commande(interaction, "dev_database")
 
-    # 🚀 Envoi de l'explorateur (liste des tables, page 0).
+    # 🚀 Envoi de l'explorateur
     view = DBTableListView(owner_id=interaction.user.id)
     await interaction.followup.send(view=view, ephemeral=True)
 

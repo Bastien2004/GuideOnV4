@@ -1,5 +1,5 @@
 """
-cogs/dev/setngversion.py — Modifie la version du /ng version.
+cogs/dev/dev_setngversion.py — Modifie la version du /ng version.
 """
 
 from __future__ import annotations

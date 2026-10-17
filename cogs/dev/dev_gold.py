@@ -1,5 +1,5 @@
 """
-cogs/dev/gold.py — Gère l'abonnement Gold+.
+cogs/dev/dev_gold.py — Gère l'abonnement Gold+.
 """
 
 from __future__ import annotations

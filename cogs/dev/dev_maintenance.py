@@ -1,5 +1,5 @@
 """
-cogs/dev/maintenance.py — Gère l'activation des commandes du bot.
+cogs/dev/dev_maintenance.py — Gère l'activation des commandes du bot.
 """
 
 from __future__ import annotations

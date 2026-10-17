@@ -1,5 +1,5 @@
 """
-cogs/dev/vip.py — Gère le grade VIP.
+cogs/dev/dev_vip.py — Gère le grade VIP.
 """
 
 from __future__ import annotations

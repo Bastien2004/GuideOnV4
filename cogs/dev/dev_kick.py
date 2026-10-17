@@ -1,5 +1,5 @@
 """
-cogs/dev/kick.py — Fait quitter GuideOn d'un serveur.
+cogs/dev/dev_kick.py — Fait quitter GuideOn d'un serveur.
 """
 
 from __future__ import annotations

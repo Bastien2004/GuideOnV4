@@ -1,5 +1,5 @@
 """
-cogs/dev/stat_server.py — Affiche les statistiques du bot GuideOn
+cogs/dev/dev_stat_server.py — Affiche les statistiques du bot GuideOn
 """
 
 from __future__ import annotations

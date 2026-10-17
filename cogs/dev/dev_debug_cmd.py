@@ -1,5 +1,5 @@
 """
-cogs/dev/debug_cmd.py — Outil de diagnostic pour une commande GuideOn.
+cogs/dev/dev_debug_cmd.py — Outil de diagnostic pour une commande GuideOn.
 
 ⚠️ utils/command_debug.py à mettre à jour
 """

@@ -1,10 +1,5 @@
 """
-cogs/dev/avatar_bot.py — Applique/retire l'avatar de bot personnalisé d'un
-serveur
-Usage :
-    /dev avatar_bot id_serveur:<id> image:<fichier>   → applique l'avatar
-    /dev avatar_bot id_serveur:<id>                   → retire l'avatar
-                                                          (retour au global)
+cogs/dev/dev_avatar_bot.py — Applique ou retire l'avatar de bot personnalisé d'un serveur.
 """
 
 from __future__ import annotations
@@ -36,7 +31,7 @@ log = logging.getLogger(__name__)
 
 
 # ============================================================
-# 🧩 Confirmation visuelle (avec aperçu de l'avatar appliqué)
+# 🧩 Confirmation visuelle
 # ============================================================
 
 def _build_confirmation_view(title: str, body: str, image_url: Optional[str] = None) -> LayoutView:
@@ -64,14 +59,8 @@ def _build_confirmation_view(title: str, body: str, image_url: Optional[str] = N
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(
-    name="avatar_bot",
-    description="🖼️ [DEV] Applique/retire l'avatar de bot personnalisé d'un serveur (add-on boutique)",
-)
-@app_commands.describe(
-    id_serveur="ID du serveur cible",
-    image="Nouvel avatar à appliquer — laisser vide pour RETIRER l'avatar personnalisé (retour au global)",
-)
+@app_commands.command(name="avatar_bot", description="🖼️ [DEV] Applique ou retire l'avatar de bot personnalisé d'un serveur")
+@app_commands.describe(id_serveur="ID du serveur", image="Nouvel avatar à appliquer | vide = RETIRER.")
 async def avatar_bot(interaction: Interaction, id_serveur: str, image: Optional[discord.Attachment] = None) -> None:
 
     # 🔐 Vérification des permissions.
@@ -99,6 +88,7 @@ async def avatar_bot(interaction: Interaction, id_serveur: str, image: Optional[
             view=error_container("`id_serveur` doit être un **identifiant numérique**."), ephemeral=True,
         )
 
+    # 🔍 Vérification du serveur.
     guild = interaction.client.get_guild(guild_id)
     if guild is None:
         return await interaction.followup.send(
@@ -107,9 +97,7 @@ async def avatar_bot(interaction: Interaction, id_serveur: str, image: Optional[
 
     reason = f"Avatar Perso géré par {interaction.user} ({interaction.user.id})"
 
-    # ──────────────────────────────────────────────────────────
-    # 🖼️ Avec image → on applique l'avatar personnalisé.
-    # ──────────────────────────────────────────────────────────
+    # 🔍 Vérification de l'image.
     if image is not None:
         erreur = validate_avatar_attachment(image)
         if erreur:
@@ -118,7 +106,7 @@ async def avatar_bot(interaction: Interaction, id_serveur: str, image: Optional[
         try:
             image_bytes = await image.read()
         except discord.HTTPException:
-            log.exception("[AVATAR_PERSO] Téléchargement de l'image échoué (guild=%s)", guild_id)
+            log.exception("[DEV_AVATAR_PERSO] Téléchargement de l'image échoué (guild=%s)", guild_id)
             return await interaction.followup.send(
                 view=error_container("Impossible de **télécharger** ce fichier — réessayez."), ephemeral=True,
             )
@@ -156,9 +144,7 @@ async def avatar_bot(interaction: Interaction, id_serveur: str, image: Optional[
             ephemeral=True,
         )
 
-    # ──────────────────────────────────────────────────────────
-    # 🚫 Sans image → on retire l'avatar personnalisé.
-    # ──────────────────────────────────────────────────────────
+
     try:
         await reset_guild_avatar(interaction.client, guild_id, reason=reason)
     except GuildNotFoundError as e:

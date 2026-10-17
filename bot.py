@@ -159,23 +159,23 @@ class GuideONBot(commands.Bot):
         from cogs.ticket.ticket_wakeup import ticket_wakeup
 
         # ── IMPORT DEV ──
-        from cogs.dev.maintenance import maintenance
-        from cogs.dev.permission import permissions
-        from cogs.dev.delete_message import delete_message
-        from cogs.dev.kick import kick
-        from cogs.dev.stat_server import stat_server
-        from cogs.dev.stat_cmd import stat_cmd
-        from cogs.dev.join_serv import join_serv
-        from cogs.dev.health import health
-        from cogs.dev.guild_info import guild_info
-        from cogs.dev.debug_cmd import debug_cmd
-        from cogs.dev.botban import botban
-        from cogs.dev.gold import gold
-        from cogs.dev.vip import vip
-        from cogs.dev.setngversion import setngversion
-        from cogs.dev.database import database
-        from cogs.dev.command_visibility import command_visibility
-        from cogs.dev.avatar_bot import avatar_bot
+        from cogs.dev.dev_maintenance import maintenance
+        from cogs.dev.dev_permission import permissions
+        from cogs.dev.dev_delete_message import delete_message
+        from cogs.dev.dev_kick import kick
+        from cogs.dev.dev_stat_server import stat_server
+        from cogs.dev.dev_stat_cmd import stat_cmd
+        from cogs.dev.dev_join_serv import join_serv
+        from cogs.dev.dev_health import health
+        from cogs.dev.dev_guild_info import guild_info
+        from cogs.dev.dev_debug_cmd import debug_cmd
+        from cogs.dev.dev_botban import botban
+        from cogs.dev.dev_gold import gold
+        from cogs.dev.dev_vip import vip
+        from cogs.dev.dev_setngversion import setngversion
+        from cogs.dev.dev_database import database
+        from cogs.dev.dev_command_visibility import command_visibility
+        from cogs.dev.dev_avatar_bot import avatar_bot
 
         # ── IMPORT NG ──
         from cogs.ng.autel import autel

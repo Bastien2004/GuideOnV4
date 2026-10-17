@@ -1,10 +1,5 @@
 """
-cogs/dev/guild_info.py — Affiche les informations d'un serveur Discord.
-
-2026-10-06 (Paul, refonte) : le panel est désormais interactif
-(BaseLayoutView, page Aperçu + page Systèmes) — build_guild_info_view
-construit directement l'aperçu (et appelle gather_guild_info lui-même),
-donc on ne l'appelle plus séparément ici.
+cogs/dev/dev_guild_info.py — Affiche les informations d'un serveur Discord.
 """
 
 from __future__ import annotations
@@ -65,7 +60,7 @@ async def guild_info(interaction: Interaction, id_serveur: str) -> None:
             ephemeral=True,
         )
 
-    # 🚀 Construction et envoi du panel (récupère les infos à l'intérieur).
+    # 🚀 Construction et envoi du panel.
     view = await build_guild_info_view(guild, owner_id=interaction.user.id)
     await interaction.followup.send(view=view, ephemeral=True)
 

@@ -1,5 +1,5 @@
 """
-cogs/dev/botban.py — Gestion des bannissements du bot.
+cogs/dev/dev_stat_cmd.py — Statistiques d'usage des commandes GuideOn.
 """
 
 from __future__ import annotations
@@ -15,24 +15,24 @@ from utils.track_commande import tracker_commande
 from utils.error_handler import handle_app_command_error
 from utils.perm_check import has_grade_check
 
-from views.dev.botban_view import BotBanView
+from views.dev.stat_cmd_view import build_stat_cmd_view
 
 log = logging.getLogger(__name__)
 
 
 # ============================================================
-# 🧭 Commande : /dev botban
+# 🧭 Commande : /dev stat_cmd
 # ============================================================
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="botban", description="🚫 [DEV] Gère les bannissements du bot")
-async def botban(interaction: Interaction) -> None:
+@app_commands.command(name="stat_cmd", description="📊 [DEV] Statistiques d'usage des commandes")
+async def stat_cmd(interaction: Interaction) -> None:
 
     # 🔐 Vérification des permissions.
-    if not await has_grade_check(interaction, "equipe_guideon.dev", "gérer les **bannissement* du bot"):
+    if not await has_grade_check(interaction, "equipe_guideon.dev", "consulter les **statistiques** des commandes"):
         return
-
+    
     # 🕒 Defer.
     try:
         await interaction.response.defer(ephemeral=True)
@@ -40,20 +40,21 @@ async def botban(interaction: Interaction) -> None:
         return
 
     # ⚙️ Activation commande.
-    if not await verifier_commande(interaction, "dev_botban"):
+    if not await verifier_commande(interaction, "dev_stat_cmd"):
         return
 
     # 📊 Tracking.
-    await tracker_commande(interaction, "dev_botban")
+    await tracker_commande(interaction, "dev_stat_cmd")
 
     # ✉️ Envoi du dashboard.
-    await interaction.followup.send(view=BotBanView(interaction.user.id), ephemeral=True)
+    view, graph_file = await build_stat_cmd_view(interaction.user.id, window_days=7, page=0)
+    await interaction.followup.send(view=view, files=[graph_file], ephemeral=True)
 
 
 # ============================================================
 # ❌ Gestion des erreurs
 # ============================================================
 
-@botban.error
-async def botban_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
+@stat_cmd.error
+async def stat_cmd_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
     await handle_app_command_error(interaction, error)

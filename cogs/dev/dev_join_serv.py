@@ -1,5 +1,5 @@
 """
-cogs/dev/join_serv.py — Crée une invitation Discord sur un serveur où le bot est présent.
+cogs/dev/dev_join_serv.py — Crée une invitation Discord sur un serveur où le bot est présent.
 """
 
 from __future__ import annotations

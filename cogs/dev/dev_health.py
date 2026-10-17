@@ -1,10 +1,5 @@
 """
-cogs/dev/health.py — État de santé global du bot GuideOn.
-
-2026-10-06 (Paul, refonte) : le panel est désormais interactif
-(BaseLayoutView + bouton Actualiser) — build_health_view construit
-directement le panel (et appelle gather_health_data lui-même), donc on ne
-l'appelle plus séparément ici.
+cogs/dev/dev_health.py — Statut global du bot GuideOn.
 """
 
 from __future__ import annotations
@@ -26,11 +21,11 @@ from views.dev.health_view import build_health_view
 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
-@app_commands.command(name="health", description="🤖 [DEV] Envoie l'état de santé du bot")
+@app_commands.command(name="health", description="🤖 [DEV] Statut global du bot")
 async def health(interaction: Interaction) -> None:
 
     # 🔐 Vérification des permissions.
-    if not await has_grade_check(interaction, "equipe_guideon.dev", "consulter l'**état de santé** du bot"):
+    if not await has_grade_check(interaction, "equipe_guideon.dev", "consulter l'**état** du bot"):
         return
 
     # 🕒 Defer.
@@ -46,7 +41,7 @@ async def health(interaction: Interaction) -> None:
     # 📊 Tracking.
     await tracker_commande(interaction, "dev_health")
 
-    # 🚀 Construction et envoi du panel (récupère les métriques à l'intérieur).
+    # 🚀 Construction et envoi du panel.
     view = await build_health_view(interaction.client, owner_id=interaction.user.id)
     await interaction.followup.send(view=view, ephemeral=True)
 

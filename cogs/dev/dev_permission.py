@@ -1,5 +1,5 @@
 """
-cogs/dev/permission.py — Gestion des permissions interne du bot
+cogs/dev/dev_permission.py — Gestion des permissions interne du bot
 """
 
 from __future__ import annotations

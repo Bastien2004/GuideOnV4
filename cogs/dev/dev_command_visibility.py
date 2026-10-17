@@ -1,14 +1,5 @@
 """
-cogs/dev/command_visibility.py — Diagnostique pourquoi une commande
-guild-scoped (ngstaff, iris, alpha, dev...) n'est plus visible pour un
-membre sur un serveur précis.
-
-Contexte : ngstaff/iris/alpha/dev sont synchronisées serveur par serveur
-(bot.py::_sync_commands), sans aucun default_member_permissions fixé dans
-le code. Si une commande fonctionne sur un serveur mais plus sur un autre
-pour le même membre, la cause ne peut donc venir que d'un overwrite de
-permission configuré manuellement sur CE serveur (Server Settings →
-Intégrations → GuideOn) — voir utils/discord_command_permissions.py.
+cogs/dev/dev_command_visibility.py — Diagnostique de la visibilité d'une commande sur un serveur.
 """
 
 from __future__ import annotations
@@ -37,18 +28,13 @@ log = logging.getLogger(__name__)
 @app_commands.checks.cooldown(1, 10)
 @app_commands.command(name="command_visibility", description="🔍 [DEV] Diagnostique la visibilité d'une commande sur un serveur (permissions Discord)")
 @app_commands.describe(
-    id_serveur="ID du serveur à analyser (ex : l'ID d'Iris)",
-    id_utilisateur="ID du membre à analyser (par défaut : vous)",
-    commandes="Noms de commandes à filtrer, séparés par des virgules (ex : ngstaff,iris) — vide = toutes",
-    id_salon="ID du salon où la commande est testée (optionnel) — vérifie aussi les overwrites de CE salon",
-)
-async def command_visibility(
-    interaction: Interaction,
-    id_serveur: str,
-    id_utilisateur: str | None = None,
-    commandes: str | None = None,
-    id_salon: str | None = None,
-) -> None:
+    id_serveur="ID du serveur à analyser",
+    id_utilisateur="ID du membre à analyser",
+    commandes="Noms de commandes à filtrer, séparés par des virgules | vide = toutes",
+    id_salon="ID du salon où la commande est testée (optionnel)")
+
+async def command_visibility(interaction: Interaction, id_serveur: str, id_utilisateur: str | None = None,
+    commandes: str | None = None, id_salon: str | None = None) -> None:
 
     # 🔐 Vérification des permissions.
     if not await has_grade_check(interaction, "equipe_guideon.dev", "diagnostiquer la **visibilité** d'une commande"):
@@ -125,7 +111,7 @@ async def command_visibility(
                 ephemeral=True,
             )
 
-    # 🚀 Scan et envoi du diagnostic.
+    # 🚀 Envoi du diagnostic.
     try:
         report = await scan_command_permissions(
             interaction.client, guild, member, command_filter=command_filter, channel=channel,
@@ -133,10 +119,7 @@ async def command_visibility(
     except discord.HTTPException:
         log.exception("[DEV COMMAND_VISIBILITY] Erreur scan permissions")
         return await interaction.followup.send(
-            view=error_container(
-                "Impossible de récupérer les **permissions de commande** Discord — le bot a-t-il bien "
-                "le scope `applications.commands` sur ce serveur ?"
-            ),
+            view=error_container("Permissions manquantes"),
             ephemeral=True,
         )
 
