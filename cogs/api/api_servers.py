@@ -1,9 +1,7 @@
 """
 cogs/api/api_servers.py — API Serveurs (ng_servers).
-
-Expose la liste des serveurs NG connus, et permet à un admin (via le
-tableau de gestion Laravel) d'en ajouter ou d'en modifier.
 """
+
 from __future__ import annotations
 
 import logging
@@ -28,9 +26,9 @@ from cogs.api.base import app, require_token
 log = logging.getLogger(__name__)
 
 
-# ══════════════════════════════════════════════════════════════════════════
+# ============================================================
 # 📋 MODÈLES PYDANTIC
-# ══════════════════════════════════════════════════════════════════════════
+# ============================================================
 
 class ServerOut(BaseModel):
     name: str
@@ -55,17 +53,14 @@ class ServerUpdate(BaseModel):
     active: bool | None = True
 
 
-# ══════════════════════════════════════════════════════════════════════════
+# ============================================================
 # 🔄 ENDPOINTS
-# ══════════════════════════════════════════════════════════════════════════
+# ============================================================
 
 @app.get("/servers", dependencies=[Depends(require_token)])
 async def get_servers(request: Request, active_only: bool = True):
-    """
-    Retourne la liste des serveurs NG (pour sync/admin Laravel).
+    """Retourne la liste des serveurs NG."""
 
-    Query param: ?active_only=false pour inclure aussi les serveurs inactifs.
-    """
     async with get_session() as session:
         query = select(NGServer)
         if active_only:
@@ -90,7 +85,7 @@ async def get_servers(request: Request, active_only: bool = True):
 
 @app.post("/servers/add", dependencies=[Depends(require_token)])
 async def add_server(request: Request, payload: ServerCreate):
-    """Crée un nouveau serveur NG (utilisé par le tableau admin Laravel)."""
+    """Crée un nouveau serveur NG."""
     try:
         server = await dev_create_server(
             name=payload.name,

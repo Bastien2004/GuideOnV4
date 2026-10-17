@@ -34,7 +34,6 @@ class BienvenueListener(commands.Cog):
 
         guild = member.guild
 
-        # 🔩 Vérifie qu'un salon est configuré.
         if not channel_id:
             log.debug("[LISTENER BIENVENUE] %s ignoré (pas de salon configuré) guild=%s", kind, guild.id)
             return
@@ -46,23 +45,20 @@ class BienvenueListener(commands.Cog):
             except (discord.NotFound, discord.Forbidden, discord.HTTPException):
                 channel = None
 
-        # ⚠️ Vérifie que le salon est valide.
         if not isinstance(channel, discord.TextChannel):
-            log.warning("[LISTENER BIENVENUE] Salon %s introuvable/invalide pour %s (guild=%s)", channel_id, kind, guild.id)
+            log.warning("[BIENVENUE_LISTENER] Salon %s introuvable/invalide pour %s (guild=%s)", channel_id, kind, guild.id)
             return
 
-        # ✅ Vérifie que le bot a les permissions nécessaires.
         me = guild.me
         if me is not None:
             perms = channel.permissions_for(me)
             if not (perms.send_messages and perms.view_channel):
-                log.warning("[LISTENER BIENVENUE] Permissions insuffisantes dans #%s pour %s (guild=%s)", channel.name, kind, guild.id)
+                log.warning("[BIENVENUE_LISTENER] Permissions insuffisantes dans #%s pour %s (guild=%s)", channel.name, kind, guild.id)
                 return
 
         rendered = render_template(template, member=member, guild=guild)
         embed_kind = "arrivee" if kind == "arrivée" else "depart"
 
-        # ✉️ Envoie le message dans le salon.
         try:
             if format_ == "text":
                 view = build_bienvenue_view(rendered, kind=embed_kind)
@@ -79,10 +75,10 @@ class BienvenueListener(commands.Cog):
                 self._schedule_mention_repair(sent, embed=embed)
 
         except discord.Forbidden:
-            log.warning("[LISTENER BIENVENUE] Forbidden en envoyant %s dans #%s (guild=%s)", kind, channel.name, guild.id)
+            log.warning("[BIENVENUE_LISTENER] Forbidden en envoyant %s dans #%s (guild=%s)", kind, channel.name, guild.id)
 
         except discord.HTTPException:
-            log.exception("[LISTENER BIENVENUE] Erreur HTTP en envoyant %s (guild=%s)", kind, guild.id)
+            log.exception("[BIENVENUE_LISTENER] Erreur HTTP en envoyant %s (guild=%s)", kind, guild.id)
 
     def _schedule_mention_repair(self, message: discord.Message, *, view: discord.ui.LayoutView | None = None, embed: discord.Embed | None = None) -> None:
         """Programme la ré-édition de réparation."""
@@ -98,14 +94,13 @@ class BienvenueListener(commands.Cog):
             elif embed is not None:
                 await message.edit(embed=embed)
         except (discord.NotFound, discord.Forbidden, discord.HTTPException):
-            log.debug("[LISTENER BIENVENUE] Ré-édition de réparation de mention impossible (message %s).", message.id)
+            log.debug("[BIENVENUE_LISTENER] Ré-édition de réparation de mention impossible (message %s).", message.id)
 
 
 # ============================================================
 #  💻 Listener
 # ============================================================
 
-    # 👋 Cas d'arrivée 
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member) -> None:
         if member.bot:
@@ -124,7 +119,6 @@ class BienvenueListener(commands.Cog):
             image_url=cfg.get("arrive_image_url"),
         )
 
-    # 🚪 Cas de départ
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member) -> None:
         if member.bot:

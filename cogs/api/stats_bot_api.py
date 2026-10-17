@@ -1,6 +1,7 @@
 """
 cogs/api/api_stats.py — API Stats.
 """
+
 from __future__ import annotations
 
 import logging
@@ -24,9 +25,9 @@ PeriodTotalsName = Literal["today", "yesterday", "week", "month", "year"]
 LeaderboardPeriodName = Literal["day", "week", "month", "year"]
 
 
-# ══════════════════════════════════════════════════════════════════════════
+# ============================================================
 # 📋 MODÈLES PYDANTIC
-# ══════════════════════════════════════════════════════════════════════════
+# ============================================================
 
 class StatsResponse(BaseModel):
     total_guilds: int
@@ -110,9 +111,9 @@ class AdoptionEntry(BaseModel):
     guild_count: int
 
 
-# ══════════════════════════════════════════════════════════════════════════
-# 🔄 ENDPOINTS — Bot (global)
-# ══════════════════════════════════════════════════════════════════════════
+# ============================================================
+# 🔄 ENDPOINTS | stats bot
+# ============================================================
 
 @app.get("/stats", dependencies=[Depends(require_token)], response_model=StatsResponse)
 async def get_stats(request: Request):
@@ -156,9 +157,9 @@ async def get_command_adoption(request: Request, days: int = 30):
     return await csm.get_command_adoption(days=days)
 
 
-# ══════════════════════════════════════════════════════════════════════════
-# 🔄 ENDPOINTS — Stats serveur (guild_stats_manager)
-# ══════════════════════════════════════════════════════════════════════════
+# ============================================================
+# 🔄 ENDPOINTS | stats serveus
+# ============================================================
 
 @app.get(
     "/stats/{guild_id}/activity/{period}",

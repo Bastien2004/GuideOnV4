@@ -1,9 +1,5 @@
 """
-cogs/api/notation_api_app.py — API Notations
-
-⚠️ Utilise désormais utils.managers.ng_nota_manager (phase 9, multi-serveurs)
-au lieu de l'ancien utils.managers.notations_manager (mono-serveur). Le
-contrat externe (URLs, payloads JSON) reste inchangé pour Laravel.
+cogs/api/notation_api_app.py — API Notations.
 """
 
 from __future__ import annotations
@@ -35,12 +31,12 @@ TIME_KEY_MAPPING = {
         "hour": "send_presence_hour",
         "minute": "send_presence_minute",
     },
-    "time_ask_beginning": {  # Deadline
+    "time_ask_beginning": {
         "weekday": "deadline_weekday",
         "hour": "deadline_hour",
         "minute": "deadline_minute",
     },
-    "time_ask_finish": {  # Envoi public
+    "time_ask_finish": {
         "weekday": "send_public_weekday",
         "hour": "send_public_hour",
         "minute": "send_public_minute",
@@ -100,9 +96,9 @@ class SetTimePayload(BaseModel):
     schedule: TimeSchedule
 
 
-# ──────────────────────────────────────────────────────────────────────────
-# Endpoints
-# ──────────────────────────────────────────────────────────────────────────
+# ============================================================
+# 🔄 Endpoints
+# ============================================================
 
 @app.get("/notations", dependencies=[Depends(require_token)])
 async def get_notation_config(request: Request, guild_id: int):

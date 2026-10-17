@@ -1,20 +1,7 @@
 """
-utils/guild_info.py — Détection des systèmes configurés et dérivation des
-informations bot (date d'ajout, permissions) pour un serveur, consommé par
-views/dev/guild_info_view.py.
-
-2026-10-06 (Paul, refonte /dev guild_info) : remplace l'ancien
-`detect_modules()` (4 modules : Alpha / Tickets / Anniversaires /
-Notations) par `gather_guild_systems()`, qui balaie TOUS les systèmes
-configurables par serveur connus du bot (modération, automod, accueil,
-engagement, boutique, Alpha/NG), regroupés par catégorie pour l'affichage
-par onglets du nouveau panel.
-
-Chaque manager appelé ici est un read-only DB/cache (TTL 60s selon le
-manager, jamais de requête Discord) — aucun appel API supplémentaire n'est
-ajouté par cette commande, qui reste un outil dev peu fréquent mais ne doit
-pas pour autant déclencher une rafale de requêtes.
+utils/guild_info.py — Détection des systèmes configurés
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -61,7 +48,7 @@ EMOJI_INFO = "➖"
 class SystemEntry:
     """Une ligne d'état dans la page 'Systèmes' du panel guild_info."""
     name: str
-    enabled: bool | None  # None = ligne informative (pas un simple on/off)
+    enabled: bool | None
     detail: str = ""
 
     @property

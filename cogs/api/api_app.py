@@ -22,9 +22,9 @@ from cogs.api.base import app, limiter, require_token
 log = logging.getLogger(__name__)
 
 
-# ──────────────────────────────────────────────────────────────────────────
-# Schémas — Boutique
-# ──────────────────────────────────────────────────────────────────────────
+# ============================================================
+# 💰 Schémas — Boutique
+# ============================================================
 
 class ShopPayload(BaseModel):
     role: str
@@ -45,12 +45,13 @@ class ShopPayload(BaseModel):
         return v
 
 
-# ──────────────────────────────────────────────────────────────────────────
-# Schémas — ONU
-# ──────────────────────────────────────────────────────────────────────────
+# ============================================================
+# ☕ Schémas — ONU
+# ============================================================
 
 class ONUConfigUpdate(BaseModel):
-    """Modèle pour mise à jour config ONU (accepte anciens ET nouveaux champs)"""
+    """Modèle pour mise à jour config ONU."""
+
     guild_id: int
     jour_onu: int | None = None
     pre_heure: int | None = None
@@ -88,9 +89,9 @@ class ONUPingPayload(BaseModel):
         return v
 
 
-# ──────────────────────────────────────────────────────────────────────────
-# Endpoints — Health
-# ──────────────────────────────────────────────────────────────────────────
+# ============================================================
+# ❤️ Endpoints — Health
+# ============================================================
 
 @app.get("/health")
 async def health(request: Request):
@@ -102,9 +103,9 @@ async def health(request: Request):
     }
 
 
-# ──────────────────────────────────────────────────────────────────────────
-# Endpoints — Boutique
-# ──────────────────────────────────────────────────────────────────────────
+# ============================================================
+# 💰 Endpoints — Boutique
+# ============================================================
 
 @app.get("/boutique", dependencies=[Depends(require_token)])
 async def get_all(request: Request):
@@ -143,9 +144,9 @@ async def remove(request: Request, payload: ShopPayload):
     }
 
 
-# ──────────────────────────────────────────────────────────────────────────
-# Endpoints — ONU
-# ──────────────────────────────────────────────────────────────────────────
+# ============================================================
+# ☕ Endpoints — ONU
+# ============================================================
 
 @app.get("/onu/{guild_id}", dependencies=[Depends(require_token)])
 async def get_onu_config(request: Request, guild_id: int):
@@ -179,9 +180,9 @@ async def remove_onu_ping(request: Request, guild_id: int, discord_id: int):
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-# ──────────────────────────────────────────────────────────────────────────
-# Runner
-# ──────────────────────────────────────────────────────────────────────────
+# ============================================================
+# ⚙️ RUNNER
+# ============================================================
 
 def run_api_server() -> threading.Thread:
     """Démarre le serveur API unifiée."""
