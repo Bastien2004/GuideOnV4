@@ -176,4 +176,16 @@ PERMISSIONS = {
     "yes_confirm":       {"type": "aucune", "detail": "Smalltalk — aucune commande associée", "verified": True},
     "no_deny":           {"type": "aucune", "detail": "Smalltalk — aucune commande associée", "verified": True},
     "are_you_there":     {"type": "aucune", "detail": "Smalltalk — aucune commande associée", "verified": True},
+
+    "dev_avatar_bot": {"type": "interne", "detail": "commande dev", "verified": False},
+    "dev_command_visibility": {"type": "interne", "detail": "commande dev", "verified": False},
+    "eco_balance": {"type": "aucune", "detail": "Pas de restriction trouvée dans le code", "verified": True},
+    "eco_config": {"type": "discord_admin", "detail": "check_admin", "verified": True},
+    "eco_daily": {"type": "aucune", "detail": "Pas de restriction trouvée dans le code", "verified": True},
+    "eco_gestion": {"type": "discord_admin", "detail": "check_admin", "verified": True},
+    "eco_leaderboard": {"type": "aucune", "detail": "Pas de restriction trouvée dans le code", "verified": True},
+    "mod_purge": {"type": "interne", "detail": "check_mod_permission(...)", "verified": True},
+    "rappel_create": {"type": "aucune", "detail": "Pas de restriction trouvée dans le code", "verified": True},
+    "rappel_delete": {"type": "aucune", "detail": "Pas de restriction trouvée dans le code", "verified": True},
+    "rappel_list": {"type": "aucune", "detail": "Pas de restriction trouvée dans le code", "verified": True},
 }

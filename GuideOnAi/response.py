@@ -167,4 +167,16 @@ RESPONSES = {
     "yes_confirm":        "Parfait, dis-m'en un peu plus sur ce que tu veux faire et je te guiderai vers la bonne commande.",
     "no_deny":            "Pas de souci, reformule ta demande et je vais essayer de mieux comprendre 🙂",
     "are_you_there":      "Oui, je suis là ! Dis-moi ce dont tu as besoin.",
+    # New response
+    "dev_avatar_bot": "Commande `/dev avatar_bot`, réservée à l'équipe dev — Applique/retire l'avatar de bot personnalisé d'un serveur (add-on boutique).",
+    "dev_command_visibility": "Commande `/dev command_visibility`, réservée à l'équipe dev — Diagnostique la visibilité d'une commande sur un serveur (permissions Discord).",
+    "eco_balance": "Utilise `/eco balance` — affiche le solde d'un membre.",
+    "eco_config": "Utilise `/eco config` — configure le système d'économie (administrateur).",
+    "eco_daily": "Utilise `/eco daily` — récompense quotidienne.",
+    "eco_gestion": "Utilise `/eco gestion` — ajuste le solde d'un membre (administrateur).",
+    "eco_leaderboard": "Utilise `/eco leaderboard` — affiche le classement d'argent du serveur.",
+    "mod_purge": "Utilise `/mod purge` — nettoie complétement un salon (soumis aux permissions /mod).",
+    "rappel_create": "Utilise `/rappel create` — crée un rappel personnel.",
+    "rappel_delete": "Utilise `/rappel delete` — annule un rappel en attente.",
+    "rappel_list": "Utilise `/rappel list` — liste tes rappels en attente.",
 }

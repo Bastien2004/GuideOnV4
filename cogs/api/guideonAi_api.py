@@ -1,40 +1,27 @@
 """
-cogs/api/api_chatbot.py — API Chatbot IA.
+cogs/api/api_chatbot.py — API Chatbot IA (avec mémoire de conversation).
+
+Toute la logique (modèle, seuils, recherche wiki, mémoire) est dans GuideOnAi/predict.py : l'API ne fait
+que l'appeler. Plus de code recopié à deux endroits.
+
+NOUVEAU : le champ optionnel `session_id` de la requête. Pour que le bot retienne la conversation, celui
+qui appelle l'API doit envoyer le MÊME `session_id` à chaque message d'une même personne (par exemple son
+id Discord, ou l'id de session du site). Sans `session_id`, rien ne change : aucune mémoire, comme avant.
 """
 from __future__ import annotations
 
 import logging
 
-import torch
 from fastapi import Depends, HTTPException
 from pydantic import BaseModel
 
 from cogs.api.base import app, require_token
-from GuideOnAi.tokenizer import tokenize
-from GuideOnAi.vectorizer import vectorize
-from GuideOnAi.model import Model
-from GuideOnAi.response import RESPONSES
-from GuideOnAi.permissions import PERMISSIONS
+from GuideOnAi import predict as chatbot
 
 log = logging.getLogger(__name__)
 
-
-# ============================================================
-# 🧠 CHARGEMENT DU MODÈLE
-# ============================================================
-
-_checkpoint = torch.load("GuideOnAi/model.pth", map_location="cpu")
-
-_vocabulary = _checkpoint["vocabulary"]
-_intents = _checkpoint["intents"]
-
-_model = Model(
-    _checkpoint["input_size"],
-    _checkpoint["hidden_size"],
-    _checkpoint["output_size"],
-)
-_model.load_state_dict(_checkpoint["model_state"])
-_model.eval()
+# Chargement du modèle (une seule fois, au démarrage)
+chatbot.load()
 
 
 # ============================================================
@@ -43,6 +30,7 @@ _model.eval()
 
 class PredictRequest(BaseModel):
     phrase: str
+    session_id: str | None = None      # identifiant stable de la conversation (facultatif)
 
 
 class PredictResponse(BaseModel):
@@ -52,60 +40,8 @@ class PredictResponse(BaseModel):
     permission_required: bool
     permission_type: str | None = None
     permission_detail: str | None = None
-
-
-# ============================================================
-# 🔧 LOGIQUE DE PRÉDICTION
-# ============================================================
-
-def _predict(phrase: str) -> PredictResponse:
-    tokens = tokenize(phrase)
-    vector = vectorize(tokens, _vocabulary)
-    x = torch.tensor(vector).float().unsqueeze(0)
-
-    with torch.no_grad():
-        output = _model(x)
-        probabilities = torch.softmax(output, dim=1)
-        predicted_class = probabilities.argmax(dim=1).item()
-
-    confidence = probabilities[0][predicted_class].item()
-    intent = _intents[predicted_class]
-
-    if confidence < 0.6:
-        return PredictResponse(
-            intent="unknown",
-            response="Je ne comprends pas, reformule ta question",
-            confidence=confidence,
-            permission_required=False,
-        )
-
-    if confidence < 0.85:
-        return PredictResponse(
-            intent=intent,
-            response=f"Je pense que tu veux {intent}. C'est bien ça ?",
-            confidence=confidence,
-            permission_required=False,
-        )
-
-    response_text = RESPONSES[intent]
-    permission = PERMISSIONS[intent]
-
-    if permission["type"] == "aucune":
-        return PredictResponse(
-            intent=intent,
-            response=response_text,
-            confidence=confidence,
-            permission_required=False,
-        )
-
-    return PredictResponse(
-        intent=intent,
-        response=response_text,
-        confidence=confidence,
-        permission_required=True,
-        permission_type=permission["type"],
-        permission_detail=permission["detail"],
-    )
+    kind: str | None = None            # direct / confirmed / suggestion / wiki / unknown
+    used_context: bool = False         # le sujet de la conversation a servi à comprendre la phrase
 
 
 # ============================================================
@@ -123,7 +59,7 @@ async def predict_intent(request: PredictRequest):
         raise HTTPException(status_code=400, detail="`phrase` ne peut pas être vide.")
 
     try:
-        return _predict(request.phrase)
+        return PredictResponse(**chatbot.predict_message(request.phrase, request.session_id))
     except Exception as exc:
         log.exception("Erreur lors de la prédiction du chatbot")
         raise HTTPException(status_code=500, detail="Erreur interne lors de la prédiction.") from exc
