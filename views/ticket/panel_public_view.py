@@ -60,14 +60,11 @@ class PanelPublicView(LayoutView):
         if title:
             container.add_item(TextDisplay(f"# {panel_emoji} {title}"))
             container.add_item(Separator())
-        if image_url:
-            # Bannière Gold+ (cf. panel_setup_view) — affichée telle quelle,
-            # sans réévaluer le palier Gold+ ici : le gate ne s'applique qu'à
-            # la CONFIGURATION, pas à l'affichage d'un panel déjà configuré.
-            container.add_item(MediaGallery(MediaGalleryItem(media=image_url)))
-            container.add_item(Separator())
         if message:
             container.add_item(TextDisplay(message))
+            container.add_item(Separator())
+        if image_url:
+            container.add_item(MediaGallery(MediaGalleryItem(media=image_url)))
             container.add_item(Separator())
 
         row = ActionRow(OpenTicketButton(panel_id, emoji=panel_emoji))
