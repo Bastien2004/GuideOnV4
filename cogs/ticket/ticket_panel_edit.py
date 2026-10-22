@@ -19,11 +19,13 @@ from utils.container_universel import error_container
 from utils.error_handler import handle_app_command_error
 
 from utils.managers import ticket_manager as tm
-from views.ticket.panel_setup_view import build_setup_view
+from views.ticket.panel_picker import build_panel_picker_view
+from views.ticket.panel_setup_view import build_edit_ctx, build_setup_view
 
 log = logging.getLogger(__name__)
 
 _MESSAGE_ID_RE = re.compile(r"/(\d+)$")
+_ACTION = "**modifier** un __panel de tickets__"
 
 
 # ============================================================
@@ -33,27 +35,29 @@ _MESSAGE_ID_RE = re.compile(r"/(\d+)$")
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10)
 @app_commands.command(name="panel_edit", description="✏️ Modifier un panel de tickets existant")
-@app_commands.describe(lien_panel="Lien du message panel (clic droit → Copier le lien)")
-async def ticket_panel_edit(interaction: discord.Interaction, lien_panel: str) -> None:
+@app_commands.describe(
+    lien_panel="Lien du message panel (optionnel — laissez vide pour choisir dans une liste)"
+)
+async def ticket_panel_edit(interaction: discord.Interaction, lien_panel: str | None = None) -> None:
 
     # 🛡️ Vérification ban utilisateur.
     if not await verifier_ban_utilisateur(interaction):
         return
-    
+
     # 🔐 Vérification administrateur.
-    if not await check_admin(interaction, "**modifier** un __panel de tickets__"):
+    if not await check_admin(interaction, _ACTION):
         return
-    
+
     # 🕒 Defer.
     try:
         await interaction.response.defer(ephemeral=True)
     except (discord.NotFound, discord.HTTPException):
         return
-    
+
     # ⚙️ Vérification maintenance.
     if not await verifier_commande(interaction, "ticket_panel_edit"):
         return
-    
+
     # 📊 Tracking.
     await tracker_commande(interaction, "ticket_panel_edit")
 
@@ -61,55 +65,68 @@ async def ticket_panel_edit(interaction: discord.Interaction, lien_panel: str) -
     # 📦 Récupération des données.
     guild_id = interaction.guild_id
 
-    # 🔍 Extraction de l'ID du message depuis le lien.
-    match = _MESSAGE_ID_RE.search(lien_panel.strip())
-    if not match:
+    # 🔗 Lien fourni : flux direct (inchangé, juste re-factorisé via build_edit_ctx).
+    if lien_panel:
+        match = _MESSAGE_ID_RE.search(lien_panel.strip())
+        if not match:
+            return await interaction.followup.send(
+                view=error_container(
+                    "__Lien__ de message **invalide**. Copiez le lien **direct** du panel "
+                    "(clic droit sur le message → Copier le lien), ou laissez le champ vide "
+                    "pour choisir dans une liste."
+                ),
+                ephemeral=True,
+            )
+        message_id = int(match.group(1))
+
+        panel = await tm.get_panel_by_message(guild_id, message_id)
+        if not panel:
+            return await interaction.followup.send(
+                view=error_container("**Aucun panel** ne __correspond__ à ce message."),
+                ephemeral=True,
+            )
+
+        try:
+            view = build_setup_view(interaction.guild, build_edit_ctx(panel))
+            await interaction.followup.send(view=view, ephemeral=True)
+        except Exception:
+            log.exception("**Ouverture** interface `panel_edit` échouée (guild=%s)", guild_id)
+            await interaction.followup.send(
+                view=error_container("**Impossible** d'ouvrir l'__interface d'édition__."),
+                ephemeral=True,
+            )
+        return
+
+    # 📋 Pas de lien fourni : sélecteur de panel (menu déroulant natif).
+    panels = await tm.list_panels(guild_id)
+    if not panels:
         return await interaction.followup.send(
-            view=error_container(
-                "__Lien__ de message **invalide**. Copiez le lien **direct** du panel "
-                "(clic droit sur le message → Copier le lien)."
-            ),
-            ephemeral=True,
-        )
-    message_id = int(match.group(1))
-
-    # 📁 Récupérer le panel par son message.
-    panel = await tm.get_panel_by_message(guild_id, message_id)
-    if not panel:
-        return await interaction.followup.send(
-            view=error_container("**Aucun panel** ne __correspond__ à ce message."),
+            view=error_container("**Aucun panel** n'est configuré sur ce serveur."),
             ephemeral=True,
         )
 
-    # 🏗️ Pré-remplissage de la configuration.
-    ctx = {
-        "panel_id": panel["panel_id"],
-        "channel_id": panel["channel_id"],
-        "message_id": panel["message_id"],
-        "title": panel["title"],
-        "panel_message": panel["panel_message"],
-        "ticket_category_id": panel["ticket_category_id"],
-        "transcript_channel_id": panel["transcript_channel_id"],
-        "closed_category_id": panel.get("closed_category_id"),
-        "backup_category_id": panel.get("backup_category_id"),
-        "panel_emoji": panel.get("panel_emoji"),
-        "ping_role_id": panel.get("ping_role_id"),
-        "role_ban_ticket_id": panel.get("role_ban_ticket_id"),
-        "staff_roles": list(panel.get("staff_roles", [])),
-        "counter": panel.get("counter", 1),
-    }
+    async def on_pick(pick_interaction: discord.Interaction, panel: dict) -> None:
+        if not await check_admin(pick_interaction, _ACTION):
+            return
+        try:
+            view = build_setup_view(pick_interaction.guild, build_edit_ctx(panel))
+            await pick_interaction.response.edit_message(view=view)
+        except Exception:
+            log.exception(
+                "**Ouverture** interface `panel_edit` (sélecteur) échouée (guild=%s)", guild_id
+            )
+            await pick_interaction.response.send_message(
+                view=error_container("**Impossible** d'ouvrir l'__interface d'édition__."),
+                ephemeral=True,
+            )
 
-    # 🏗️ Construction et envoie de la view.
-    try:
-        view = build_setup_view(interaction.guild, ctx)
-        await interaction.followup.send(view=view, ephemeral=True)
-
-    except Exception:
-        log.exception("**Ouverture** interface `panel_edit` échouée (guild=%s)", guild_id)
-        await interaction.followup.send(
-            view=error_container("**Impossible** d'ouvrir l'__interface d'édition__."),
-            ephemeral=True,
-        )
+    picker_view = build_panel_picker_view(
+        interaction.guild, panels,
+        title="✏️ Modifier un panel",
+        description="Choisissez le panel à modifier dans la liste.",
+        on_pick=on_pick,
+    )
+    await interaction.followup.send(view=picker_view, ephemeral=True)
 
 
 # ============================================================

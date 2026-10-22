@@ -57,6 +57,13 @@ class TicketPanel(Base, TimestampMixin):
     # si non défini (comportement identique à avant l'ajout de ce champ).
     panel_emoji: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
+    # Image de bannière affichée dans le panel public (sous le titre).
+    # Réservée aux serveurs Gold+ (vérifié à la CONFIGURATION, dans
+    # panel_setup_view — pas réévalué à l'affichage : si le serveur perd
+    # Gold+ après coup, l'image déjà configurée continue de s'afficher,
+    # elle n'est juste plus modifiable). Optionnelle, None = pas d'image.
+    panel_image_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
     # Rôles (rôle ping à l'open + rôle ban ticket).
     ping_role_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     role_ban_ticket_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
@@ -108,6 +115,7 @@ class TicketPanel(Base, TimestampMixin):
             "closed_category_id": self.closed_category_id,
             "backup_category_id": self.backup_category_id,
             "panel_emoji": self.panel_emoji,
+            "panel_image_url": self.panel_image_url,
             "ping_role_id": self.ping_role_id,
             "role_ban_ticket_id": self.role_ban_ticket_id,
             "counter": self.counter,

@@ -66,6 +66,7 @@ _PANEL_EDITABLE = {
     "closed_category_id",
     "backup_category_id",
     "panel_emoji",
+    "panel_image_url",
     "ping_role_id",
     "role_ban_ticket_id",
 }
@@ -167,6 +168,7 @@ async def create_panel(
     closed_category_id: int | None = None,
     backup_category_id: int | None = None,
     panel_emoji: str | None = None,
+    panel_image_url: str | None = None,
     ping_role_id: int | None = None,
     role_ban_ticket_id: int | None = None,
     counter: int = 1,
@@ -186,6 +188,7 @@ async def create_panel(
                 closed_category_id=closed_category_id,
                 backup_category_id=backup_category_id,
                 panel_emoji=panel_emoji,
+                panel_image_url=panel_image_url,
                 ping_role_id=ping_role_id,
                 role_ban_ticket_id=role_ban_ticket_id,
                 counter=counter,

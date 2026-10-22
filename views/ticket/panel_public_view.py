@@ -8,7 +8,8 @@ import logging
 import time
 
 import discord
-from discord.ui import ActionRow, Button, Container, LayoutView, Separator, TextDisplay
+from discord import MediaGalleryItem
+from discord.ui import ActionRow, Button, Container, LayoutView, MediaGallery, Separator, TextDisplay
 
 from utils.boutique.gold_manager import is_gold
 from utils.boutique.vip_manager import is_vip
@@ -47,6 +48,7 @@ class PanelPublicView(LayoutView):
         title: str = "",
         message: str = "",
         emoji: str | None = None,
+        image_url: str | None = None,
     ):
         super().__init__(timeout=None)
         self.panel_id = panel_id
@@ -57,6 +59,12 @@ class PanelPublicView(LayoutView):
         container = Container()
         if title:
             container.add_item(TextDisplay(f"# {panel_emoji} {title}"))
+            container.add_item(Separator())
+        if image_url:
+            # Bannière Gold+ (cf. panel_setup_view) — affichée telle quelle,
+            # sans réévaluer le palier Gold+ ici : le gate ne s'applique qu'à
+            # la CONFIGURATION, pas à l'affichage d'un panel déjà configuré.
+            container.add_item(MediaGallery(MediaGalleryItem(media=image_url)))
             container.add_item(Separator())
         if message:
             container.add_item(TextDisplay(message))
@@ -75,6 +83,7 @@ class PanelPublicView(LayoutView):
             title=panel.get("title", "Support"),
             message=panel.get("panel_message", "Cliquez ci-dessous pour ouvrir un ticket."),
             emoji=panel.get("panel_emoji"),
+            image_url=panel.get("panel_image_url"),
         )
 
 

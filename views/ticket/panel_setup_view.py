@@ -1,24 +1,31 @@
 """
-views/ticket/panel_setup_view.py — Wizard de configuration d'un panel (CV2 pur).
+views/ticket/panel_setup_view.py — Configuration d'un panel (CV2 pur).
 
-Porté du V3 (views/TicketSetupView.py) — REMPLACE l'ancien WIP à embeds.
+Refonte 2026-10-21 (demande Paul : "je ne suis pas fan des interfaces...
+quelque chose d'autre avec un menu — facile de config, intuitif, moderne").
 
-Principe : un `ctx` dict mutable accumule la config. Chaque section a un bouton
-crayon qui ouvre soit un modal (champs texte : titre, message, emoji), soit un
-sous-écran de sélection native (salons/rôles — ChannelSelect/RoleSelect, même
-pattern que views/giveaway/create_view.py::_cb_channel/_cb_role) ; dans les
-deux cas la vue du wizard se rafraîchit ensuite. Le bouton « Créer / Mettre à
-jour » poste le PanelPublicView dans le salon et persiste via ticket_manager
-(create_panel / update_panel).
+Avant : chaque champ avait sa propre ligne (Section ou bloc de texte) + son
+propre bouton crayon — ça faisait beaucoup de composants à l'écran et ça
+avait déjà failli dépasser la limite Discord de 40 composants/message une
+fois (cf. ancien historique de ce fichier).
 
-Utilisé par /ticket panel_create (ctx vide) et /ticket panel_edit (ctx pré-rempli).
+Maintenant : un seul écran compact avec UN SEUL menu déroulant natif
+(`discord.ui.Select`) qui liste tous les champs configurables. Chaque
+option du menu affiche la VALEUR ACTUELLE du champ directement dans sa
+description (fonctionnalité native des select Discord) — on voit l'état
+complet du panel sans rien ouvrir. Choisir une option ouvre soit un modal
+(champs texte), soit le même sous-écran de sélection native qu'avant
+(ChannelSelect/RoleSelect — inchangé, cf. views/giveaway/create_view.py
+pour le pattern d'origine), puis revient à ce même écran.
 
-Audit 2026-10-16 : les salons/rôles étaient auparavant saisis par ID brut dans
-un modal texte (risque d'erreur élevé — mauvais ID, catégorie confondue avec un
-salon...). Remplacé par les selects natifs Discord (ChannelSelect/RoleSelect),
-qui ne permettent tout simplement pas de sélectionner un objet du mauvais type
-ou inexistant. Ajout de deux réglages : catégorie de secours (si la catégorie
-principale est pleine) et emoji du panel.
+Bénéfice secondaire : ce design tient dans une dizaine de composants au
+lieu d'une trentaine — bien plus de marge pour ajouter des réglages futurs
+sans revivre le quasi-dépassement de la limite Discord.
+
+Principe inchangé : un `ctx` dict mutable accumule la config, consommé par
+/ticket panel_create (ctx vide), /ticket panel_edit et le sélecteur de
+panel réutilisable (views/ticket/panel_picker.py, ctx pré-rempli via
+`build_edit_ctx`).
 """
 from __future__ import annotations
 
@@ -28,8 +35,9 @@ import time
 
 import discord
 from discord import ui
-from discord.ui import Button, LayoutView, Modal, TextInput
+from discord.ui import LayoutView, Modal, Select, TextInput
 
+from utils.boutique.gold_manager import is_gold, send_gold_error
 from utils.container_universel import error_container, success_container
 from utils.perm_admin import is_admin
 from utils.managers import ticket_manager as tm
@@ -37,6 +45,7 @@ from utils.ticket_limits import (
     DEFAULT_PANEL_EMOJI,
     MAX_STAFF_ROLES_PER_PANEL,
     PANEL_EMOJI_MAX_LENGTH,
+    PANEL_IMAGE_URL_MAX_LENGTH,
     PANEL_MESSAGE_MAX_LENGTH,
     PANEL_TITLE_MAX_LENGTH,
     WIZARD_TIMEOUT,
@@ -53,33 +62,42 @@ TEXT_CHANNEL_TYPES = [discord.ChannelType.text, discord.ChannelType.news]
 # Emoji personnalisé Discord : <:nom:id> ou <a:nom:id> (animé).
 _CUSTOM_EMOJI_RE = re.compile(r"^<a?:[A-Za-z0-9_~]{2,32}:(\d{15,21})>$")
 
+# Limite d'affichage d'une description de SelectOption (plafond Discord :
+# 100 caractères — on garde une petite marge pour l'ellipse).
+_DESC_MAX = 95
+
 
 # ============================================================
 # 🔧 Helpers d'affichage
 # ============================================================
 
-def _fmt_role(guild: discord.Guild, role_id) -> str:
-    if not role_id:
-        return "`Non défini`"
-    role = guild.get_role(int(role_id))
-    return f"<@&{role.id}>" if role else "`Rôle introuvable`"
+def _truncate(s: str, n: int = _DESC_MAX) -> str:
+    s = " ".join(s.split())  # aplatit les retours à la ligne pour une description sur 1 ligne
+    return s if len(s) <= n else s[: n - 1] + "…"
 
 
-def _fmt_channel(guild: discord.Guild, channel_id) -> str:
+def _desc_channel(guild: discord.Guild, channel_id, *, optional: bool) -> str:
     if not channel_id:
-        return "`Non défini`"
+        return "Non défini (optionnel)" if optional else "⚠️ Non défini"
     ch = guild.get_channel(int(channel_id))
-    return f"<#{ch.id}>" if ch else "`Salon introuvable`"
+    return f"#{ch.name}" if ch else "⚠️ Salon introuvable"
 
 
-def _fmt_roles_list(guild: discord.Guild, role_ids: list) -> str:
+def _desc_role(guild: discord.Guild, role_id) -> str:
+    if not role_id:
+        return "Non défini (optionnel)"
+    role = guild.get_role(int(role_id))
+    return f"@{role.name}" if role else "⚠️ Rôle introuvable"
+
+
+def _desc_roles_list(guild: discord.Guild, role_ids: list) -> str:
     if not role_ids:
-        return "`Non défini`"
-    parts = []
+        return "⚠️ Non défini"
+    names = []
     for rid in role_ids:
         role = guild.get_role(int(rid))
-        parts.append(f"<@&{role.id}>" if role else "`Introuvable`")
-    return ", ".join(parts)
+        names.append(f"@{role.name}" if role else "rôle introuvable")
+    return ", ".join(names)
 
 
 def _check_complete(ctx: dict) -> tuple[bool, list]:
@@ -137,8 +155,77 @@ def _parse_panel_emoji(value: str, client: discord.Client) -> str | None:
     return value
 
 
+def _parse_panel_image_url(value: str) -> str | None:
+    """
+    Valide une URL d'image de bannière. Pas de vérification réseau (le bot ne
+    télécharge rien pour "voir" si c'est une image) — juste un garde-fou
+    basique : schéma https, pas d'espace, longueur raisonnable. Une URL
+    acceptée mais qui ne pointe pas vers une image réelle échoue simplement à
+    s'afficher côté Discord (MediaGallery cassé, non bloquant) — même logique
+    pragmatique que la validation d'emoji ci-dessus.
+    """
+    value = value.strip()
+    if not value or " " in value or len(value) > PANEL_IMAGE_URL_MAX_LENGTH:
+        return None
+    if not value.lower().startswith("https://"):
+        return None
+    return value
+
+
 # ============================================================
-# 🪟 Vue principale du wizard
+# 🧾 Champs du menu — ordre d'affichage, description courante, action
+# ============================================================
+# Chaque entrée : (value, emoji, label, kind). `kind` pilote le dispatch
+# dans _FieldSelect.callback (modal texte / sous-écran salon / sous-écran
+# rôle / cas spéciaux emoji+image).
+
+_FIELD_ORDER = [
+    ("title_message", "📝", "Titre & Message"),
+    ("panel_emoji", "🙂", "Emoji du panel"),
+    ("panel_image_url", "🖼️", "Image du panel (Gold+)"),
+    ("ticket_category_id", "📁", "Catégorie des tickets"),
+    ("backup_category_id", "🆘", "Catégorie de secours"),
+    ("transcript_channel_id", "📄", "Salon transcript"),
+    ("closed_category_id", "🔒", "Catégorie tickets fermés"),
+    ("staff_roles", "👥", "Rôles staff"),
+    ("ping_role_id", "🔔", "Rôle ping à l'ouverture"),
+    ("role_ban_ticket_id", "🚫", "Rôle ban ticket"),
+]
+
+
+def _field_description(guild: discord.Guild, ctx: dict, value: str) -> str:
+    if value == "title_message":
+        title = ctx.get("title")
+        if not title:
+            return "⚠️ Non défini"
+        msg = ctx.get("panel_message") or ""
+        return _truncate(f"{title} — {msg}" if msg else title)
+    if value == "panel_emoji":
+        return ctx.get("panel_emoji") or f"Non défini (défaut : {DEFAULT_PANEL_EMOJI})"
+    if value == "panel_image_url":
+        if not is_gold(guild.id):
+            return "🔒 Réservé aux serveurs Gold+"
+        url = ctx.get("panel_image_url")
+        return _truncate(url) if url else "Non défini (optionnel)"
+    if value == "ticket_category_id":
+        return _desc_channel(guild, ctx.get("ticket_category_id"), optional=False)
+    if value == "backup_category_id":
+        return _desc_channel(guild, ctx.get("backup_category_id"), optional=True)
+    if value == "transcript_channel_id":
+        return _desc_channel(guild, ctx.get("transcript_channel_id"), optional=False)
+    if value == "closed_category_id":
+        return _desc_channel(guild, ctx.get("closed_category_id"), optional=True)
+    if value == "staff_roles":
+        return _truncate(_desc_roles_list(guild, ctx.get("staff_roles", [])))
+    if value == "ping_role_id":
+        return _desc_role(guild, ctx.get("ping_role_id"))
+    if value == "role_ban_ticket_id":
+        return _desc_role(guild, ctx.get("role_ban_ticket_id"))
+    return "Non défini"
+
+
+# ============================================================
+# 🪟 Vue principale — dashboard + menu déroulant
 # ============================================================
 
 def build_setup_view(guild: discord.Guild, ctx: dict, locked: bool = False) -> LayoutView:
@@ -160,97 +247,21 @@ def build_setup_view(guild: discord.Guild, ctx: dict, locked: bool = False) -> L
     container.add_item(ui.TextDisplay(f"-# {status}"))
     container.add_item(ui.Separator())
 
-    # ── Présentation ──
-    container.add_item(ui.TextDisplay("### 📝 Présentation"))
-    title = ctx.get("title") or "`Non défini`"
-    panel_msg = ctx.get("panel_message") or "`Non défini`"
-    raw_preview = (panel_msg[:55] + "…") if len(panel_msg) > 55 else panel_msg
-    preview = f"```{raw_preview}```" if panel_msg != "`Non défini`" else raw_preview
-
-    container.add_item(ui.Section(
-        ui.TextDisplay(f"**Titre :** {title}\n**Message :**\n{preview}"),
-        accessory=_pencil(locked, lambda i: i.response.send_modal(TitleMessageModal(guild, ctx))),
-    ))
-    emoji_disp = ctx.get("panel_emoji") or f"`Non défini (défaut : {DEFAULT_PANEL_EMOJI})`"
-    container.add_item(ui.Section(
-        ui.TextDisplay(f"**Emoji du panel :** {emoji_disp}"),
-        accessory=_pencil(locked, lambda i: i.response.send_modal(PanelEmojiModal(guild, ctx))),
-    ))
+    options = [
+        discord.SelectOption(
+            label=label,
+            value=value,
+            description=_field_description(guild, ctx, value),
+            emoji=emoji,
+        )
+        for value, emoji, label in _FIELD_ORDER
+    ]
+    select = _FieldSelect(guild=guild, ctx=ctx, options=options, disabled=locked)
+    container.add_item(ui.ActionRow(select))
     container.add_item(ui.Separator())
 
-    # ── Salons ──
-    # NB: regroupées en un seul bloc de texte + une seule rangée de boutons
-    # (au lieu d'un Section+bouton par champ) pour rester sous la limite
-    # Discord de 40 composants par message (Components V2) — avec l'ajout de
-    # la catégorie de secours et de l'emoji, la version « 1 Section par champ »
-    # dépassait cette limite (41 composants, cf. audit 2026-10-16).
-    closed_disp = (_fmt_channel(guild, ctx.get("closed_category_id"))
-                   if ctx.get("closed_category_id") else "`Non défini (optionnel)`")
-    container.add_item(ui.TextDisplay("### 📁 Salons"))
-    container.add_item(ui.TextDisplay(
-        f"**Catégorie tickets :** {_fmt_channel(guild, ctx.get('ticket_category_id'))}\n"
-        f"**Catégorie de secours :** {_fmt_channel(guild, ctx.get('backup_category_id'))}\n"
-        f"-# Secours utilisée automatiquement si la principale est pleine (50 salons).\n"
-        f"**Salon transcript :** {_fmt_channel(guild, ctx.get('transcript_channel_id'))}\n"
-        f"**Catégorie tickets fermés :** {closed_disp}"
-    ))
-    container.add_item(ui.ActionRow(
-        _pencil_btn("Catégorie", "📁", locked, _opener_category(
-            guild, ctx, ctx_key="ticket_category_id",
-            title="📁 Catégorie des tickets",
-            description="Catégorie où seront créés les nouveaux tickets.",
-            optional=False,
-        )),
-        _pencil_btn("Secours", "🆘", locked, _opener_category(
-            guild, ctx, ctx_key="backup_category_id",
-            title="🆘 Catégorie de secours",
-            description=(
-                "Optionnelle : si la catégorie principale est pleine, les nouveaux "
-                "tickets sont créés ici à la place."
-            ),
-            optional=True,
-        )),
-        _pencil_btn("Transcript", "📄", locked, _opener_text_channel(
-            guild, ctx, ctx_key="transcript_channel_id",
-            title="📄 Salon transcript",
-            description="Salon où seront envoyés les transcripts à la fermeture d'un ticket.",
-        )),
-        _pencil_btn("Fermés", "🔒", locked, _opener_category(
-            guild, ctx, ctx_key="closed_category_id",
-            title="📁 Catégorie des tickets fermés",
-            description="Optionnelle : catégorie où déplacer un ticket une fois fermé.",
-            optional=True,
-        )),
-    ))
-    container.add_item(ui.Separator())
-
-    # ── Rôles ──
-    container.add_item(ui.TextDisplay("### 👥 Rôles"))
-    container.add_item(ui.TextDisplay(
-        f"**Staff :** {_fmt_roles_list(guild, ctx.get('staff_roles', []))}\n"
-        f"**Ping à l'ouverture :** {_fmt_role(guild, ctx.get('ping_role_id'))}\n"
-        f"**Ban ticket :** {_fmt_role(guild, ctx.get('role_ban_ticket_id'))}"
-    ))
-    container.add_item(ui.ActionRow(
-        _pencil_btn("Staff", "👥", locked, _opener_staff_roles(guild, ctx)),
-        _pencil_btn("Ping", "🔔", locked, _opener_role(
-            guild, ctx, ctx_key="ping_role_id",
-            title="🔔 Rôle ping à l'ouverture",
-            description="Optionnel : rôle mentionné dans le salon à chaque nouveau ticket.",
-            optional=True,
-        )),
-        _pencil_btn("Ban", "🚫", locked, _opener_role(
-            guild, ctx, ctx_key="role_ban_ticket_id",
-            title="🚫 Rôle ban ticket",
-            description="Optionnel : un membre avec ce rôle ne peut plus ouvrir de ticket.",
-            optional=True,
-        )),
-    ))
-    container.add_item(ui.Separator())
-
-    # ── Valider ──
     validate_label = "✅ Mettre à jour le panel" if is_edit else "✅ Créer le panel"
-    btn_validate = Button(
+    btn_validate = ui.Button(
         label=validate_label,
         style=discord.ButtonStyle.success if not locked else discord.ButtonStyle.secondary,
         disabled=not is_complete or locked,
@@ -270,44 +281,104 @@ def build_setup_view(guild: discord.Guild, ctx: dict, locked: bool = False) -> L
     return view
 
 
-def _pencil(locked: bool, opener):
-    """Crée un bouton crayon ✏️ (accessoire de Section) qui, au clic, vérifie
-    admin puis exécute `opener(i)`."""
-    btn = Button(emoji="✏️", style=discord.ButtonStyle.secondary, disabled=locked)
+class _FieldSelect(Select):
+    """Le menu déroulant unique du dashboard : une option par champ
+    configurable, choisir une option ouvre le bon modal/sous-écran."""
 
-    async def cb(interaction: discord.Interaction):
+    def __init__(self, *, guild: discord.Guild, ctx: dict, options, disabled: bool):
+        super().__init__(
+            placeholder="✏️ Choisir un champ à modifier…",
+            options=options,
+            min_values=1,
+            max_values=1,
+            disabled=disabled,
+        )
+        self._guild = guild
+        self._ctx = ctx
+
+    async def callback(self, interaction: discord.Interaction) -> None:
         if not await _check_admin(interaction):
             return
-        await opener(interaction)
 
-    btn.callback = cb
-    return btn
+        value = self.values[0]
+        guild, ctx = self._guild, self._ctx
 
-
-def _pencil_btn(label: str, emoji: str, locked: bool, opener):
-    """Variante de `_pencil` avec un libellé, utilisée en ActionRow (plusieurs
-    champs regroupés sous un même bloc de texte) plutôt qu'en accessoire de
-    Section — même vérification admin, même callback `opener(i)`."""
-    btn = Button(label=label, emoji=emoji, style=discord.ButtonStyle.secondary, disabled=locked)
-
-    async def cb(interaction: discord.Interaction):
-        if not await _check_admin(interaction):
+        if value == "title_message":
+            await interaction.response.send_modal(TitleMessageModal(guild, ctx))
             return
-        await opener(interaction)
-
-    btn.callback = cb
-    return btn
+        if value == "panel_emoji":
+            await interaction.response.send_modal(PanelEmojiModal(guild, ctx))
+            return
+        if value == "panel_image_url":
+            if not is_gold(guild.id):
+                await send_gold_error(interaction)
+                return
+            await interaction.response.send_modal(PanelImageModal(guild, ctx))
+            return
+        if value == "ticket_category_id":
+            await _opener_category(
+                guild, ctx, ctx_key="ticket_category_id",
+                title="📁 Catégorie des tickets",
+                description="Catégorie où seront créés les nouveaux tickets.",
+                optional=False,
+            )(interaction)
+            return
+        if value == "backup_category_id":
+            await _opener_category(
+                guild, ctx, ctx_key="backup_category_id",
+                title="🆘 Catégorie de secours",
+                description=(
+                    "Optionnelle : si la catégorie principale est pleine, les "
+                    "nouveaux tickets sont créés ici à la place."
+                ),
+                optional=True,
+            )(interaction)
+            return
+        if value == "transcript_channel_id":
+            await _opener_text_channel(
+                guild, ctx, ctx_key="transcript_channel_id",
+                title="📄 Salon transcript",
+                description="Salon où seront envoyés les transcripts à la fermeture d'un ticket.",
+            )(interaction)
+            return
+        if value == "closed_category_id":
+            await _opener_category(
+                guild, ctx, ctx_key="closed_category_id",
+                title="📁 Catégorie des tickets fermés",
+                description="Optionnelle : catégorie où déplacer un ticket une fois fermé.",
+                optional=True,
+            )(interaction)
+            return
+        if value == "staff_roles":
+            await _opener_staff_roles(guild, ctx)(interaction)
+            return
+        if value == "ping_role_id":
+            await _opener_role(
+                guild, ctx, ctx_key="ping_role_id",
+                title="🔔 Rôle ping à l'ouverture",
+                description="Optionnel : rôle mentionné dans le salon à chaque nouveau ticket.",
+                optional=True,
+            )(interaction)
+            return
+        if value == "role_ban_ticket_id":
+            await _opener_role(
+                guild, ctx, ctx_key="role_ban_ticket_id",
+                title="🚫 Rôle ban ticket",
+                description="Optionnel : un membre avec ce rôle ne peut plus ouvrir de ticket.",
+                optional=True,
+            )(interaction)
+            return
 
 
 # ============================================================
 # 🧭 Sous-écrans de sélection native (salons / rôles)
 #
 # Même pattern que views/giveaway/create_view.py::_cb_channel/_cb_role :
-# le crayon remplace temporairement le wizard par un petit écran avec un
-# select natif Discord (ChannelSelect/RoleSelect) + un bouton Annuler (et
-# Retirer si le champ est optionnel et déjà défini). Impossible d'y saisir
-# un ID invalide ou un objet du mauvais type — le select ne propose que les
-# salons/rôles réellement valides pour ce champ.
+# choisir l'option dans le menu remplace temporairement le dashboard par un
+# petit écran avec un select natif Discord (ChannelSelect/RoleSelect) + un
+# bouton Annuler (et Retirer si le champ est optionnel et déjà défini).
+# Impossible d'y saisir un ID invalide ou un objet du mauvais type — le
+# select ne propose que les salons/rôles réellement valides pour ce champ.
 # ============================================================
 
 def _back_to_wizard(guild: discord.Guild, ctx: dict):
@@ -445,7 +516,7 @@ async def _show_picker(
         ctx[ctx_key] = None
         await clear_inter.response.edit_message(view=build_setup_view(guild, ctx))
 
-    btn_cancel = Button(label="Annuler", style=discord.ButtonStyle.secondary, emoji="↩️")
+    btn_cancel = ui.Button(label="Annuler", style=discord.ButtonStyle.secondary, emoji="↩️")
     btn_cancel.callback = _back_to_wizard(guild, ctx)
 
     temp = LayoutView(timeout=WIZARD_TIMEOUT)
@@ -457,7 +528,7 @@ async def _show_picker(
     c.add_item(ui.Separator())
 
     if optional and ctx.get(ctx_key):
-        btn_clear = Button(label="Retirer", style=discord.ButtonStyle.danger, emoji="🗑️")
+        btn_clear = ui.Button(label="Retirer", style=discord.ButtonStyle.danger, emoji="🗑️")
         btn_clear.callback = on_clear
         c.add_item(ui.ActionRow(btn_clear, btn_cancel))
     else:
@@ -468,7 +539,7 @@ async def _show_picker(
 
 
 # ============================================================
-# 📝 Modals (champs texte uniquement : titre, message, emoji)
+# 📝 Modals (champs texte uniquement : titre, message, emoji, image)
 # ============================================================
 
 class TitleMessageModal(Modal):
@@ -523,6 +594,72 @@ class PanelEmojiModal(Modal):
         await _refresh(interaction, self.guild, self.ctx)
 
 
+class PanelImageModal(Modal):
+    """Modal Gold+ — l'accès est déjà vérifié par l'appelant (_FieldSelect)
+    avant d'ouvrir ce modal ; pas de double vérification ici."""
+
+    def __init__(self, guild, ctx):
+        super().__init__(title="✏️ Image du panel (Gold+)")
+        self.guild, self.ctx = guild, ctx
+        self.input = TextInput(
+            label="URL de l'image (vide = aucune)",
+            default=ctx.get("panel_image_url") or "",
+            required=False,
+            max_length=PANEL_IMAGE_URL_MAX_LENGTH,
+        )
+        self.add_item(self.input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        val = self.input.value.strip()
+        if not val:
+            self.ctx["panel_image_url"] = None
+        else:
+            parsed = _parse_panel_image_url(val)
+            if parsed is None:
+                return await interaction.response.send_message(
+                    view=error_container(
+                        "URL invalide. Utilisez un lien **https://** direct vers une image "
+                        "(sans espace)."
+                    ),
+                    ephemeral=True,
+                )
+            self.ctx["panel_image_url"] = parsed
+        await interaction.response.defer()
+        await _refresh(interaction, self.guild, self.ctx)
+
+
+# ============================================================
+# 🏗️ Construction du ctx depuis un panel existant (édition)
+# ============================================================
+
+def build_edit_ctx(panel: dict) -> dict:
+    """Construit le `ctx` du dashboard depuis un dict panel (manager.to_dict()).
+
+    Factorisé ici pour être partagé par /ticket panel_edit ET le sélecteur
+    de panel réutilisable (views/ticket/panel_picker.py) — avant cette
+    factorisation, panel_edit construisait ce dict en ligne dans son propre
+    fichier, avec un risque de divergence si un nouveau champ était ajouté
+    d'un côté et oublié de l'autre.
+    """
+    return {
+        "panel_id": panel["panel_id"],
+        "channel_id": panel["channel_id"],
+        "message_id": panel["message_id"],
+        "title": panel["title"],
+        "panel_message": panel["panel_message"],
+        "ticket_category_id": panel["ticket_category_id"],
+        "transcript_channel_id": panel["transcript_channel_id"],
+        "closed_category_id": panel.get("closed_category_id"),
+        "backup_category_id": panel.get("backup_category_id"),
+        "panel_emoji": panel.get("panel_emoji"),
+        "panel_image_url": panel.get("panel_image_url"),
+        "ping_role_id": panel.get("ping_role_id"),
+        "role_ban_ticket_id": panel.get("role_ban_ticket_id"),
+        "staff_roles": list(panel.get("staff_roles", [])),
+        "counter": panel.get("counter", 1),
+    }
+
+
 # ============================================================
 # ✅ Finalisation
 # ============================================================
@@ -545,6 +682,7 @@ async def _finalize_panel(interaction: discord.Interaction, guild: discord.Guild
         panel_id=panel_id, guild_id=guild_id,
         title=ctx["title"], message=ctx["panel_message"],
         emoji=ctx.get("panel_emoji"),
+        image_url=ctx.get("panel_image_url"),
     )
 
     # Poste ou édite le message public
@@ -577,6 +715,7 @@ async def _finalize_panel(interaction: discord.Interaction, guild: discord.Guild
                 closed_category_id=ctx.get("closed_category_id"),
                 backup_category_id=ctx.get("backup_category_id"),
                 panel_emoji=ctx.get("panel_emoji"),
+                panel_image_url=ctx.get("panel_image_url"),
                 ping_role_id=ctx.get("ping_role_id"),
                 role_ban_ticket_id=ctx.get("role_ban_ticket_id"),
             )
@@ -591,6 +730,7 @@ async def _finalize_panel(interaction: discord.Interaction, guild: discord.Guild
                 closed_category_id=ctx.get("closed_category_id"),
                 backup_category_id=ctx.get("backup_category_id"),
                 panel_emoji=ctx.get("panel_emoji"),
+                panel_image_url=ctx.get("panel_image_url"),
                 ping_role_id=ctx.get("ping_role_id"),
                 role_ban_ticket_id=ctx.get("role_ban_ticket_id"),
                 counter=ctx.get("counter", 1),
@@ -608,7 +748,7 @@ async def _finalize_panel(interaction: discord.Interaction, guild: discord.Guild
     except Exception:
         pass
 
-    # Verrouille le wizard + confirme
+    # Verrouille le dashboard + confirme
     ctx["panel_id"] = panel_id
     ctx["message_id"] = msg.id
     await interaction.edit_original_response(view=build_setup_view(guild, ctx, locked=True))

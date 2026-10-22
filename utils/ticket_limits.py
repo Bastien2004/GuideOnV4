@@ -64,6 +64,9 @@ TICKET_RAISON_MAX_LENGTH = 500
 PANEL_EMOJI_MAX_LENGTH = 64
 DEFAULT_PANEL_EMOJI = "🎫"
 
+# URL de l'image de bannière du panel (Gold+ uniquement, cf. panel_setup_view).
+PANEL_IMAGE_URL_MAX_LENGTH = 512
+
 
 # ============================================================
 # 🪟 Timeouts de vues (secondes)
@@ -81,3 +84,9 @@ MAX_PANELS_DISPLAY = 17
 
 # Nombre de messages parcourus pour générer un transcript.
 TRANSCRIPT_HISTORY_LIMIT = 1000
+
+# Limite Discord : nombre maximum d'options dans un menu déroulant (select).
+# Utilisé par le menu de configuration d'un panel (panel_setup_view) et par
+# le sélecteur de panel réutilisable (panel_picker, pour /ticket panel_edit
+# et /ticket panel_delete sans lien fourni).
+MAX_SELECT_OPTIONS = 25
