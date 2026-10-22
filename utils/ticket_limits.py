@@ -58,7 +58,14 @@ MAX_CHANNELS_PER_CATEGORY = 50
 # ============================================================
 
 PANEL_TITLE_MAX_LENGTH = 80
-PANEL_MESSAGE_MAX_LENGTH = 500
+# Plafond Discord réel d'un TextInput de modal : 4000 caractères (identique
+# pour le style "paragraph"). Mais le message du panel public partage son
+# message avec le titre dans un même conteneur Components V2, et Discord
+# limite le total du texte affiché (tous les TextDisplay confondus) à 4000
+# caractères sur l'ensemble du message — pas 4000 par champ. 3500 laisse
+# donc une marge confortable pour le titre (max 80) et le formatage (emoji,
+# "# ") sans jamais risquer de dépasser ce plafond combiné.
+PANEL_MESSAGE_MAX_LENGTH = 3500
 TICKET_RAISON_MAX_LENGTH = 500
 
 PANEL_EMOJI_MAX_LENGTH = 64
