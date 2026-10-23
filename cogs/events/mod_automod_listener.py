@@ -48,6 +48,16 @@ _REQUIRED_ALERT_PERMS: tuple[str, ...] = ("view_channel", "send_messages", "embe
 _DEDUP_WINDOW_SECONDS = 30.0
 _EDIT_FETCH_SEMAPHORE = asyncio.Semaphore(2)
 
+# Anti-rafale notifications : un flood/spam déclenche l'automod sur CHAQUE
+# message (c'est le but), mais sans ça chaque message supprimé renvoyait sa
+# propre notification (salon d'origine + DM + alerte staff) — une rafale de
+# 429 Discord constatée en prod le 23/10 (des dizaines de POST vers le même
+# salon d'alerte en quelques secondes). Le message reste supprimé et
+# l'infraction tracée en DB pour CHAQUE message (aucun changement côté
+# modération) ; seule la notification visible est regroupée une fois par
+# fenêtre et par (serveur, membre, système).
+_NOTICE_SUPPRESS_SECONDS = 15.0
+
 
 # ============================================================
 # 📚 Registre des systèmes
@@ -132,6 +142,7 @@ class ModAutomodListener(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self._recent_actions: dict[int, float] = {}
+        self._recent_notice: dict[tuple[int, int, str], dict] = {}
 
     def _already_handled_recently(self, message_id: int) -> bool:
         """Protection double sanction."""
@@ -149,6 +160,35 @@ class ModAutomodListener(commands.Cog):
 
         self._recent_actions[message_id] = now
         return False
+
+    def _consume_notice_slot(self, guild_id: int, user_id: int, system_key: str) -> int | None:
+        """
+        Anti-rafale pour les notifications visibles (salon d'origine, DM,
+        alerte staff) — distinct de `_already_handled_recently` qui ne
+        dédoublonne qu'un seul message (édition vs original).
+
+        Retourne None si on peut notifier maintenant (ouvre/renouvelle la
+        fenêtre pour ce (serveur, membre, système)), ou le nombre de
+        notifications déjà fusionnées dans la rafale en cours si on doit
+        rester silencieux cette fois (le message est quand même supprimé et
+        tracké en base par l'appelant, peu importe le résultat ici).
+        """
+        now = time.monotonic()
+        expired = [
+            key for key, entry in self._recent_notice.items()
+            if now - entry["ts"] > _NOTICE_SUPPRESS_SECONDS
+        ]
+        for key in expired:
+            self._recent_notice.pop(key, None)
+
+        key = (guild_id, user_id, system_key)
+        entry = self._recent_notice.get(key)
+        if entry is not None:
+            entry["suppressed"] += 1
+            return entry["suppressed"]
+
+        self._recent_notice[key] = {"ts": now, "suppressed": 0}
+        return None
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
@@ -415,15 +455,6 @@ class ModAutomodListener(commands.Cog):
             log.exception("[AUTOMOD] Enregistrement de l'infraction en DB échoué guild=%s", guild_id)
         recidive_tracker.record_infraction(guild_id, user_id, system_key)
 
-        if general.get("notify_in_channel"):
-            await self._send_channel_notice(
-                message.channel, author, system_display=display,
-                emoji=emoji, is_recidive=is_recidive,
-                user_msg=meta.get("user_msg", ""),
-            )
-
-        await self._send_user_dm(author, guild, system_display=display, emoji=emoji, is_recidive=is_recidive, user_msg=meta.get("user_msg", ""))
-
         alert_channel_id = general.get("alert_channel_id")
         alert_channel = guild.get_channel(alert_channel_id) if alert_channel_id else None
 
@@ -432,23 +463,44 @@ class ModAutomodListener(commands.Cog):
 
         if is_recidive:
             muted = await self._apply_timeout(author, system_key)
-            if alert_channel is not None:
-                await self._send_full_alert(
-                    alert_channel, guild=guild, user=author, message=message,
-                    system_key=system_key, system_display=display,
-                    matched_term=matched_term,
-                    staff_role_id=general.get("staff_role_id"),
-                )
-            else:
-                log.warning("[AUTOMOD] Récidive détectée mais aucun alert_channel configuré guild=%s user=%s system=%s", guild_id, user_id, system_key)
             recidive_tracker.reset_key(guild_id, user_id, system_key)
 
+        suppressed = self._consume_notice_slot(guild_id, user_id, system_key)
+        if suppressed is not None:
+            log.info(
+                "[AUTOMOD] Notification regroupée (rafale en cours) | guild=%s user=%s "
+                "system=%s — %d notification(s) déjà fusionnée(s) dans cette fenêtre de %.0fs.",
+                guild_id, user_id, system_key, suppressed, _NOTICE_SUPPRESS_SECONDS,
+            )
         else:
-            if alert_channel is not None:
-                await self._send_light_alert(
-                    alert_channel, user=author, message=message,
-                    system_display=display, matched_term=matched_term,
+            if general.get("notify_in_channel"):
+                await self._send_channel_notice(
+                    message.channel, author, system_display=display,
+                    emoji=emoji, is_recidive=is_recidive,
+                    user_msg=meta.get("user_msg", ""),
                 )
+
+            await self._send_user_dm(
+                author, guild, system_display=display, emoji=emoji,
+                is_recidive=is_recidive, user_msg=meta.get("user_msg", ""),
+            )
+
+            if is_recidive:
+                if alert_channel is not None:
+                    await self._send_full_alert(
+                        alert_channel, guild=guild, user=author, message=message,
+                        system_key=system_key, system_display=display,
+                        matched_term=matched_term,
+                        staff_role_id=general.get("staff_role_id"),
+                    )
+                else:
+                    log.warning("[AUTOMOD] Récidive détectée mais aucun alert_channel configuré guild=%s user=%s system=%s", guild_id, user_id, system_key)
+            else:
+                if alert_channel is not None:
+                    await self._send_light_alert(
+                        alert_channel, user=author, message=message,
+                        system_display=display, matched_term=matched_term,
+                    )
 
     # ────────────────────────────────────────────────────────
     # 📢 Notifications
