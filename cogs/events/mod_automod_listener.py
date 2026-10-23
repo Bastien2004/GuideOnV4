@@ -461,6 +461,9 @@ class ModAutomodListener(commands.Cog):
         if alert_channel_id and alert_channel is None:
             log.warning("[AUTOMOD] alert_channel_id=%s configuré mais introuvable | guild=%s", alert_channel_id, guild_id)
 
+        # Le mute et le suivi de récidive restent appliqués pour CHAQUE
+        # message détecté — seule la notification (salon/DM/alerte) ci-
+        # dessous est regroupée pour ne pas spammer Discord en rafale.
         if is_recidive:
             muted = await self._apply_timeout(author, system_key)
             recidive_tracker.reset_key(guild_id, user_id, system_key)
@@ -524,7 +527,7 @@ class ModAutomodListener(commands.Cog):
             await channel.send(
                 view=view,
                 delete_after=8,
-                allowed_mentions=discord.AllowedMentions(users=True),
+                allowed_mentions=discord.AllowedMentions(everyone=False, users=True, roles=False),
             )
 
         except (discord.Forbidden, discord.HTTPException) as exc:
@@ -584,7 +587,7 @@ class ModAutomodListener(commands.Cog):
         ))
         view.add_item(c)
         try:
-            await alert_channel.send(view=view)
+            await alert_channel.send(view=view, allowed_mentions=discord.AllowedMentions.none())
         except (discord.Forbidden, discord.HTTPException) as exc:
             missing = _missing_send_permissions(alert_channel, message.guild)
             log.warning(
@@ -610,7 +613,12 @@ class ModAutomodListener(commands.Cog):
         )
 
         try:
-            allowed = discord.AllowedMentions(roles=True) if staff_role_id else discord.AllowedMentions.none()
+            allowed = (
+                discord.AllowedMentions(
+                    everyone=False, users=False, roles=[discord.Object(id=staff_role_id)],
+                )
+                if staff_role_id else discord.AllowedMentions.none()
+            )
             sent_msg = await alert_channel.send(view=temp_view, allowed_mentions=allowed)
         except (discord.Forbidden, discord.HTTPException) as exc:
             missing = _missing_send_permissions(alert_channel, guild)
