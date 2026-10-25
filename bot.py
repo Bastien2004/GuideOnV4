@@ -31,6 +31,7 @@ import cogs.api.staff_api
 import cogs.api.stats_bot_api
 import cogs.api.api_servers
 import cogs.api.guideonAi_api
+import cogs.api.api_dashboard
 
 
 # ============================================================
