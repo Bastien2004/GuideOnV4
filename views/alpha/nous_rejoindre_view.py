@@ -1,16 +1,7 @@
 """
 views/alpha/nous_rejoindre_view.py — Tutoriel "Nous rejoindre" du serveur Alpha.
-
-Extrait de cogs/alpha/nous_rejoindre.py, même traitement que index, event_start,
-event_regle et derank (cog réduit à la commande, la construction de la view et
-des fichiers attachés vit ici).
-
-Reste en LayoutView simple, PAS BaseLayoutView : ce message n'a aucun
-composant interactif (aucun bouton, aucun select) et est posté/édité
-publiquement dans un salon pour tout le monde, avec timeout=None (persiste
-indéfiniment, volontairement). BaseLayoutView n'apporterait rien ici. Même
-cas que views/alpha/index_view.py.
 """
+
 from __future__ import annotations
 
 import os
@@ -31,7 +22,7 @@ _IMAGES = [
 
 
 def get_fresh_files() -> list[discord.File]:
-    """Recharge les fichiers depuis le disque à chaque envoi/édition (attachments Discord non réutilisables)."""
+    """Recharge les fichiers."""
     return [
         discord.File(path, filename=fn)
         for path, fn in _IMAGES if os.path.exists(path)

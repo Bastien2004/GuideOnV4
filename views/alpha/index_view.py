@@ -1,19 +1,7 @@
 """
 views/alpha/index_view.py — Interface d'information "Index" du serveur Alpha.
-
-Extrait de cogs/alpha/index.py, même traitement que event_start, event_regle,
-event_list et derank (cog réduit à la commande, la construction de la view
-et des fichiers attachés vit ici).
-
-Reste en LayoutView simple, PAS BaseLayoutView : ce message n'a aucun
-composant interactif (aucun bouton, aucun select) et est posté/édité
-publiquement dans un salon pour tout le monde, avec timeout=None (persiste
-indéfiniment, volontairement). BaseLayoutView n'apporterait rien ici — pas
-de clic à restreindre, pas de timeout à gérer, pas d'erreur de composant à
-capturer. Même cas que views/alpha/event_regle_view.py,
-views/alpha/event_start_view.py et views/birthday/next_view.py, déjà laissés
-en LayoutView pour exactement la même raison.
 """
+
 from __future__ import annotations
 
 import os
@@ -77,11 +65,11 @@ def build_index_view(files: list[discord.File]) -> LayoutView:
     c3.add_item(TextDisplay(
         "● <:website:1490331146775560212> **Site Web** : [Visiter](https://nationsglory.fr).\n"
         "● <:Discord:1500400336739766302> Serveur **Discord** : [Rejoindre](https://discord.gg/nationsglory).\n"
-        "● <:Youtube:1500400294243205210> Chaîne **Youtube** : [Visiter](https://www.youtube.com/@NationsGlory).\n"
-        "● <:Twitch:1500400202195140618> Chaîne **Twitch** : [Visiter](https://www.twitch.tv/nationsgloryfr).\n"
-        "● <:X_:1500400261502603387> Compte **X** : [Visiter](https://x.com/NationsGlory).\n"
+        "● <:Youtube2:1545107295975772180> Chaîne **Youtube** : [Visiter](https://www.youtube.com/@NationsGlory).\n"
+        "● <:Twitch2:1545053682129961081> Chaîne **Twitch** : [Visiter](https://www.twitch.tv/nationsgloryfr).\n"
+        "● <:x_:1564199080538939452> Compte **X** : [Visiter](https://x.com/NationsGlory).\n"
         "● <:Instagram:1500400141272748082> Compte **Instagram** : [Visiter](https://www.instagram.com/nationsgloryfr/?hl=fr).\n"
-        "● <:Tiktok:1500400096033112175> Compte **TikTok** : [Visiter](https://www.tiktok.com/@nationsgloryfr?lang=fr)"
+        "● <:Tiktok:1564199407312969728> Compte **TikTok** : [Visiter](https://www.tiktok.com/@nationsgloryfr?lang=fr)"
     ))
     c3.add_item(Separator())
     c3.add_item(TextDisplay(
@@ -118,9 +106,11 @@ def build_index_view(files: list[discord.File]) -> LayoutView:
         "- <:Sigma:1500414355773329548> Sigma : https://discord.gg/RcJeepJB2V\n"
         "- <:Omega:1500414132560723978> Oméga : https://discord.gg/cy48ux3Bk2\n"
         "- <:Delta:1500414247098650725> Delta : https://discord.gg/nationsglory-delta-948880111753625642\n"
-        "- <:Epsilon:1500414274999418970> Epsilon : https://discord.gg/SAjHxuJTQY\n\n"
+        "- <:Epsilon:1500414274999418970> Epsilon : https://discord.gg/SAjHxuJTQY\n"
+        "- <:Iris:1540303650575097896> Iris : https://discord.gg/xsZg5huwkz\n\n"
 
         "**💻 __Java__**\n"
+        "- <:Ruby:1564201601181159454> Ruby : https://discord.gg/nVNjdxyafq\n"
         "- <:Jade:1500415549727838238> Jade : https://discord.gg/fphbKQSrH9\n"
         "- <:Mocha:1500415522192228453> Mocha : https://discord.gg/zbTkjGFMZB\n"
         "- <:Blue:1500415616744685648> Blue : https://discord.gg/wQgpfTzAwp\n"
@@ -134,8 +124,7 @@ def build_index_view(files: list[discord.File]) -> LayoutView:
         "- <:Green:1500415562461872198> Green : https://discord.gg/kQHABDCF3W **(close)**\n"
         "- <:Orange:1500414101493387354> Orange : https://discord.gg/HtET56bBQs **(close)**\n"
         "- <:Yellow:1500414000859447408> Yellow : https://discord.gg/z8bBMnwTCW **(close)**\n"
-        "- <:RED:1500410048273322035> Red : https://discord.gg/rYGPtgKkpt **(close)**\n"
-        "- <:NG_US:1500414650909724834> Ruby : https://discord.gg/W2qyJ8WNSs **(close)**"
+        "- <:RED:1500410048273322035> Red : https://discord.gg/rYGPtgKkpt **(close)**"
     ))
     view.add_item(c5)
 
