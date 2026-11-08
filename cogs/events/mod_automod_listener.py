@@ -37,6 +37,7 @@ from utils.managers import (
     mod_automod_general_manager as general_mgr,
     mod_automod_infraction_manager as infr_mgr,
     mod_automod_nolink_manager as nolink_mgr,
+    ticket_manager as ticket_mgr,
 )
 from views.mod.automod_alert_view import build_alert_container
 
@@ -340,6 +341,11 @@ class ModAutomodListener(commands.Cog):
                     return ("antispam_emoji", match)
 
         # ── No Link ──
+        # Les salons de tickets sont immunisés contre ce système : un ticket
+        # sert justement souvent à échanger des liens (preuves, captures,
+        # réclamations...) et n'a pas vocation à être whitelisté un par un
+        # (chaque ticket crée un nouveau salon, jamais présent dans la
+        # whitelist configurée par les admins).
         nl_cfg = await nolink_mgr.load_config(guild_id)
         if nl_cfg.get("enabled"):
 
@@ -354,6 +360,8 @@ class ModAutomodListener(commands.Cog):
                         text, bypass_gif=nl_cfg.get("bypass_gif", False),
                     )
                     if match is not None:
+                        if await ticket_mgr.get_ticket(message.channel.id) is not None:
+                            break  # Salon de ticket : immunisé, on passe au système suivant.
                         return ("nolink", match)
 
         # ── Anti Link ──
