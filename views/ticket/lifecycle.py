@@ -4,6 +4,7 @@ views/ticket/lifecycle.py — Logique de cycle de vie d'un ticket.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 
@@ -29,6 +30,30 @@ log = logging.getLogger(__name__)
 REOPEN_PREFIX = "ticket_reopen:"
 DELCLOSED_PREFIX = "ticket_delclosed:"
 
+# ============================================================
+# 🔐 Verrou par salon (fermeture / réouverture)
+# ============================================================
+
+# Empêche deux fermetures/réouvertures concurrentes du MÊME salon (double-clic,
+# créateur et staff qui cliquent en même temps, etc.) de passer toutes les
+# deux les vérifications (closed=False, cooldown) avant que l'une d'elles
+# n'ait eu le temps d'écrire son résultat en base. Sans ce verrou, les deux
+# appels concurrents déclenchent chacun leurs propres requêtes Discord
+# (renommage + déplacement de catégorie) sur le même salon, ce qui épuise en
+# un instant le quota Discord de 2 modifications de salon / 10 min et
+# déclenche une cascade de 429 — parfois assez longue pour faire expirer le
+# token de l'interaction (15 min) et provoquer un "Invalid Webhook Token" sur
+# la réponse suivante.
+_channel_locks: dict[int, asyncio.Lock] = {}
+
+
+def _get_channel_lock(channel_id: int) -> asyncio.Lock:
+    lock = _channel_locks.get(channel_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _channel_locks[channel_id] = lock
+    return lock
+
 
 # ============================================================
 # 🔒 Fermeture
@@ -38,39 +63,43 @@ async def handle_close(interaction: discord.Interaction, channel_id: int, *, sta
     """Ferme un ticket."""
 
     if not interaction.response.is_done():
-        await interaction.response.defer(ephemeral=True)
+        try:
+            await interaction.response.defer(ephemeral=True)
+        except (discord.NotFound, discord.HTTPException):
+            return
     guild_id = interaction.guild_id
 
-    ticket = await tm.get_ticket(channel_id)
-    if not ticket:
-        return await interaction.followup.send(
-            view=error_container("Vous n'êtes pas dans un **ticket**."), ephemeral=True
-        )
-    
-    if ticket.get("closed"):
-        return await interaction.followup.send(
-            view=error_container("Ce ticket est déjà fermé."), ephemeral=True
-        )
+    async with _get_channel_lock(channel_id):
+        ticket = await tm.get_ticket(channel_id)
+        if not ticket:
+            return await interaction.followup.send(
+                view=error_container("Vous n'êtes pas dans un **ticket**."), ephemeral=True
+            )
 
-    allowed = (
-        await is_staff(interaction, ticket, guild_id)
-        if staff_only
-        else await is_staff_or_creator(interaction, ticket, guild_id)
-    )
+        if ticket.get("closed"):
+            return await interaction.followup.send(
+                view=error_container("Ce ticket est déjà fermé."), ephemeral=True
+            )
 
-    if not allowed:
-        return await interaction.followup.send(
-            view=error_container("Vous n'êtes pas autorisé à réaliser cette action."), ephemeral=True
+        allowed = (
+            await is_staff(interaction, ticket, guild_id)
+            if staff_only
+            else await is_staff_or_creator(interaction, ticket, guild_id)
         )
 
-    rem = rename_cooldown_remaining(ticket)
-    if rem > 0:
-        return await interaction.followup.send(
-            view=error_container(f"Limite Discord : attendez **{rem // 60}m {rem % 60}s**."),
-            ephemeral=True,
-        )
+        if not allowed:
+            return await interaction.followup.send(
+                view=error_container("Vous n'êtes pas autorisé à réaliser cette action."), ephemeral=True
+            )
 
-    await _close_ticket(interaction, ticket, guild_id)
+        rem = rename_cooldown_remaining(ticket)
+        if rem > 0:
+            return await interaction.followup.send(
+                view=error_container(f"Limite Discord : attendez **{rem // 60}m {rem % 60}s**."),
+                ephemeral=True,
+            )
+
+        await _close_ticket(interaction, ticket, guild_id)
 
 
 async def _close_ticket(interaction: discord.Interaction, ticket: dict, guild_id: int) -> None:
@@ -84,14 +113,27 @@ async def _close_ticket(interaction: discord.Interaction, ticket: dict, guild_id
         except discord.HTTPException:
             pass
 
-    await try_rename(channel, closed_name(ticket["original_name"]))
-
     closed_cat = interaction.guild.get_channel(panel.get("closed_category_id")) if panel else None
-    if closed_cat:
+    target_name = closed_name(ticket["original_name"])
+
+    # Un seul appel PATCH pour le renommage + le déplacement de catégorie
+    # (au lieu de deux appels séparés) : ces deux opérations partagent le
+    # même quota Discord de modifications de salon (2 / 10 min), donc les
+    # regrouper réduit de moitié la consommation de ce quota à chaque
+    # fermeture.
+    edit_kwargs: dict = {}
+    if channel.name != target_name:
+        edit_kwargs["name"] = target_name
+    if closed_cat is not None:
+        edit_kwargs["category"] = closed_cat
+    if edit_kwargs:
         try:
-            await channel.edit(category=closed_cat)
+            await channel.edit(**edit_kwargs)
         except discord.HTTPException:
-            pass
+            log.warning(
+                "[TICKET] Fermeture : édition de salon refusée par Discord "
+                "guild=%s channel=%s", guild_id, channel.id,
+            )
 
     await tm.update_ticket(channel.id, closed=True, last_rename_at=int(time.time()))
     await interaction.followup.send(view=ReopenView(channel.id))
@@ -129,20 +171,27 @@ class ReopenButton(Button):
         self.channel_id = channel_id
 
     async def callback(self, interaction: discord.Interaction) -> None:
-        await interaction.response.defer(ephemeral=True)
+        try:
+            await interaction.response.defer(ephemeral=True)
+        except (discord.NotFound, discord.HTTPException):
+            return
         guild_id = interaction.guild_id
 
+        async with _get_channel_lock(self.channel_id):
+            await self._do_reopen(interaction, guild_id)
+
+    async def _do_reopen(self, interaction: discord.Interaction, guild_id: int) -> None:
         ticket = await tm.get_ticket(self.channel_id)
         if not ticket:
             return await interaction.followup.send(
                 view=error_container("Le ticket est introuvable."), ephemeral=True
             )
-        
+
         if not ticket.get("closed"):
             return await interaction.followup.send(
                 view=error_container("Ce ticket est déjà ouvert."), ephemeral=True
             )
-        
+
         if not await is_staff(interaction, ticket, guild_id):
             return await interaction.followup.send(
                 view=error_container("Vous n'avez pas la permission de réaliser cette action."),
@@ -172,17 +221,27 @@ class ReopenButton(Button):
             if category is None:
                 move_status = "no_category"
             else:
-                try:
-                    await interaction.channel.edit(category=category)
-                    move_status = "ok"
-                except discord.HTTPException:
-                    log.exception(
-                        "[TICKET] Réouverture : édition de catégorie refusée par Discord "
-                        "guild=%s channel=%s category=%s", guild_id, self.channel_id, category.id,
-                    )
-                    move_status = "move_failed"
+                move_status = "ok"
 
-        await try_rename(interaction.channel, ticket["original_name"])
+        # Un seul appel PATCH pour le renommage + le déplacement de catégorie
+        # (au lieu de deux appels séparés) : ces deux opérations partagent le
+        # même quota Discord de modifications de salon (2 / 10 min).
+        edit_kwargs: dict = {}
+        if interaction.channel.name != ticket["original_name"]:
+            edit_kwargs["name"] = ticket["original_name"]
+        if category is not None:
+            edit_kwargs["category"] = category
+        if edit_kwargs:
+            try:
+                await interaction.channel.edit(**edit_kwargs)
+            except discord.HTTPException:
+                log.exception(
+                    "[TICKET] Réouverture : édition de salon refusée par Discord "
+                    "guild=%s channel=%s category=%s", guild_id, self.channel_id,
+                    getattr(category, "id", None),
+                )
+                if category is not None:
+                    move_status = "move_failed"
 
         creator = interaction.guild.get_member(ticket["creator_id"])
         if creator:
@@ -242,7 +301,10 @@ class DeleteFromClosedButton(Button):
         self.channel_id = channel_id
 
     async def callback(self, interaction: discord.Interaction) -> None:
-        await interaction.response.defer(ephemeral=True)
+        try:
+            await interaction.response.defer(ephemeral=True)
+        except (discord.NotFound, discord.HTTPException):
+            return
         ticket = await tm.get_ticket(self.channel_id)
         if not ticket:
             return await interaction.followup.send(
@@ -287,7 +349,10 @@ class _ConfirmDeleteBtn(Button):
         self.channel_id = channel_id
 
     async def callback(self, interaction: discord.Interaction) -> None:
-        await interaction.response.defer(ephemeral=True)
+        try:
+            await interaction.response.defer(ephemeral=True)
+        except (discord.NotFound, discord.HTTPException):
+            return
         ticket = await tm.get_ticket(self.channel_id)
         if not ticket:
             return await interaction.followup.send(
@@ -315,7 +380,10 @@ _wake_cooldowns: dict[tuple[int, int], int] = {}
 
 async def handle_wakeup(interaction: discord.Interaction, channel_id: int) -> None:
     if not interaction.response.is_done():
-        await interaction.response.defer(ephemeral=True)
+        try:
+            await interaction.response.defer(ephemeral=True)
+        except (discord.NotFound, discord.HTTPException):
+            return
     guild_id = interaction.guild_id
 
     ticket = await tm.get_ticket(channel_id)

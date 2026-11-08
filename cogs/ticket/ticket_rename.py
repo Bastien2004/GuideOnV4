@@ -18,7 +18,13 @@ from utils.container_universel import error_container, success_container
 from utils.error_handler import handle_app_command_error
 
 from utils.managers import ticket_manager as tm
-from views.ticket._helpers import closed_name, is_staff, strip_closed_prefix, try_rename
+from views.ticket._helpers import (
+    closed_name,
+    is_staff,
+    rename_cooldown_remaining,
+    strip_closed_prefix,
+    try_rename,
+)
 
 log = logging.getLogger(__name__)
 
@@ -61,6 +67,21 @@ async def ticket_rename(interaction: discord.Interaction, nom: str) -> None:
     if not await is_staff(interaction, ticket, interaction.guild_id):
         return await interaction.followup.send(
             view=error_container("Vous n'avez pas la **permission** de __renommer ce ticket__."),
+            ephemeral=True,
+        )
+
+    # 🕒 Vérification du cooldown de renommage (limite Discord : 2 modifications
+    # de salon / 10 min, partagée avec la fermeture/réouverture). Vérifié AVANT
+    # de tenter l'appel Discord : sans ça, un appel voué à échouer peut rester
+    # bloqué plusieurs minutes dans la logique de retry interne de discord.py,
+    # au point de faire expirer le token de l'interaction (15 min) et de
+    # transformer une simple erreur « limite atteinte » en crash
+    # (discord.errors.HTTPException: 401 Invalid Webhook Token) au moment de
+    # répondre.
+    rem = rename_cooldown_remaining(ticket)
+    if rem > 0:
+        return await interaction.followup.send(
+            view=error_container(f"Limite Discord : attendez **{rem // 60}m {rem % 60}s**."),
             ephemeral=True,
         )
 
