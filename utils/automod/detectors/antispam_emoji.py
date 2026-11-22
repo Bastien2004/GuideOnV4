@@ -53,6 +53,26 @@ _IGNORE_CODEPOINTS = {"\ufe0f", "\u200d"}
 _NON_EMOJI_SYMBOLS = {"\u00b0", "\u00a9", "\u00ae", "\u2122"}  # degré, copyright, R, TM
 
 
+# Blocs Unicode entierement classes "So" mais qui ne sont QUE des caracteres
+# de dessin/mise en forme ASCII-art -- jamais des emojis. Tres utilises dans
+# les bannieres de recrutement/pub (lignes de separation, barres de
+# progression). Ajoutes le 2026-11-22 suite a un faux positif signale par
+# Paul : un message publicitaire sans vrai emoji en exces etait sanctionne
+# a cause d'une simple ligne decorative de 18 caracteres "BOX DRAWINGS",
+# comptes a eux seuls comme "18 emojis".
+_NON_EMOJI_RANGES = (
+    (0x2500, 0x257F),  # Box Drawing (traits de separation simples/doubles)
+    (0x2580, 0x259F),  # Block Elements (blocs de remplissage/ombrage)
+)
+
+
+def _is_non_emoji_symbol(ch):
+    if ch in _NON_EMOJI_SYMBOLS:
+        return True
+    cp = ord(ch)
+    return any(lo <= cp <= hi for lo, hi in _NON_EMOJI_RANGES)
+
+
 def _count_unicode_emojis_fallback(text: str) -> int:
     """
     Compte les codepoints de catégorie Unicode "So" (Symbol, Other) ou "Sk"
@@ -75,7 +95,7 @@ def _count_unicode_emojis_fallback(text: str) -> int:
     """
     count = 0
     for ch in text:
-        if ch in _IGNORE_CODEPOINTS or ch in _NON_EMOJI_SYMBOLS:
+        if ch in _IGNORE_CODEPOINTS or _is_non_emoji_symbol(ch):
             continue
         if ord(ch) < 0x80:
             continue

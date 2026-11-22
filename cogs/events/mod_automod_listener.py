@@ -346,6 +346,11 @@ class ModAutomodListener(commands.Cog):
         # réclamations...) et n'a pas vocation à être whitelisté un par un
         # (chaque ticket crée un nouveau salon, jamais présent dans la
         # whitelist configurée par les admins).
+        # Un lien qui renvoie vers un salon (ou un message) de CE MÊME
+        # serveur Discord (https://discord.com/channels/<guild_id>/...) est
+        # également ignoré, quel que soit le salon où il est posté : il ne
+        # redirige jamais vers l'extérieur, donc le No Link n'a aucune
+        # raison de le bloquer (voir nolink_detector.detect(guild_id=...)).
         nl_cfg = await nolink_mgr.load_config(guild_id)
         if nl_cfg.get("enabled"):
 
@@ -358,6 +363,7 @@ class ModAutomodListener(commands.Cog):
                 for text in contents:
                     match = nolink_detector.detect(
                         text, bypass_gif=nl_cfg.get("bypass_gif", False),
+                        guild_id=guild_id,
                     )
                     if match is not None:
                         if await ticket_mgr.get_ticket(message.channel.id) is not None:

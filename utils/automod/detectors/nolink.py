@@ -28,6 +28,14 @@ _GIF_DOMAINS: tuple[str, ...] = ("tenor.com", "giphy.com", "klipy.com")
 
 _GIF_WORD_RE = re.compile(r"\bgifs?\b", re.IGNORECASE)
 
+# Lien Discord pointant vers un salon (et, éventuellement, un message précis)
+# d'un serveur Discord : https://discord.com/channels/<guild_id>/<channel_id>
+# (variantes app./ptb./canary. et discordapp.com également acceptées).
+_DISCORD_CHANNEL_LINK_RE = re.compile(
+    r"^https?://(?:(?:ptb|canary|app)\.)?discord(?:app)?\.com/channels/(\d+)/\d+(?:/\d+)?/?$",
+    re.IGNORECASE,
+)
+
 
 # ============================================================
 # 🛠️ Fonctions utilitaires
@@ -43,8 +51,33 @@ def _is_gif_link(url: str) -> bool:
     return bool(_GIF_WORD_RE.search(url))
 
 
-def detect(message_content: str | None, *, bypass_gif: bool = False) -> str | None:
-    """Ignore les gifs si bypass activé."""
+def _is_internal_channel_link(url: str, guild_id: int | None) -> bool:
+    """
+    Vrai si le lien renvoie vers un salon (ou un message) de CE serveur
+    Discord. Un tel lien ne sert jamais à rediriger quelqu'un vers
+    l'extérieur — il pointe toujours vers un salon déjà accessible par les
+    membres du serveur — et n'a donc aucune raison d'être bloqué par le
+    No Link, quel que soit le salon dans lequel il est posté (ex : un membre
+    qui renvoie vers #annonces ou vers un message précis pour une preuve).
+    """
+    if guild_id is None:
+        return False
+    match = _DISCORD_CHANNEL_LINK_RE.match(url)
+    if not match:
+        return False
+    try:
+        return int(match.group(1)) == int(guild_id)
+    except (TypeError, ValueError):
+        return False
+
+
+def detect(
+    message_content: str | None,
+    *,
+    bypass_gif: bool = False,
+    guild_id: int | None = None,
+) -> str | None:
+    """Ignore les gifs si bypass activé, et les liens de salon du même serveur."""
     if not message_content:
         return None
 
@@ -53,6 +86,10 @@ def detect(message_content: str | None, *, bypass_gif: bool = False) -> str | No
             found = match.group(0)[:_MATCH_MAX_LEN]
             if bypass_gif and _is_gif_link(found):
                 log.debug("[AUTOMOD NOLINK] Lien GIF ignoré (bypass_gif actif) match=%r", found)
+                continue
+
+            if _is_internal_channel_link(found, guild_id):
+                log.debug("[AUTOMOD NOLINK] Lien de salon interne ignoré match=%r", found)
                 continue
 
             log.debug("[AUTOMOD NOLINK] pattern=%s match=%r", pattern.pattern[:30], found)
