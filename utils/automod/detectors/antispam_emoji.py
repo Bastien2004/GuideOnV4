@@ -105,12 +105,42 @@ def _count_unicode_emojis_fallback(text: str) -> int:
     return count
 
 
+# Densité minimale (emojis / longueur du message) à partir de laquelle un
+# dépassement du seuil absolu est considéré comme du VRAI spam visuel.
+# Ajoutée le 2026-11-22 : les pubs de recrutement (longues, plusieurs
+# centaines à quelques milliers de caractères) contiennent souvent une
+# poignée de vrais emojis dispersés dans tout le texte (un par rubrique, un
+# par serveur listé...) — ça dépasse facilement le seuil absolu de 10 sans
+# être du spam d'emojis pour autant. Un vrai spam visuel ("🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉")
+# est lui quasi exclusivement composé d'emojis : sa densité est très élevée.
+# 0.08 = en moyenne un emoji tous les ~12 caractères ou plus dense. Un
+# message de 2000 caractères doit donc contenir au moins 160 emojis pour
+# être flaggé sur ce seul critère — largement au-dessus de ce que contient
+# une pub avec quelques icônes dispersées, mais bien en dessous d'un mur
+# d'emojis.
+_MIN_DENSITY = 0.08
+
+# Garde-fou absolu : au-delà de ce nombre d'emojis, le message est flaggé
+# quelle que soit sa longueur (protège contre un message délibérément
+# allongé — padding de texte ou d'espaces — pour diluer artificiellement la
+# densité et passer sous le seuil ci-dessus).
+_ABSOLUTE_CEILING = 40
+
+
 def detect(
     message_content: str,
     *,
     max_emoji: int = 10,
 ) -> str | None:
-    """Retourne "X emojis" si dépassement, None sinon."""
+    """Retourne "X emojis" si dépassement, None sinon.
+
+    Le dépassement du seuil absolu (`max_emoji`) ne suffit plus seul à
+    sanctionner : au-delà de ce seuil, il faut AUSSI que la densité
+    d'emojis dans le message (emojis / longueur totale) dépasse
+    `_MIN_DENSITY` — sauf si le nombre absolu d'emojis dépasse
+    `_ABSOLUTE_CEILING`, qui sanctionne dans tous les cas. Voir
+    `_MIN_DENSITY` ci-dessus pour le raisonnement complet.
+    """
     if not message_content:
         return None
 
@@ -128,12 +158,18 @@ def detect(
     fallback_count = _count_unicode_emojis_fallback(stripped_further)
 
     total = custom_count + regex_count + fallback_count
+    length = len(message_content)
+    density = total / length if length else 0.0
 
     log.debug(
-        "[AUTOMOD emoji detect] custom=%d regex=%d fallback=%d total=%d max=%d",
-        custom_count, regex_count, fallback_count, total, max_emoji,
+        "[AUTOMOD emoji detect] custom=%d regex=%d fallback=%d total=%d max=%d "
+        "len=%d density=%.3f",
+        custom_count, regex_count, fallback_count, total, max_emoji, length, density,
     )
 
-    if total > max_emoji:
+    if total <= max_emoji:
+        return None
+
+    if total > _ABSOLUTE_CEILING or density >= _MIN_DENSITY:
         return f"{total} emojis"
     return None
