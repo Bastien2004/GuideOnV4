@@ -77,7 +77,8 @@ class NotaConfigView(LayoutView):
             f"**📡 Salon staff :** {_ch(cfg.get('channel_staff_id'))}\n"
             f"**🌐 Salon public :** {_ch(cfg.get('channel_public_id'))}\n"
             f"**🗒️ Salon logs :** {_ch(cfg.get('channel_logs_id'))}\n"
-            f"**🔔 Rôle ping :** {_role(cfg.get('role_id'))}\n"
+            f"**🔔 Rôle ping (public) :** {_role(cfg.get('role_id'))}\n"
+            f"**🔔 Rôle Opérateur (présence) :** {_role(cfg.get('operator_role_id'))}\n"
             f"**🌍 Pays :** `{cfg.get('countries_count', 238)}`\n\n"
             f"**⏰ Présence & Rappels :** {_hm(cfg.get('send_presence_weekday'), cfg.get('send_presence_hour'), cfg.get('send_presence_minute'))}\n"
             f"**⛔ Deadline :** {_hm(cfg.get('deadline_weekday'), cfg.get('deadline_hour'), cfg.get('deadline_minute'))}\n"
@@ -215,13 +216,18 @@ class _RoleCfgView(LayoutView):
         c.add_item(TextDisplay("## ⚙️ Rôle & Configuration"))
         c.add_item(Separator())
         c.add_item(TextDisplay(
-            f"**Rôle @mention :** {_role(self.cfg.get('role_id'))}\n"
+            f"**Rôle @mention (message public) :** {_role(self.cfg.get('role_id'))}\n"
+            f"**Rôle Opérateur (ping présence) :** {_role(self.cfg.get('operator_role_id'))}\n"
             f"**Nombre de pays :** `{self.cfg.get('countries_count', 238)}`\n"
             f"**URL lookup pays :** {'*Configurée*' if self.cfg.get('url_country_lookup') else '*Non configurée*'}"
         ))
         c.add_item(ActionRow(RoleSelect(
-            placeholder="Rôle @mention dans les messages",
+            placeholder="Rôle @mention dans le message PUBLIC",
             on_select=lambda i, ids: self._save(i, "role_id", ids[0]),
+        )))
+        c.add_item(ActionRow(RoleSelect(
+            placeholder="Rôle Opérateur à pinguer (demande de présence)",
+            on_select=lambda i, ids: self._save(i, "operator_role_id", ids[0]),
         )))
 
         btn_pays = Button(label="🌍 Nombre de pays", style=ButtonStyle.secondary, custom_id="nota_pays")

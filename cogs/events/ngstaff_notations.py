@@ -157,7 +157,7 @@ class NGSTAFF_NotationsListener(commands.Cog):
 
         operators = await get_all_nota_operators(server)
         available  = await get_available_operators(server)
-        view = build_presence_view(operators, available, deadline_passed=False, role_id=cfg.get("role_id"))
+        view = build_presence_view(operators, available, deadline_passed=False, operator_role_id=cfg.get("operator_role_id"))
 
         try:
             msg = await channel.send(view=view)
@@ -233,7 +233,7 @@ class NGSTAFF_NotationsListener(commands.Cog):
 
         operators = await get_all_nota_operators(server)
         available  = await get_available_operators(server)
-        view = build_presence_view(operators, available, deadline_passed=deadline_passed, role_id=cfg.get("role_id"))
+        view = build_presence_view(operators, available, deadline_passed=deadline_passed, operator_role_id=cfg.get("operator_role_id"))
         try:
             await msg.edit(view=view)
         except discord.HTTPException:

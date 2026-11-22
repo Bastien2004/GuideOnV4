@@ -57,6 +57,7 @@ _lock = asyncio.Lock()
 
 _CFG_FIELDS = {
     "channel_staff_id", "channel_public_id", "channel_logs_id", "role_id",
+    "operator_role_id",
     "countries_count",
     "send_presence_weekday", "send_presence_hour", "send_presence_minute",
     "deadline_weekday", "deadline_hour", "deadline_minute",
@@ -67,6 +68,7 @@ _CFG_FIELDS = {
 _CFG_DEFAULTS: dict = {
     "channel_staff_id": None, "channel_public_id": None,
     "channel_logs_id": None, "role_id": None,
+    "operator_role_id": None,
     "countries_count": 238,
     "send_presence_weekday": None, "send_presence_hour": None, "send_presence_minute": None,
     "deadline_weekday": None, "deadline_hour": None, "deadline_minute": None,

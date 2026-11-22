@@ -38,6 +38,13 @@ class NGNotaConfig(Base, TimestampMixin):
     channel_public_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     channel_logs_id: Mapped[int | None]   = mapped_column(BigInteger, nullable=True)
     role_id: Mapped[int | None]           = mapped_column(BigInteger, nullable=True)
+    # Rôle ping dans le message de PRÉSENCE (salon staff) — distinct de
+    # `role_id` ci-dessus, qui ping un rôle JOUEUR dans le message PUBLIC.
+    # Avant le 2026-11-22, ce ping était un rôle "OP Alpha" codé en dur
+    # (1022226276112662648), identique sur tous les serveurs — voir
+    # views/ngstaff/nota_view.py::build_presence_view. Rendu configurable
+    # par serveur à la demande de Paul.
+    operator_role_id: Mapped[int | None]  = mapped_column(BigInteger, nullable=True)
 
     countries_count: Mapped[int] = mapped_column(Integer, nullable=False, default=238, server_default="238")
 
@@ -63,6 +70,7 @@ class NGNotaConfig(Base, TimestampMixin):
             "channel_public_id":      self.channel_public_id,
             "channel_logs_id":        self.channel_logs_id,
             "role_id":                self.role_id,
+            "operator_role_id":       self.operator_role_id,
             "countries_count":        self.countries_count,
             "send_presence_weekday":  self.send_presence_weekday,
             "send_presence_hour":     self.send_presence_hour,

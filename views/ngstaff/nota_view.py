@@ -17,14 +17,18 @@ def build_presence_view(
     operators: list[dict],
     available_ids: list[int],
     deadline_passed: bool = False,
-    role_id: int | None = None,
+    operator_role_id: int | None = None,
 ) -> LayoutView:
     """
     operators : liste de dicts {discord_id, label, skin_head_emoji}
     available_ids : liste des discord_id qui ont confirmé leur présence
-    role_id : ignoré (conservé pour compatibilité d'appel), le ping OP est hardcodé.
+    operator_role_id : rôle à pinguer pour demander la présence des
+        opérateurs, configurable par serveur (/ngstaff config → Notations →
+        Rôle & Config → Rôle Opérateur). Avant le 2026-11-22, ce ping était
+        un rôle "OP Alpha" codé en dur, identique sur tous les serveurs —
+        aucun ping si non configuré, comme pour le rôle public
+        (build_public_nota_view).
     """
-    _OP_ROLE_ID = 1022226276112662648  # Rôle OP Alpha — hardcodé, identique sur tous les serveurs
     view = LayoutView(timeout=None)
     available_set = set(available_ids)
 
@@ -32,9 +36,10 @@ def build_presence_view(
     waiting = [op for op in operators if op["discord_id"] not in available_set]
 
     # ── Header ──────────────────────────────────────────────
+    ping = f"<@&{operator_role_id}> " if operator_role_id else ""
     c_header = Container()
     c_header.add_item(TextDisplay("## <:Alpha:1500414179650048070> Système de Notations"))
-    c_header.add_item(TextDisplay(f"-# <@&{_OP_ROLE_ID}> Confirmez votre disponibilité au plus vite !"))
+    c_header.add_item(TextDisplay(f"-# {ping}Confirmez votre disponibilité au plus vite !"))
     c_header.add_item(Separator())
     view.add_item(c_header)
 
