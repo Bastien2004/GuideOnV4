@@ -4,7 +4,7 @@ cogs/api/api_dashboard.py — API Dashboard (configuration des serveurs depuis l
 Permet de configurer depuis le site les mêmes systèmes que sur Discord :
 Ticket · Automod · Bienvenue · Rôle réaction · Giveaway · Expérience ·
 Media link · Join to create · Auto-rôle · Anniversaires · Économie ·
-Piège anti-raid (HoneyPot).
+Piège anti-raid (HoneyPot) · Logs de modération.
 
 ────────────────────────────────────────────────────────────
 🔐 Modèle de sécurité
@@ -89,6 +89,7 @@ from utils.managers import autorole_manager as autorole_mgr
 from utils.managers import birthday_manager as birthday_mgr
 from utils.managers import eco_manager as eco_mgr
 from utils.managers import honeypot_manager as honeypot_mgr
+from utils.managers import mod_log_manager as modlog_mgr
 
 log = logging.getLogger(__name__)
 
@@ -458,6 +459,7 @@ async def guild_overview(ctx: GuildCtx = Depends(guild_access())):
     autorole = await autorole_mgr.load_autorole_config(gid)
     birthday = await birthday_mgr.load_birthday_config(gid)
     honeypot = await honeypot_mgr.load_config(gid)
+    mod_logs = await modlog_mgr.load_log_config(gid)
     exp = await exp_mgr.load_exp_config(gid)
     rr_messages = await rr.obtenir_tous_messages(gid)
     giveaways = await gw.get_active_giveaways(gid)
@@ -489,6 +491,9 @@ async def guild_overview(ctx: GuildCtx = Depends(guild_access())):
             "birthday": {"configured": bool(birthday.get("enabled"))},
             "eco": {"configured": True},
             "honeypot": {"configured": bool(honeypot.get("enabled") and honeypot.get("channel_id"))},
+            "mod_logs": {"configured": bool(
+                (mod_logs.get("selected_pack") and mod_logs.get("log_channel_id")) or mod_logs.get("mod_action_channel_id")
+            )},
         },
     }
 
@@ -807,6 +812,72 @@ async def honeypot_member_add(payload: HoneypotMember, ctx: GuildCtx = Depends(g
 @_on_bot_loop
 async def honeypot_member_remove(user_id: int, ctx: GuildCtx = Depends(guild_access("mod_piege"))):
     return {"config": await honeypot_mgr.remove_ignored_member(ctx.gid, user_id)}
+
+# ============================================================
+# 📋 LOGS DE MODÉRATION (réglages uniquement : salons + pack)
+# ============================================================
+
+class ModLogUpdate(_Body):
+    log_channel_id: Snowflake | None = None
+    mod_action_channel_id: Snowflake | None = None
+    selected_pack: Literal["stagiaire", "chercheur", "espion"] | None = None
+
+
+_LOG_CHANNEL_PERMS = ("view_channel", "send_messages", "embed_links")  # les logs partent en embed
+
+
+def _mod_log_packs() -> list[dict]:
+    """Packs cumulatifs (même catalogue que /mod logs) : libellé, Gold+ requis, évènements couverts."""
+    return [
+        {
+            "key": key,
+            "emoji": modlog_mgr.PACK_LABELS[key][0],
+            "label": modlog_mgr.PACK_LABELS[key][1],
+            "gold": key in modlog_mgr.GOLD_REQUIRED_PACKS,
+            "events": [
+                modlog_mgr.EVENT_CATALOG[e][1]
+                for e in modlog_mgr.EVENT_CATALOG
+                if e in modlog_mgr.PACK_EVENTS[key]
+            ],
+        }
+        for key in modlog_mgr.PACK_KEYS
+    ]
+
+
+@router.get("/guilds/{guild_id}/mod-logs")
+@_on_bot_loop
+async def mod_logs_get(ctx: GuildCtx = Depends(guild_access("config_logs"))):
+    return {
+        "config": await modlog_mgr.load_log_config(ctx.gid),
+        "is_gold": is_gold(ctx.gid),
+        "packs": _mod_log_packs(),
+    }
+
+
+@router.put("/guilds/{guild_id}/mod-logs")
+@_on_bot_loop
+async def mod_logs_update(payload: ModLogUpdate, ctx: GuildCtx = Depends(guild_access("config_logs"))):
+    data = _changes(payload)
+
+    for key, label in (("log_channel_id", "Salon des logs"), ("mod_action_channel_id", "Salon des actions de modération")):
+        if key in data and data[key] is not None:
+            data[key] = _text_channel(ctx, data[key], label=label, perms=_LOG_CHANNEL_PERMS).id
+
+    if "selected_pack" in data:
+        # mêmes règles que /mod logs : pack connu, « Espion » réservé aux serveurs Gold+
+        try:
+            await modlog_mgr.set_pack(ctx.gid, data.pop("selected_pack"))
+        except modlog_mgr.LogConfigError as exc:
+            raise _fail(403 if "Gold+" in exc.message else 422, exc.message.replace("**", ""))
+
+    cfg = await modlog_mgr.save_log_config(ctx.gid, data) if data else await modlog_mgr.load_log_config(ctx.gid)
+    return {"config": cfg}
+
+
+@router.post("/guilds/{guild_id}/mod-logs/reset")
+@_on_bot_loop
+async def mod_logs_reset(ctx: GuildCtx = Depends(guild_access("config_logs"))):
+    return {"config": await modlog_mgr.save_log_config(ctx.gid, dict(modlog_mgr.DEFAULT_LOG_CONFIG))}
 
 # ============================================================
 # ⭐ EXPÉRIENCE
