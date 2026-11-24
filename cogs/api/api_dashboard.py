@@ -84,6 +84,7 @@ from utils.ticket_limits import (
     PANEL_MESSAGE_MAX_LENGTH,
     PANEL_TITLE_MAX_LENGTH,
 )
+from utils.managers import autorole_manager as autorole_mgr
 
 log = logging.getLogger(__name__)
 
@@ -450,6 +451,7 @@ async def guild_overview(ctx: GuildCtx = Depends(guild_access())):
 
     panels = await tm.list_panels(gid)
     bienvenue = await bienvenue_mgr.load_bienvenue_config(gid)
+    autorole = await autorole_mgr.load_autorole_config(gid)
     exp = await exp_mgr.load_exp_config(gid)
     rr_messages = await rr.obtenir_tous_messages(gid)
     giveaways = await gw.get_active_giveaways(gid)
@@ -477,6 +479,7 @@ async def guild_overview(ctx: GuildCtx = Depends(guild_access())):
             "exp": {"configured": bool(exp.get("enabled"))},
             "medialink": {"configured": bool(connections), "connections": len(connections)},
             "join_to_create": {"configured": bool(triggers), "triggers": len(triggers)},
+            "auto_role": {"configured": bool(autorole.get("auto_role_active"))},
         },
     }
 
@@ -544,6 +547,47 @@ async def bienvenue_update(payload: BienvenueUpdate, ctx: GuildCtx = Depends(gui
 async def bienvenue_reset(ctx: GuildCtx = Depends(guild_access("config_bienvenue"))):
     return {"config": await bienvenue_mgr.reset_bienvenue_config(ctx.gid)}
 
+# ============================================================
+# 🏷️ AUTO-RÔLE
+# ============================================================
+
+class AutoRoleUpdate(_Body):
+    auto_role_active: bool | None = None
+    role_id_1: Snowflake | None = None
+    role_id_2: Snowflake | None = None
+    role_id_3: Snowflake | None = None
+
+
+@router.get("/guilds/{guild_id}/autorole")
+@_on_bot_loop
+async def autorole_get(ctx: GuildCtx = Depends(guild_access("config_autorole"))):
+    return {"config": await autorole_mgr.load_autorole_config(ctx.gid), "is_gold": is_gold(ctx.gid)}
+
+
+@router.put("/guilds/{guild_id}/autorole")
+@_on_bot_loop
+async def autorole_update(payload: AutoRoleUpdate, ctx: GuildCtx = Depends(guild_access("config_autorole"))):
+    data = _changes(payload)
+
+    if "auto_role_active" in data and data["auto_role_active"] is None:
+        raise _fail(422, "auto_role_active ne peut pas être null.")
+
+    for i in (1, 2, 3):
+        key = f"role_id_{i}"
+        if key in data and data[key] is not None:
+            # le bot doit pouvoir donner ce rôle : pas @everyone, pas un rôle de bot, et sous le rôle du bot
+            data[key] = _role(ctx, data[key], label=f"Rôle automatique {i}", assignable=True).id
+
+    if data.get("role_id_3"):
+        _require_gold(ctx, "Le 3e rôle automatique")
+
+    return {"config": await autorole_mgr.save_autorole_config(ctx.gid, data)}
+
+
+@router.post("/guilds/{guild_id}/autorole/reset")
+@_on_bot_loop
+async def autorole_reset(ctx: GuildCtx = Depends(guild_access("config_autorole"))):
+    return {"config": await autorole_mgr.reset_autorole_config(ctx.gid)}
 
 # ============================================================
 # ⭐ EXPÉRIENCE
