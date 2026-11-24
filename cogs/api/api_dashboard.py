@@ -3,7 +3,8 @@ cogs/api/api_dashboard.py — API Dashboard (configuration des serveurs depuis l
 
 Permet de configurer depuis le site les mêmes systèmes que sur Discord :
 Ticket · Automod · Bienvenue · Rôle réaction · Giveaway · Expérience ·
-Media link · Join to create.
+Media link · Join to create · Auto-rôle · Anniversaires · Économie ·
+Piège anti-raid (HoneyPot).
 
 ────────────────────────────────────────────────────────────
 🔐 Modèle de sécurité
@@ -85,6 +86,9 @@ from utils.ticket_limits import (
     PANEL_TITLE_MAX_LENGTH,
 )
 from utils.managers import autorole_manager as autorole_mgr
+from utils.managers import birthday_manager as birthday_mgr
+from utils.managers import eco_manager as eco_mgr
+from utils.managers import honeypot_manager as honeypot_mgr
 
 log = logging.getLogger(__name__)
 
@@ -446,12 +450,14 @@ async def guild_resources(ctx: GuildCtx = Depends(guild_access())):
 @router.get("/guilds/{guild_id}/overview")
 @_on_bot_loop
 async def guild_overview(ctx: GuildCtx = Depends(guild_access())):
-    """Résumé de l'état des 8 systèmes (pastilles de la barre latérale)."""
+    """Résumé de l'état des systèmes (pastilles de la barre latérale)."""
     gid = ctx.gid
 
     panels = await tm.list_panels(gid)
     bienvenue = await bienvenue_mgr.load_bienvenue_config(gid)
     autorole = await autorole_mgr.load_autorole_config(gid)
+    birthday = await birthday_mgr.load_birthday_config(gid)
+    honeypot = await honeypot_mgr.load_config(gid)
     exp = await exp_mgr.load_exp_config(gid)
     rr_messages = await rr.obtenir_tous_messages(gid)
     giveaways = await gw.get_active_giveaways(gid)
@@ -480,6 +486,9 @@ async def guild_overview(ctx: GuildCtx = Depends(guild_access())):
             "medialink": {"configured": bool(connections), "connections": len(connections)},
             "join_to_create": {"configured": bool(triggers), "triggers": len(triggers)},
             "auto_role": {"configured": bool(autorole.get("auto_role_active"))},
+            "birthday": {"configured": bool(birthday.get("enabled"))},
+            "eco": {"configured": True},
+            "honeypot": {"configured": bool(honeypot.get("enabled") and honeypot.get("channel_id"))},
         },
     }
 
@@ -588,6 +597,216 @@ async def autorole_update(payload: AutoRoleUpdate, ctx: GuildCtx = Depends(guild
 @_on_bot_loop
 async def autorole_reset(ctx: GuildCtx = Depends(guild_access("config_autorole"))):
     return {"config": await autorole_mgr.reset_autorole_config(ctx.gid)}
+
+# ============================================================
+# 🎂 ANNIVERSAIRES
+# ============================================================
+
+class BirthdayUpdate(_Body):
+    enabled: bool | None = None
+    channel_id: Snowflake | None = None
+    role_id: Snowflake | None = None
+
+
+@router.get("/guilds/{guild_id}/birthday")
+@_on_bot_loop
+async def birthday_get(ctx: GuildCtx = Depends(guild_access("birthday_config"))):
+    return {"config": await birthday_mgr.load_birthday_config(ctx.gid)}
+
+
+@router.put("/guilds/{guild_id}/birthday")
+@_on_bot_loop
+async def birthday_update(payload: BirthdayUpdate, ctx: GuildCtx = Depends(guild_access("birthday_config"))):
+    from utils.birthday import strip_birthday_role
+
+    data = _changes(payload)
+
+    if "enabled" in data and data["enabled"] is None:
+        raise _fail(422, "enabled ne peut pas être null.")
+    if "channel_id" in data:
+        data["channel_id"] = _opt_text_channel(ctx, data["channel_id"], "Salon d'annonce")
+    if "role_id" in data and data["role_id"] is not None:
+        # mêmes règles que /birthday config : pas @everyone, pas un rôle géré, sous le rôle du bot
+        data["role_id"] = _role(ctx, data["role_id"], label="Rôle anniversaire", assignable=True).id
+
+    old_role_id = (await birthday_mgr.load_birthday_config(ctx.gid)).get("role_id")
+    cfg = await birthday_mgr.save_birthday_config(ctx.gid, data)
+
+    # comme views/birthday/config_view.py : si le rôle change ou est retiré, on l'enlève aux membres fêtés
+    if old_role_id and "role_id" in data and data["role_id"] != old_role_id:
+        await strip_birthday_role(ctx.guild, old_role_id)
+
+    return {"config": cfg}
+
+
+@router.post("/guilds/{guild_id}/birthday/reset")
+@_on_bot_loop
+async def birthday_reset(ctx: GuildCtx = Depends(guild_access("birthday_config"))):
+    from utils.birthday import strip_birthday_role
+
+    old_role_id = (await birthday_mgr.load_birthday_config(ctx.gid)).get("role_id")
+    cfg = await birthday_mgr.reset_birthday_config(ctx.gid)
+    if old_role_id:
+        await strip_birthday_role(ctx.guild, old_role_id)
+    return {"config": cfg}
+
+
+# ============================================================
+# 💰 ÉCONOMIE
+# ============================================================
+
+class EcoUpdate(_Body):
+    daily_amount: int | None = Field(default=None, ge=1, le=1_000_000)  # même plafond que views/eco/config_view.py
+    leaderboard_enabled: bool | None = None
+
+
+@router.get("/guilds/{guild_id}/eco")
+@_on_bot_loop
+async def eco_get(ctx: GuildCtx = Depends(guild_access("eco_config"))):
+    return {"config": await eco_mgr.load_eco_config(ctx.gid)}
+
+
+@router.put("/guilds/{guild_id}/eco")
+@_on_bot_loop
+async def eco_update(payload: EcoUpdate, ctx: GuildCtx = Depends(guild_access("eco_config"))):
+    data = _changes(payload)
+    for key in ("daily_amount", "leaderboard_enabled"):
+        if key in data and data[key] is None:
+            raise _fail(422, f"{key} ne peut pas être null.")
+    return {"config": await eco_mgr.save_eco_config(ctx.gid, data)}
+
+
+@router.post("/guilds/{guild_id}/eco/reset")
+@_on_bot_loop
+async def eco_reset(ctx: GuildCtx = Depends(guild_access("eco_config"))):
+    return {"config": await eco_mgr.reset_eco_config(ctx.gid)}
+
+
+# ============================================================
+# 🍯 PIÈGE ANTI-RAID (HoneyPot)
+# ============================================================
+
+class HoneypotToggle(_Body):
+    enabled: bool
+
+
+class HoneypotRole(_Body):
+    role_id: Snowflake
+
+
+class HoneypotMember(_Body):
+    user_id: Snowflake
+
+
+def _honeypot_channel(ctx: GuildCtx, cfg: dict) -> discord.TextChannel | None:
+    channel_id = cfg.get("channel_id")
+    channel = ctx.guild.get_channel(channel_id) if channel_id else None
+    return channel if isinstance(channel, discord.TextChannel) else None
+
+
+@router.get("/guilds/{guild_id}/honeypot")
+@_on_bot_loop
+async def honeypot_get(ctx: GuildCtx = Depends(guild_access("mod_piege"))):
+    return {"config": await honeypot_mgr.load_config(ctx.gid)}
+
+
+@router.patch("/guilds/{guild_id}/honeypot")
+@_on_bot_loop
+async def honeypot_toggle(payload: HoneypotToggle, ctx: GuildCtx = Depends(guild_access("mod_piege"))):
+    cfg = await honeypot_mgr.load_config(ctx.gid)
+    if payload.enabled and _honeypot_channel(ctx, cfg) is None:
+        raise _fail(422, "Crée d'abord le salon-piège.")
+    return {"config": await honeypot_mgr.set_enabled(ctx.gid, payload.enabled)}
+
+
+@router.post("/guilds/{guild_id}/honeypot/channel")
+@_on_bot_loop
+async def honeypot_channel_create(ctx: GuildCtx = Depends(guild_access("mod_piege"))):
+    # même logique que PiegeConfigView._on_create_channel (views/mod/piege_config_view.py)
+    from views.mod.piege_config_view import CHANNEL_NAME, build_warning_view, get_piege_banner_file
+
+    cfg = await honeypot_mgr.load_config(ctx.gid)
+    if _honeypot_channel(ctx, cfg) is not None:
+        raise _fail(409, "Un salon-piège existe déjà sur ce serveur.")
+
+    me = ctx.guild.me
+    if me is None:
+        raise _fail(503, "Le bot n'est pas prêt sur ce serveur.")
+    if not me.guild_permissions.manage_channels:
+        raise _fail(422, "Le bot n'a pas la permission « Gérer les salons » sur ce serveur.")
+
+    overwrites = {
+        ctx.guild.default_role: discord.PermissionOverwrite(
+            view_channel=True, send_messages=True, read_message_history=True,
+        ),
+        me: discord.PermissionOverwrite(
+            view_channel=True, send_messages=True, read_message_history=True,
+            manage_channels=True, manage_messages=True,
+        ),
+    }
+
+    try:
+        channel = await ctx.guild.create_text_channel(
+            name=CHANNEL_NAME, position=0, overwrites=overwrites,
+            reason=f"Configuration HoneyPot par {ctx.member} (dashboard)",
+        )
+    except discord.Forbidden:
+        raise _fail(422, "Permissions insuffisantes pour créer le salon-piège.")
+    except discord.HTTPException:
+        raise _fail(502, "Erreur Discord lors de la création du salon-piège.")
+
+    banner_file = get_piege_banner_file()
+    warning_view = build_warning_view(ctx.guild.name, attach_banner=banner_file is not None)
+    try:
+        if banner_file is not None:
+            await channel.send(view=warning_view, file=banner_file)
+        else:
+            await channel.send(view=warning_view)
+    except (discord.Forbidden, discord.HTTPException):
+        log.warning("[API PIEGE] Avertissement non envoyé guild=%s channel=%s", ctx.gid, channel.id)
+
+    await honeypot_mgr.set_channel(ctx.gid, channel.id)
+    return {"config": await honeypot_mgr.set_enabled(ctx.gid, True)}
+
+
+@router.delete("/guilds/{guild_id}/honeypot/channel")
+@_on_bot_loop
+async def honeypot_channel_delete(ctx: GuildCtx = Depends(guild_access("mod_piege"))):
+    cfg = await honeypot_mgr.load_config(ctx.gid)
+    channel = _honeypot_channel(ctx, cfg)
+    if channel is not None:
+        try:
+            await channel.delete(reason=f"Suppression HoneyPot par {ctx.member} (dashboard)")
+        except (discord.Forbidden, discord.HTTPException) as exc:
+            log.warning("[API PIEGE] Suppression salon échouée guild=%s channel=%s erreur=%s", ctx.gid, channel.id, exc)
+
+    await honeypot_mgr.set_channel(ctx.gid, None)
+    return {"config": await honeypot_mgr.set_enabled(ctx.gid, False)}
+
+
+@router.post("/guilds/{guild_id}/honeypot/ignored-roles")
+@_on_bot_loop
+async def honeypot_role_add(payload: HoneypotRole, ctx: GuildCtx = Depends(guild_access("mod_piege"))):
+    role = _role(ctx, payload.role_id, label="Rôle exempté")
+    return {"config": await honeypot_mgr.add_ignored_role(ctx.gid, role.id)}
+
+
+@router.delete("/guilds/{guild_id}/honeypot/ignored-roles/{role_id}")
+@_on_bot_loop
+async def honeypot_role_remove(role_id: int, ctx: GuildCtx = Depends(guild_access("mod_piege"))):
+    return {"config": await honeypot_mgr.remove_ignored_role(ctx.gid, role_id)}
+
+
+@router.post("/guilds/{guild_id}/honeypot/ignored-members")
+@_on_bot_loop
+async def honeypot_member_add(payload: HoneypotMember, ctx: GuildCtx = Depends(guild_access("mod_piege"))):
+    return {"config": await honeypot_mgr.add_ignored_member(ctx.gid, payload.user_id)}
+
+
+@router.delete("/guilds/{guild_id}/honeypot/ignored-members/{user_id}")
+@_on_bot_loop
+async def honeypot_member_remove(user_id: int, ctx: GuildCtx = Depends(guild_access("mod_piege"))):
+    return {"config": await honeypot_mgr.remove_ignored_member(ctx.gid, user_id)}
 
 # ============================================================
 # ⭐ EXPÉRIENCE
